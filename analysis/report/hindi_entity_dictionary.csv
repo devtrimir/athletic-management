@@ -1,0 +1,109 @@
+source_text,encoding,unicode_hindi,english,maps_to_entity,maps_to_field,notes
+क्र.सं.,unicode,क्र.सं.,Serial No.,-,(row index),Discard on import; use surrogate PK
+क्रमांक,unicode,क्रमांक,Serial No.,-,(row index),Same as above
+Ø0 la0,krutidev,क्र० सं०,Serial No.,-,(row index),Krutidev variant
+Ø0laa0,krutidev,क्र० सं०,Serial No.,-,(row index),Krutidev variant
+पीएनओ,unicode,पीएनओ,Police Number (service ID),members,pno,Primary natural key for UP Police personnel
+पीएनओ नं,unicode,पीएनओ नं,PNO,members,pno,Same as above
+पीएनओ नं-,unicode,पीएनओ नं,PNO,members,pno,Same as above
+ih"~uvks,krutidev,पीएनओ,PNO,members,pno,Krutidev variant
+ih”uvks,krutidev,पीएनओ,PNO,members,pno,Krutidev variant (curly quotes)
+अधि०/कर्म० का नाम,unicode,अधिकारी/कर्मचारी का नाम,Officer/Personnel Name,members,full_name,Rank+name combined string
+in o uke,krutidev,पद व नाम,Rank and Name,members,full_name,Combined rank+name in Krutidev
+नाम,unicode,नाम,Name,members,full_name,
+f[kykMh dk uke,krutidev,खिलाड़ी का नाम,Player Name,members,full_name,
+पिता का नाम,unicode,पिता का नाम,Father's Name,members,father_name,
+जन्म तिथि,unicode,जन्म तिथि,Date of Birth,members,dob,Date format varies (dd.mm.yyyy / dd-mm-yyyy)
+भर्ती तिथि,unicode,भर्ती तिथि,Date of Joining,members,joining_date,
+मोबाइल नम्बर,unicode,मोबाइल नम्बर,Mobile Number,members,mobile,10 digits; not always present
+नियुक्ति,unicode,नियुक्ति,Posting/Appointment Unit,units,name,UP Police battalion / GRP / district
+नियुक्ति जनपद,unicode,नियुक्ति जनपद,Posting District,members,posting_district,
+गृह जनपद,unicode,गृह जनपद,Home District,members,home_district,
+जनपद,unicode,जनपद,District,districts,name,
+पद,unicode,पद,Rank/Designation,members,rank,e.g. आ. (आरक्षी / Constable)
+in,krutidev,पद,Rank,members,rank,
+रैंक,unicode,रैंक,Rank,members,rank,
+खिलाडी का प्रकार,unicode,खिलाड़ी का प्रकार,Player Category,members,player_category,Values: सामान्य (GD) / कुशल खिलाड़ी (Skilled)
+f[kykMh dk izdkj,krutidev,खिलाड़ी का प्रकार,Player Category,members,player_category,Krutidev variant
+खिलाडी का स्तर,unicode,खिलाड़ी का स्तर,Player Level,members,player_level,Values: जोन / राष्ट्रीय / अन्तर्राष्ट्रीय / अखिल भारतीय पुलिस
+PLAYERS LEVEL,english,खिलाड़ियों का स्तर,Player Level summary,(report),-,Aggregation sheet
+खेल,unicode,खेल,Sport,sports,name,
+[ksy,krutidev,खेल,Sport,sports,name,
+खेल विधा,unicode,खेल विधा,Sport Discipline,sports,name,
+खेल विधा का नाम,unicode,खेल विधा का नाम,Sport Name,sports,name,
+[ksy fo/kk,krutidev,खेल विधा,Sport,sports,name,
+[ksy fo/kk dk uke,krutidev,खेल विधा का नाम,Sport Name,sports,name,
+स्पर्धा,unicode,स्पर्धा,Discipline / Sub-event,events,discipline,e.g. भार वर्ग / डबल्स / 100m
+Li/kkZ,krutidev,स्पर्धा,Discipline,events,discipline,
+भार वर्ग,unicode,भार वर्ग,Weight Category,events,weight_category,For combat sports
+इवेंट,unicode,इवेंट,Event,events,name,
+bosUV,krutidev,इवेंट,Event,events,name,
+EVENT का नाम,mixed,इवेंट का नाम,Event Name,events,name,
+प्रतियोगिता का नाम,unicode,प्रतियोगिता का नाम,Competition Name,tournaments,name,
+izfr;ksfxrk dk uke,krutidev,प्रतियोगिता का नाम,Competition Name,tournaments,name,
+प्रतियोगिता का विवरण,unicode,प्रतियोगिता का विवरण,Competition Details,tournaments,description,
+izfr;ksfxrk dk fooj.k,krutidev,प्रतियोगिता का विवरण,Competition Details,tournaments,description,
+स्थान,unicode,स्थान,Venue,tournaments,venue,
+LFkku,krutidev,स्थान,Venue,tournaments,venue,
+आयोजन स्थल,unicode,आयोजन स्थल,Venue,tournaments,venue,
+vk;kstu LFky,krutidev,आयोजन स्थल,Venue,tournaments,venue,
+दिनांक,unicode,दिनांक,Date,tournaments,date_range_text,Often free-text range
+fnukad,krutidev,दिनांक,Date,tournaments,date_range_text,
+कब से,unicode,कब से,Date From,tournaments,date_from,
+dc ls,krutidev,कब से,Date From,tournaments,date_from,
+कब तक,unicode,कब तक,Date To,tournaments,date_to,
+dc rd,krutidev,कब तक,Date To,tournaments,date_to,
+सत्र,unicode,सत्र,Session,sessions,name,Sport academic year e.g. 2024-25
+वर्ष,unicode,वर्ष,Year,sessions,year,
+o"kZ,krutidev,वर्ष,Year,sessions,year,
+मेडल,unicode,मेडल,Medal,achievements,medal_type,
+esMy,krutidev,मेडल,Medal,achievements,medal_type,
+पदक,unicode,पदक,Medal,achievements,medal_type,
+Iknd,krutidev,पदक,Medal,achievements,medal_type,
+स्वर्ण,unicode,स्वर्ण,Gold,achievements,medal_type=GOLD,
+Lo.kZ,krutidev,स्वर्ण,Gold,achievements,medal_type=GOLD,
+रजत,unicode,रजत,Silver,achievements,medal_type=SILVER,
+jtr,krutidev,रजत,Silver,achievements,medal_type=SILVER,
+कांस्य,unicode,कांस्य,Bronze,achievements,medal_type=BRONZE,
+dkaL;,krutidev,कांस्य,Bronze,achievements,medal_type=BRONZE,
+कुल पदक,unicode,कुल पदक,Total Medals,(report),-,Aggregation
+dqy ind,krutidev,कुल पदक,Total Medals,(report),-,Aggregation
+योग,unicode,योग,Total,(report),-,Aggregation
+;ksx,krutidev,योग,Total,(report),-,Aggregation
+कुल योग,unicode,कुल योग,Grand Total,(report),-,Aggregation
+dqy ;ksx,krutidev,कुल योग,Grand Total,(report),-,Aggregation
+प्रशिक्षक,unicode,प्रशिक्षक,Coach,coaches,name,
+प्रशिक्षक का नाम,unicode,प्रशिक्षक का नाम,Coach Name,coaches,name,
+सहायक प्रशिक्षक का नाम,unicode,सहायक प्रशिक्षक का नाम,Assistant Coach Name,coaches,name,role=ASSISTANT
+प्रशिक्षण स्थल का नाम/टीम प्रभारी,unicode,प्रशिक्षण स्थल का नाम/टीम प्रभारी,Training Venue / Team In-charge,teams,name,
+अभ्यास स्थल,unicode,अभ्यास स्थल,Practice Venue,teams,venue,
+अभ्यास स्थल/टीम प्रभारी का नाम,unicode,अभ्यास स्थल/टीम प्रभारी का नाम,Practice Venue / Team In-charge,teams,name,
+टीम प्रभारी,unicode,टीम प्रभारी,Team In-charge,teams,incharge,
+दलनायक,unicode,दलनायक,Commandant,units,commandant,
+वाहिनी,unicode,वाहिनी,Battalion,units,name,e.g. 06वीं वाहिनी मेरठ
+PAC,english,पीएसी,Provincial Armed Constabulary,units,unit_type,
+GRP,english,जीआरपी,Government Railway Police,units,unit_type,
+BN,english,बटालियन,Battalion abbreviation,units,unit_type,
+वर्तमान स्थिति,unicode,वर्तमान स्थिति,Current Status,members,status,Values: सक्रिय / त्यागपत्र / डिसमिस / मृत्यु
+त्यागपत्र,unicode,त्यागपत्र,Resignation,members,status=RESIGNED,
+डिसमिस,unicode,डिसमिस,Dismissed,members,status=DISMISSED,
+मृत्यु,unicode,मृत्यु,Death,members,status=DECEASED,
+सामान्य,unicode,सामान्य,General/GD,members,player_category=GD,
+lkekU;,krutidev,सामान्य,General/GD,members,player_category=GD,
+कुशल खिलाडी,unicode,कुशल खिलाड़ी,Skilled Player (sports quota),members,player_category=SKILLED,
+कु-f[k-,krutidev,कुशल खिलाड़ी,Skilled Player,members,player_category=SKILLED,
+dq-f[k-,krutidev,कुशल खिलाड़ी,Skilled Player,members,player_category=SKILLED,
+महिला,unicode,महिला,Female,members,gender=F,
+पुरूष,unicode,पुरूष,Male,members,gender=M,
+अन्तर्राष्ट्रीय,unicode,अन्तर्राष्ट्रीय,International,members,player_level=INTERNATIONAL,
+vUrjkZ"Vªh;,krutidev,अन्तर्राष्ट्रीय,International,(level/scope),-,
+राष्ट्रीय,unicode,राष्ट्रीय,National,members,player_level=NATIONAL,
+jk"Vªh;,krutidev,राष्ट्रीय,National,(level/scope),-,
+अखिल भारतीय पुलिस,unicode,अखिल भारतीय पुलिस,All India Police,(level/scope),-,Tournament tier
+vf[ky Hkkjrh; iqfyl,krutidev,अखिल भारतीय पुलिस,All India Police,(level/scope),-,
+अन्य,unicode,अन्य,Other,(level/scope),-,Catch-all tier
+vU;,krutidev,अन्य,Other,(level/scope),-,
+ट्रैकशूट,unicode,ट्रैकशूट,Tracksuit,kit_issuance,item,
+जूता,unicode,जूता,Shoes,kit_issuance,item,
+किट सेट,unicode,किट सेट,Kit Set,kit_issuance,item,
+उत्तर प्रदेश पुलिस खेल विकास कोष,unicode,उ.प्र. पुलिस खेल विकास कोष,UP Police Sports Development Fund,(fund/org),-,Funding source label

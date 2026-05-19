@@ -1,0 +1,256 @@
+erDiagram
+    organizations ||--o{ sessions : has
+    organizations ||--o{ units : has
+    organizations ||--o{ members : has
+    organizations ||--o{ coaches : has
+    organizations ||--o{ sports : has
+    organizations ||--o{ teams : has
+
+    districts ||--o{ members : home_district
+    districts ||--o{ units : located_in
+
+    units ||--o{ members : posted_at
+    units ||--o{ teams : hosts
+
+    sports ||--o{ teams : of
+    sports ||--o{ events : has
+
+    sessions ||--o{ teams : during
+    sessions ||--o{ tournaments : during
+    sessions ||--o{ team_members : during
+    sessions ||--o{ participations : during
+
+    teams ||--o{ team_members : has
+    teams ||--o{ coach_assignments : staffed_by
+    teams ||--o{ participations : entered_as
+
+    members ||--o{ team_members : member_of
+    members ||--o{ participations : competes_in
+    members ||--o{ achievements : won
+    members ||--o{ member_status_history : has
+    members ||--o{ name_aliases : known_as
+    members ||--o{ kit_issuances : received
+
+    coaches ||--o{ coach_assignments : assigned
+    coaches }o--|| members : may_also_be
+
+    tournaments ||--o{ events : contains
+    tournaments }o--|| tournament_tiers : classified_as
+    events ||--o{ participations : run_in
+    participations ||--o| achievements : produces
+
+    imports ||--o{ import_rows : contains
+    import_rows }o--o| members : reconciled_to
+
+    users ||--o{ audit_logs : performs
+    organizations ||--o{ users : employs
+
+    organizations {
+      bigint id PK
+      string name
+      string code
+      timestamp created_at
+    }
+
+    sessions {
+      bigint id PK
+      bigint organization_id FK
+      string name "e.g. 2024-25"
+      smallint start_year
+      smallint end_year
+      boolean is_current
+    }
+
+    districts {
+      bigint id PK
+      string name_hi
+      string name_en
+      string state
+    }
+
+    units {
+      bigint id PK
+      bigint organization_id FK
+      string name_hi "e.g. 06वीं वाहिनी PAC मेरठ"
+      string name_en
+      string unit_type "PAC|GRP|DISTRICT|HQ"
+      string commandant
+      bigint district_id FK
+    }
+
+    sports {
+      bigint id PK
+      bigint organization_id FK
+      string name_hi
+      string name_en
+      string category "INDIVIDUAL|TEAM|COMBAT|WATER|..."
+    }
+
+    members {
+      bigint id PK
+      bigint organization_id FK
+      string member_code UK "auto: UPP-YYYY-NNNNN"
+      string pno UK "Police number when present"
+      string full_name_hi
+      string full_name_normalized "for search"
+      string father_name_hi
+      string rank
+      string gender "M|F|O"
+      date dob
+      date joining_date
+      string mobile
+      bigint home_district_id FK
+      bigint current_unit_id FK
+      string player_category "GD|SKILLED"
+      string player_level "ZONAL|NATIONAL|INTERNATIONAL|AIPSC"
+      string current_status "ACTIVE|RESIGNED|DISMISSED|DECEASED|RETIRED"
+      jsonb source_refs "list of (workbook,sheet,row)"
+    }
+
+    name_aliases {
+      bigint id PK
+      bigint member_id FK
+      string alias_hi
+      string alias_normalized
+      string source "krutidev|spelling_variant|legacy"
+    }
+
+    coaches {
+      bigint id PK
+      bigint organization_id FK
+      bigint member_id FK "nullable; if coach is also a member"
+      string full_name_hi
+      string pno
+      string mobile
+      string nis_certified "NIS qualified flag"
+    }
+
+    teams {
+      bigint id PK
+      bigint organization_id FK
+      bigint sport_id FK
+      bigint session_id FK
+      bigint unit_id FK "hosting battalion"
+      string name_hi
+      string in_charge
+    }
+
+    team_members {
+      bigint id PK
+      bigint team_id FK
+      bigint member_id FK
+      bigint session_id FK
+      string role "PLAYER|CAPTAIN|RESERVE"
+      date joined_on
+      date left_on
+    }
+
+    coach_assignments {
+      bigint id PK
+      bigint team_id FK
+      bigint coach_id FK
+      bigint session_id FK
+      string role "HEAD|ASSISTANT"
+    }
+
+    tournament_tiers {
+      bigint id PK
+      string code "INTERNATIONAL|NATIONAL|AIPSC|STATE|ZONAL|OTHER"
+      string label_hi
+    }
+
+    tournaments {
+      bigint id PK
+      bigint organization_id FK
+      bigint session_id FK
+      bigint tier_id FK
+      bigint sport_id FK "nullable; multi-sport meets allowed"
+      string name_hi
+      string venue
+      date date_from
+      date date_to
+      string raw_date_text "preserve original"
+    }
+
+    events {
+      bigint id PK
+      bigint tournament_id FK
+      bigint sport_id FK
+      string name_hi "e.g. 56kg साण्डा"
+      string discipline
+      string weight_category
+      string gender_class "M|F|MIXED|OPEN"
+    }
+
+    participations {
+      bigint id PK
+      bigint event_id FK
+      bigint member_id FK
+      bigint team_id FK "nullable for individual"
+      bigint session_id FK
+      string position "1|2|3|PARTICIPATED"
+    }
+
+    achievements {
+      bigint id PK
+      bigint participation_id FK
+      string medal_type "GOLD|SILVER|BRONZE|MERIT"
+      smallint position
+      string remarks
+    }
+
+    member_status_history {
+      bigint id PK
+      bigint member_id FK
+      string status "ACTIVE|RESIGNED|DISMISSED|DECEASED|RETIRED"
+      date effective_on
+      string reason_hi
+    }
+
+    kit_issuances {
+      bigint id PK
+      bigint member_id FK
+      bigint session_id FK
+      string item "TRACKSUIT|SHOES|KIT_SET|..."
+      smallint quantity
+      date issued_on
+    }
+
+    imports {
+      bigint id PK
+      string filename
+      string sha256
+      string status "PENDING|MAPPED|COMPLETED|FAILED"
+      jsonb mapping_template
+      bigint uploaded_by FK
+      timestamp uploaded_at
+    }
+
+    import_rows {
+      bigint id PK
+      bigint import_id FK
+      string workbook
+      string sheet
+      int row_index
+      jsonb raw_cells
+      jsonb resolved
+      bigint member_id FK "nullable until reconciled"
+      string status "NEW|MATCHED|AMBIGUOUS|REJECTED"
+    }
+
+    users {
+      bigint id PK
+      bigint organization_id FK
+      string email
+      string role "ADMIN|DATA_ENTRY|VIEWER"
+    }
+
+    audit_logs {
+      bigint id PK
+      bigint user_id FK
+      string entity
+      bigint entity_id
+      string action
+      jsonb diff
+      timestamp at
+    }
