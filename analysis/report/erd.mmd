@@ -104,7 +104,7 @@ erDiagram
       string player_category "GD|SKILLED"
       string player_level "ZONAL|NATIONAL|INTERNATIONAL|AIPSC"
       string current_status "ACTIVE|RESIGNED|DISMISSED|DECEASED|RETIRED"
-      jsonb source_refs "list of (workbook,sheet,row)"
+      json source_refs "list of (workbook,sheet,row)"
     }
 
     name_aliases {
@@ -221,7 +221,7 @@ erDiagram
       string filename
       string sha256
       string status "PENDING|MAPPED|COMPLETED|FAILED"
-      jsonb mapping_template
+      json mapping_template
       bigint uploaded_by FK
       timestamp uploaded_at
     }
@@ -232,8 +232,8 @@ erDiagram
       string workbook
       string sheet
       int row_index
-      jsonb raw_cells
-      jsonb resolved
+      json raw_cells
+      json resolved
       bigint member_id FK "nullable until reconciled"
       string status "NEW|MATCHED|AMBIGUOUS|REJECTED"
     }
@@ -251,6 +251,6 @@ erDiagram
       string entity
       bigint entity_id
       string action
-      jsonb diff
+      json diff
       timestamp at
     }

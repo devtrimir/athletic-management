@@ -200,10 +200,10 @@ Issues observed (with evidence locations):
 6. `tournaments.name_normalized` + `session_id` + `tier`
 7. medal-winner queries: `achievements.medal_type` × `session_id` × `sport_id`
 
-**Index strategy (Postgres assumed; MySQL alternatives noted):**
+**Index strategy (MySQL 8.4):**
 - B-tree on `members(pno)`, `members(member_code)`, `members(mobile)`
 - B-tree composite on `team_members(session_id, team_id)`, `participations(session_id, sport_id)`, `achievements(medal_type, session_id)`
-- `pg_trgm` GIN index on `members.full_name_normalized` + `name_aliases.alias_normalized` for fuzzy Hindi search (MySQL: substring + n-gram FT index on `utf8mb4_unicode_ci`).
+- FULLTEXT index `WITH PARSER ngram` on `members.full_name_normalized` + `name_aliases.alias_normalized` for Hindi substring + typo-tolerant search (Postgres `pg_trgm` alternative ruled out by MySQL choice — see ADR-0006).
 - **Recommended:** **Meilisearch** (or Typesense) index for member directory: docs of shape `{id, member_code, pno, name, name_aliases[], sport, unit, district, session_tags[], medal_count}` — sub-100 ms Devanagari fuzzy search, typo tolerance, faceting for sport/unit/session.
 - Maintain a `normalize_devanagari(text)` SQL function: NFC, strip ZWJ/ZWNJ, lowercase ASCII, collapse whitespace, drop common rank prefixes (`आ.`, `मु.आ.`, `पी.सी.`, `दलनायक`).
 
@@ -303,7 +303,7 @@ Mermaid ERD in [analysis/report/erd.mmd](analysis/report/erd.mmd). Render in any
 8. Coach-vs-member identity (coach may also be a competing member) — model with nullable `coaches.member_id`.
 
 ### 12.6 Database Architecture Suggestion
-PostgreSQL 16 (recommended over MySQL for: `pg_trgm` Hindi fuzzy index, native `jsonb` for `source_refs` / `raw_cells`, robust collation). Search layer: Meilisearch alongside Postgres for member directory & tournament lookup. Backend: Laravel 11 + Inertia; queue worker (Redis) for import jobs. Storage: S3-compatible for uploaded Excel files + future certificates.
+MySQL 8.4 LTS (chosen for operational familiarity + Laravel Herd default; trade-offs vs PostgreSQL captured in ADR-0006). `utf8mb4_0900_ai_ci` collation for accent/case-insensitive Hindi matching, native `JSON` columns for `source_refs` / `raw_cells`, FULLTEXT with ngram parser for Hindi substring/typo search. Search layer: Meilisearch alongside MySQL for member directory & tournament lookup (introduced in Phase 8). Backend: Laravel 13 + Inertia 3 + React 19; queue worker (Redis) for import jobs via Horizon 5. Storage: S3-compatible for uploaded Excel files + future certificates.
 
 ### 12.7 Data Cleanup Recommendations
 1. Run extractor (done) → review `headers_inventory.csv` with stakeholder → finalize Hindi dictionary.

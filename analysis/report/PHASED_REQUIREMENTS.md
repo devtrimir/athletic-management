@@ -1,6 +1,6 @@
 # Phased Build Requirements — Sports Member Management System
 **Architecture:** **Monolith.** Single Laravel 13 application serves the UI via **Inertia.js 3 + React 19 (TypeScript)** compiled by **Vite 7**. One repo, one deploy, one auth session.
-**Stack:** PHP 8.4 · Laravel 13 · Inertia.js 3.x · React 19 (TypeScript 5.7) · Vite 7 · Tailwind CSS v4 + shadcn/ui · PostgreSQL 17 · Meilisearch v1.13 · Redis 8 (Horizon 5) · S3-compatible storage.
+**Stack:** PHP 8.4 · Laravel 13 · Inertia.js 3.x · React 19 (TypeScript 5.7) · Vite 7 · Tailwind CSS v4 + shadcn/ui · MySQL 8.4 LTS · Meilisearch v1.13 · Redis 8 (Horizon 5) · S3-compatible storage.
 **Audience:** an AI coding agent (or a developer) building the system phase-by-phase. Each phase is self-contained: clear scope, deliverables, acceptance criteria, and explicit dependencies on earlier phases.
 **Source-of-truth for domain:** [MIGRATION_ANALYSIS.md](MIGRATION_ANALYSIS.md), [erd.mmd](erd.mmd), [hindi_entity_dictionary.csv](hindi_entity_dictionary.csv).
 
@@ -37,7 +37,7 @@
 - Form Requests for every write endpoint (both Inertia and API). No controller-level validation.
 - Business logic in `app/Services` (multi-step orchestration) or `app/Actions` (single-purpose invokables). Controllers are thin.
 - Queues: Redis 8 driver via **Laravel Horizon 5**. Long-running jobs (imports, search indexing, exports) MUST be queued.
-- Database: PostgreSQL 17. Migrations only; no `db:seed` for production data (seeders cover reference data + dev fixtures only).
+- Database: MySQL 8.4 LTS (utf8mb4 / `utf8mb4_0900_ai_ci`). Migrations only; no `db:seed` for production data (seeders cover reference data + dev fixtures only).
 - Every table has `id` (bigint), `created_at`, `updated_at`, and `organization_id` where applicable.
 - Soft-deletes on `members`, `coaches`, `teams`, `tournaments` (history-sensitive entities).
 - All timestamps stored in UTC; rendered in IST in the UI.
@@ -60,7 +60,7 @@
 - Errors: RFC 7807 problem+json (`{ type, title, status, detail, errors: {...} }`). Inertia responses use Laravel's standard 422 validation flash; API endpoints use problem+json.
 - Versioning: `/api/v1`. Bump on breaking changes.
 - Filtering / sorting: `spatie/laravel-query-builder` (`?filter[field]=value`, `?sort=-created_at`).
-- Search endpoints: `/api/v1/search/members?q=...&filters[sport]=...` (Postgres `pg_trgm` in Phase 2, swapped to Meilisearch in Phase 8 with the **same contract**).
+- Search endpoints: `/api/v1/search/members?q=...&filters[sport]=...` (MySQL FULLTEXT with the **ngram parser** in Phase 2, swapped to Meilisearch in Phase 8 with the **same contract**).
 
 ### Definition of Done (per phase)
 A phase is DONE when ALL of:
@@ -82,9 +82,9 @@ Deferred items live in **Phase 11+** (future enhancements): tournament bracketin
 **Goal:** stand up an empty but runnable Laravel + Inertia + React monolith with shared dev tooling.
 
 ### Scope
-- `infra/docker-compose.yml`: services `postgres:17`, `redis:8`, `getmeili/meilisearch:v1.13`, `mailpit`, `minio`.
+- `infra/docker-compose.yml`: services `mysql:8.4`, `redis:8`, `getmeili/meilisearch:v1.13`, `mailpit`, `minio`.
 - PHP + Laravel installer: install via `php.new` (`/bin/bash -c "$(curl -fsSL https://php.new/install/mac/8.4)"`) which provisions PHP 8.4, Composer, and the `laravel` CLI. (Alternative: Laravel Herd.)
-- Create the application using the official Laravel 13 installer wizard: `laravel new .` — when prompted, select **Pest** as the testing framework, **PostgreSQL** as the database, and the **React** starter kit (which scaffolds Inertia 3 + React 19 + TypeScript + shadcn/ui + Tailwind v4 + Pest 3 + built-in auth/registration/password-reset/email-verification + light/dark mode + GitHub Actions CI). Choose **built-in Laravel authentication** (not WorkOS AuthKit).
+- Create the application using the official Laravel 13 installer wizard: `laravel new .` — when prompted, select **Pest** as the testing framework, **MySQL** as the database, and the **React** starter kit (which scaffolds Inertia 3 + React 19 + TypeScript + shadcn/ui + Tailwind v4 + Pest 3 + built-in auth/registration/password-reset/email-verification + light/dark mode + GitHub Actions CI). Choose **built-in Laravel authentication** (not WorkOS AuthKit).
 - Breeze is no longer used — it was superseded by the official starter kits in Laravel 11+ and is not offered for Laravel 13.
 - Run the app in dev with the bundled Composer script: `composer run dev` (concurrently boots `php artisan serve`, the queue worker, and the Vite dev server).
 - Additional Composer packages: `spatie/laravel-query-builder:^6`, `laravel/horizon:^5`, `laravel/scout:^10`, `meilisearch/meilisearch-php:^1.13`, `barryvdh/laravel-dompdf:^3`, `maatwebsite/excel:^3.1` (or `rap2hpoutre/fast-excel:^5` — ADR), `spatie/laravel-backup:^9`, `sentry/sentry-laravel:^4`, `spatie/laravel-activitylog:^4`, `larastan/larastan:^3` (dev), `laravel/pint:^1` (dev), `pestphp/pest:^3` (dev), `laravel/boost:^1` (dev, optional — gives the AI coding agent Laravel 13-specific context and tools; install via `php artisan boost:install`).
@@ -144,7 +144,7 @@ None.
 - `sports` (id, organization_id, name_hi, name_en, category ENUM, slug UK per org).
 - `units` (id, organization_id, name_hi, name_en, unit_type ENUM('PAC','GRP','DISTRICT','HQ','OTHER'), commandant nullable, district_id FK nullable).
 - `tournament_tiers` (id, code UK ENUM('INTERNATIONAL','NATIONAL','AIPSC','STATE','ZONAL','OTHER'), label_hi, label_en, weight smallint).
-- `audit_logs` (id, user_id, organization_id, entity, entity_id, action, diff jsonb, at).
+- `audit_logs` (id, user_id, organization_id, entity, entity_id, action, diff json, at).
 
 **Seeders:**
 - One default organization: `UP Police Sports Unit` (code `UPP`).
@@ -193,12 +193,12 @@ Phase 0.
 ### Scope
 
 **Schema:**
-- `members` (id, organization_id, member_code UK NOT NULL, pno UK NULLABLE, full_name_hi NOT NULL, full_name_en, full_name_normalized, father_name_hi, rank, gender ENUM('M','F','O'), dob, joining_date, mobile, home_district_id FK, current_unit_id FK, player_category ENUM('GD','SKILLED'), player_level ENUM('ZONAL','NATIONAL','INTERNATIONAL','AIPSC'), current_status ENUM('ACTIVE','RESIGNED','DISMISSED','DECEASED','RETIRED') default 'ACTIVE', source_refs jsonb, deleted_at).
+- `members` (id, organization_id, member_code UK NOT NULL, pno UK NULLABLE, full_name_hi NOT NULL, full_name_en, full_name_normalized, father_name_hi, rank, gender ENUM('M','F','O'), dob, joining_date, mobile, home_district_id FK, current_unit_id FK, player_category ENUM('GD','SKILLED'), player_level ENUM('ZONAL','NATIONAL','INTERNATIONAL','AIPSC'), current_status ENUM('ACTIVE','RESIGNED','DISMISSED','DECEASED','RETIRED') default 'ACTIVE', source_refs json, deleted_at).
 - `name_aliases` (id, member_id FK, alias_hi, alias_normalized, source ENUM('krutidev','spelling_variant','rank_prefixed','legacy','manual')).
 - `member_status_history` (id, member_id FK, status ENUM same as above, effective_on, reason_hi, recorded_by FK users).
-- Postgres function `normalize_devanagari(text)` (NFC, strip ZWJ/ZWNJ, lowercase ASCII, collapse whitespace, strip rank prefixes `आ.`, `मु.आ.`, `पी.सी.`, `दलनायक`, `म.आ.`).
+- MySQL stored function `normalize_devanagari(text)` (`DETERMINISTIC`): apply NFC via `CONVERT(... USING utf8mb4)`, strip ZWJ/ZWNJ via `REGEXP_REPLACE`, lowercase ASCII via `LOWER`, collapse whitespace, strip rank prefixes `आ.`, `मु.आ.`, `पी.सी.`, `दलनायक`, `म.आ.`).
 - Auto-fill `full_name_normalized` and `alias_normalized` via trigger on insert/update.
-- Indexes: B-tree on `pno`, `member_code`, `mobile`; GIN `pg_trgm` on `full_name_normalized`, `alias_normalized`.
+- Indexes: B-tree on `pno`, `member_code`, `mobile`; **FULLTEXT** with `WITH PARSER ngram` on `full_name_normalized`, `alias_normalized`.
 
 **Member code generator (Service):**
 - Pattern: `UPP-{joining_year || current_year}-{6-digit-seq}`. Sequence per `(organization_id, year)`.
@@ -219,7 +219,7 @@ Phase 0.
 Filters supported on the index: `pno`, `mobile`, `unit_id`, `home_district_id`, `sport_id` (placeholder until Phase 4), `player_category`, `player_level`, `current_status`, `q`.
 
 *JSON API* under `/api/v1`:
-- `GET /api/v1/search/members?q=...` — Postgres `pg_trgm` similarity search across `full_name_normalized` + `aliases.alias_normalized` + `pno`; returns top 50. Used by autocomplete pickers (coach link, team roster, participation entry). **Same contract preserved when Meilisearch is swapped in at Phase 8.**
+- `GET /api/v1/search/members?q=...` — MySQL FULLTEXT (ngram parser) match across `full_name_normalized` + `aliases.alias_normalized` + exact PNO; returns top 50. Used by autocomplete pickers (coach link, team roster, participation entry). **Same contract preserved when Meilisearch is swapped in at Phase 8.**
 - `GET /api/v1/members/{member}/profile` — aggregated JSON for future widgets and exports.
 
 **Frontend (Inertia pages):**
@@ -361,8 +361,8 @@ Phase 4 (for `team_id` on participations) and Phase 2.
 ### Scope
 
 **Schema:**
-- `imports` (id, organization_id, uploaded_by FK users, filename, sha256, sheet_count, status ENUM('UPLOADED','PARSING','READY_FOR_REVIEW','APPLYING','COMPLETED','FAILED'), mapping_template jsonb, error_log text, uploaded_at).
-- `import_rows` (id, import_id FK, workbook, sheet, row_index, raw_cells jsonb, resolved jsonb, member_id FK NULLABLE, status ENUM('NEW','MATCHED','AMBIGUOUS','APPLIED','REJECTED'), notes).
+- `imports` (id, organization_id, uploaded_by FK users, filename, sha256, sheet_count, status ENUM('UPLOADED','PARSING','READY_FOR_REVIEW','APPLYING','COMPLETED','FAILED'), mapping_template json, error_log text, uploaded_at).
+- `import_rows` (id, import_id FK, workbook, sheet, row_index, raw_cells json, resolved json, member_id FK NULLABLE, status ENUM('NEW','MATCHED','AMBIGUOUS','APPLIED','REJECTED'), notes).
 
 **Backend services:**
 1. `KrutidevConverter` — port the documented Krutidev 010 → Unicode Devanagari mapping. **Per-cell** detection (heuristic: cell contains ≥3 ASCII chars in the Krutidev punctuation set `[ ; ' " ] ` and zero Devanagari → convert). Unit tests with ≥50 reference pairs.
@@ -374,7 +374,7 @@ Phase 4 (for `team_id` on participations) and Phase 2.
    - `extractPno(text)` — regex `PNO[-\s]?(\d{9})` or bare 9-digit numeric.
    - `splitRankName(text)` — returns `{rank, name}` for combined `पद व नाम`.
    - `splitMultiPerson(text)` — splits on `]`, `,`, `;`, `\n`; returns array.
-7. `IdentityResolver` — given `{pno?, name?, sport?, session?}` returns one of `{matched_member_id}`, `{candidates: [...]}`, `{none}`. Uses `pg_trgm` similarity ≥ 0.75 threshold.
+7. `IdentityResolver` — given `{pno?, name?, sport?, session?}` returns one of `{matched_member_id}`, `{candidates: [...]}`, `{none}`. Uses MySQL FULLTEXT (ngram) score plus a PHP Levenshtein tie-break on the top N candidates; candidate is `MATCHED` when normalized Levenshtein distance ≤ 0.25 of the longer name length.
 8. `ImportApplier` — atomic per-row apply: creates/updates `members`, `name_aliases`, `member_status_history`, `teams`, `team_members`, `coach_assignments`, `tournaments`, `events`, `participations`, `achievements`. Idempotent on (event_id, member_id) and (team_id, member_id).
 
 **Workflow (Inertia routes + queued jobs + JSON polling):**
@@ -448,7 +448,7 @@ Phases 2–5.
 
 # PHASE 8 — Search Backend Upgrade (Meilisearch)
 
-**Goal:** replace Phase-2 Postgres-only search with Meilisearch v1.13 for sub-100 ms typo-tolerant Hindi search at scale.
+**Goal:** replace Phase-2 MySQL FULLTEXT search with Meilisearch v1.13 for sub-100 ms typo-tolerant Hindi search at scale.
 
 ### Scope
 - `members` index in Meilisearch (via `laravel/scout` v10 + `meilisearch/meilisearch-php` v1.13): doc shape `{ id, member_code, pno, full_name_hi, full_name_en, name_aliases:[], sport_tags:[], unit_name, district_name, current_status, player_level, medal_count, session_tags:[] }`.
