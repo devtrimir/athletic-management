@@ -111,7 +111,7 @@ Add `@font-face` blocks for each file.
 ### P0-T06 — Project config files
 
 Verify and complete:
-- `.editorconfig` (LF, 4 spaces PHP, 2 spaces JS/CSS/MD)
+- `.editorconfig` (LF, 4 spaces all files, 2 spaces YAML — matches existing code convention and `.prettierrc` `tabWidth: 4`)
 - `.prettierrc` (already present — verify rules)
 - `eslint.config.js` (ESLint v9 **flat** config; already present — verify)
 - `phpstan.neon` (Larastan level 6, paths: `app`, `database`, `routes`, `tests`)
