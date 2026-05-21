@@ -39,6 +39,7 @@ Explicitly **NOT** used:
 - `spatie/laravel-permission` — RBAC is in-house (see PHASED_REQUIREMENTS P1, ADR-0003).
 - `laravel/sanctum` for the SPA — session auth via the Inertia React starter kit. Sanctum may be added in F11 for the public API.
 - `spatie/laravel-activitylog` — audit logging is in-house via P1-T24 `AuditLogger` writing to `audit_logs` (avoids dependency for a single observer's worth of code).
+- `react-hook-form`, `zod`, `@tanstack/react-query` — Inertia `useForm` + `useHttp` own data flow; Laravel Form Requests own validation. No client-side schema layer needed.
 
 ## Frontend (npm)
 
@@ -48,16 +49,13 @@ Explicitly **NOT** used:
 | react-dom | ^19.0 | |
 | @inertiajs/react | ^3.0 | |
 | typescript | ^5.7 | strict mode |
-| vite | ^7.0 | |
+| vite | ^8.0 | |
 | @vitejs/plugin-react | ^5.0 | |
-| laravel-vite-plugin | ^2.0 | |
+| laravel-vite-plugin | ^3.0 | |
 | tailwindcss | ^4.0 | CSS-first config via `@theme` |
 | @tailwindcss/vite | ^4.0 | |
-| babel-plugin-react-compiler | latest | React 19 compiler |
-| @tanstack/react-query | ^5.0 | Async/incremental data only |
-| react-hook-form | ^7.0 | |
-| zod | ^4.0 | |
-| recharts | ^3.0 | P7 |
+| babel-plugin-react-compiler | ^1.0 | React 19 compiler, wired in `vite.config.ts` |
+| recharts | ^3.0 | P0-T04 |
 | lucide-react | latest | |
 | clsx, tailwind-merge, class-variance-authority | latest | shadcn/ui deps |
 | vitest | ^2.0 | |
