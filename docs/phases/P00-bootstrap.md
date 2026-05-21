@@ -179,15 +179,13 @@ Dropped. The starter kit's `composer run dev` (concurrently runs `php artisan se
 
 ---
 
-### P0-T12 — `SetLocale` middleware stub
+### ~~P0-T12 — `SetLocale` middleware stub~~ ✅
 
-Even though full i18n is Phase 9, the URL prefix `/{locale}` is in place from day one so we never have to retrofit routes.
+Session-based locale (no URL prefix). `SetLocale` middleware reads `session('locale', 'hi')`.
+`POST /locale` (named `locale.update`) validates `hi|en`, writes to session, redirects back.
+`locale` shared as lazy Inertia prop. React calls via `router.post(..., {}, { preserveState: true, preserveScroll: true })`.
 
-- Middleware: read `{locale}` from URL → set `app()->setLocale()` → fall back to `hi`.
-- Group all web routes under `Route::prefix('{locale}')->where(['locale' => 'hi|en'])->group(...)`.
-- Bare `/` redirects to `/hi`.
-
-**Done when:** `GET /` → 302 `/hi`; `GET /en` works; `GET /fr` → 404.
+**Done when:** POST hi/en updates session; POST fr → 422; default locale is `hi`. ✅
 
 ---
 
