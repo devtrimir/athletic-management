@@ -30,7 +30,7 @@ See [phases/P00-bootstrap.md](phases/P00-bootstrap.md) for the full breakdown.
 - [ ] **P0-T10** PR template + CODEOWNERS + commitlint config
 - [ ] ~~**P0-T11** `Makefile`~~ — **removed**: existing `composer run dev` / `composer test` / `composer ci:check` cover this
 - [x] **P0-T12** Inertia `SetLocale` middleware stub + `/{locale}` URL prefix (default `hi`)
-- [ ] **P0-T13** ADR-0001 (monolith vs split), ADR-0002 (Excel library choice)
+- [x] **P0-T13** ADR-0001 (monolith vs split), ADR-0002 (Excel library choice)
 
 ---
 

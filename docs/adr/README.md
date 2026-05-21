@@ -36,8 +36,8 @@ What we chose. Be specific.
 
 | ID | Title | Status |
 |---|---|---|
-| 0001 | Monolith with Inertia + React (vs split API + Next.js) | TBD |
-| 0002 | Excel library: `maatwebsite/excel` vs `rap2hpoutre/fast-excel` | TBD |
+| 0001 | Monolith with Inertia + React (vs split API + Next.js) | Accepted |
+| 0002 | Excel library: `maatwebsite/excel` vs `rap2hpoutre/fast-excel` | Accepted |
 | 0003 | In-house RBAC (no `spatie/laravel-permission`) | TBD |
 | 0004 | MySQL FULLTEXT (ngram) search for P2, Meilisearch swap-in for P8 | TBD |
 | 0005 | Per-cell Krutidev detection heuristic | TBD |
