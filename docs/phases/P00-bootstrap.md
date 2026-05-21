@@ -108,7 +108,7 @@ Add `@font-face` blocks for each file.
 
 ---
 
-### P0-T06 — Project config files
+### ~~P0-T06~~ — Project config files ✅
 
 Verify and complete:
 - `.editorconfig` (LF, 4 spaces all files, 2 spaces YAML — matches existing code convention and `.prettierrc` `tabWidth: 4`)
