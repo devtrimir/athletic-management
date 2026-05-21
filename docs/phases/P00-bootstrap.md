@@ -189,12 +189,12 @@ Session-based locale (no URL prefix). `SetLocale` middleware reads `session('loc
 
 ---
 
-### P0-T13 — ADRs
+### ~~P0-T13 — ADRs~~ ✅
 
-- `docs/adr/0001-monolith-inertia-react.md` — why monolith over split API + Next.js
-- `docs/adr/0002-excel-library-choice.md` — `maatwebsite/excel` vs `rap2hpoutre/fast-excel` (decide based on memory profile against the largest legacy workbook)
+- `docs/adr/0001-monolith-inertia-react.md` — monolith + Inertia + React chosen over split API + Next.js. `Status: Accepted`
+- `docs/adr/0002-excel-library-choice.md` — `maatwebsite/excel` chosen (export-only; no legacy import needed — data is manual entry). `Status: Accepted`
 
-**Done when:** Both ADRs merged with `Status: Accepted`.
+**Done when:** Both ADRs merged with `Status: Accepted`. ✅
 
 ---
 
