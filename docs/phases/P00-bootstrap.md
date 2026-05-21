@@ -124,7 +124,7 @@ Verify and complete:
 
 ---
 
-### P0-T07 — `/api/health` endpoint
+### ~~P0-T07~~ — `/api/health` endpoint ✅
 
 Add to `routes/api.php`:
 

@@ -24,7 +24,7 @@ See [phases/P00-bootstrap.md](phases/P00-bootstrap.md) for the full breakdown.
 - [ ] **P0-T04** Add remaining NPM packages (`recharts`; verify pre-installed: `lucide-react`, `clsx`, `tailwind-merge`, `class-variance-authority`, `babel-plugin-react-compiler`) — forms use Inertia `useForm`, ad-hoc requests use Inertia `useHttp` (no react-hook-form / zod / TanStack Query). Note: `vite@^8` installed (not ^7).
 - [ ] **P0-T05** Self-host fonts (Noto Sans Devanagari, Inter) under `resources/fonts/`; wire into Tailwind v4 `@theme`
 - [x] **P0-T06** Project config files (`.editorconfig`, `.prettierrc`, `eslint.config.js` flat, `phpstan.neon` (Larastan level 6), `pint.json` already present — verify). Also: bump `composer.json` `php: ^8.3 → ^8.4`; rename package; confirm `.env` `DB_CONNECTION=mysql` + `mysql.collation=utf8mb4_0900_ai_ci`.
-- [ ] **P0-T07** `GET /api/health` endpoint + smoke test
+- [x] **P0-T07** `GET /api/health` endpoint + smoke test
 - [ ] **P0-T08** GitHub Actions CI (php-test, php-lint via Pint, php-static via Larastan, js-test, js-lint, js-type, js-build, migration-fresh, coverage)
 - [ ] **P0-T09** Renovate config (`renovate.json`) — grouped weekly, immediate security
 - [ ] **P0-T10** PR template + CODEOWNERS + commitlint config
