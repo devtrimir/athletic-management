@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Auth\Rbac;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -35,13 +36,18 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
+                'permissions' => fn (): array => $user && $user->organization_id
+                    ? app(Rbac::class)->userPermissions($user, $user->organization_id)->all()
+                    : [],
             ],
-            'locale' => fn () => session('locale', 'hi'),
+            'locale' => fn (): string => app()->getLocale(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
