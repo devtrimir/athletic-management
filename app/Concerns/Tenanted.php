@@ -12,6 +12,8 @@ use App\Models\Scopes\BelongsToOrganization;
  *   Model::withoutGlobalScope(BelongsToOrganization::class)->get();
  *
  * Never bypass the scope in user-facing controllers or policies.
+ *
+ * @mixin \Illuminate\Database\Eloquent\Model
  */
 trait Tenanted
 {
