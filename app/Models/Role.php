@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Concerns\Auditable;
+use App\Observers\AuditObserver;
 use Database\Factories\RoleFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,10 +26,11 @@ use Illuminate\Support\Carbon;
  * @property-read Organization $organization
  */
 #[Fillable(['organization_id', 'code', 'name_hi', 'name_en', 'is_system', 'description'])]
+#[ObservedBy([AuditObserver::class])]
 class Role extends Model
 {
     /** @use HasFactory<RoleFactory> */
-    use HasFactory;
+    use Auditable, HasFactory;
 
     /** @return array<string, string> */
     protected function casts(): array
