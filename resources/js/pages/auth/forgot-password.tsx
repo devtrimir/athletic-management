@@ -1,5 +1,6 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, setLayoutProps } from '@inertiajs/react';
 import InputError from '@/components/input-error';
+import { useTranslation } from '@/hooks/use-translation';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +10,16 @@ import { login } from '@/routes';
 import { email } from '@/routes/password';
 
 export default function ForgotPassword({ status }: { status?: string }) {
+    const { t } = useTranslation();
+
+    setLayoutProps({
+        title: t('Forgot password'),
+        description: t('Enter your email to receive a password reset link'),
+    });
+
     return (
         <>
-            <Head title="Forgot password" />
+            <Head title={t('Forgot password')} />
 
             {status && (
                 <div className="mb-4 text-center text-sm font-medium text-green-600">
@@ -24,7 +32,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
+                                <Label htmlFor="email">{t('Email address')}</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -43,7 +51,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                 data-test="email-password-reset-link-button"
                             >
                                 {processing && <Spinner />}
-                                Email password reset link
+                                {t('Email password reset link')}
                             </Button>
                         </div>
                     </>
@@ -51,14 +59,11 @@ export default function ForgotPassword({ status }: { status?: string }) {
             </Form>
 
             <div className="text-center text-sm text-muted-foreground">
-                <span>Or, return to </span>
-                <TextLink href={login()}>log in</TextLink>
+                <span>{t('Or, return to')} </span>
+                <TextLink href={login()}>{t('log in')}</TextLink>
             </div>
         </>
     );
 }
 
-ForgotPassword.layout = {
-    title: 'Forgot password',
-    description: 'Enter your email to receive a password reset link',
-};
+
