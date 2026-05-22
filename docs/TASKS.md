@@ -29,7 +29,7 @@ See [phases/P00-bootstrap.md](phases/P00-bootstrap.md) for the full breakdown.
 - [ ] **P0-T09** Renovate config (`renovate.json`) — grouped weekly, immediate security
 - [ ] **P0-T10** PR template + CODEOWNERS + commitlint config
 - [ ] ~~**P0-T11** `Makefile`~~ — **removed**: existing `composer run dev` / `composer test` / `composer ci:check` cover this
-- [x] **P0-T12** Inertia `SetLocale` middleware stub + `/{locale}` URL prefix (default `hi`)
+- [x] **P0-T12** Inertia `SetLocale` middleware stub (session-based locale, no URL prefix, default `hi`)
 - [x] **P0-T13** ADR-0001 (monolith vs split), ADR-0002 (Excel library choice)
 
 ---
@@ -59,7 +59,7 @@ See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 
 ### Multi-tenancy + locale
 - [ ] **P1-T16** `BelongsToOrganization` global scope + `EnsureOrganizationScope` middleware
-- [ ] **P1-T17** `SetLocale` middleware (URL prefix → `users.locale` → default `hi`)
+- [ ] **P1-T17** `SetLocale` middleware (session → `users.locale` → default `hi`)
 - [ ] **P1-T18** `HandleInertiaRequests` shared props: `auth.user`, `auth.permissions`, `locale`, `translations`, `flash`
 
 ### Seeders
@@ -82,7 +82,7 @@ See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 
 ### Frontend shell
 - [ ] **P1-T31** `Layouts/AppLayout.tsx` (sidebar nav + topbar + user menu)
-- [ ] **P1-T32** Locale switcher (PATCH `users.locale` → redirect to matching `/{locale}` URL)
+- [ ] **P1-T32** Locale switcher (PATCH `users.locale` → updates session locale, no URL redirect)
 - [ ] **P1-T33** Auth pages restyle (Login, ForgotPassword) to match the app shell
 
 ### Tests
@@ -293,7 +293,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [ ] **P9-T03** Add ESLint rule: fail on JSX text literals
 - [ ] **P9-T04** Sidebar / menu / page titles bilingual
 - [ ] **P9-T05** Locale-aware date formatting (`dd MMM yyyy`, Devanagari numerals toggle)
-- [ ] **P9-T06** Export jobs honor caller locale (read from URL prefix at dispatch)
+- [ ] **P9-T06** Export jobs honor caller locale (read from session at dispatch)
 - [ ] **P9-T07** Pest Browser: toggle locale on each top-level page
 
 ---

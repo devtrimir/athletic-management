@@ -55,7 +55,7 @@ Skills under [`.github/skills/`](skills/) auto-activate per their descriptions (
 - **Tests are mandatory.** Every endpoint → Pest Feature test. Every Service/Action → Pest Unit test. Every user-facing flow → Pest Browser. Non-trivial React → Vitest. Coverage gate ≥ 70%.
 - **Authorization is mandatory.** Every Inertia route + API endpoint goes through a Policy or `permission:` middleware. RBAC is in-house (see ADR-0003 — **never** suggest `spatie/laravel-permission`).
 - **Multi-tenancy:** every domain model uses `BelongsToOrganization` global scope. Escape-hatch only in queued reindex jobs.
-- **Locale:** all web routes live under `/{locale}` (`hi` default, `en` allowed). From P9 forward: no hard-coded user-facing strings in JSX — use `t()`.
+- **Locale:** stored in session (from `users.locale`, default `hi`); **no URL prefix**. From P9 forward: no hard-coded user-facing strings in JSX — use `t()`.
 - **Migrations:** every `up()` has a working `down()`. CI runs `migrate:fresh --seed` then `migrate:rollback` on every PR.
 - **API contract stability:** `/api/v1` shapes are frozen. Search endpoints keep their contract across the P2 → P8 Meilisearch swap.
 - **PHP style:** after editing any PHP file, run `vendor/bin/pint --dirty --format agent` before finishing.
