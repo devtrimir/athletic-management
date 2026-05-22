@@ -21,6 +21,12 @@ export default function AuthSplitLayout({
                     <AppLogoIcon className="mr-2 size-8 fill-current text-white" />
                     {name}
                 </Link>
+                <div className="relative z-20 mt-auto">
+                    <p className="text-sm leading-relaxed text-zinc-400">
+                        UP Police Sports Unit — athlete, coach, team &amp; tournament
+                        management system for the Uttar Pradesh Police organisation.
+                    </p>
+                </div>
             </div>
             <div className="w-full lg:p-8">
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
