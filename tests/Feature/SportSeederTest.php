@@ -1,18 +1,32 @@
 <?php
 
 use App\Models\Organization;
+use App\Models\Scopes\BelongsToOrganization;
 use App\Models\Sport;
 use Database\Seeders\OrganizationSeeder;
 use Database\Seeders\SportSeeder;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
+
+// Helper: bypass tenant scope — seeder tests have no authenticated user.
+function allSports(): Collection
+{
+    return Sport::withoutGlobalScope(BelongsToOrganization::class)->get();
+}
+
+function sportsQuery(): Builder
+{
+    return Sport::withoutGlobalScope(BelongsToOrganization::class);
+}
 
 test('sport seeder inserts all 38 sports', function (): void {
     $this->seed(OrganizationSeeder::class);
     $this->seed(SportSeeder::class);
 
-    expect(Sport::count())->toBe(38);
+    expect(allSports()->count())->toBe(38);
 });
 
 test('sport seeder is idempotent', function (): void {
@@ -20,7 +34,7 @@ test('sport seeder is idempotent', function (): void {
     $this->seed(SportSeeder::class);
     $this->seed(SportSeeder::class);
 
-    expect(Sport::count())->toBe(38);
+    expect(allSports()->count())->toBe(38);
 });
 
 test('all sports belong to the UPP organisation', function (): void {
@@ -29,7 +43,7 @@ test('all sports belong to the UPP organisation', function (): void {
 
     $org = Organization::where('code', 'UPP')->first();
     expect($org)->not->toBeNull()
-        ->and(Sport::where('organization_id', $org->id)->count())->toBe(38);
+        ->and(sportsQuery()->where('organization_id', $org->id)->count())->toBe(38);
 });
 
 test('all category values are valid', function (): void {
@@ -37,7 +51,7 @@ test('all category values are valid', function (): void {
     $this->seed(SportSeeder::class);
 
     $valid = ['INDIVIDUAL', 'TEAM', 'COMBAT', 'WATER'];
-    $invalid = Sport::whereNotIn('category', $valid)->count();
+    $invalid = sportsQuery()->whereNotIn('category', $valid)->count();
     expect($invalid)->toBe(0);
 });
 
@@ -45,22 +59,22 @@ test('each category has the expected count', function (): void {
     $this->seed(OrganizationSeeder::class);
     $this->seed(SportSeeder::class);
 
-    expect(Sport::where('category', 'INDIVIDUAL')->count())->toBe(14)
-        ->and(Sport::where('category', 'COMBAT')->count())->toBe(9)
-        ->and(Sport::where('category', 'TEAM')->count())->toBe(10)
-        ->and(Sport::where('category', 'WATER')->count())->toBe(5);
+    expect(sportsQuery()->where('category', 'INDIVIDUAL')->count())->toBe(14)
+        ->and(sportsQuery()->where('category', 'COMBAT')->count())->toBe(9)
+        ->and(sportsQuery()->where('category', 'TEAM')->count())->toBe(10)
+        ->and(sportsQuery()->where('category', 'WATER')->count())->toBe(5);
 });
 
 test('known sports are present with correct data', function (): void {
     $this->seed(OrganizationSeeder::class);
     $this->seed(SportSeeder::class);
 
-    $hockey = Sport::where('slug', 'hockey')->first();
+    $hockey = sportsQuery()->where('slug', 'hockey')->first();
     expect($hockey)->not->toBeNull()
         ->and($hockey->name_hi)->toBe('हॉकी')
         ->and($hockey->category)->toBe('TEAM');
 
-    $boxing = Sport::where('slug', 'boxing')->first();
+    $boxing = sportsQuery()->where('slug', 'boxing')->first();
     expect($boxing)->not->toBeNull()
         ->and($boxing->name_hi)->toBe('बॉक्सिंग')
         ->and($boxing->category)->toBe('COMBAT');

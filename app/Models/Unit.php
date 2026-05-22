@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\Auditable;
+use App\Concerns\Tenanted;
 use App\Observers\AuditObserver;
 use Database\Factories\UnitFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -28,7 +29,7 @@ use Illuminate\Support\Carbon;
 class Unit extends Model
 {
     /** @use HasFactory<UnitFactory> */
-    use Auditable, HasFactory;
+    use Auditable, HasFactory, Tenanted;
 
     public function organization(): BelongsTo
     {

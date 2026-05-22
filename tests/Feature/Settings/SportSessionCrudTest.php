@@ -154,7 +154,7 @@ test('update saves changes and redirects', function (): void {
     expect($session->refresh()->is_current)->toBeTrue();
 });
 
-test('update returns 403 for session in another org', function (): void {
+test('update returns 404 for session in another org', function (): void {
     $otherOrg = Organization::factory()->create();
     $session = SportSession::factory()->create(['organization_id' => $otherOrg->id]);
 
@@ -167,7 +167,7 @@ test('update returns 403 for session in another org', function (): void {
             'end_year' => 2026,
             'is_current' => false,
         ])
-        ->assertForbidden();
+        ->assertNotFound();
 });
 
 // ─── Destroy ──────────────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ test('destroy returns 403 for user without permission', function (): void {
         ->assertForbidden();
 });
 
-test('destroy returns 403 for session in another org', function (): void {
+test('destroy returns 404 for session in another org', function (): void {
     $otherOrg = Organization::factory()->create();
     $session = SportSession::factory()->create(['organization_id' => $otherOrg->id]);
 
@@ -200,5 +200,5 @@ test('destroy returns 403 for session in another org', function (): void {
 
     $this->actingAs($user)
         ->delete(route('sessions.destroy', $session))
-        ->assertForbidden();
+        ->assertNotFound();
 });

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\Auditable;
+use App\Concerns\Tenanted;
 use App\Observers\AuditObserver;
 use Database\Factories\SportSessionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -27,7 +28,7 @@ use Illuminate\Support\Carbon;
 class SportSession extends Model
 {
     /** @use HasFactory<SportSessionFactory> */
-    use Auditable, HasFactory;
+    use Auditable, HasFactory, Tenanted;
 
     protected function casts(): array
     {

@@ -162,7 +162,7 @@ test('update validates required fields', function (): void {
         ->assertSessionHasErrors(['name_hi', 'name_en', 'category']);
 });
 
-test('update returns 403 for sport in another org', function (): void {
+test('update returns 404 for sport in another org', function (): void {
     $otherOrg = Organization::factory()->create();
     $sport = Sport::factory()->create(['organization_id' => $otherOrg->id]);
 
@@ -178,7 +178,7 @@ test('update returns 403 for sport in another org', function (): void {
             'name_en' => 'Hockey',
             'category' => 'TEAM',
         ])
-        ->assertForbidden();
+        ->assertNotFound();
 });
 
 // ─── Destroy ──────────────────────────────────────────────────────────────────
@@ -205,7 +205,7 @@ test('destroy returns 403 for user without permission', function (): void {
         ->assertForbidden();
 });
 
-test('destroy returns 403 for sport in another org', function (): void {
+test('destroy returns 404 for sport in another org', function (): void {
     $otherOrg = Organization::factory()->create();
     $sport = Sport::factory()->create(['organization_id' => $otherOrg->id]);
 
@@ -217,5 +217,5 @@ test('destroy returns 403 for sport in another org', function (): void {
 
     $this->actingAs($user)
         ->delete(route('sports.destroy', $sport))
-        ->assertForbidden();
+        ->assertNotFound();
 });
