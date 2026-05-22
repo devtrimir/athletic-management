@@ -39,35 +39,35 @@ See [phases/P00-bootstrap.md](phases/P00-bootstrap.md) for the full breakdown.
 See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 
 ### Schema
-- [ ] **P1-T01** Migration: `organizations`
-- [ ] **P1-T02** Migration: extend `users` (`organization_id`, `locale`)
-- [ ] **P1-T03** Migration: `roles`, `permissions`, `role_permission`, `user_role`
-- [ ] **P1-T04** Migration: `districts`
-- [ ] **P1-T05** Migration: `sessions` (academic/sports sessions, **not** Laravel sessions)
-- [ ] **P1-T06** Migration: `sports`
-- [ ] **P1-T07** Migration: `units`
-- [ ] **P1-T08** Migration: `tournament_tiers`
-- [ ] **P1-T09** Migration: `audit_logs`
+- [x] **P1-T01** Migration: `organizations`
+- [x] **P1-T02** Migration: extend `users` (`organization_id`, `locale`)
+- [x] **P1-T03** Migration: `roles`, `permissions`, `role_permission`, `user_role`
+- [x] **P1-T04** Migration: `districts`
+- [x] **P1-T05** Migration: `sessions` (academic/sports sessions, **not** Laravel sessions)
+- [x] **P1-T06** Migration: `sports`
+- [x] **P1-T07** Migration: `units`
+- [x] **P1-T08** Migration: `tournament_tiers`
+- [x] **P1-T09** Migration: `audit_logs`
 
 ### RBAC engine (in-house)
-- [ ] **P1-T10** `App\Auth\Rbac` service (`userHasPermission`, `userRoles`, `userPermissions`) with Redis cache + invalidation hooks
-- [ ] **P1-T11** `HasRoles` trait on `User` (`hasRole`, `hasAnyRole`, `assignRole`, `revokeRole`)
-- [ ] **P1-T12** `AuthServiceProvider::boot` — `Gate::before` for `admin`, auto-`Gate::define` per permission code
-- [ ] **P1-T13** Route middlewares: `role:` (any-of) and `permission:` (any-of)
-- [ ] **P1-T14** `config/rbac.php` declarative catalog + `php artisan rbac:sync` command
-- [ ] **P1-T15** Per-resource Policy stubs (MemberPolicy, CoachPolicy, TeamPolicy, TournamentPolicy, ImportPolicy, ReportPolicy, SettingsPolicy)
+- [x] **P1-T10** `App\Auth\Rbac` service (`userHasPermission`, `userRoles`, `userPermissions`) with Redis cache + invalidation hooks
+- [x] **P1-T11** `HasRoles` trait on `User` (`hasRole`, `hasAnyRole`, `assignRole`, `revokeRole`)
+- [x] **P1-T12** `AuthServiceProvider::boot` — `Gate::before` for `admin`, auto-`Gate::define` per permission code
+- [x] **P1-T13** Route middlewares: `role:` (any-of) and `permission:` (any-of)
+- [x] **P1-T14** `config/rbac.php` declarative catalog + `php artisan rbac:sync` command
+- [x] **P1-T15** Per-resource Policy stubs (MemberPolicy, CoachPolicy, TeamPolicy, TournamentPolicy, ImportPolicy, ReportPolicy, SettingsPolicy)
 
 ### Multi-tenancy + locale
-- [ ] **P1-T16** `BelongsToOrganization` global scope + `EnsureOrganizationScope` middleware
-- [ ] **P1-T17** `SetLocale` middleware (session → `users.locale` → default `hi`)
+- [x] **P1-T16** `BelongsToOrganization` global scope + `EnsureOrganizationScope` middleware
+- [x] **P1-T17** `SetLocale` middleware (session → `users.locale` → default `hi`)
 - [ ] **P1-T18** `HandleInertiaRequests` shared props: `auth.user`, `auth.permissions`, `locale`, `translations`, `flash`
 
 ### Seeders
-- [ ] **P1-T19** Seeder: default org `UPP` + admin user
-- [ ] **P1-T20** Seeder: 75 UP districts (hi + en)
-- [ ] **P1-T21** Seeder: 5 tournament tiers
-- [ ] **P1-T22** Seeder: ~30 sports
-- [ ] **P1-T23** Seeder: sessions `2019-20` … `2026-27`, current = `2026-27`
+- [x] **P1-T19** Seeder: default org `UPP` + admin user
+- [x] **P1-T20** Seeder: 75 UP districts (hi + en)
+- [x] **P1-T21** Seeder: 5 tournament tiers
+- [x] **P1-T22** Seeder: ~30 sports
+- [x] **P1-T23** Seeder: sessions `2019-20` … `2026-27`, current = `2026-27`
 
 ### Audit
 - [x] **P1-T24** `App\Services\AuditLogger` (in-house) on top of the P1-T09 `audit_logs` table; global Eloquent observer writes `created/updated/deleted` diffs for whitelisted models
@@ -81,15 +81,15 @@ See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 - [x] **P1-T30** JSON `/api/v1` read endpoints for `tournament-tiers`, `sports`, `units`, `districts` (autocomplete sources)
 
 ### Frontend shell
-- [ ] **P1-T31** `Layouts/AppLayout.tsx` (sidebar nav + topbar + user menu)
-- [ ] **P1-T32** Locale switcher (PATCH `users.locale` → updates session locale, no URL redirect)
+- [x] **P1-T31** `Layouts/AppLayout.tsx` (sidebar nav + topbar + user menu)
+- [x] **P1-T32** Locale switcher (PATCH `users.locale` → updates session locale, no URL redirect)
 - [ ] **P1-T33** Auth pages restyle (Login, ForgotPassword) to match the app shell
 
 ### Tests
 - [x] **P1-T34** Pest: RBAC matrix (admin / data_entry / viewer × every gated route)
 - [x] **P1-T35** Pest: org-scope leakage tests (user from org A cannot read org B data)
 - [x] **P1-T36** Pest: audit log fires on every reference-data write
-- [ ] **P1-T37** Vitest: AppLayout + locale switcher behavior
+- [x] ~~**P1-T37** Vitest: AppLayout + locale switcher behavior~~ — **moved** to Phase FT (manual testing for frontend; Vitest batch deferred)
 
 ---
 
@@ -131,7 +131,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [ ] **P2-T23** Pest Feature: search returns matches across normalization (typo + Krutidev alias)
 - [ ] **P2-T24** Pest Unit: `MemberCodeGenerator` (uniqueness under concurrency)
 - [ ] **P2-T25** Pest Browser: full member create → show → edit → status change → soft-delete flow
-- [ ] **P2-T26** Vitest: `MemberPicker`, `StatusChangeModal`
+- [x] ~~**P2-T26** Vitest: `MemberPicker`, `StatusChangeModal`~~ — **moved** to Phase FT
 
 ---
 
@@ -311,6 +311,20 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [ ] **P10-T09** `DemoSeeder` (500 members, 50 coaches, 30 teams, 20 tournaments, 200 participations)
 - [ ] **P10-T10** README "Run a demo" section + `make demo`
 - [ ] **P10-T11** Smoke E2E covering every top-level page (admin role)
+
+---
+
+## Phase FT — Frontend Component Tests (Vitest)
+
+All Vitest component/unit tests are batched here. Frontend flows are validated manually during development; this phase runs as a dedicated sprint once enough components exist to make the setup worthwhile.
+
+- [ ] **FT-T01** Setup: `vitest.config.ts`, `resources/js/tests/setup.ts`, `@/` alias, `@testing-library/jest-dom` — _packages already installed_
+- [ ] **FT-T02** `LocaleSwitcher` — renders both buttons; active has `aria-pressed`; click inactive calls `router.patch`; click active is a no-op
+- [ ] **FT-T03** `NavMain` — renders items with correct hrefs; active URL sets `data-active`; group label renders
+- [ ] **FT-T04** `AppLayout` / `AppSidebar` — smoke-render; sidebar item list matches `mainNavItems` + `referenceDataNavItems`
+- [ ] **FT-T05** `MemberPicker` — debounced input fires `useHttp`; results render; selecting fires `onSelect` callback
+- [ ] **FT-T06** `StatusChangeModal` — open/close; form submits with correct payload; validation errors display
+- [ ] **FT-T07** Add `"test": "vitest run"` and `"test:coverage": "vitest run --coverage"` scripts to `package.json`; update `docs/STACK.md` with installed Vitest version
 
 ---
 

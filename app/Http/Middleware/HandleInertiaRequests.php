@@ -48,7 +48,28 @@ class HandleInertiaRequests extends Middleware
                     : [],
             ],
             'locale' => fn (): string => app()->getLocale(),
+            'translations' => fn (): array => $this->loadTranslations(),
+            'flash' => fn (): array => [
+                'toast' => $request->session()->get('flash.toast'),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /**
+     * Load translation strings for the current locale from resources/lang/{locale}.json.
+     *
+     * @return array<string, string>
+     */
+    private function loadTranslations(): array
+    {
+        $locale = app()->getLocale();
+        $path = lang_path("{$locale}.json");
+
+        if (! file_exists($path)) {
+            return [];
+        }
+
+        return json_decode((string) file_get_contents($path), true) ?? [];
     }
 }
