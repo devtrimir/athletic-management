@@ -74,7 +74,7 @@ See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 
 ### Reference-data CRUD (BE + FE per resource)
 - [x] **P1-T25** Sessions: Form Requests + Controller + Policy + Inertia pages (Index/Create/Edit)
-- [ ] **P1-T26** Sports: same
+- [x] **P1-T26** Sports: same
 - [ ] **P1-T27** Units: same
 - [ ] **P1-T28** Districts: same
 - [ ] **P1-T29** TournamentTiers: same
