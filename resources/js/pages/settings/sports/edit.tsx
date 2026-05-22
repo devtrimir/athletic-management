@@ -49,51 +49,55 @@ export default function Edit({ sport }: { sport: Sport }) {
                     description="Update sport discipline details"
                 />
 
-                <Form {...SportController.update.form(sport.id)} className="space-y-6">
+                <Form {...SportController.update.form(sport.id)} className="max-w-xl space-y-6">
                     {({ processing, errors }) => (
                         <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="name_hi">Name (Hindi)</Label>
-                                <Input
-                                    id="name_hi"
-                                    name="name_hi"
-                                    defaultValue={sport.name_hi}
-                                    maxLength={100}
-                                    required
-                                />
-                                <InputError message={errors.name_hi} />
+                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="name_hi">Name (Hindi)</Label>
+                                        <Input
+                                            id="name_hi"
+                                            name="name_hi"
+                                            defaultValue={sport.name_hi}
+                                            maxLength={100}
+                                            required
+                                        />
+                                        <InputError message={errors.name_hi} />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="name_en">Name (English)</Label>
+                                        <Input
+                                            id="name_en"
+                                            name="name_en"
+                                            defaultValue={sport.name_en}
+                                            maxLength={100}
+                                            required
+                                        />
+                                        <InputError message={errors.name_en} />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="category">Category</Label>
+                                    <Select name="category" defaultValue={sport.category} required>
+                                        <SelectTrigger id="category" className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {CATEGORIES.map((cat) => (
+                                                <SelectItem key={cat.value} value={cat.value}>
+                                                    {cat.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.category} />
+                                </div>
                             </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="name_en">Name (English)</Label>
-                                <Input
-                                    id="name_en"
-                                    name="name_en"
-                                    defaultValue={sport.name_en}
-                                    maxLength={100}
-                                    required
-                                />
-                                <InputError message={errors.name_en} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="category">Category</Label>
-                                <Select name="category" defaultValue={sport.category} required>
-                                    <SelectTrigger id="category">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {CATEGORIES.map((cat) => (
-                                            <SelectItem key={cat.value} value={cat.value}>
-                                                {cat.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <InputError message={errors.category} />
-                            </div>
-
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 <Button disabled={processing}>Save changes</Button>
                                 <Button variant="outline" asChild>
                                     <Link href={SportController.index.url()}>Cancel</Link>

@@ -15,6 +15,11 @@ class UpdateSportSessionRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge(['is_current' => $this->boolean('is_current')]);
+    }
+
     /**
      * @return array<string, list<ValidationRule|string>>
      */

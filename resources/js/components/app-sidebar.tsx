@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Building2, CalendarDays, LayoutGrid, MapPin, Medal, Trophy } from 'lucide-react';
+import { LayoutGrid, Settings2, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -13,11 +13,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import { index as sessionsIndex } from '@/routes/sessions';
-import { index as sportsIndex } from '@/routes/sports';
-import { index as unitsIndex } from '@/routes/units';
-import { index as districtsIndex } from '@/routes/districts';
-import { index as tournamentTiersIndex } from '@/routes/tournament-tiers';
+import { edit as editProfile } from '@/routes/profile';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -26,33 +22,18 @@ const mainNavItems: NavItem[] = [
         href: dashboard(),
         icon: LayoutGrid,
     },
+    {
+        title: 'Athletes',
+        href: '#',
+        icon: Users,
+    },
 ];
 
-const referenceDataNavItems: NavItem[] = [
+const adminNavItems: NavItem[] = [
     {
-        title: 'Sessions',
-        href: sessionsIndex(),
-        icon: CalendarDays,
-    },
-    {
-        title: 'Sports',
-        href: sportsIndex(),
-        icon: Trophy,
-    },
-    {
-        title: 'Units',
-        href: unitsIndex(),
-        icon: Building2,
-    },
-    {
-        title: 'Districts',
-        href: districtsIndex(),
-        icon: MapPin,
-    },
-    {
-        title: 'Tournament Tiers',
-        href: tournamentTiersIndex(),
-        icon: Medal,
+        title: 'Settings',
+        href: editProfile(),
+        icon: Settings2,
     },
 ];
 
@@ -72,8 +53,8 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
-                <NavMain items={referenceDataNavItems} groupLabel="Reference Data" />
+                <NavMain items={mainNavItems} groupLabel="Main" />
+                <NavMain items={adminNavItems} groupLabel="Admin" />
             </SidebarContent>
 
             <SidebarFooter>

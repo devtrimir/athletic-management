@@ -36,65 +36,71 @@ export default function Create() {
                     description="Add a new reference tournament tier"
                 />
 
-                <Form {...TournamentTierController.store.form()} className="space-y-6">
+                <Form {...TournamentTierController.store.form()} className="max-w-xl space-y-6">
                     {({ processing, errors }) => (
                         <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="code">Code</Label>
-                                <Select name="code" required>
-                                    <SelectTrigger id="code">
-                                        <SelectValue placeholder="Select a tier code" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {TIER_CODES.map((tier) => (
-                                            <SelectItem key={tier.value} value={tier.value}>
-                                                {tier.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <InputError message={errors.code} />
+                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="code">Code</Label>
+                                    <Select name="code" required>
+                                        <SelectTrigger id="code" className="w-full">
+                                            <SelectValue placeholder="Select a tier code" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {TIER_CODES.map((tier) => (
+                                                <SelectItem key={tier.value} value={tier.value}>
+                                                    {tier.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.code} />
+                                </div>
+
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="label_hi">Label (Hindi)</Label>
+                                        <Input
+                                            id="label_hi"
+                                            name="label_hi"
+                                            placeholder="e.g. अंतरराष्ट्रीय"
+                                            maxLength={100}
+                                            required
+                                        />
+                                        <InputError message={errors.label_hi} />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="label_en">Label (English)</Label>
+                                        <Input
+                                            id="label_en"
+                                            name="label_en"
+                                            placeholder="e.g. International"
+                                            maxLength={100}
+                                            required
+                                        />
+                                        <InputError message={errors.label_en} />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-2 max-w-[200px]">
+                                    <Label htmlFor="weight">Weight</Label>
+                                    <Input
+                                        id="weight"
+                                        name="weight"
+                                        type="number"
+                                        min={0}
+                                        max={32767}
+                                        placeholder="e.g. 100"
+                                        className="tabular-nums"
+                                        required
+                                    />
+                                    <InputError message={errors.weight} />
+                                    <p className="text-xs text-muted-foreground">Higher weight = higher tier priority.</p>
+                                </div>
                             </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="label_hi">Label (Hindi)</Label>
-                                <Input
-                                    id="label_hi"
-                                    name="label_hi"
-                                    placeholder="e.g. अंतरराष्ट्रीय"
-                                    maxLength={100}
-                                    required
-                                />
-                                <InputError message={errors.label_hi} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="label_en">Label (English)</Label>
-                                <Input
-                                    id="label_en"
-                                    name="label_en"
-                                    placeholder="e.g. International"
-                                    maxLength={100}
-                                    required
-                                />
-                                <InputError message={errors.label_en} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="weight">Weight</Label>
-                                <Input
-                                    id="weight"
-                                    name="weight"
-                                    type="number"
-                                    min={0}
-                                    max={32767}
-                                    placeholder="e.g. 100"
-                                    required
-                                />
-                                <InputError message={errors.weight} />
-                            </div>
-
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 <Button disabled={processing}>Create tier</Button>
                                 <Button variant="outline" asChild>
                                     <Link href={TournamentTierController.index.url()}>Cancel</Link>

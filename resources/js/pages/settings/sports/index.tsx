@@ -1,7 +1,20 @@
+import { useMemo, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
+import { Plus, Search } from 'lucide-react';
 import SportController from '@/actions/App/Http/Controllers/Settings/SportController';
 import Heading from '@/components/heading';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+const CATEGORY_VARIANTS: Record<string, string> = {
+    INDIVIDUAL: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    TEAM: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
+    COMBAT: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+    WATER: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
+};
 
 type Sport = {
     id: number;
@@ -11,68 +24,123 @@ type Sport = {
     slug: string;
 };
 
+const CATEGORIES = ['INDIVIDUAL', 'TEAM', 'COMBAT', 'WATER'] as const;
+
 export default function Index({ sports }: { sports: Sport[] }) {
+    const [query, setQuery] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+
+    const filtered = useMemo(() => {
+        const q = query.toLowerCase().trim();
+        return sports.filter((s) => {
+            const matchesQuery =
+                !q ||
+                s.name_hi.toLowerCase().includes(q) ||
+                s.name_en.toLowerCase().includes(q) ||
+                s.slug.toLowerCase().includes(q);
+            const matchesCategory = categoryFilter === 'all' || s.category === categoryFilter;
+            return matchesQuery && matchesCategory;
+        });
+    }, [sports, query, categoryFilter]);
+
     return (
         <>
             <Head title="Sports" />
 
             <h1 className="sr-only">Sports</h1>
 
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
+            <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
                     <Heading
                         variant="small"
                         title="Sports"
                         description="Manage reference sports disciplines"
                     />
-                    <Button asChild>
-                        <Link href={SportController.create.url()}>New sport</Link>
+                    <Button asChild size="sm">
+                        <Link href={SportController.create.url()}>
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            New sport
+                        </Link>
                     </Button>
                 </div>
 
-                <div className="overflow-x-auto rounded-lg border">
-                    <table className="min-w-full divide-y divide-border text-sm">
-                        <thead className="bg-muted/50">
-                            <tr>
-                                <th className="px-4 py-3 text-left font-medium">Name (Hindi)</th>
-                                <th className="px-4 py-3 text-left font-medium">Name (English)</th>
-                                <th className="px-4 py-3 text-left font-medium">Category</th>
-                                <th className="px-4 py-3 text-left font-medium">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {sports.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
-                                        No sports yet.
-                                    </td>
-                                </tr>
-                            )}
-                            {sports.map((sport) => (
-                                <tr key={sport.id}>
-                                    <td className="px-4 py-3 font-medium">{sport.name_hi}</td>
-                                    <td className="px-4 py-3">{sport.name_en}</td>
-                                    <td className="px-4 py-3 text-muted-foreground">{sport.category}</td>
-                                    <td className="flex items-center gap-2 px-4 py-3">
-                                        <Button variant="outline" size="sm" asChild>
-                                            <Link href={SportController.edit.url(sport.id)}>Edit</Link>
-                                        </Button>
-                                        <Form {...SportController.destroy.form(sport.id)}>
-                                            {({ processing }) => (
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    disabled={processing}
-                                                >
-                                                    Delete
-                                                </Button>
-                                            )}
-                                        </Form>
-                                    </td>
-                                </tr>
+                <div className="flex items-center gap-3">
+                    <div className="relative max-w-xs flex-1">
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Search sports…"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            className="pl-8"
+                        />
+                    </div>
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="w-40">
+                            <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All categories</SelectItem>
+                            {CATEGORIES.map((c) => (
+                                <SelectItem key={c} value={c}>{c}</SelectItem>
                             ))}
-                        </tbody>
-                    </table>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="rounded-xl border overflow-hidden">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                <TableHead>Name (Hindi)</TableHead>
+                                <TableHead>Name (English)</TableHead>
+                                <TableHead>Category</TableHead>
+                                <TableHead className="w-0 text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filtered.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
+                                        {sports.length === 0 ? 'No sports yet.' : 'No sports match your filters.'}
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                filtered.map((sport) => (
+                                    <TableRow key={sport.id}>
+                                        <TableCell className="font-medium">{sport.name_hi}</TableCell>
+                                        <TableCell>{sport.name_en}</TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant="outline"
+                                                className={CATEGORY_VARIANTS[sport.category] ?? ''}
+                                            >
+                                                {sport.category}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="w-0">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button variant="ghost" size="sm" asChild>
+                                                    <Link href={SportController.edit.url(sport.id)}>Edit</Link>
+                                                </Button>
+                                                <Form {...SportController.destroy.form(sport.id)}>
+                                                    {({ processing }) => (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                            disabled={processing}
+                                                        >
+                                                            Delete
+                                                        </Button>
+                                                    )}
+                                                </Form>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
                 </div>
             </div>
         </>

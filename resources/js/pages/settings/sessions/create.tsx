@@ -21,54 +21,61 @@ export default function Create() {
                     description="Add a new sport session year"
                 />
 
-                <Form {...SportSessionController.store.form()} className="space-y-6">
+                <Form {...SportSessionController.store.form()} className="max-w-xl space-y-6">
                     {({ processing, errors }) => (
                         <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="name">Name</Label>
-                                <Input
-                                    id="name"
-                                    name="name"
-                                    placeholder="e.g. 2024-2025"
-                                    maxLength={10}
-                                    required
-                                />
-                                <InputError message={errors.name} />
+                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="name">Name</Label>
+                                    <Input
+                                        id="name"
+                                        name="name"
+                                        placeholder="e.g. 2024-2025"
+                                        maxLength={10}
+                                        required
+                                    />
+                                    <InputError message={errors.name} />
+                                </div>
+
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="start_year">Start year</Label>
+                                        <Input
+                                            id="start_year"
+                                            name="start_year"
+                                            type="number"
+                                            min={2000}
+                                            max={2100}
+                                            required
+                                        />
+                                        <InputError message={errors.start_year} />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="end_year">End year</Label>
+                                        <Input
+                                            id="end_year"
+                                            name="end_year"
+                                            type="number"
+                                            min={2000}
+                                            max={2100}
+                                            required
+                                        />
+                                        <InputError message={errors.end_year} />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                                    <Checkbox id="is_current" name="is_current" />
+                                    <div>
+                                        <Label htmlFor="is_current" className="cursor-pointer">Mark as current session</Label>
+                                        <p className="text-xs text-muted-foreground">Only one session can be current at a time.</p>
+                                    </div>
+                                    <InputError message={errors.is_current} />
+                                </div>
                             </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="start_year">Start year</Label>
-                                <Input
-                                    id="start_year"
-                                    name="start_year"
-                                    type="number"
-                                    min={2000}
-                                    max={2100}
-                                    required
-                                />
-                                <InputError message={errors.start_year} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="end_year">End year</Label>
-                                <Input
-                                    id="end_year"
-                                    name="end_year"
-                                    type="number"
-                                    min={2000}
-                                    max={2100}
-                                    required
-                                />
-                                <InputError message={errors.end_year} />
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Checkbox id="is_current" name="is_current" />
-                                <Label htmlFor="is_current">Mark as current session</Label>
-                                <InputError message={errors.is_current} />
-                            </div>
-
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 <Button disabled={processing}>Create session</Button>
                                 <Button variant="outline" asChild>
                                     <Link href={SportSessionController.index.url()}>Cancel</Link>
@@ -90,7 +97,6 @@ Create.layout = {
         },
         {
             title: 'New session',
-            href: SportSessionController.create.url(),
         },
     ],
 };

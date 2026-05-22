@@ -97,7 +97,7 @@ test('store with is_current=true flips other sessions to false', function (): vo
 test('store validates required fields', function (): void {
     $this->actingAs($this->admin)
         ->post(route('sessions.store'), [])
-        ->assertSessionHasErrors(['name', 'start_year', 'end_year', 'is_current']);
+        ->assertSessionHasErrors(['name', 'start_year', 'end_year']);
 });
 
 test('store returns 403 for user without permission', function (): void {

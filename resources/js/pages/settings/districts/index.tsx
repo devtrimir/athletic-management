@@ -1,7 +1,13 @@
+import { useMemo, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
+import { Plus, Search } from 'lucide-react';
 import DistrictController from '@/actions/App/Http/Controllers/Settings/DistrictController';
 import Heading from '@/components/heading';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type District = {
     id: number;
@@ -12,71 +18,124 @@ type District = {
 };
 
 export default function Index({ districts }: { districts: District[] }) {
+    const [query, setQuery] = useState('');
+    const [stateFilter, setStateFilter] = useState('all');
+
+    const states = useMemo(
+        () => Array.from(new Set(districts.map((d) => d.state))).sort(),
+        [districts],
+    );
+
+    const filtered = useMemo(() => {
+        const q = query.toLowerCase().trim();
+        return districts.filter((d) => {
+            const matchesQuery =
+                !q ||
+                d.name_hi.toLowerCase().includes(q) ||
+                d.name_en.toLowerCase().includes(q) ||
+                d.code.toLowerCase().includes(q);
+            const matchesState = stateFilter === 'all' || d.state === stateFilter;
+            return matchesQuery && matchesState;
+        });
+    }, [districts, query, stateFilter]);
+
     return (
         <>
             <Head title="Districts" />
 
             <h1 className="sr-only">Districts</h1>
 
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
+            <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
                     <Heading
                         variant="small"
                         title="Districts"
                         description="Manage reference districts"
                     />
-                    <Button asChild>
-                        <Link href={DistrictController.create.url()}>New district</Link>
+                    <Button asChild size="sm">
+                        <Link href={DistrictController.create.url()}>
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            New district
+                        </Link>
                     </Button>
                 </div>
 
-                <div className="overflow-x-auto rounded-lg border">
-                    <table className="min-w-full divide-y divide-border text-sm">
-                        <thead className="bg-muted/50">
-                            <tr>
-                                <th className="px-4 py-3 text-left font-medium">Name (Hindi)</th>
-                                <th className="px-4 py-3 text-left font-medium">Name (English)</th>
-                                <th className="px-4 py-3 text-left font-medium">State</th>
-                                <th className="px-4 py-3 text-left font-medium">Code</th>
-                                <th className="px-4 py-3 text-left font-medium">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {districts.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
-                                        No districts yet.
-                                    </td>
-                                </tr>
-                            )}
-                            {districts.map((district) => (
-                                <tr key={district.id}>
-                                    <td className="px-4 py-3 font-medium">{district.name_hi}</td>
-                                    <td className="px-4 py-3">{district.name_en}</td>
-                                    <td className="px-4 py-3 text-muted-foreground">{district.state}</td>
-                                    <td className="px-4 py-3 font-mono text-muted-foreground">{district.code}</td>
-                                    <td className="flex items-center gap-2 px-4 py-3">
-                                        <Button variant="outline" size="sm" asChild>
-                                            <Link href={DistrictController.edit.url(district.id)}>
-                                                Edit
-                                            </Link>
-                                        </Button>
-                                        <Form {...DistrictController.destroy.form(district.id)}>
-                                            {({ processing }) => (
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    disabled={processing}
-                                                >
-                                                    Delete
+                <div className="flex items-center gap-3">
+                    <div className="relative max-w-xs flex-1">
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Search districts…"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            className="pl-8"
+                        />
+                    </div>
+                    {states.length > 1 && (
+                        <Select value={stateFilter} onValueChange={setStateFilter}>
+                            <SelectTrigger className="w-44">
+                                <SelectValue placeholder="State" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All states</SelectItem>
+                                {states.map((s) => (
+                                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
+
+                <div className="rounded-xl border overflow-hidden">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                <TableHead>Name (Hindi)</TableHead>
+                                <TableHead>Name (English)</TableHead>
+                                <TableHead>State</TableHead>
+                                <TableHead>Code</TableHead>
+                                <TableHead className="w-0 text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filtered.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                                        {districts.length === 0 ? 'No districts yet.' : 'No districts match your filters.'}
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                filtered.map((district) => (
+                                    <TableRow key={district.id}>
+                                        <TableCell className="font-medium">{district.name_hi}</TableCell>
+                                        <TableCell>{district.name_en}</TableCell>
+                                        <TableCell className="text-muted-foreground">{district.state}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="font-mono">{district.code}</Badge>
+                                        </TableCell>
+                                        <TableCell className="w-0">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button variant="ghost" size="sm" asChild>
+                                                    <Link href={DistrictController.edit.url(district.id)}>Edit</Link>
                                                 </Button>
-                                            )}
-                                        </Form>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                                <Form {...DistrictController.destroy.form(district.id)}>
+                                                    {({ processing }) => (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                            disabled={processing}
+                                                        >
+                                                            Delete
+                                                        </Button>
+                                                    )}
+                                                </Form>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
                 </div>
             </div>
         </>

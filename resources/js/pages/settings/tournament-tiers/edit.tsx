@@ -57,65 +57,71 @@ export default function Edit({ tier }: { tier: Tier }) {
                     description="Update tournament tier details"
                 />
 
-                <Form {...TournamentTierController.update.form(tier.id)} className="space-y-6">
+                <Form {...TournamentTierController.update.form(tier.id)} className="max-w-xl space-y-6">
                     {({ processing, errors }) => (
                         <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="code">Code</Label>
-                                <Select name="code" defaultValue={tier.code} required>
-                                    <SelectTrigger id="code">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {TIER_CODES.map((t) => (
-                                            <SelectItem key={t.value} value={t.value}>
-                                                {t.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <InputError message={errors.code} />
+                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="code">Code</Label>
+                                    <Select name="code" defaultValue={tier.code} required>
+                                        <SelectTrigger id="code" className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {TIER_CODES.map((t) => (
+                                                <SelectItem key={t.value} value={t.value}>
+                                                    {t.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.code} />
+                                </div>
+
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="label_hi">Label (Hindi)</Label>
+                                        <Input
+                                            id="label_hi"
+                                            name="label_hi"
+                                            defaultValue={tier.label_hi}
+                                            maxLength={100}
+                                            required
+                                        />
+                                        <InputError message={errors.label_hi} />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="label_en">Label (English)</Label>
+                                        <Input
+                                            id="label_en"
+                                            name="label_en"
+                                            defaultValue={tier.label_en}
+                                            maxLength={100}
+                                            required
+                                        />
+                                        <InputError message={errors.label_en} />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-2 max-w-[200px]">
+                                    <Label htmlFor="weight">Weight</Label>
+                                    <Input
+                                        id="weight"
+                                        name="weight"
+                                        type="number"
+                                        min={0}
+                                        max={32767}
+                                        defaultValue={tier.weight}
+                                        className="tabular-nums"
+                                        required
+                                    />
+                                    <InputError message={errors.weight} />
+                                    <p className="text-xs text-muted-foreground">Higher weight = higher tier priority.</p>
+                                </div>
                             </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="label_hi">Label (Hindi)</Label>
-                                <Input
-                                    id="label_hi"
-                                    name="label_hi"
-                                    defaultValue={tier.label_hi}
-                                    maxLength={100}
-                                    required
-                                />
-                                <InputError message={errors.label_hi} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="label_en">Label (English)</Label>
-                                <Input
-                                    id="label_en"
-                                    name="label_en"
-                                    defaultValue={tier.label_en}
-                                    maxLength={100}
-                                    required
-                                />
-                                <InputError message={errors.label_en} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="weight">Weight</Label>
-                                <Input
-                                    id="weight"
-                                    name="weight"
-                                    type="number"
-                                    min={0}
-                                    max={32767}
-                                    defaultValue={tier.weight}
-                                    required
-                                />
-                                <InputError message={errors.weight} />
-                            </div>
-
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 <Button disabled={processing}>Save changes</Button>
                                 <Button variant="outline" asChild>
                                     <Link href={TournamentTierController.index.url()}>Cancel</Link>

@@ -1,6 +1,5 @@
 import { Link, router } from '@inertiajs/react';
 import { LogOut, Settings } from 'lucide-react';
-import { LocaleSwitcher } from '@/components/locale-switcher';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -32,10 +31,6 @@ export function UserMenuContent({ user }: Props) {
                     <UserInfo user={user} showEmail={true} />
                 </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="px-2 py-1.5">
-                <LocaleSwitcher />
-            </div>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
