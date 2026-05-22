@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\DistrictController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\SportController;
@@ -41,4 +42,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/units', UnitController::class)
         ->except(['show'])
         ->names('units');
+
+    Route::resource('settings/districts', DistrictController::class)
+        ->except(['show'])
+        ->names('districts');
 });
