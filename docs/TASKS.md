@@ -86,9 +86,9 @@ See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 - [ ] **P1-T33** Auth pages restyle (Login, ForgotPassword) to match the app shell
 
 ### Tests
-- [ ] **P1-T34** Pest: RBAC matrix (admin / data_entry / viewer × every gated route)
-- [ ] **P1-T35** Pest: org-scope leakage tests (user from org A cannot read org B data)
-- [ ] **P1-T36** Pest: audit log fires on every reference-data write
+- [x] **P1-T34** Pest: RBAC matrix (admin / data_entry / viewer × every gated route)
+- [x] **P1-T35** Pest: org-scope leakage tests (user from org A cannot read org B data)
+- [x] **P1-T36** Pest: audit log fires on every reference-data write
 - [ ] **P1-T37** Vitest: AppLayout + locale switcher behavior
 
 ---
