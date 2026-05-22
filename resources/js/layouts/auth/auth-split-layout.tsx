@@ -29,8 +29,8 @@ export default function AuthSplitLayout({
                     </p>
                 </div>
             </div>
-            <div className="w-full lg:p-8">
-                <div className="flex justify-end px-4 pb-2 lg:px-0">
+            <div className="relative w-full lg:p-8">
+                <div className="absolute right-4 top-4 z-10">
                     <LocaleSwitcher />
                 </div>
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
