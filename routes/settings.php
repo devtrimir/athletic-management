@@ -4,6 +4,7 @@ use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\SportController;
 use App\Http\Controllers\Settings\SportSessionController;
+use App\Http\Controllers\Settings\UnitController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
 
@@ -36,4 +37,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/sports', SportController::class)
         ->except(['show'])
         ->names('sports');
+
+    Route::resource('settings/units', UnitController::class)
+        ->except(['show'])
+        ->names('units');
 });
