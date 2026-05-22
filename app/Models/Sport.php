@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\Auditable;
+use App\Concerns\Tenanted;
 use App\Observers\AuditObserver;
 use Database\Factories\SportFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -27,7 +28,7 @@ use Illuminate\Support\Carbon;
 class Sport extends Model
 {
     /** @use HasFactory<SportFactory> */
-    use Auditable, HasFactory;
+    use Auditable, HasFactory, Tenanted;
 
     public function organization(): BelongsTo
     {

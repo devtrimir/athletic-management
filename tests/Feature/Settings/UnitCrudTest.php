@@ -180,7 +180,7 @@ test('update validates required fields', function (): void {
         ->assertSessionHasErrors(['name_hi', 'name_en', 'unit_type']);
 });
 
-test('update returns 403 for unit in another org', function (): void {
+test('update returns 404 for unit in another org', function (): void {
     $otherOrg = Organization::factory()->create();
     $unit = Unit::factory()->create(['organization_id' => $otherOrg->id]);
 
@@ -196,7 +196,7 @@ test('update returns 403 for unit in another org', function (): void {
             'name_en' => 'Test',
             'unit_type' => 'PAC',
         ])
-        ->assertForbidden();
+        ->assertNotFound();
 });
 
 // ─── Destroy ──────────────────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ test('destroy returns 403 for user without permission', function (): void {
         ->assertForbidden();
 });
 
-test('destroy returns 403 for unit in another org', function (): void {
+test('destroy returns 404 for unit in another org', function (): void {
     $otherOrg = Organization::factory()->create();
     $unit = Unit::factory()->create(['organization_id' => $otherOrg->id]);
 
@@ -235,5 +235,5 @@ test('destroy returns 403 for unit in another org', function (): void {
 
     $this->actingAs($user)
         ->delete(route('units.destroy', $unit))
-        ->assertForbidden();
+        ->assertNotFound();
 });
