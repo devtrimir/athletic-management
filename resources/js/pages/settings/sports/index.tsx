@@ -116,7 +116,7 @@ export default function Index({ sports }: { sports: Sport[] }) {
                                                 variant="outline"
                                                 className={CATEGORY_VARIANTS[sport.category] ?? ''}
                                             >
-                                                {sport.category}
+                                                {t(sport.category)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="w-0">

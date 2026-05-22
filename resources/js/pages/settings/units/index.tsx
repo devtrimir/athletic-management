@@ -117,7 +117,7 @@ export default function Index({ units }: { units: Unit[] }) {
                                         <TableCell className="font-medium">{unit.name_hi}</TableCell>
                                         <TableCell>{unit.name_en}</TableCell>
                                         <TableCell>
-                                            <Badge variant="secondary">{unit.unit_type}</Badge>
+                                            <Badge variant="secondary">{t(unit.unit_type)}</Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {unit.commandant ?? <span className="select-none text-border">—</span>}

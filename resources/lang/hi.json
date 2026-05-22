@@ -113,5 +113,16 @@
     "Profile": "प्रोफ़ाइल",
     "Security": "सुरक्षा",
     "Appearance": "उपस्थिति",
-    "Sessions": "सत्र"
+    "Sessions": "सत्र",
+
+    "INDIVIDUAL": "व्यक्तिगत",
+    "TEAM": "टीम",
+    "COMBAT": "युद्ध कला",
+    "WATER": "जलीय खेल",
+
+    "PAC": "पीएसी",
+    "GRP": "जीआरपी",
+    "DISTRICT": "जिला",
+    "HQ": "मुख्यालय",
+    "OTHER": "अन्य"
 }
