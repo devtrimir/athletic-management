@@ -33,28 +33,19 @@ class Rbac
             return $this->rolesCache[$key];
         }
 
-        $roles = Cache::remember(
+        /** @var int[] $roleIds */
+        $roleIds = Cache::remember(
             self::PREFIX.":roles:{$key}",
             self::TTL,
-            fn () => Role::query()
+            fn (): array => Role::query()
                 ->join('user_role', 'roles.id', '=', 'user_role.role_id')
                 ->where('user_role.user_id', $user->id)
                 ->where('roles.organization_id', $orgId)
-                ->select('roles.*')
-                ->get(),
+                ->pluck('roles.id')
+                ->all(),
         );
 
-        if (! $roles instanceof Collection) {
-            Cache::forget(self::PREFIX.":roles:{$key}");
-            $roles = Role::query()
-                ->join('user_role', 'roles.id', '=', 'user_role.role_id')
-                ->where('user_role.user_id', $user->id)
-                ->where('roles.organization_id', $orgId)
-                ->select('roles.*')
-                ->get();
-        }
-
-        return $this->rolesCache[$key] = $roles;
+        return $this->rolesCache[$key] = Role::whereIn('id', $roleIds)->get();
     }
 
     /**
@@ -70,19 +61,21 @@ class Rbac
             return $this->permissionsCache[$key];
         }
 
-        $roleIds = $this->userRoles($user, $orgId)->pluck('id');
+        $roleIds = $this->userRoles($user, $orgId)->pluck('id')->all();
 
-        $permissions = Cache::remember(
+        /** @var string[] $codes */
+        $codes = Cache::remember(
             self::PREFIX.":permissions:{$key}",
             self::TTL,
-            fn () => Permission::query()
+            fn (): array => Permission::query()
                 ->join('role_permission', 'permissions.id', '=', 'role_permission.permission_id')
                 ->whereIn('role_permission.role_id', $roleIds)
                 ->distinct()
-                ->pluck('permissions.code'),
+                ->pluck('permissions.code')
+                ->all(),
         );
 
-        return $this->permissionsCache[$key] = $permissions;
+        return $this->permissionsCache[$key] = collect($codes);
     }
 
     /**
