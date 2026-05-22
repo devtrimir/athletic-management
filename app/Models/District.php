@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Concerns\Auditable;
+use App\Observers\AuditObserver;
 use Database\Factories\DistrictFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -18,8 +21,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  */
 #[Fillable(['name_hi', 'name_en', 'state', 'code'])]
+#[ObservedBy([AuditObserver::class])]
 class District extends Model
 {
     /** @use HasFactory<DistrictFactory> */
-    use HasFactory;
+    use Auditable, HasFactory;
 }
