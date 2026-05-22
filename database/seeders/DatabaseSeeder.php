@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             OrganizationSeeder::class,
             DistrictSeeder::class,
             SportSeeder::class,
+            SportSessionSeeder::class,
         ]);
     }
 }
