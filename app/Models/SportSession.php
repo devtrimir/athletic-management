@@ -29,6 +29,13 @@ class SportSession extends Model
     /** @use HasFactory<SportSessionFactory> */
     use Auditable, HasFactory;
 
+    protected function casts(): array
+    {
+        return [
+            'is_current' => 'boolean',
+        ];
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
