@@ -52,7 +52,7 @@
 - Data flow: initial props come from Inertia 3; `useForm()` (Inertia) handles form submissions; **TanStack Query v5** is used only for incremental/async data (autocomplete, polling) hitting `/api/v1/...` JSON endpoints. Inertia 3 deferred/polling props are used for slow widgets where appropriate.
 - Forms: Inertia `useForm` + **Zod v4** schemas (parsed client-side as a UX guard) mirroring server Form Requests. Server is authoritative.
 - i18n: Inertia shared props `locale` and `translations` (loaded server-side from `resources/lang/{locale}.json`). A `t(key, params)` helper lives in `resources/js/i18n/`. Locales: `hi` (default), `en`. **No hard-coded strings in JSX.**
-- Routing: `/{locale}/...` URL prefix via a `SetLocale` middleware that reads `users.locale`; guest routes default to `/hi`. Locale-aware date/number formatting via `Intl.*` with the `locale` prop.
+- Routing: no URL locale prefix. Locale is stored in session (`users.locale`, default `hi`) and applied by `SetLocale` middleware. Locale-aware date/number formatting via `Intl.*` with the `locale` prop.
 - Tests: **Vitest 2** + **React Testing Library** for component units; **Pest 3 Browser** (Playwright under the hood) for E2E happy-paths.
 
 ### API conventions (the JSON-only endpoints under /api/v1)
@@ -155,11 +155,11 @@ None.
 - Admin user (env-driven email/password) with `admin` role.
 
 **Backend (Inertia + API):**
-- Auth via the Laravel React Starter Kit (scaffolded in P0): `GET/POST /{locale}/login`, `POST /{locale}/logout`, `GET /{locale}/forgot-password` (Inertia 3 pages, session auth).
+- Auth via the Laravel React Starter Kit (scaffolded in P0): `GET/POST /login`, `POST /logout`, `GET /forgot-password` (Inertia 3 pages, session auth).
 - Inertia shared props (`HandleInertiaRequests`): `auth.user` (with `roles`, `organization`), `locale`, `translations`, `flash`.
-- `SetLocale` middleware: resolves locale from URL prefix → `users.locale` → default `hi`.
+- `SetLocale` middleware: resolves locale from session → `users.locale` → default `hi`.
 - `EnsureOrganizationScope` middleware: every Eloquent query auto-scoped via a global scope `BelongsToOrganization`.
-- Inertia CRUD routes for `sessions`, `sports`, `units`, `districts`, `tournament_tiers` under `/{locale}/settings/...`. Gated by `admin` Policy.
+- Inertia CRUD routes for `sessions`, `sports`, `units`, `districts`, `tournament_tiers` under `/settings/...`. Gated by `admin` Policy.
 - JSON API mirrors under `/api/v1/...` for `tournament-tiers`, `sports`, `units`, `districts` (autocomplete sources used by later phases).
 - All list endpoints support pagination, filtering, sorting via `spatie/laravel-query-builder`.
 - `App\Services\AuditLogger` (built on `spatie/laravel-activitylog`) records diffs on every create/update/delete via Model observers.
@@ -168,7 +168,7 @@ None.
 - `Pages/Auth/Login.tsx`, `Pages/Auth/ForgotPassword.tsx` (provided by the Laravel React Starter Kit, restyled).
 - `Layouts/AppLayout.tsx`: sidebar nav with placeholders for Members / Teams / Tournaments / Imports / Reports / Settings; top-bar locale switcher; user menu.
 - `Pages/Settings/Sessions/{Index,Create,Edit}.tsx`; same shape for Sports / Units / Districts / TournamentTiers.
-- Locale switcher PATCHes `users.locale` then redirects to the matching `/{locale}` URL.
+- Locale switcher PATCHes `users.locale` then updates the session locale.
 
 ### Deliverables
 Working login, role-protected reference-data CRUD, audit log writing.
@@ -205,16 +205,16 @@ Phase 0.
 
 **Routes:**
 
-*Inertia (web)* under `/{locale}/members`:
-- `GET /{locale}/members` → `Members/Index` (paginated table, filter panel, debounced search box).
-- `GET /{locale}/members/create` → `Members/Create`.
-- `POST /{locale}/members` → store.
-- `GET /{locale}/members/{member}` → `Members/Show` (profile shell with tabs: Overview, Status History, Aliases, plus Teams / Participations / Achievements stubs filled in later phases).
-- `GET /{locale}/members/{member}/edit` → `Members/Edit`.
-- `PATCH /{locale}/members/{member}` → update.
-- `DELETE /{locale}/members/{member}` → soft delete (admin only).
-- `POST /{locale}/members/{member}/status` → change status, writes `member_status_history`.
-- `POST /{locale}/members/{member}/aliases`, `DELETE /{locale}/members/{member}/aliases/{alias}`.
+*Inertia (web)* under `/members`:
+- `GET /members` → `Members/Index` (paginated table, filter panel, debounced search box).
+- `GET /members/create` → `Members/Create`.
+- `POST /members` → store.
+- `GET /members/{member}` → `Members/Show` (profile shell with tabs: Overview, Status History, Aliases, plus Teams / Participations / Achievements stubs filled in later phases).
+- `GET /members/{member}/edit` → `Members/Edit`.
+- `PATCH /members/{member}` → update.
+- `DELETE /members/{member}` → soft delete (admin only).
+- `POST /members/{member}/status` → change status, writes `member_status_history`.
+- `POST /members/{member}/aliases`, `DELETE /members/{member}/aliases/{alias}`.
 
 Filters supported on the index: `pno`, `mobile`, `unit_id`, `home_district_id`, `sport_id` (placeholder until Phase 4), `player_category`, `player_level`, `current_status`, `q`.
 
@@ -256,7 +256,7 @@ Phase 1.
 - Unique index `(organization_id, pno)` where pno IS NOT NULL.
 
 **Routes:**
-- Inertia CRUD under `/{locale}/coaches` (`Index/Create/Show/Edit`). When `member_id` is set, the response embeds the linked member summary.
+- Inertia CRUD under `/coaches` (`Index/Create/Show/Edit`). When `member_id` is set, the response embeds the linked member summary.
 - Filter: `?filter[has_member]=true|false`.
 - JSON API: `GET /api/v1/search/coaches?q=...` for autocomplete (used in Phase 4).
 
@@ -287,11 +287,11 @@ Phase 2.
 
 **Routes:**
 
-*Inertia* under `/{locale}/teams`:
-- `GET /{locale}/teams` → `Teams/Index` (filtered by session, default = current; embedded counts `players_count`, `coaches_count`).
-- `GET /{locale}/teams/create`, `POST /{locale}/teams`, `GET /{locale}/teams/{team}`, `PATCH /{locale}/teams/{team}`, soft `DELETE`.
-- `POST /{locale}/teams/{team}/members` (bulk add by member IDs), `DELETE /{locale}/teams/{team}/members/{member}`.
-- `POST /{locale}/teams/{team}/coaches`, `DELETE /{locale}/teams/{team}/coaches/{coach}`.
+*Inertia* under `/teams`:
+- `GET /teams` → `Teams/Index` (filtered by session, default = current; embedded counts `players_count`, `coaches_count`).
+- `GET /teams/create`, `POST /teams`, `GET /teams/{team}`, `PATCH /teams/{team}`, soft `DELETE`.
+- `POST /teams/{team}/members` (bulk add by member IDs), `DELETE /teams/{team}/members/{member}`.
+- `POST /teams/{team}/coaches`, `DELETE /teams/{team}/coaches/{coach}`.
 
 *JSON API*:
 - `GET /api/v1/members/{member}/teams` — historical team membership across sessions (drives the member profile "Teams" tab).
@@ -327,11 +327,11 @@ Phases 2, 3.
 
 **Routes:**
 
-*Inertia* under `/{locale}/tournaments`:
+*Inertia* under `/tournaments`:
 - CRUD `Index/Create/Show/Edit`. `Show` has an Events sub-tab.
-- `POST /{locale}/tournaments/{tournament}/events` — create event.
-- `GET /{locale}/tournaments/{tournament}/events/{event}` → `Events/Show` with a multi-row participants grid (member picker + position + medal). Submission writes participations + optional achievements atomically.
-- `GET /{locale}/reports/medals` (interim home for the medals report until Phase 7 reports gallery).
+- `POST /tournaments/{tournament}/events` — create event.
+- `GET /tournaments/{tournament}/events/{event}` → `Events/Show` with a multi-row participants grid (member picker + position + medal). Submission writes participations + optional achievements atomically.
+- `GET /reports/medals` (interim home for the medals report until Phase 7 reports gallery).
 
 *JSON API*:
 - `GET /api/v1/members/{member}/participations` — chronological, grouped by session.
@@ -378,13 +378,13 @@ Phase 4 (for `team_id` on participations) and Phase 2.
 8. `ImportApplier` — atomic per-row apply: creates/updates `members`, `name_aliases`, `member_status_history`, `teams`, `team_members`, `coach_assignments`, `tournaments`, `events`, `participations`, `achievements`. Idempotent on (event_id, member_id) and (team_id, member_id).
 
 **Workflow (Inertia routes + queued jobs + JSON polling):**
-1. `POST /{locale}/imports` (multipart upload) → stores file in S3 (MinIO locally) → status `UPLOADED` → dispatches `ParseImportJob`.
+1. `POST /imports` (multipart upload) → stores file in S3 (MinIO locally) → status `UPLOADED` → dispatches `ParseImportJob`.
 2. `ParseImportJob` runs extractor (re-use `analysis/scripts/extract_workbooks.py` logic ported to PHP via `maatwebsite/excel`, OR shell out to the existing Python script — accept either, document choice in an ADR), classifies sheets, runs row parsers, writes `import_rows`. Status → `READY_FOR_REVIEW`.
-3. `GET /{locale}/imports/{import}` (Inertia) → summary + counts by status.
-4. `GET /{locale}/imports/{import}/rows?status=AMBIGUOUS&page=...` (Inertia partial reload via `router.reload({ only: ['rows'] })`).
-5. `PATCH /{locale}/imports/{import}/rows/{row}` → user resolves: pick a candidate, edit `resolved` JSON, or REJECT.
-6. `POST /{locale}/imports/{import}/apply` → dispatches `ApplyImportJob` → applies all `MATCHED` rows atomically per row → status `COMPLETED`.
-7. `POST /{locale}/imports/{import}/rollback` (admin, time-windowed 24 h) → reverses via stored compensating actions.
+3. `GET /imports/{import}` (Inertia) → summary + counts by status.
+4. `GET /imports/{import}/rows?status=AMBIGUOUS&page=...` (Inertia partial reload via `router.reload({ only: ['rows'] })`).
+5. `PATCH /imports/{import}/rows/{row}` → user resolves: pick a candidate, edit `resolved` JSON, or REJECT.
+6. `POST /imports/{import}/apply` → dispatches `ApplyImportJob` → applies all `MATCHED` rows atomically per row → status `COMPLETED`.
+7. `POST /imports/{import}/rollback` (admin, time-windowed 24 h) → reverses via stored compensating actions.
 8. *JSON API* for live progress polling: `GET /api/v1/imports/{import}/progress` returns `{status, rows: {new, matched, ambiguous, applied, rejected}, percent}` — consumed by TanStack Query on the import page (3-second interval).
 
 **Frontend (Inertia pages):**
@@ -428,8 +428,8 @@ Phases 2, 3, 4, 5.
 8. Achievement history per member.
 
 **Routes:**
-- Inertia: `GET /{locale}/reports` → `Reports/Index` (gallery); `GET /{locale}/reports/{key}` → `Reports/Show` (filter panel + table + Recharts chart + export buttons).
-- Export downloads: `GET /{locale}/reports/{key}/export?format=xlsx|pdf` returns a binary response (queued via `ExportReportJob` for large reports; small ones return inline). Use `maatwebsite/excel` for XLSX, `barryvdh/laravel-dompdf` for PDF. Templates include the bundled Noto Sans Devanagari font.
+- Inertia: `GET /reports` → `Reports/Index` (gallery); `GET /reports/{key}` → `Reports/Show` (filter panel + table + Recharts chart + export buttons).
+- Export downloads: `GET /reports/{key}/export?format=xlsx|pdf` returns a binary response (queued via `ExportReportJob` for large reports; small ones return inline). Use `maatwebsite/excel` for XLSX, `barryvdh/laravel-dompdf` for PDF. Templates include the bundled Noto Sans Devanagari font.
 - JSON API: `GET /api/v1/reports/{key}` returns the same JSON the Inertia page uses (kept for future public API consumers).
 
 **Frontend (Inertia pages):**
@@ -481,7 +481,7 @@ Phase 2 (members exist), Phase 6 (data volume realistic).
 - ESLint rule (custom or `eslint-plugin-react-intl`-style) fails on string literals inside JSX `>...<`.
 
 ### Acceptance Criteria
-- Toggling language in the header (which PATCHes `users.locale` and redirects to the matching `/{locale}` URL) instantly switches every label on every screen.
+- Toggling language in the header (which PATCHes `users.locale` and updates the session locale) instantly switches every label on every screen.
 - Validation errors from backend appear in the chosen language.
 - Lint rule fails on any hard-coded user-facing string; CI rejects such PRs.
 
@@ -495,7 +495,7 @@ Phases 1–7 UI complete.
 **Goal:** make the MVP demo-ready and production-safe.
 
 ### Scope
-- `/{locale}/audit-logs` Inertia screen (admin): filter by user, entity, date range; diff viewer.
+- `/audit-logs` Inertia screen (admin): filter by user, entity, date range; diff viewer.
 - Daily DB + S3 backup via `spatie/laravel-backup` to S3.
 - Rate limiting (Laravel `ThrottleRequests`) on auth and search endpoints.
 - Security headers via a single `SecurityHeaders` middleware (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy).

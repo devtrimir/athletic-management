@@ -80,12 +80,12 @@ If any single resource grows beyond ~400 LOC diff, split BE / FE into separate t
 
 | Route | Type | Handler / Page |
 |---|---|---|
-| `GET /{locale}/login` … | web | starter kit (restyled) |
-| `GET /{locale}/settings/sessions` … | web | `Settings/Sessions/*` |
-| `GET /{locale}/settings/sports` … | web | `Settings/Sports/*` |
-| `GET /{locale}/settings/units` … | web | `Settings/Units/*` |
-| `GET /{locale}/settings/districts` … | web | `Settings/Districts/*` |
-| `GET /{locale}/settings/tournament-tiers` … | web | `Settings/TournamentTiers/*` |
+| `GET /login` … | web | starter kit (restyled) |
+| `GET /settings/sessions` … | web | `Settings/Sessions/*` |
+| `GET /settings/sports` … | web | `Settings/Sports/*` |
+| `GET /settings/units` … | web | `Settings/Units/*` |
+| `GET /settings/districts` … | web | `Settings/Districts/*` |
+| `GET /settings/tournament-tiers` … | web | `Settings/TournamentTiers/*` |
 | `GET /api/v1/tournament-tiers` | API | autocomplete |
 | `GET /api/v1/sports` | API | autocomplete |
 | `GET /api/v1/units` | API | autocomplete |
