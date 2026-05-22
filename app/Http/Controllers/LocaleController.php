@@ -9,8 +9,12 @@ class LocaleController extends Controller
 {
     public function update(UpdateLocaleRequest $request): RedirectResponse
     {
-        session(['locale' => $request->validated('locale')]);
+        $locale = $request->validated('locale');
 
-        return redirect()->back();
+        session(['locale' => $locale]);
+
+        $request->user()?->update(['locale' => $locale]);
+
+        return back();
     }
 }
