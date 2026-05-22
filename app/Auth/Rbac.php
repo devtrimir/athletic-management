@@ -2,6 +2,8 @@
 
 namespace App\Auth;
 
+use App\Models\Permission;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -21,7 +23,7 @@ class Rbac
     /**
      * Return roles held by the user in the given org.
      *
-     * @return Collection<int, \App\Models\Role>
+     * @return Collection<int, Role>
      */
     public function userRoles(User $user, int $orgId): Collection
     {
@@ -32,15 +34,25 @@ class Rbac
         }
 
         $roles = Cache::remember(
-            self::PREFIX . ":roles:{$key}",
+            self::PREFIX.":roles:{$key}",
             self::TTL,
-            fn () => \App\Models\Role::query()
+            fn () => Role::query()
                 ->join('user_role', 'roles.id', '=', 'user_role.role_id')
                 ->where('user_role.user_id', $user->id)
                 ->where('roles.organization_id', $orgId)
                 ->select('roles.*')
                 ->get(),
         );
+
+        if (! $roles instanceof Collection) {
+            Cache::forget(self::PREFIX.":roles:{$key}");
+            $roles = Role::query()
+                ->join('user_role', 'roles.id', '=', 'user_role.role_id')
+                ->where('user_role.user_id', $user->id)
+                ->where('roles.organization_id', $orgId)
+                ->select('roles.*')
+                ->get();
+        }
 
         return $this->rolesCache[$key] = $roles;
     }
@@ -61,9 +73,9 @@ class Rbac
         $roleIds = $this->userRoles($user, $orgId)->pluck('id');
 
         $permissions = Cache::remember(
-            self::PREFIX . ":permissions:{$key}",
+            self::PREFIX.":permissions:{$key}",
             self::TTL,
-            fn () => \App\Models\Permission::query()
+            fn () => Permission::query()
                 ->join('role_permission', 'permissions.id', '=', 'role_permission.permission_id')
                 ->whereIn('role_permission.role_id', $roleIds)
                 ->distinct()
@@ -96,8 +108,8 @@ class Rbac
     {
         $key = "{$userId}:{$orgId}";
 
-        Cache::forget(self::PREFIX . ":roles:{$key}");
-        Cache::forget(self::PREFIX . ":permissions:{$key}");
+        Cache::forget(self::PREFIX.":roles:{$key}");
+        Cache::forget(self::PREFIX.":permissions:{$key}");
 
         unset($this->rolesCache[$key], $this->permissionsCache[$key]);
     }
