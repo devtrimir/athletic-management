@@ -83,7 +83,7 @@ See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 ### Frontend shell
 - [x] **P1-T31** `Layouts/AppLayout.tsx` (sidebar nav + topbar + user menu)
 - [x] **P1-T32** Locale switcher (PATCH `users.locale` → updates session locale, no URL redirect)
-- [ ] **P1-T33** Auth pages restyle (Login, ForgotPassword) to match the app shell
+- [x] **P1-T33** Auth pages restyle (Login, ForgotPassword) to match the app shell
 
 ### Tests
 - [x] **P1-T34** Pest: RBAC matrix (admin / data_entry / viewer × every gated route)
