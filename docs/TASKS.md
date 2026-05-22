@@ -70,10 +70,10 @@ See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 - [ ] **P1-T23** Seeder: sessions `2019-20` … `2026-27`, current = `2026-27`
 
 ### Audit
-- [ ] **P1-T24** `App\Services\AuditLogger` (in-house) on top of the P1-T09 `audit_logs` table; global Eloquent observer writes `created/updated/deleted` diffs for whitelisted models
+- [x] **P1-T24** `App\Services\AuditLogger` (in-house) on top of the P1-T09 `audit_logs` table; global Eloquent observer writes `created/updated/deleted` diffs for whitelisted models
 
 ### Reference-data CRUD (BE + FE per resource)
-- [ ] **P1-T25** Sessions: Form Requests + Controller + Policy + Inertia pages (Index/Create/Edit)
+- [x] **P1-T25** Sessions: Form Requests + Controller + Policy + Inertia pages (Index/Create/Edit)
 - [ ] **P1-T26** Sports: same
 - [ ] **P1-T27** Units: same
 - [ ] **P1-T28** Districts: same
