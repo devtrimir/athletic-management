@@ -77,7 +77,7 @@ See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 - [x] **P1-T26** Sports: same
 - [x] **P1-T27** Units: same
 - [x] **P1-T28** Districts: same
-- [ ] **P1-T29** TournamentTiers: same
+- [x] **P1-T29** TournamentTiers: same
 - [ ] **P1-T30** JSON `/api/v1` read endpoints for `tournament-tiers`, `sports`, `units`, `districts` (autocomplete sources)
 
 ### Frontend shell
