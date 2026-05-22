@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '@/hooks/use-translation';
 
 type SportSession = {
     id: number;
@@ -16,6 +17,7 @@ type SportSession = {
 };
 
 export default function Edit({ session }: { session: SportSession }) {
+    const { t } = useTranslation();
     setLayoutProps({
         breadcrumbs: [
             {
@@ -38,8 +40,8 @@ export default function Edit({ session }: { session: SportSession }) {
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title={`Edit ${session.name}`}
-                    description="Update sport session details"
+                    title={`${t('Edit')} ${session.name}`}
+                    description={t('Update sport session details')}
                 />
 
                 <Form {...SportSessionController.update.form(session.id)} className="max-w-xl space-y-6">
@@ -47,7 +49,7 @@ export default function Edit({ session }: { session: SportSession }) {
                         <>
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="name">Name</Label>
+                                    <Label htmlFor="name">{t('Name')}</Label>
                                     <Input
                                         id="name"
                                         name="name"
@@ -61,7 +63,7 @@ export default function Edit({ session }: { session: SportSession }) {
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="start_year">Start year</Label>
+                                        <Label htmlFor="start_year">{t('Start year')}</Label>
                                         <Input
                                             id="start_year"
                                             name="start_year"
@@ -75,7 +77,7 @@ export default function Edit({ session }: { session: SportSession }) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="end_year">End year</Label>
+                                        <Label htmlFor="end_year">{t('End year')}</Label>
                                         <Input
                                             id="end_year"
                                             name="end_year"
@@ -96,17 +98,17 @@ export default function Edit({ session }: { session: SportSession }) {
                                         defaultChecked={session.is_current}
                                     />
                                     <div>
-                                        <Label htmlFor="is_current" className="cursor-pointer">Mark as current session</Label>
-                                        <p className="text-xs text-muted-foreground">Only one session can be current at a time.</p>
+                                        <Label htmlFor="is_current" className="cursor-pointer">{t('Mark as current session')}</Label>
+                                        <p className="text-xs text-muted-foreground">{t('Only one session can be current at a time.')}</p>
                                     </div>
                                     <InputError message={errors.is_current} />
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>Save changes</Button>
+                                <Button disabled={processing}>{t('Save changes')}</Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={SportSessionController.index.url()}>Cancel</Link>
+                                    <Link href={SportSessionController.index.url()}>{t('Cancel')}</Link>
                                 </Button>
                             </div>
                         </>

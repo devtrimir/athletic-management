@@ -12,32 +12,23 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useTranslation } from '@/hooks/use-translation';
 import { dashboard } from '@/routes';
 import { edit as editProfile } from '@/routes/profile';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Athletes',
-        href: '#',
-        icon: Users,
-    },
-];
-
-const adminNavItems: NavItem[] = [
-    {
-        title: 'Settings',
-        href: editProfile(),
-        icon: Settings2,
-    },
-];
-
 export function AppSidebar() {
+    const { t } = useTranslation();
+
+    const mainNavItems: NavItem[] = [
+        { title: t('Dashboard'), href: dashboard(), icon: LayoutGrid },
+        { title: t('Athletes'), href: '#', icon: Users },
+    ];
+
+    const adminNavItems: NavItem[] = [
+        { title: t('Settings'), href: editProfile(), icon: Settings2 },
+    ];
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -53,8 +44,8 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} groupLabel="Main" />
-                <NavMain items={adminNavItems} groupLabel="Admin" />
+                <NavMain items={mainNavItems} groupLabel={t('Main')} />
+                <NavMain items={adminNavItems} groupLabel={t('Admin')} />
             </SidebarContent>
 
             <SidebarFooter>

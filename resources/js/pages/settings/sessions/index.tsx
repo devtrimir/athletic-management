@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
-import { Plus, Search } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import SportSessionController from '@/actions/App/Http/Controllers/Settings/SportSessionController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useTranslation } from '@/hooks/use-translation';
 
 type SportSession = {
     id: number;
@@ -18,6 +19,7 @@ type SportSession = {
 };
 
 export default function Index({ sessions }: { sessions: SportSession[] }) {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
@@ -42,13 +44,13 @@ export default function Index({ sessions }: { sessions: SportSession[] }) {
                 <div className="flex items-start justify-between gap-4">
                     <Heading
                         variant="small"
-                        title="Sport sessions"
-                        description="Manage reference sport session years"
+                        title={t('Sport sessions')}
+                        description={t('Manage reference sport session years')}
                     />
                     <Button asChild size="sm">
                         <Link href={SportSessionController.create.url()}>
                             <Plus className="mr-1.5 h-4 w-4" />
-                            New session
+                            {t('New session')}
                         </Link>
                     </Button>
                 </div>
@@ -57,7 +59,7 @@ export default function Index({ sessions }: { sessions: SportSession[] }) {
                     <div className="relative max-w-xs flex-1">
                         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder="Search sessions…"
+                            placeholder={t('Search sessions…')}
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             className="pl-8"
@@ -65,12 +67,12 @@ export default function Index({ sessions }: { sessions: SportSession[] }) {
                     </div>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                         <SelectTrigger className="w-36">
-                            <SelectValue placeholder="Status" />
+                            <SelectValue placeholder={t('Status')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All statuses</SelectItem>
-                            <SelectItem value="current">Current</SelectItem>
-                            <SelectItem value="past">Past</SelectItem>
+                            <SelectItem value="all">{t('All statuses')}</SelectItem>
+                            <SelectItem value="current">{t('Current')}</SelectItem>
+                            <SelectItem value="past">{t('Past')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -79,17 +81,17 @@ export default function Index({ sessions }: { sessions: SportSession[] }) {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead>Name</TableHead>
-                                <TableHead>Years</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-0 text-right">Actions</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
+                                <TableHead>{t('Years')}</TableHead>
+                                <TableHead>{t('Status')}</TableHead>
+                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
-                                        {sessions.length === 0 ? 'No sessions yet.' : 'No sessions match your filters.'}
+                                        {sessions.length === 0 ? t('No sessions yet.') : t('No sessions match your filters.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -101,25 +103,26 @@ export default function Index({ sessions }: { sessions: SportSession[] }) {
                                         </TableCell>
                                         <TableCell>
                                             {session.is_current ? (
-                                                <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">Current</Badge>
+                                                <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">{t('Current')}</Badge>
                                             ) : (
-                                                <Badge variant="outline">Past</Badge>
+                                                <Badge variant="outline">{t('Past')}</Badge>
                                             )}
                                         </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center justify-end gap-1">
-                                                <Button variant="ghost" size="sm" asChild>
-                                                    <Link href={SportSessionController.edit.url(session.id)}>Edit</Link>
+                                                <Button variant="ghost" size="icon" title={t('Edit')} asChild>
+                                                    <Link href={SportSessionController.edit.url(session.id)}><Pencil className="h-4 w-4" /></Link>
                                                 </Button>
                                                 <Form {...SportSessionController.destroy.form(session.id)}>
                                                     {({ processing }) => (
                                                         <Button
                                                             variant="ghost"
-                                                            size="sm"
+                                                            size="icon"
+                                                            title={t('Delete')}
                                                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                                                             disabled={processing}
                                                         >
-                                                            Delete
+                                                            <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     )}
                                                 </Form>

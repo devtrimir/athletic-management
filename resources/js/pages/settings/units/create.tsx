@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useTranslation } from '@/hooks/use-translation';
 
 const UNIT_TYPES = [
     { value: 'PAC', label: 'PAC' },
@@ -22,14 +23,15 @@ type District = {
 };
 
 export default function Create({ districts }: { districts: District[] }) {
+    const { t } = useTranslation();
     return (
         <>
-            <Head title="New unit" />
+            <Head title={t('New unit')} />
 
-            <h1 className="sr-only">New unit</h1>
+            <h1 className="sr-only">{t('New unit')}</h1>
 
             <div className="space-y-6">
-                <Heading variant="small" title="New unit" description="Add a new police unit" />
+                <Heading variant="small" title={t('New unit')} description={t('Add a new police unit')} />
 
                 <Form {...UnitController.store.form()} className="max-w-xl space-y-6">
                     {({ processing, errors }) => (
@@ -37,7 +39,7 @@ export default function Create({ districts }: { districts: District[] }) {
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_hi">Name (Hindi)</Label>
+                                        <Label htmlFor="name_hi">{t('Name (Hindi)')}</Label>
                                         <Input
                                             id="name_hi"
                                             name="name_hi"
@@ -49,7 +51,7 @@ export default function Create({ districts }: { districts: District[] }) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_en">Name (English)</Label>
+                                        <Label htmlFor="name_en">{t('Name (English)')}</Label>
                                         <Input
                                             id="name_en"
                                             name="name_en"
@@ -62,15 +64,15 @@ export default function Create({ districts }: { districts: District[] }) {
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="unit_type">Unit type</Label>
+                                    <Label htmlFor="unit_type">{t('Unit type')}</Label>
                                     <Select name="unit_type" required>
                                         <SelectTrigger id="unit_type" className="w-full">
-                                            <SelectValue placeholder="Select a type" />
+                                            <SelectValue placeholder={t('Select a type')} />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {UNIT_TYPES.map((t) => (
-                                                <SelectItem key={t.value} value={t.value}>
-                                                    {t.label}
+                                            {UNIT_TYPES.map((u) => (
+                                                <SelectItem key={u.value} value={u.value}>
+                                                    {u.label}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -80,7 +82,7 @@ export default function Create({ districts }: { districts: District[] }) {
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="commandant">Commandant <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                                        <Label htmlFor="commandant">{t('Commandant')} <span className="text-muted-foreground font-normal">{t('(optional)')}</span></Label>
                                         <Input
                                             id="commandant"
                                             name="commandant"
@@ -91,7 +93,7 @@ export default function Create({ districts }: { districts: District[] }) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="district_id">District <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                                        <Label htmlFor="district_id">{t('District')} <span className="text-muted-foreground font-normal">{t('(optional)')}</span></Label>
                                         <Select name="district_id">
                                             <SelectTrigger id="district_id" className="w-full">
                                                 <SelectValue placeholder="None" />
@@ -110,9 +112,9 @@ export default function Create({ districts }: { districts: District[] }) {
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>Create unit</Button>
+                                <Button disabled={processing}>{t('Create unit')}</Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={UnitController.index.url()}>Cancel</Link>
+                                    <Link href={UnitController.index.url()}>{t('Cancel')}</Link>
                                 </Button>
                             </div>
                         </>

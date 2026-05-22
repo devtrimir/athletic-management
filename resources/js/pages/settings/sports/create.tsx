@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useTranslation } from '@/hooks/use-translation';
 
 const CATEGORIES = [
     { value: 'INDIVIDUAL', label: 'Individual' },
@@ -15,14 +16,15 @@ const CATEGORIES = [
 ] as const;
 
 export default function Create() {
+    const { t } = useTranslation();
     return (
         <>
-            <Head title="New sport" />
+            <Head title={t('New sport')} />
 
-            <h1 className="sr-only">New sport</h1>
+            <h1 className="sr-only">{t('New sport')}</h1>
 
             <div className="space-y-6">
-                <Heading variant="small" title="New sport" description="Add a new sport discipline" />
+                <Heading variant="small" title={t('New sport')} description={t('Add a new sport discipline')} />
 
                 <Form {...SportController.store.form()} className="max-w-xl space-y-6">
                     {({ processing, errors }) => (
@@ -30,7 +32,7 @@ export default function Create() {
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_hi">Name (Hindi)</Label>
+                                        <Label htmlFor="name_hi">{t('Name (Hindi)')}</Label>
                                         <Input
                                             id="name_hi"
                                             name="name_hi"
@@ -42,7 +44,7 @@ export default function Create() {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_en">Name (English)</Label>
+                                        <Label htmlFor="name_en">{t('Name (English)')}</Label>
                                         <Input
                                             id="name_en"
                                             name="name_en"
@@ -55,10 +57,10 @@ export default function Create() {
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="category">Category</Label>
+                                    <Label htmlFor="category">{t('Category')}</Label>
                                     <Select name="category" required>
                                         <SelectTrigger id="category" className="w-full">
-                                            <SelectValue placeholder="Select a category" />
+                                            <SelectValue placeholder={t('Select a category')} />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {CATEGORIES.map((cat) => (
@@ -73,9 +75,9 @@ export default function Create() {
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>Create sport</Button>
+                                <Button disabled={processing}>{t('Create sport')}</Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={SportController.index.url()}>Cancel</Link>
+                                    <Link href={SportController.index.url()}>{t('Cancel')}</Link>
                                 </Button>
                             </div>
                         </>

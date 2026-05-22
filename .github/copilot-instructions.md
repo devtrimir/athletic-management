@@ -55,7 +55,13 @@ Skills under [`.github/skills/`](skills/) auto-activate per their descriptions (
 - **Tests are mandatory.** Every endpoint → Pest Feature test. Every Service/Action → Pest Unit test. Every user-facing flow → Pest Browser. Non-trivial React → Vitest. Coverage gate ≥ 70%.
 - **Authorization is mandatory.** Every Inertia route + API endpoint goes through a Policy or `permission:` middleware. RBAC is in-house (see ADR-0003 — **never** suggest `spatie/laravel-permission`).
 - **Multi-tenancy:** every domain model uses `BelongsToOrganization` global scope. Escape-hatch only in queued reindex jobs.
-- **Locale:** stored in session (from `users.locale`, default `hi`); **no URL prefix**. From P9 forward: no hard-coded user-facing strings in JSX — use `t()`.
+- **Locale:** stored in session (from `users.locale`, default `hi`); **no URL prefix**.
+- **Translations are mandatory on every user-facing string — zero exceptions.** Every label, heading, placeholder, button text, badge text, empty-state message, table header, nav item title, group label, section heading, tooltip, dialog title, confirmation message, and error text in JSX/TSX must be wrapped with `t()` from `useTranslation()` (`resources/js/hooks/use-translation.ts`). Never hardcode an English string in a component. This rule applies to **all** components: pages, layouts, sidebars, headers, nav menus, modals — not just form pages.
+  - Add the English key + Hindi value to `resources/lang/hi.json` for every new string before the PR is raised.
+  - Nav item arrays and other data structures defined as module-level constants **cannot** call hooks — move them inside the component function so `t()` is accessible.
+  - **Before finishing any task**, grep the changed TSX/JSX files for hardcoded English UI strings: `grep -n '"[A-Z][a-z]' resources/js/...` — fix every hit.
+  - This applies from the **first commit** of a feature — never as a retrofit.
+  - `en.json` stays `{}`; the key itself is the English fallback.
 - **Migrations:** every `up()` has a working `down()`. CI runs `migrate:fresh --seed` then `migrate:rollback` on every PR.
 - **API contract stability:** `/api/v1` shapes are frozen. Search endpoints keep their contract across the P2 → P8 Meilisearch swap.
 - **PHP style:** after editing any PHP file, run `vendor/bin/pint --dirty --format agent` before finishing.
@@ -64,7 +70,6 @@ Skills under [`.github/skills/`](skills/) auto-activate per their descriptions (
 ## Things to avoid
 
 - `spatie/laravel-permission`, `laravel/sanctum` for the SPA, axios (use Inertia + fetch).
-- Inline English/Hindi literals in JSX after P9.
 - Controller-level validation (always Form Requests).
 - Hard-coding role names in policies (always check permission codes).
 - Writing markdown to "document" a change — code + tests + ticking the phase checklist is the documentation.

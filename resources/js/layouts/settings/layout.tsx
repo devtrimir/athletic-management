@@ -4,6 +4,7 @@ import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/hooks/use-current-url';
+import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit } from '@/routes/profile';
@@ -14,20 +15,6 @@ import { index as unitsIndex } from '@/routes/units';
 import { index as districtsIndex } from '@/routes/districts';
 import { index as tournamentTiersIndex } from '@/routes/tournament-tiers';
 import type { NavItem } from '@/types';
-
-const accountNavItems: NavItem[] = [
-    { title: 'Profile', href: edit(), icon: User },
-    { title: 'Security', href: editSecurity(), icon: Shield },
-    { title: 'Appearance', href: editAppearance(), icon: Monitor },
-];
-
-const referenceDataNavItems: NavItem[] = [
-    { title: 'Sessions', href: sessionsIndex(), icon: CalendarDays },
-    { title: 'Sports', href: sportsIndex(), icon: Trophy },
-    { title: 'Units', href: unitsIndex(), icon: Building2 },
-    { title: 'Districts', href: districtsIndex(), icon: MapPin },
-    { title: 'Tournament Tiers', href: tournamentTiersIndex(), icon: Medal },
-];
 
 function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
     return (
@@ -48,19 +35,34 @@ function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
+    const { t } = useTranslation();
+
+    const accountNavItems: NavItem[] = [
+        { title: t('Profile'), href: edit(), icon: User },
+        { title: t('Security'), href: editSecurity(), icon: Shield },
+        { title: t('Appearance'), href: editAppearance(), icon: Monitor },
+    ];
+
+    const referenceDataNavItems: NavItem[] = [
+        { title: t('Sessions'), href: sessionsIndex(), icon: CalendarDays },
+        { title: t('Sports'), href: sportsIndex(), icon: Trophy },
+        { title: t('Units'), href: unitsIndex(), icon: Building2 },
+        { title: t('Districts'), href: districtsIndex(), icon: MapPin },
+        { title: t('Tournament Tiers'), href: tournamentTiersIndex(), icon: Medal },
+    ];
 
     return (
         <div className="px-4 py-6">
             <Heading
-                title="Settings"
-                description="Manage your profile and account settings"
+                title={t('Settings')}
+                description={t('Manage your profile and account settings')}
             />
 
             <div className="flex flex-col lg:flex-row lg:gap-10">
                 <aside className="w-full lg:w-52 shrink-0">
-                    <nav className="flex flex-col gap-0.5" aria-label="Settings">
+                    <nav className="flex flex-col gap-0.5" aria-label={t('Settings')}>
                         <p className="px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Account
+                            {t('Account')}
                         </p>
                         {accountNavItems.map((item) => (
                             <NavLink
@@ -70,7 +72,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                             />
                         ))}
                         <p className="mt-4 px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Reference Data
+                            {t('Reference Data')}
                         </p>
                         {referenceDataNavItems.map((item) => (
                             <NavLink

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useTranslation } from '@/hooks/use-translation';
 
 const CATEGORIES = [
     { value: 'INDIVIDUAL', label: 'Individual' },
@@ -23,6 +24,7 @@ type Sport = {
 };
 
 export default function Edit({ sport }: { sport: Sport }) {
+    const { t } = useTranslation();
     setLayoutProps({
         breadcrumbs: [
             {
@@ -45,8 +47,8 @@ export default function Edit({ sport }: { sport: Sport }) {
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title={`Edit ${sport.name_en}`}
-                    description="Update sport discipline details"
+                    title={`${t('Edit')} ${sport.name_en}`}
+                    description={t('Update sport discipline details')}
                 />
 
                 <Form {...SportController.update.form(sport.id)} className="max-w-xl space-y-6">
@@ -55,7 +57,7 @@ export default function Edit({ sport }: { sport: Sport }) {
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_hi">Name (Hindi)</Label>
+                                        <Label htmlFor="name_hi">{t('Name (Hindi)')}</Label>
                                         <Input
                                             id="name_hi"
                                             name="name_hi"
@@ -67,7 +69,7 @@ export default function Edit({ sport }: { sport: Sport }) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_en">Name (English)</Label>
+                                        <Label htmlFor="name_en">{t('Name (English)')}</Label>
                                         <Input
                                             id="name_en"
                                             name="name_en"
@@ -80,7 +82,7 @@ export default function Edit({ sport }: { sport: Sport }) {
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="category">Category</Label>
+                                    <Label htmlFor="category">{t('Category')}</Label>
                                     <Select name="category" defaultValue={sport.category} required>
                                         <SelectTrigger id="category" className="w-full">
                                             <SelectValue />
@@ -98,9 +100,9 @@ export default function Edit({ sport }: { sport: Sport }) {
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>Save changes</Button>
+                                <Button disabled={processing}>{t('Save changes')}</Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={SportController.index.url()}>Cancel</Link>
+                                    <Link href={SportController.index.url()}>{t('Cancel')}</Link>
                                 </Button>
                             </div>
                         </>

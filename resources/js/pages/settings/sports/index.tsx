@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
-import { Plus, Search } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import SportController from '@/actions/App/Http/Controllers/Settings/SportController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useTranslation } from '@/hooks/use-translation';
 
 const CATEGORY_VARIANTS: Record<string, string> = {
     INDIVIDUAL: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
@@ -27,6 +28,7 @@ type Sport = {
 const CATEGORIES = ['INDIVIDUAL', 'TEAM', 'COMBAT', 'WATER'] as const;
 
 export default function Index({ sports }: { sports: Sport[] }) {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
 
@@ -53,13 +55,13 @@ export default function Index({ sports }: { sports: Sport[] }) {
                 <div className="flex items-start justify-between gap-4">
                     <Heading
                         variant="small"
-                        title="Sports"
-                        description="Manage reference sports disciplines"
+                        title={t('Sports')}
+                        description={t('Manage reference sports disciplines')}
                     />
                     <Button asChild size="sm">
                         <Link href={SportController.create.url()}>
                             <Plus className="mr-1.5 h-4 w-4" />
-                            New sport
+                            {t('New sport')}
                         </Link>
                     </Button>
                 </div>
@@ -68,7 +70,7 @@ export default function Index({ sports }: { sports: Sport[] }) {
                     <div className="relative max-w-xs flex-1">
                         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder="Search sports…"
+                            placeholder={t('Search sports…')}
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             className="pl-8"
@@ -76,10 +78,10 @@ export default function Index({ sports }: { sports: Sport[] }) {
                     </div>
                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                         <SelectTrigger className="w-40">
-                            <SelectValue placeholder="Category" />
+                            <SelectValue placeholder={t('Category')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All categories</SelectItem>
+                            <SelectItem value="all">{t('All categories')}</SelectItem>
                             {CATEGORIES.map((c) => (
                                 <SelectItem key={c} value={c}>{c}</SelectItem>
                             ))}
@@ -91,17 +93,17 @@ export default function Index({ sports }: { sports: Sport[] }) {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead>Name (Hindi)</TableHead>
-                                <TableHead>Name (English)</TableHead>
-                                <TableHead>Category</TableHead>
-                                <TableHead className="w-0 text-right">Actions</TableHead>
+                                <TableHead>{t('Name (Hindi)')}</TableHead>
+                                <TableHead>{t('Name (English)')}</TableHead>
+                                <TableHead>{t('Category')}</TableHead>
+                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
-                                        {sports.length === 0 ? 'No sports yet.' : 'No sports match your filters.'}
+                                        {sports.length === 0 ? t('No sports yet.') : t('No sports match your filters.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -119,18 +121,19 @@ export default function Index({ sports }: { sports: Sport[] }) {
                                         </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center justify-end gap-1">
-                                                <Button variant="ghost" size="sm" asChild>
-                                                    <Link href={SportController.edit.url(sport.id)}>Edit</Link>
+                                                <Button variant="ghost" size="icon" title={t('Edit')} asChild>
+                                                    <Link href={SportController.edit.url(sport.id)}><Pencil className="h-4 w-4" /></Link>
                                                 </Button>
                                                 <Form {...SportController.destroy.form(sport.id)}>
                                                     {({ processing }) => (
                                                         <Button
                                                             variant="ghost"
-                                                            size="sm"
+                                                            size="icon"
+                                                            title={t('Delete')}
                                                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                                                             disabled={processing}
                                                         >
-                                                            Delete
+                                                            <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     )}
                                                 </Form>

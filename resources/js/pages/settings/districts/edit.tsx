@@ -5,6 +5,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '@/hooks/use-translation';
 
 type District = {
     id: number;
@@ -15,6 +16,7 @@ type District = {
 };
 
 export default function Edit({ district }: { district: District }) {
+    const { t } = useTranslation();
     setLayoutProps({
         breadcrumbs: [
             {
@@ -30,15 +32,15 @@ export default function Edit({ district }: { district: District }) {
 
     return (
         <>
-            <Head title={`Edit ${district.name_en}`} />
+            <Head title={`${t('Edit')} ${district.name_en}`} />
 
-            <h1 className="sr-only">Edit {district.name_en}</h1>
+            <h1 className="sr-only">{t('Edit')} {district.name_en}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title={`Edit ${district.name_en}`}
-                    description="Update district details"
+                    title={`${t('Edit')} ${district.name_en}`}
+                    description={t('Update district details')}
                 />
 
                 <Form {...DistrictController.update.form(district.id)} className="max-w-xl space-y-6">
@@ -47,7 +49,7 @@ export default function Edit({ district }: { district: District }) {
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_hi">Name (Hindi)</Label>
+                                        <Label htmlFor="name_hi">{t('Name (Hindi)')}</Label>
                                         <Input
                                             id="name_hi"
                                             name="name_hi"
@@ -59,7 +61,7 @@ export default function Edit({ district }: { district: District }) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_en">Name (English)</Label>
+                                        <Label htmlFor="name_en">{t('Name (English)')}</Label>
                                         <Input
                                             id="name_en"
                                             name="name_en"
@@ -73,7 +75,7 @@ export default function Edit({ district }: { district: District }) {
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="state">State</Label>
+                                        <Label htmlFor="state">{t('State')}</Label>
                                         <Input
                                             id="state"
                                             name="state"
@@ -85,7 +87,7 @@ export default function Edit({ district }: { district: District }) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="code">Code</Label>
+                                        <Label htmlFor="code">{t('Code')}</Label>
                                         <Input
                                             id="code"
                                             name="code"
@@ -100,9 +102,9 @@ export default function Edit({ district }: { district: District }) {
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>Save changes</Button>
+                                <Button disabled={processing}>{t('Save changes')}</Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={DistrictController.index.url()}>Cancel</Link>
+                                    <Link href={DistrictController.index.url()}>{t('Cancel')}</Link>
                                 </Button>
                             </div>
                         </>

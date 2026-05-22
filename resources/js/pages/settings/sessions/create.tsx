@@ -6,19 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '@/hooks/use-translation';
 
 export default function Create() {
+    const { t } = useTranslation();
     return (
         <>
-            <Head title="New sport session" />
+            <Head title={t('New sport session')} />
 
-            <h1 className="sr-only">New sport session</h1>
+            <h1 className="sr-only">{t('New sport session')}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="New sport session"
-                    description="Add a new sport session year"
+                    title={t('New sport session')}
+                    description={t('Add a new sport session year')}
                 />
 
                 <Form {...SportSessionController.store.form()} className="max-w-xl space-y-6">
@@ -26,7 +28,7 @@ export default function Create() {
                         <>
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="name">Name</Label>
+                                    <Label htmlFor="name">{t('Name')}</Label>
                                     <Input
                                         id="name"
                                         name="name"
@@ -39,7 +41,7 @@ export default function Create() {
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="start_year">Start year</Label>
+                                        <Label htmlFor="start_year">{t('Start year')}</Label>
                                         <Input
                                             id="start_year"
                                             name="start_year"
@@ -52,7 +54,7 @@ export default function Create() {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="end_year">End year</Label>
+                                        <Label htmlFor="end_year">{t('End year')}</Label>
                                         <Input
                                             id="end_year"
                                             name="end_year"
@@ -68,17 +70,17 @@ export default function Create() {
                                 <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
                                     <Checkbox id="is_current" name="is_current" />
                                     <div>
-                                        <Label htmlFor="is_current" className="cursor-pointer">Mark as current session</Label>
-                                        <p className="text-xs text-muted-foreground">Only one session can be current at a time.</p>
+                                        <Label htmlFor="is_current" className="cursor-pointer">{t('Mark as current session')}</Label>
+                                        <p className="text-xs text-muted-foreground">{t('Only one session can be current at a time.')}</p>
                                     </div>
                                     <InputError message={errors.is_current} />
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>Create session</Button>
+                                <Button disabled={processing}>{t('Create session')}</Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={SportSessionController.index.url()}>Cancel</Link>
+                                    <Link href={SportSessionController.index.url()}>{t('Cancel')}</Link>
                                 </Button>
                             </div>
                         </>
