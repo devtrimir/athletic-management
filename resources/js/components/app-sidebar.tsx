@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import { Building2, CalendarDays, LayoutGrid, MapPin, Medal, Trophy } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -14,6 +13,11 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import { index as sessionsIndex } from '@/routes/sessions';
+import { index as sportsIndex } from '@/routes/sports';
+import { index as unitsIndex } from '@/routes/units';
+import { index as districtsIndex } from '@/routes/districts';
+import { index as tournamentTiersIndex } from '@/routes/tournament-tiers';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -24,16 +28,31 @@ const mainNavItems: NavItem[] = [
     },
 ];
 
-const footerNavItems: NavItem[] = [
+const referenceDataNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
+        title: 'Sessions',
+        href: sessionsIndex(),
+        icon: CalendarDays,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
+        title: 'Sports',
+        href: sportsIndex(),
+        icon: Trophy,
+    },
+    {
+        title: 'Units',
+        href: unitsIndex(),
+        icon: Building2,
+    },
+    {
+        title: 'Districts',
+        href: districtsIndex(),
+        icon: MapPin,
+    },
+    {
+        title: 'Tournament Tiers',
+        href: tournamentTiersIndex(),
+        icon: Medal,
     },
 ];
 
@@ -54,10 +73,10 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
+                <NavMain items={referenceDataNavItems} groupLabel="Reference Data" />
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
