@@ -56,9 +56,11 @@ function userWithoutPermission(): User
 
 dataset('policy_methods', [
     'MemberPolicy::viewAny' => [fn () => new MemberPolicy,     'viewAny', 'members.view',       []],
+    'MemberPolicy::view' => [fn () => new MemberPolicy,     'view',    'members.view',       [new stdClass]],
     'MemberPolicy::create' => [fn () => new MemberPolicy,     'create',  'members.create',     []],
     'MemberPolicy::update' => [fn () => new MemberPolicy,     'update',  'members.update',     [new stdClass]],
     'MemberPolicy::delete' => [fn () => new MemberPolicy,     'delete',  'members.delete',     [new stdClass]],
+    'MemberPolicy::restore' => [fn () => new MemberPolicy,     'restore', 'members.restore',    [new stdClass]],
     'CoachPolicy::viewAny' => [fn () => new CoachPolicy,      'viewAny', 'coaches.view',       []],
     'CoachPolicy::create' => [fn () => new CoachPolicy,      'create',  'coaches.create',     []],
     'CoachPolicy::update' => [fn () => new CoachPolicy,      'update',  'coaches.update',     [new stdClass]],

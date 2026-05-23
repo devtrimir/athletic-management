@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Policies;
 
 use App\Models\User;
@@ -29,5 +31,10 @@ class MemberPolicy
     public function delete(User $user, mixed $member): bool
     {
         return $user->can('members.delete');
+    }
+
+    public function restore(User $user, mixed $member): bool
+    {
+        return $user->can('members.restore');
     }
 }
