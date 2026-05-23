@@ -109,7 +109,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P2-T07** Factory + seeded 10k member fixture for perf tests
 
 ### Backend (Inertia + API)
-- [ ] **P2-T08** `MemberPolicy` rules wired to permissions
+- [x] **P2-T08** `MemberPolicy` rules wired to permissions
 - [ ] **P2-T09** Form Requests: `StoreMemberRequest`, `UpdateMemberRequest`, `ChangeStatusRequest`, `StoreAliasRequest`
 - [ ] **P2-T10** `MemberController` Inertia actions (index, create, store, show, edit, update, destroy)
 - [ ] **P2-T11** `MemberStatusController` (POST status change → writes history)
