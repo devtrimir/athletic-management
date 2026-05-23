@@ -111,7 +111,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ### Backend (Inertia + API)
 - [x] **P2-T08** `MemberPolicy` rules wired to permissions
 - [x] **P2-T09** Form Requests: `StoreMemberRequest`, `UpdateMemberRequest`, `ChangeStatusRequest`, `StoreAliasRequest`
-- [ ] **P2-T10** `MemberController` Inertia actions (index, create, store, show, edit, update, destroy)
+- [x] **P2-T10** `MemberController` Inertia actions (index, create, store, show, edit, update, destroy)
 - [ ] **P2-T11** `MemberStatusController` (POST status change → writes history)
 - [ ] **P2-T12** `MemberAliasController` (POST / DELETE aliases)
 - [ ] **P2-T13** API: `GET /api/v1/search/members` (MySQL FULLTEXT ngram + PNO exact, top-50, < 300 ms on 10k)
