@@ -120,7 +120,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ### Frontend
 - [x] **P2-T15** `Pages/Members/Index.tsx` (paginated table + filter panel)
 - [ ] **P2-T16** `Components/MemberPicker.tsx` (debounced search via Inertia `useHttp`; reused in P3/P4/P5/P6)
-- [ ] **P2-T17** `Pages/Members/Create.tsx` (Inertia `useForm` + Zod mirror)
+- [x] **P2-T17** `Pages/Members/Create.tsx` (Inertia `useForm` + Zod mirror)
 - [ ] **P2-T18** `Pages/Members/Edit.tsx`
 - [ ] **P2-T19** `Pages/Members/Show.tsx` shell with tabs (Overview, StatusHistory, Aliases; Teams/Participations/Achievements stubs)
 - [ ] **P2-T20** `Components/StatusChangeModal.tsx`
