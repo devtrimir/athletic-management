@@ -40,6 +40,7 @@ class MemberController extends Controller
             ])
             ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
             ->defaultSort('-created_at')
+            ->with('currentUnit:id,name_hi')
             ->paginate(25)
             ->withQueryString();
 

@@ -124,5 +124,32 @@
     "GRP": "जीआरपी",
     "DISTRICT": "जिला",
     "HQ": "मुख्यालय",
-    "OTHER": "अन्य"
+    "OTHER": "अन्य",
+
+    "Members": "खिलाड़ी",
+    "Manage athlete roster": "खिलाड़ी सूची का प्रबंधन करें",
+    "New member": "नया खिलाड़ी",
+    "Search members…": "खिलाड़ी खोजें…",
+    "No members yet.": "अभी कोई खिलाड़ी नहीं।",
+    "No members match your filters.": "कोई खिलाड़ी फ़िल्टर से मेल नहीं खाता।",
+    "Clear filters": "फ़िल्टर हटाएं",
+    "PNO": "पीएनओ",
+    "Level": "स्तर",
+    "Unit": "इकाई",
+    "View": "देखें",
+    "Showing :from–:to of :total": ":from–:to दिखा रहा है, कुल :total",
+
+    "ACTIVE": "सक्रिय",
+    "RESIGNED": "इस्तीफा दिया",
+    "DISMISSED": "बर्खास्त",
+    "DECEASED": "दिवंगत",
+    "RETIRED": "सेवानिवृत्त",
+
+    "GD": "जीडी",
+    "SKILLED": "कुशल",
+
+    "ZONAL": "क्षेत्रीय",
+    "NATIONAL": "राष्ट्रीय",
+    "INTERNATIONAL": "अंतरराष्ट्रीय",
+    "AIPSC": "एआईपीएससी"
 }
