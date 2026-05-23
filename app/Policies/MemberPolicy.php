@@ -37,4 +37,9 @@ class MemberPolicy
     {
         return $user->can('members.restore');
     }
+
+    public function changeStatus(User $user, mixed $member): bool
+    {
+        return $user->can('members.changeStatus');
+    }
 }
