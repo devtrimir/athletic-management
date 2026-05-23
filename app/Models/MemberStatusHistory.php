@@ -29,6 +29,8 @@ class MemberStatusHistory extends Model
     /** @use HasFactory<MemberStatusHistoryFactory> */
     use HasFactory;
 
+    protected $table = 'member_status_history';
+
     /**
      * @return array<string, string>
      */
