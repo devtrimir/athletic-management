@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -95,5 +96,15 @@ class Member extends Model
     public function currentUnit(): BelongsTo
     {
         return $this->belongsTo(Unit::class, 'current_unit_id');
+    }
+
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(MemberStatusHistory::class)->latest('effective_on');
+    }
+
+    public function aliases(): HasMany
+    {
+        return $this->hasMany(NameAlias::class);
     }
 }

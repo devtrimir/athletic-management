@@ -6,6 +6,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Members\StoreMemberRequest;
 use App\Http\Requests\Members\UpdateMemberRequest;
+use App\Http\Resources\MemberResource;
+use App\Http\Resources\MemberStatusHistoryResource;
+use App\Http\Resources\NameAliasResource;
 use App\Models\District;
 use App\Models\Member;
 use App\Models\Unit;
@@ -78,7 +81,13 @@ class MemberController extends Controller
         Gate::authorize('view', $member);
 
         return Inertia::render('members/show', [
-            'member' => $member->load(['homeDistrict', 'currentUnit']),
+            'member' => new MemberResource($member->load(['homeDistrict', 'currentUnit'])),
+            'statusHistory' => Inertia::defer(fn () => MemberStatusHistoryResource::collection(
+                $member->statusHistory()->with('recorder')->get()
+            )),
+            'aliases' => Inertia::defer(fn () => NameAliasResource::collection(
+                $member->aliases()->get()
+            )),
         ]);
     }
 

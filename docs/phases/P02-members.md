@@ -70,7 +70,7 @@ Schema + helpers (T01..T05)
   ```
 
   Notes: the `:q` value must be passed through `normalize_devanagari()` (PHP side) before binding. Use `BOOLEAN MODE` so we can append `*` to the last token for prefix expansion. Must complete in < 300 ms on the 10k fixture (test enforces).
-- **T14** `/profile` endpoint returns the aggregated JSON shape (members + counts + stubs for later phases). Will be consumed by the Show page.
+- **T14** Member model `statusHistory()`/`aliases()` HasMany relationships + `MemberResource` Inertia resource + enhance `MemberController::show()` to pass `statusHistory` and `aliases` as `Inertia::defer()` props. A separate `/profile` API endpoint contradicts ADR-0001 (monolith, no REST contract); the Show page (T19) consumes Inertia props directly.
 
 ### Frontend (P2-T15 … P2-T21)
 
