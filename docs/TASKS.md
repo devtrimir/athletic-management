@@ -102,7 +102,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P2-T02** Migration: `name_aliases`
 - [x] **P2-T03** Migration: `member_status_history`
 - [x] **P2-T04** MySQL stored function `normalize_devanagari(text)` + generated column / trigger to fill `*_normalized`
-- [ ] **P2-T05** FULLTEXT indexes (`WITH PARSER ngram`) on `full_name_normalized`, `alias_normalized`
+- [x] **P2-T05** FULLTEXT indexes (`WITH PARSER ngram`) on `full_name_normalized`, `alias_normalized`
 
 ### Services
 - [ ] **P2-T06** `MemberCodeGenerator` service (per-org/year sequence, advisory-locked)
