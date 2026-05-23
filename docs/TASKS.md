@@ -106,7 +106,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 
 ### Services
 - [x] **P2-T06** `MemberCodeGenerator` service (per-org/year sequence, advisory-locked)
-- [ ] **P2-T07** Factory + seeded 10k member fixture for perf tests
+- [x] **P2-T07** Factory + seeded 10k member fixture for perf tests
 
 ### Backend (Inertia + API)
 - [ ] **P2-T08** `MemberPolicy` rules wired to permissions

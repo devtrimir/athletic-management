@@ -65,3 +65,29 @@ test('different years have independent sequences', function () {
     expect($this->generator->next($this->orgId, $year + 1))->toBe('UPP-'.($year + 1).'-000001');
     expect($this->generator->next($this->orgId, $year))->toBe("UPP-{$year}-000002");
 });
+
+// ── nextBatch ────────────────────────────────────────────────────────────────
+
+test('nextBatch returns the requested number of codes', function () {
+    $codes = $this->generator->nextBatch($this->orgId, 5);
+
+    expect($codes)->toHaveCount(5);
+});
+
+test('nextBatch returns sequential codes starting at 000001', function () {
+    $year = now()->year;
+    $codes = $this->generator->nextBatch($this->orgId, 3, $year);
+
+    expect($codes)->toBe([
+        "UPP-{$year}-000001",
+        "UPP-{$year}-000002",
+        "UPP-{$year}-000003",
+    ]);
+});
+
+test('next() after nextBatch continues the sequence without gaps', function () {
+    $year = now()->year;
+    $this->generator->nextBatch($this->orgId, 5, $year);
+
+    expect($this->generator->next($this->orgId, $year))->toBe("UPP-{$year}-000006");
+});
