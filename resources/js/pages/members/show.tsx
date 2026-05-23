@@ -2,9 +2,9 @@ import { Deferred, Head, Link, router, setLayoutProps, useForm } from '@inertiaj
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { edit as editMember, index as membersIndex } from '@/actions/App/Http/Controllers/MemberController';
-import { store as storeStatus } from '@/actions/App/Http/Controllers/MemberStatusController';
 import { destroy as destroyAlias, store as storeAlias } from '@/actions/App/Http/Controllers/MemberAliasController';
 import InputError from '@/components/input-error';
+import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Member = {
@@ -59,13 +58,7 @@ export default function MembersShow({
     const [statusOpen, setStatusOpen] = useState(false);
     const [aliasOpen, setAliasOpen] = useState(false);
 
-    const statusForm = useForm({ status: '', effective_on: '', reason_hi: '' });
     const aliasForm = useForm({ alias_hi: '', source: '' });
-
-    function submitStatus(e: React.FormEvent) {
-        e.preventDefault();
-        statusForm.post(storeStatus.url(member), { onSuccess: () => { setStatusOpen(false); statusForm.reset(); } });
-    }
 
     function submitAlias(e: React.FormEvent) {
         e.preventDefault();
@@ -134,42 +127,10 @@ export default function MembersShow({
                         <div className="rounded-xl border bg-card p-6 space-y-4">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-medium">{t('Status history')}</h3>
-                                <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" size="sm">{t('Change status')}</Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                        <DialogHeader><DialogTitle>{t('Change status')}</DialogTitle></DialogHeader>
-                                        <form onSubmit={submitStatus} className="space-y-4 mt-2">
-                                            <div className="grid gap-2">
-                                                <Label>{t('New status')} <span className="text-destructive">*</span></Label>
-                                                <Select value={statusForm.data.status} onValueChange={(v) => statusForm.setData('status', v)}>
-                                                    <SelectTrigger><SelectValue placeholder={t('Select status')} /></SelectTrigger>
-                                                    <SelectContent>
-                                                        {(['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'] as const).map((s) => (
-                                                            <SelectItem key={s} value={s}>{t(s)}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <InputError message={statusForm.errors.status} />
-                                            </div>
-                                            <div className="grid gap-2">
-                                                <Label>{t('Effective date')} <span className="text-destructive">*</span></Label>
-                                                <Input type="date" value={statusForm.data.effective_on} onChange={(e) => statusForm.setData('effective_on', e.target.value)} required />
-                                                <InputError message={statusForm.errors.effective_on} />
-                                            </div>
-                                            <div className="grid gap-2">
-                                                <Label>{t('Reason')}</Label>
-                                                <Textarea value={statusForm.data.reason_hi} onChange={(e) => statusForm.setData('reason_hi', e.target.value)} rows={3} />
-                                                <InputError message={statusForm.errors.reason_hi} />
-                                            </div>
-                                            <div className="flex gap-3">
-                                                <Button type="submit" disabled={statusForm.processing}>{t('Save changes')}</Button>
-                                                <Button type="button" variant="outline" onClick={() => setStatusOpen(false)}>{t('Cancel')}</Button>
-                                            </div>
-                                        </form>
-                                    </DialogContent>
-                                </Dialog>
+                                <Button variant="outline" size="sm" onClick={() => setStatusOpen(true)}>
+                                    {t('Change status')}
+                                </Button>
+                                <StatusChangeModal member={member} open={statusOpen} onOpenChange={setStatusOpen} />
                             </div>
                             <Deferred data="statusHistory" fallback={<div className="space-y-2">{[1,2,3].map((n) => <Skeleton key={n} className="h-10 w-full" />)}</div>}>
                                 <div className="divide-y">
