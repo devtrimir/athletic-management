@@ -1,21 +1,21 @@
 <?php
 
-test('post locale sets hindi in session', function (): void {
-    $this->post('/locale', ['locale' => 'hi'])
+test('patch locale sets hindi in session', function (): void {
+    $this->patch('/locale', ['locale' => 'hi'])
         ->assertRedirect();
 
     expect(session('locale'))->toBe('hi');
 });
 
-test('post locale sets english in session', function (): void {
-    $this->post('/locale', ['locale' => 'en'])
+test('patch locale sets english in session', function (): void {
+    $this->patch('/locale', ['locale' => 'en'])
         ->assertRedirect();
 
     expect(session('locale'))->toBe('en');
 });
 
-test('post locale rejects unsupported locale', function (): void {
-    $this->post('/locale', ['locale' => 'fr'])
+test('patch locale rejects unsupported locale', function (): void {
+    $this->patch('/locale', ['locale' => 'fr'])
         ->assertInvalid(['locale']);
 });
 

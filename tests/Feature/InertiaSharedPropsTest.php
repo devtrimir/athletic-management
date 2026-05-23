@@ -17,10 +17,10 @@ it('includes translations key in shared inertia props', function (): void {
         ->assertInertia(fn ($page) => $page->has('translations'));
 });
 
-it('translations defaults to empty array when no lang file has content', function (): void {
+it('translations is an array of strings when lang file has content', function (): void {
     $this->actingAs($this->user)
         ->get(route('dashboard'))
-        ->assertInertia(fn ($page) => $page->where('translations', []));
+        ->assertInertia(fn ($page) => $page->where('translations', fn ($value) => $value->isNotEmpty()));
 });
 
 it('includes flash key in shared inertia props with null toast by default', function (): void {
