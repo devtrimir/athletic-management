@@ -115,7 +115,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P2-T11** `MemberStatusController` (POST status change → writes history)
 - [x] **P2-T12** `MemberAliasController` (POST / DELETE aliases)
 - [x] **P2-T13** API: `GET /api/v1/search/members` (MySQL FULLTEXT ngram + PNO exact, top-50, < 300 ms on 10k)
-- [ ] **P2-T14** API: `GET /api/v1/members/{member}/profile` (aggregated JSON)
+- [x] **P2-T14** Member model `statusHistory()`/`aliases()` HasMany + `MemberResource` Inertia props + `MemberController::show()` deferred props (contradicts separate API — see ADR-0001)
 
 ### Frontend
 - [ ] **P2-T15** `Pages/Members/Index.tsx` (paginated table + filter panel)
