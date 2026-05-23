@@ -38,6 +38,8 @@ What we chose. Be specific.
 |---|---|---|
 | 0001 | Monolith with Inertia + React (vs split API + Next.js) | Accepted |
 | 0002 | Excel library: `maatwebsite/excel` vs `rap2hpoutre/fast-excel` | Accepted |
+| 0004 | MySQL FULLTEXT (ngram) for Phase-2 search; swap to Meilisearch P8 | Accepted |
+| 0006 | MySQL 8.4 chosen over PostgreSQL | Accepted |
 | 0003 | In-house RBAC (no `spatie/laravel-permission`) | TBD |
 | 0004 | MySQL FULLTEXT (ngram) search for P2, Meilisearch swap-in for P8 | TBD |
 | 0005 | Per-cell Krutidev detection heuristic | TBD |

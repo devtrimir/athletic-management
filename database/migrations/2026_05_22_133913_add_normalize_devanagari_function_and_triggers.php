@@ -27,6 +27,7 @@ return new class extends Migration
         }
 
         // ── Stored function ─────────────────────────────────────────────────
+        DB::unprepared('DROP FUNCTION IF EXISTS normalize_devanagari');
         DB::unprepared(<<<'SQL'
             CREATE FUNCTION normalize_devanagari(p_text TEXT)
             RETURNS TEXT
@@ -43,6 +44,7 @@ return new class extends Migration
         SQL);
 
         // ── Triggers: members ────────────────────────────────────────────────
+        DB::unprepared('DROP TRIGGER IF EXISTS trg_members_normalize_before_insert');
         DB::unprepared(<<<'SQL'
             CREATE TRIGGER trg_members_normalize_before_insert
             BEFORE INSERT ON members
@@ -54,6 +56,7 @@ return new class extends Migration
             END
         SQL);
 
+        DB::unprepared('DROP TRIGGER IF EXISTS trg_members_normalize_before_update');
         DB::unprepared(<<<'SQL'
             CREATE TRIGGER trg_members_normalize_before_update
             BEFORE UPDATE ON members
@@ -66,6 +69,7 @@ return new class extends Migration
         SQL);
 
         // ── Triggers: name_aliases ───────────────────────────────────────────
+        DB::unprepared('DROP TRIGGER IF EXISTS trg_name_aliases_normalize_before_insert');
         DB::unprepared(<<<'SQL'
             CREATE TRIGGER trg_name_aliases_normalize_before_insert
             BEFORE INSERT ON name_aliases
@@ -77,6 +81,7 @@ return new class extends Migration
             END
         SQL);
 
+        DB::unprepared('DROP TRIGGER IF EXISTS trg_name_aliases_normalize_before_update');
         DB::unprepared(<<<'SQL'
             CREATE TRIGGER trg_name_aliases_normalize_before_update
             BEFORE UPDATE ON name_aliases
