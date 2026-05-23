@@ -8,8 +8,9 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
 
-uses(RefreshDatabase::class);
+uses(TestCase::class, RefreshDatabase::class);
 
 beforeEach(function (): void {
     $this->rbac = app(Rbac::class);
@@ -78,6 +79,8 @@ test('userRoles is served from cache on second call', function (): void {
 });
 
 test('invalidate clears cached roles and permissions', function (): void {
+    Cache::spy();
+
     // Warm caches
     $this->rbac->userRoles($this->user, $this->org->id);
     $this->rbac->userPermissions($this->user, $this->org->id);
