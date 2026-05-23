@@ -118,7 +118,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P2-T14** Member model `statusHistory()`/`aliases()` HasMany + `MemberResource` Inertia props + `MemberController::show()` deferred props (contradicts separate API — see ADR-0001)
 
 ### Frontend
-- [ ] **P2-T15** `Pages/Members/Index.tsx` (paginated table + filter panel)
+- [x] **P2-T15** `Pages/Members/Index.tsx` (paginated table + filter panel)
 - [ ] **P2-T16** `Components/MemberPicker.tsx` (debounced search via Inertia `useHttp`; reused in P3/P4/P5/P6)
 - [ ] **P2-T17** `Pages/Members/Create.tsx` (Inertia `useForm` + Zod mirror)
 - [ ] **P2-T18** `Pages/Members/Edit.tsx`
