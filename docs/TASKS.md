@@ -105,7 +105,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P2-T05** FULLTEXT indexes (`WITH PARSER ngram`) on `full_name_normalized`, `alias_normalized`
 
 ### Services
-- [ ] **P2-T06** `MemberCodeGenerator` service (per-org/year sequence, advisory-locked)
+- [x] **P2-T06** `MemberCodeGenerator` service (per-org/year sequence, advisory-locked)
 - [ ] **P2-T07** Factory + seeded 10k member fixture for perf tests
 
 ### Backend (Inertia + API)
