@@ -52,4 +52,44 @@ class MemberCodeGenerator
             return sprintf('UPP-%d-%06d', $year, $next);
         });
     }
+
+    /**
+     * Reserve a batch of sequential codes in one transaction.
+     *
+     * Advances last_seq by $count in a single locked write and returns every
+     * code in the reserved range.  Use this for bulk operations (e.g. the
+     * MemberVolumeSeeder) to avoid the overhead of $count separate transactions.
+     *
+     * @return array<int, string>
+     */
+    public function nextBatch(int $organizationId, int $count, ?int $year = null): array
+    {
+        $year ??= now()->year;
+
+        return DB::transaction(function () use ($organizationId, $count, $year): array {
+            DB::table('member_code_sequences')->insertOrIgnore([
+                'organization_id' => $organizationId,
+                'year' => $year,
+                'last_seq' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $current = DB::table('member_code_sequences')
+                ->where('organization_id', $organizationId)
+                ->where('year', $year)
+                ->lockForUpdate()
+                ->value('last_seq');
+
+            DB::table('member_code_sequences')
+                ->where('organization_id', $organizationId)
+                ->where('year', $year)
+                ->update(['last_seq' => $current + $count, 'updated_at' => now()]);
+
+            return array_map(
+                fn (int $i): string => sprintf('UPP-%d-%06d', $year, $current + $i),
+                range(1, $count),
+            );
+        });
+    }
 }
