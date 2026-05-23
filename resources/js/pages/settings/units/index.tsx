@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import UnitController from '@/actions/App/Http/Controllers/Settings/UnitController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,7 @@ export default function Index({ units }: { units: Unit[] }) {
 
     const filtered = useMemo(() => {
         const q = query.toLowerCase().trim();
+
         return units.filter((u) => {
             const matchesQuery =
                 !q ||
@@ -44,6 +45,7 @@ export default function Index({ units }: { units: Unit[] }) {
                 (u.commandant ?? '').toLowerCase().includes(q) ||
                 (u.district?.name_en ?? '').toLowerCase().includes(q);
             const matchesType = typeFilter === 'all' || u.unit_type === typeFilter;
+
             return matchesQuery && matchesType;
         });
     }, [units, query, typeFilter]);

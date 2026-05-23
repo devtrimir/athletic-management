@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { Eye, Plus, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -79,9 +79,18 @@ export default function MembersIndex({
 
         // Remove empty values so URL stays clean
         const clean: Record<string, string> = {};
-        if (merged.q) { clean['filter[q]'] = merged.q; }
-        if (merged.current_status) { clean['filter[current_status]'] = merged.current_status; }
-        if (merged.player_category) { clean['filter[player_category]'] = merged.player_category; }
+
+        if (merged.q) {
+ clean['filter[q]'] = merged.q; 
+}
+
+        if (merged.current_status) {
+ clean['filter[current_status]'] = merged.current_status; 
+}
+
+        if (merged.player_category) {
+ clean['filter[player_category]'] = merged.player_category; 
+}
 
         router.get(MemberController.index.url(), clean, {
             preserveState: true,
@@ -91,11 +100,19 @@ export default function MembersIndex({
 
     // Debounce text search
     useEffect(() => {
-        if (debounceRef.current) { clearTimeout(debounceRef.current); }
+        if (debounceRef.current) {
+ clearTimeout(debounceRef.current); 
+}
+
         debounceRef.current = setTimeout(() => {
             applyFilters({ q: query || undefined });
         }, 400);
-        return () => { if (debounceRef.current) { clearTimeout(debounceRef.current); } };
+
+        return () => {
+ if (debounceRef.current) {
+ clearTimeout(debounceRef.current); 
+} 
+};
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 

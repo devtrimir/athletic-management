@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import SportSessionController from '@/actions/App/Http/Controllers/Settings/SportSessionController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -25,11 +25,13 @@ export default function Index({ sessions }: { sessions: SportSession[] }) {
 
     const filtered = useMemo(() => {
         const q = query.toLowerCase().trim();
+
         return sessions.filter((s) => {
             const matchesQuery = !q || s.name.toLowerCase().includes(q);
             const matchesStatus =
                 statusFilter === 'all' ||
                 (statusFilter === 'current' ? s.is_current : !s.is_current);
+
             return matchesQuery && matchesStatus;
         });
     }, [sessions, query, statusFilter]);

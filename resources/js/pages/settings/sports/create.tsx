@@ -17,6 +17,7 @@ const CATEGORIES = [
 
 export default function Create() {
     const { t } = useTranslation();
+
     return (
         <>
             <Head title={t('New sport')} />

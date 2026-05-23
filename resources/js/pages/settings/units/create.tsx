@@ -24,6 +24,7 @@ type District = {
 
 export default function Create({ districts }: { districts: District[] }) {
     const { t } = useTranslation();
+
     return (
         <>
             <Head title={t('New unit')} />

@@ -7,13 +7,13 @@ import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
+import { index as districtsIndex } from '@/routes/districts';
 import { edit } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import { index as sessionsIndex } from '@/routes/sessions';
 import { index as sportsIndex } from '@/routes/sports';
-import { index as unitsIndex } from '@/routes/units';
-import { index as districtsIndex } from '@/routes/districts';
 import { index as tournamentTiersIndex } from '@/routes/tournament-tiers';
+import { index as unitsIndex } from '@/routes/units';
 import type { NavItem } from '@/types';
 
 function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
