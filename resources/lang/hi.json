@@ -154,5 +154,26 @@
     "AIPSC": "एआईपीएससी",
 
     "Search athlete…": "खिलाड़ी खोजें…",
-    "No athlete found.": "खिलाड़ी नहीं मिला।"
+    "No athlete found.": "खिलाड़ी नहीं मिला।",
+
+    "Add a new athlete to the roster": "रोस्टर में नया खिलाड़ी जोड़ें",
+    "Personal information": "व्यक्तिगत जानकारी",
+    "Service information": "सेवा जानकारी",
+    "Player information": "खिलाड़ी जानकारी",
+    "Gender": "लिंग",
+    "Select gender": "लिंग चुनें",
+    "Male": "पुरुष",
+    "Female": "महिला",
+    "Other gender": "अन्य",
+    "Date of birth": "जन्म तिथि",
+    "Mobile": "मोबाइल",
+    "Father's name": "पिता का नाम",
+    "Rank": "पद",
+    "Joining date": "भर्ती तिथि",
+    "Select unit": "इकाई चुनें",
+    "Home district": "गृह जिला",
+    "Select district": "जिला चुनें",
+    "Select category": "श्रेणी चुनें",
+    "Select level": "स्तर चुनें",
+    "Create member": "खिलाड़ी बनाएं"
 }
