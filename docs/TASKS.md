@@ -100,8 +100,8 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ### Schema + helpers
 - [x] **P2-T01** Migration: `members` (all columns, soft-delete, indexes)
 - [x] **P2-T02** Migration: `name_aliases`
-- [ ] **P2-T03** Migration: `member_status_history`
-- [ ] **P2-T04** MySQL stored function `normalize_devanagari(text)` + generated column / trigger to fill `*_normalized`
+- [x] **P2-T03** Migration: `member_status_history`
+- [x] **P2-T04** MySQL stored function `normalize_devanagari(text)` + generated column / trigger to fill `*_normalized`
 - [ ] **P2-T05** FULLTEXT indexes (`WITH PARSER ngram`) on `full_name_normalized`, `alias_normalized`
 
 ### Services
