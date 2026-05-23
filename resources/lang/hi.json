@@ -151,5 +151,8 @@
     "ZONAL": "क्षेत्रीय",
     "NATIONAL": "राष्ट्रीय",
     "INTERNATIONAL": "अंतरराष्ट्रीय",
-    "AIPSC": "एआईपीएससी"
+    "AIPSC": "एआईपीएससी",
+
+    "Search athlete…": "खिलाड़ी खोजें…",
+    "No athlete found.": "खिलाड़ी नहीं मिला।"
 }
