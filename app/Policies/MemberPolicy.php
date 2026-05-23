@@ -42,4 +42,9 @@ class MemberPolicy
     {
         return $user->can('members.changeStatus');
     }
+
+    public function manageAlias(User $user, mixed $member): bool
+    {
+        return $user->can('members.manageAlias');
+    }
 }
