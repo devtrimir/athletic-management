@@ -1,16 +1,10 @@
-import { Deferred, Head, Link, router, setLayoutProps, useForm } from '@inertiajs/react';
+import { Deferred, Head, Link, setLayoutProps } from '@inertiajs/react';
 import { useState } from 'react';
-import { Trash2 } from 'lucide-react';
 import { edit as editMember, index as membersIndex } from '@/actions/App/Http/Controllers/MemberController';
-import { destroy as destroyAlias, store as storeAlias } from '@/actions/App/Http/Controllers/MemberAliasController';
-import InputError from '@/components/input-error';
+import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
@@ -56,14 +50,6 @@ export default function MembersShow({
     });
 
     const [statusOpen, setStatusOpen] = useState(false);
-    const [aliasOpen, setAliasOpen] = useState(false);
-
-    const aliasForm = useForm({ alias_hi: '', source: '' });
-
-    function submitAlias(e: React.FormEvent) {
-        e.preventDefault();
-        aliasForm.post(storeAlias.url(member), { onSuccess: () => { setAliasOpen(false); aliasForm.reset(); } });
-    }
 
     const detail = (label: string, value: React.ReactNode) => (
         <div className="grid gap-1">
@@ -155,61 +141,9 @@ export default function MembersShow({
 
                     {/* Aliases */}
                     <TabsContent value="aliases">
-                        <div className="rounded-xl border bg-card p-6 space-y-4">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-sm font-medium">{t('Aliases')}</h3>
-                                <Dialog open={aliasOpen} onOpenChange={setAliasOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" size="sm">{t('Add alias')}</Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                        <DialogHeader><DialogTitle>{t('Add alias')}</DialogTitle></DialogHeader>
-                                        <form onSubmit={submitAlias} className="space-y-4 mt-2">
-                                            <div className="grid gap-2">
-                                                <Label>{t('Alias (Hindi)')} <span className="text-destructive">*</span></Label>
-                                                <Input value={aliasForm.data.alias_hi} onChange={(e) => aliasForm.setData('alias_hi', e.target.value)} maxLength={255} required />
-                                                <InputError message={aliasForm.errors.alias_hi} />
-                                            </div>
-                                            <div className="grid gap-2">
-                                                <Label>{t('Source')} <span className="text-destructive">*</span></Label>
-                                                <Select value={aliasForm.data.source} onValueChange={(v) => aliasForm.setData('source', v)}>
-                                                    <SelectTrigger><SelectValue placeholder={t('Select source')} /></SelectTrigger>
-                                                    <SelectContent>
-                                                        {(['krutidev', 'spelling_variant', 'rank_prefixed', 'legacy', 'manual'] as const).map((s) => (
-                                                            <SelectItem key={s} value={s}>{t(s)}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <InputError message={aliasForm.errors.source} />
-                                            </div>
-                                            <div className="flex gap-3">
-                                                <Button type="submit" disabled={aliasForm.processing}>{t('Save changes')}</Button>
-                                                <Button type="button" variant="outline" onClick={() => setAliasOpen(false)}>{t('Cancel')}</Button>
-                                            </div>
-                                        </form>
-                                    </DialogContent>
-                                </Dialog>
-                            </div>
+                        <div className="rounded-xl border bg-card p-6">
                             <Deferred data="aliases" fallback={<div className="space-y-2">{[1,2,3].map((n) => <Skeleton key={n} className="h-8 w-full" />)}</div>}>
-                                <div className="divide-y">
-                                    {(aliases ?? []).length === 0 ? (
-                                        <p className="py-4 text-sm text-muted-foreground">{t('No aliases.')}</p>
-                                    ) : (aliases ?? []).map((a) => (
-                                        <div key={a.id} className="flex items-center justify-between py-3">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-sm font-medium">{a.alias_hi}</span>
-                                                <Badge variant="outline" className="text-xs">{t(a.source)}</Badge>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => router.delete(destroyAlias.url({ member, alias: a }))}
-                                            >
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
+                                <AliasInlineForm member={member} aliases={aliases} />
                             </Deferred>
                         </div>
                     </TabsContent>
