@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import SportController from '@/actions/App/Http/Controllers/Settings/SportController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,7 @@ export default function Index({ sports }: { sports: Sport[] }) {
 
     const filtered = useMemo(() => {
         const q = query.toLowerCase().trim();
+
         return sports.filter((s) => {
             const matchesQuery =
                 !q ||
@@ -41,6 +42,7 @@ export default function Index({ sports }: { sports: Sport[] }) {
                 s.name_en.toLowerCase().includes(q) ||
                 s.slug.toLowerCase().includes(q);
             const matchesCategory = categoryFilter === 'all' || s.category === categoryFilter;
+
             return matchesQuery && matchesCategory;
         });
     }, [sports, query, categoryFilter]);

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import TournamentTierController from '@/actions/App/Http/Controllers/Settings/TournamentTierController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ export default function Index({ tiers }: { tiers: Tier[] }) {
 
     const filtered = useMemo(() => {
         const q = query.toLowerCase().trim();
+
         return !q
             ? tiers
             : tiers.filter(

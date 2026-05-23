@@ -1,5 +1,3 @@
-import { useCallback, useRef, useState } from 'react';
-import { useHttp } from '@inertiajs/react';
 import {
     Combobox,
     ComboboxButton,
@@ -7,11 +5,13 @@ import {
     ComboboxOption,
     ComboboxOptions,
 } from '@headlessui/react';
+import { useHttp } from '@inertiajs/react';
 import { Check, ChevronsUpDown } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
 import MemberSearchController from '@/actions/App/Http/Controllers/Api/V1/MemberSearchController';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/use-translation';
+import { cn } from '@/lib/utils';
 
 export type MemberOption = {
     id: number;
@@ -53,6 +53,7 @@ export function MemberPicker({ value, onChange, placeholder, disabled = false, i
             if (q.trim().length === 0) {
                 cancel();
                 setResults([]);
+
                 return;
             }
 
@@ -71,7 +72,10 @@ export function MemberPicker({ value, onChange, placeholder, disabled = false, i
     );
 
     const displayValue = (member: MemberOption | null) => {
-        if (!member) return '';
+        if (!member) {
+return '';
+}
+
         return member.pno ? `${member.full_name_hi} · ${member.pno}` : member.full_name_hi;
     };
 

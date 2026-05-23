@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import DistrictController from '@/actions/App/Http/Controllers/Settings/DistrictController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ export default function Index({ districts }: { districts: District[] }) {
 
     const filtered = useMemo(() => {
         const q = query.toLowerCase().trim();
+
         return districts.filter((d) => {
             const matchesQuery =
                 !q ||
@@ -37,6 +38,7 @@ export default function Index({ districts }: { districts: District[] }) {
                 d.name_en.toLowerCase().includes(q) ||
                 d.code.toLowerCase().includes(q);
             const matchesState = stateFilter === 'all' || d.state === stateFilter;
+
             return matchesQuery && matchesState;
         });
     }, [districts, query, stateFilter]);

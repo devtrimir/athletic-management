@@ -10,6 +10,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 export default function Create() {
     const { t } = useTranslation();
+
     return (
         <>
             <Head title={t('New sport session')} />
