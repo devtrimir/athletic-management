@@ -191,7 +191,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P5-T07** `EventController` (create event)
 - [x] **P5-T08** `EventParticipantController` (transactional bulk write of participations + optional achievements)
 - [x] **P5-T09** API: members participations + achievements endpoints
-- [ ] **P5-T10** API: `GET /api/v1/reports/medals` (tier × medal_type pivot)
+- [x] **P5-T10** API: `GET /api/v1/reports/medals` (tier × medal_type pivot)
 
 ### Frontend
 - [ ] **P5-T11** `Pages/Tournaments/Index.tsx`, `Create.tsx`, `Show.tsx` (Events sub-tab)
