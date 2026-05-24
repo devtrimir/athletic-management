@@ -1,0 +1,84 @@
+import { Link } from '@inertiajs/react';
+import { Award, BarChart2, ChevronDown, ClipboardList, Hash, Medal, Star, TrendingUp, UserMinus, UserPlus } from 'lucide-react';
+import ReportsMedalsController from '@/actions/App/Http/Controllers/ReportsMedalsController';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+} from '@/components/ui/sidebar';
+import { useCurrentUrl } from '@/hooks/use-current-url';
+import { useTranslation } from '@/hooks/use-translation';
+
+// Paths for future Inertia report pages (P7-T10/T14).
+// Replace with Wayfinder imports once those routes are registered.
+const REPORT_PATHS = {
+    medals: ReportsMedalsController.definition.url,
+    medalsByMember: '/reports/medals-by-member',
+    achievementHistory: '/reports/achievement-history',
+    teamRoster: '/reports/team-roster',
+    resignationDismissal: '/reports/resignation-dismissal-log',
+    unitHeadcount: '/reports/unit-headcount',
+    playerLevelSummary: '/reports/player-level-summary',
+    newJoiners: '/reports/new-joiners',
+} as const;
+
+export function NavReports() {
+    const { t } = useTranslation();
+    const { isCurrentUrl, isCurrentOrParentUrl } = useCurrentUrl();
+
+    const items = [
+        { key: 'medals', title: t('Medal Tally'), href: REPORT_PATHS.medals, icon: Medal },
+        { key: 'medals-by-member', title: t('Medals by Member'), href: REPORT_PATHS.medalsByMember, icon: Award },
+        { key: 'achievement-history', title: t('Achievement History'), href: REPORT_PATHS.achievementHistory, icon: Star },
+        { key: 'team-roster', title: t('Team Roster'), href: REPORT_PATHS.teamRoster, icon: ClipboardList },
+        {
+            key: 'resignation-dismissal',
+            title: t('Resignation / Dismissal Log'),
+            href: REPORT_PATHS.resignationDismissal,
+            icon: UserMinus,
+        },
+        { key: 'unit-headcount', title: t('Unit Headcount'), href: REPORT_PATHS.unitHeadcount, icon: Hash },
+        {
+            key: 'player-level-summary',
+            title: t('Player Level Summary'),
+            href: REPORT_PATHS.playerLevelSummary,
+            icon: TrendingUp,
+        },
+        { key: 'new-joiners', title: t('New Joiners'), href: REPORT_PATHS.newJoiners, icon: UserPlus },
+    ];
+
+    return (
+        <SidebarGroup className="px-2 py-0">
+            <Collapsible defaultOpen={isCurrentOrParentUrl('/reports')}>
+                <SidebarGroupLabel asChild>
+                    <CollapsibleTrigger className="group/reports flex w-full items-center gap-2">
+                        <BarChart2 className="size-4 shrink-0" />
+                        <span>{t('Reports')}</span>
+                        <ChevronDown className="ml-auto size-4 shrink-0 transition-transform group-data-[state=open]/reports:rotate-180" />
+                    </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                    <SidebarMenu>
+                        {items.map((item) => (
+                            <SidebarMenuItem key={item.key}>
+                                <SidebarMenuButton
+                                    asChild
+                                    isActive={isCurrentUrl(item.href)}
+                                    tooltip={{ children: item.title }}
+                                >
+                                    <Link href={item.href} prefetch>
+                                        <item.icon />
+                                        <span>{item.title}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        ))}
+                    </SidebarMenu>
+                </CollapsibleContent>
+            </Collapsible>
+        </SidebarGroup>
+    );
+}

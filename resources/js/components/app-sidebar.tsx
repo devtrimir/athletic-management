@@ -1,12 +1,12 @@
 import { Link } from '@inertiajs/react';
-import { BarChart2, LayoutGrid, Settings2, Shield, Trophy, UserCheck, Users } from 'lucide-react';
+import { LayoutGrid, Settings2, Shield, Trophy, UserCheck, Users } from 'lucide-react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
-import ReportsMedalsController from '@/actions/App/Http/Controllers/ReportsMedalsController';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import TournamentController from '@/actions/App/Http/Controllers/TournamentController';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
+import { NavReports } from '@/components/nav-reports';
 import { NavUser } from '@/components/nav-user';
 import {
     Sidebar,
@@ -31,7 +31,6 @@ export function AppSidebar() {
         { title: t('Coaches'), href: CoachController.index.url(), icon: UserCheck },
         { title: t('Teams'), href: TeamController.index.url(), icon: Shield },
         { title: t('Tournaments'), href: TournamentController.index.url(), icon: Trophy },
-        { title: t('Reports'), href: ReportsMedalsController.url(), icon: BarChart2 },
     ];
 
     const adminNavItems: NavItem[] = [
@@ -54,6 +53,7 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} groupLabel={t('Main')} />
+                <NavReports />
                 <NavMain items={adminNavItems} groupLabel={t('Admin')} />
             </SidebarContent>
 
