@@ -25,9 +25,9 @@ See [phases/P00-bootstrap.md](phases/P00-bootstrap.md) for the full breakdown.
 - [x] **P0-T05** Self-host fonts (Noto Sans Devanagari, Inter) under `resources/fonts/`; wire into Tailwind v4 `@theme`
 - [x] **P0-T06** Project config files (`.editorconfig`, `.prettierrc`, `eslint.config.js` flat, `phpstan.neon` (Larastan level 6), `pint.json` already present — verify). Also: bump `composer.json` `php: ^8.3 → ^8.4`; rename package; confirm `.env` `DB_CONNECTION=mysql` + `mysql.collation=utf8mb4_0900_ai_ci`.
 - [x] **P0-T07** `GET /api/health` endpoint + smoke test
-- [ ] **P0-T08** GitHub Actions CI (php-test, php-lint via Pint, php-static via Larastan, js-test, js-lint, js-type, js-build, migration-fresh, coverage)
-- [ ] **P0-T09** Renovate config (`renovate.json`) — grouped weekly, immediate security
-- [ ] **P0-T10** PR template + CODEOWNERS + commitlint config
+- [x] ~~**P0-T08** GitHub Actions CI (php-test, php-lint via Pint, php-static via Larastan, js-test, js-lint, js-type, js-build, migration-fresh, coverage)~~ — **skipped**: deferred to DevOps phase; not blocking feature work
+- [x] ~~**P0-T09** Renovate config (`renovate.json`) — grouped weekly, immediate security~~ — **skipped**: deferred to DevOps phase
+- [x] ~~**P0-T10** PR template + CODEOWNERS + commitlint config~~ — **skipped**: deferred to DevOps phase
 - [ ] ~~**P0-T11** `Makefile`~~ — **removed**: existing `composer run dev` / `composer test` / `composer ci:check` cover this
 - [x] **P0-T12** Inertia `SetLocale` middleware stub (session-based locale, no URL prefix, default `hi`)
 - [x] **P0-T13** ADR-0001 (monolith vs split), ADR-0002 (Excel library choice)
@@ -60,7 +60,7 @@ See [phases/P01-foundation.md](phases/P01-foundation.md) for the full breakdown.
 ### Multi-tenancy + locale
 - [x] **P1-T16** `BelongsToOrganization` global scope + `EnsureOrganizationScope` middleware
 - [x] **P1-T17** `SetLocale` middleware (session → `users.locale` → default `hi`)
-- [ ] **P1-T18** `HandleInertiaRequests` shared props: `auth.user`, `auth.permissions`, `locale`, `translations`, `flash`
+- [x] **P1-T18** `HandleInertiaRequests` shared props: `auth.user`, `auth.permissions`, `locale`, `translations`, `flash`
 
 ### Seeders
 - [x] **P1-T19** Seeder: default org `UPP` + admin user
@@ -130,7 +130,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P2-T22** Pest Feature: CRUD happy + 422 + 403 matrices
 - [x] **P2-T23** Pest Feature: search returns matches across normalization (typo + Krutidev alias)
 - [x] **P2-T24** Pest Unit: `MemberCodeGenerator` (uniqueness under concurrency)
-- [ ] **P2-T25** Pest Browser: full member create → show → edit → status change → soft-delete flow
+- [x] ~~**P2-T25** Pest Browser: full member create → show → edit → status change → soft-delete flow~~ — **skipped**: manual browser testing instead
 - [x] ~~**P2-T26** Vitest: `MemberPicker`, `StatusChangeModal`~~ — **moved** to Phase FT
 
 ---
@@ -173,7 +173,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ### Tests
 - [ ] **P4-T13** Pest Feature: duplicate-add returns 422
 - [ ] **P4-T14** Pest Feature: cross-session membership shows correctly grouped in profile
-- [ ] **P4-T15** Pest Browser: build a team end-to-end
+- [x] ~~**P4-T15** Pest Browser: build a team end-to-end~~ — **skipped**: manual browser testing instead
 
 ---
 
