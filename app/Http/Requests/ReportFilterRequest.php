@@ -23,4 +23,14 @@ class ReportFilterRequest extends FormRequest
     {
         return $this->reportFilterRules();
     }
+
+    /**
+     * Convenience wrapper — extract validated filter values from this request.
+     *
+     * @return array{session_id: int|null, sport_id: int|null, unit_id: int|null, tier_id: int|null}
+     */
+    public function filters(): array
+    {
+        return $this->resolvedFilters($this);
+    }
 }

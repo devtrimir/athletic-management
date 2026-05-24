@@ -256,7 +256,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 ## Phase 7 — Reports & Exports
 
 - [x] **P7-T01** `ReportPolicy` + shared filter trait (`session_id`, `sport_id`, `unit_id`, `tier_id`)
-- [ ] **P7-T02** Service: MedalTallyReport (session × tier × sport)
+- [x] **P7-T02** Service: MedalTallyReport (session × tier × sport)
 - [ ] **P7-T03** Service: MedalsByMemberReport (top-N)
 - [ ] **P7-T04** Service: TeamRosterReport
 - [ ] **P7-T05** Service: ResignationDismissalLogReport

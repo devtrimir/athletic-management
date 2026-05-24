@@ -94,7 +94,7 @@ test('medals pivot returns empty data when no achievements', function () {
     $response = $this->actingAs($user)->getJson(route('v1.reports.medals'))->assertOk();
 
     expect($response->json('data'))->toBeArray()->toBeEmpty();
-    expect($response->json('filters'))->toBe(['session_id' => null, 'sport_id' => null, 'tier_id' => null]);
+    expect($response->json('filters'))->toBe(['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null]);
 });
 
 test('medals pivot returns correct tier row with GOLD count', function () {

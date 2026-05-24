@@ -18,7 +18,7 @@ class SportSessionFactory extends Factory
      */
     public function definition(): array
     {
-        $startYear = fake()->numberBetween(2019, 2026);
+        $startYear = fake()->unique()->numberBetween(2000, 2050);
 
         return [
             'organization_id' => Organization::factory(),
