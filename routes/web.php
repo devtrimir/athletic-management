@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CoachController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MemberAliasController;
 use App\Http\Controllers\MemberController;
@@ -21,6 +22,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('coaches', CoachController::class);
     Route::resource('teams', TeamController::class);
     Route::resource('tournaments', TournamentController::class);
+    Route::post('tournaments/{tournament}/events', [EventController::class, 'store'])
+        ->name('tournaments.events.store')->scopeBindings();
+    Route::get('tournaments/{tournament}/events/{event}', [EventController::class, 'show'])
+        ->name('tournaments.events.show')->scopeBindings();
     Route::post('teams/{team}/members', [TeamMemberController::class, 'store'])->name('teams.members.store');
     Route::delete('teams/{team}/members/{member}', [TeamMemberController::class, 'destroy'])->name('teams.members.destroy');
     Route::post('teams/{team}/coaches', [TeamCoachController::class, 'store'])->name('teams.coaches.store');
