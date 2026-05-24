@@ -171,8 +171,8 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P4-T12** Wire Members `Show` Teams tab + Coaches `Show` Teams tab
 
 ### Tests
-- [ ] **P4-T13** Pest Feature: duplicate-add returns 422
-- [ ] **P4-T14** Pest Feature: cross-session membership shows correctly grouped in profile
+- [x] **P4-T13** Pest Feature: duplicate-add returns 422
+- [x] **P4-T14** Pest Feature: cross-session membership shows correctly grouped in profile
 - [x] ~~**P4-T15** Pest Browser: build a team end-to-end~~ — **skipped**: manual browser testing instead
 
 ---
