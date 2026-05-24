@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\CoachSearchController;
 use App\Http\Controllers\Api\V1\MemberSearchController;
 use App\Http\Controllers\Api\V1\ReferenceDataController;
 use Illuminate\Support\Facades\Route;
@@ -8,6 +9,7 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 
 Route::middleware(['auth'])->prefix('v1')->name('v1.')->group(function () {
     Route::get('search/members', MemberSearchController::class)->name('search.members');
+    Route::get('search/coaches', CoachSearchController::class)->name('search.coaches');
     Route::get('tournament-tiers', [ReferenceDataController::class, 'tournamentTiers'])
         ->name('tournament-tiers.index');
     Route::get('sports', [ReferenceDataController::class, 'sports'])
