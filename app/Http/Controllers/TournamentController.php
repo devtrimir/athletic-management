@@ -102,8 +102,16 @@ class TournamentController extends Controller
 
         $tournament->load(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name']);
 
+        $orgId = (int) $tournament->organization_id;
+
+        $sports = Sport::select(['id', 'name'])
+            ->where('organization_id', $orgId)
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('tournaments/show', [
             'tournament' => new TournamentResource($tournament),
+            'sports' => $sports,
             'events' => Inertia::defer(fn () => $tournament->events()
                 ->with('sport:id,name')
                 ->withCount('participations')
