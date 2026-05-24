@@ -8,6 +8,7 @@ use App\Http\Controllers\MemberStatusController;
 use App\Http\Controllers\TeamCoachController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamMemberController;
+use App\Http\Controllers\TournamentController;
 use Illuminate\Support\Facades\Route;
 
 Route::patch('/locale', [LocaleController::class, 'update'])->name('locale.update');
@@ -19,6 +20,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('members', MemberController::class);
     Route::resource('coaches', CoachController::class);
     Route::resource('teams', TeamController::class);
+    Route::resource('tournaments', TournamentController::class);
     Route::post('teams/{team}/members', [TeamMemberController::class, 'store'])->name('teams.members.store');
     Route::delete('teams/{team}/members/{member}', [TeamMemberController::class, 'destroy'])->name('teams.members.destroy');
     Route::post('teams/{team}/coaches', [TeamCoachController::class, 'store'])->name('teams.coaches.store');

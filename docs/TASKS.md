@@ -180,14 +180,14 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ## Phase 5 — Tournaments, Events, Participations, Achievements
 
 ### Schema
-- [ ] **P5-T01** Migration: `tournaments` (+ soft-delete, indexes)
-- [ ] **P5-T02** Migration: `events`
-- [ ] **P5-T03** Migration: `participations` + unique `(event_id, member_id)`
-- [ ] **P5-T04** Migration: `achievements` + composite index
+- [x] **P5-T01** Migration: `tournaments` (+ soft-delete, indexes)
+- [x] **P5-T02** Migration: `events`
+- [x] **P5-T03** Migration: `participations` + unique `(event_id, member_id)`
+- [x] **P5-T04** Migration: `achievements` + composite index
 
 ### Backend
-- [ ] **P5-T05** `TournamentPolicy`
-- [ ] **P5-T06** Form Requests + `TournamentController` (Inertia CRUD)
+- [x] **P5-T05** `TournamentPolicy`
+- [x] **P5-T06** Form Requests + `TournamentController` (Inertia CRUD)
 - [ ] **P5-T07** `EventController` (create event)
 - [ ] **P5-T08** `EventParticipantController` (transactional bulk write of participations + optional achievements)
 - [ ] **P5-T09** API: members participations + achievements endpoints
