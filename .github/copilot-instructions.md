@@ -65,6 +65,7 @@ Skills under [`.github/skills/`](skills/) auto-activate per their descriptions (
 - **Migrations:** every `up()` has a working `down()`. CI runs `migrate:fresh --seed` then `migrate:rollback` on every PR.
 - **API contract stability:** `/api/v1` shapes are frozen. Search endpoints keep their contract across the P2 → P8 Meilisearch swap.
 - **PHP style:** after editing any PHP file, run `vendor/bin/pint --dirty --format agent` before finishing.
+- **JS/TS style:** after editing any JS/TS/TSX/JSX file, run `npm run lint` (then `npm run build`) before finishing.
 - **No documentation files created unless explicitly requested.** Code changes do not need a markdown writeup.
 
 ## Things to avoid
