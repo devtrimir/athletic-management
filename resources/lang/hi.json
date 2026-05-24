@@ -289,7 +289,14 @@
     "Tier": "स्तर",
     "Tournament": "प्रतियोगिता",
     "Tournaments": "प्रतियोगिताएं",
+    "Total": "कुल",
     "Update tournament": "प्रतियोगिता अपडेट करें",
     "Venue": "स्थान",
-    "Weight category": "भार वर्ग"
+    "Weight category": "भार वर्ग",
+    "All Sessions": "सभी सत्र",
+    "All Sports": "सभी खेल",
+    "All Tiers": "सभी स्तर",
+    "Medal Tally": "पदक तालिका",
+    "No data.": "कोई डेटा नहीं।",
+    "Reports": "रिपोर्ट"
 }

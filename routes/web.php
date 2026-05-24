@@ -7,6 +7,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MemberAliasController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberStatusController;
+use App\Http\Controllers\ReportsMedalsController;
 use App\Http\Controllers\TeamCoachController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamMemberController;
@@ -23,6 +24,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('coaches', CoachController::class);
     Route::resource('teams', TeamController::class);
     Route::resource('tournaments', TournamentController::class);
+    Route::get('reports/medals', ReportsMedalsController::class)->name('reports.medals');
     Route::post('tournaments/{tournament}/events', [EventController::class, 'store'])
         ->name('tournaments.events.store')->scopeBindings();
     Route::get('tournaments/{tournament}/events/{event}', [EventController::class, 'show'])
