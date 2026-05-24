@@ -190,7 +190,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P5-T06** Form Requests + `TournamentController` (Inertia CRUD)
 - [x] **P5-T07** `EventController` (create event)
 - [x] **P5-T08** `EventParticipantController` (transactional bulk write of participations + optional achievements)
-- [ ] **P5-T09** API: members participations + achievements endpoints
+- [x] **P5-T09** API: members participations + achievements endpoints
 - [ ] **P5-T10** API: `GET /api/v1/reports/medals` (tier × medal_type pivot)
 
 ### Frontend
