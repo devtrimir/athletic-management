@@ -194,7 +194,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P5-T10** API: `GET /api/v1/reports/medals` (tier × medal_type pivot)
 
 ### Frontend
-- [ ] **P5-T11** `Pages/Tournaments/Index.tsx`, `Create.tsx`, `Show.tsx` (Events sub-tab)
+- [x] **P5-T11** `Pages/Tournaments/Index.tsx`, `Create.tsx`, `Show.tsx` (Events sub-tab)
 - [ ] **P5-T12** `Pages/Events/Show.tsx` participants grid (inline medal selector)
 - [ ] **P5-T13** Wire Member `Show` Participations + Achievements tabs
 - [ ] **P5-T14** Interim `Pages/Reports/Medals.tsx`
