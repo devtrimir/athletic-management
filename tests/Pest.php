@@ -1,6 +1,11 @@
 <?php
 
+use App\Models\Organization;
+use App\Models\Permission;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /*
@@ -38,13 +43,32 @@ expect()->extend('toBeOne', function () {
 | Functions
 |--------------------------------------------------------------------------
 |
-| While Pest is very powerful out-of-the-box, you may have some testing code specific to your
+| While Pest is very powerful out-of-box, you may have some testing code specific to your
 | project that you don't want to repeat in every file. Here you can also expose helpers as
 | global functions to help you to reduce the number of lines of code in your test files.
 |
 */
 
-function something()
+/**
+ * Create an org + user with the given permission codes (for report/controller tests).
+ */
+function rcUser(string ...$permissions): User
 {
-    // ..
+    $org = Organization::factory()->create();
+    $user = User::factory()->create(['organization_id' => $org->id]);
+
+    if (count($permissions) > 0) {
+        $role = Role::factory()->create(['organization_id' => $org->id]);
+        DB::table('user_role')->insert(['user_id' => $user->id, 'role_id' => $role->id, 'organization_id' => $org->id]);
+
+        foreach ($permissions as $code) {
+            $perm = Permission::firstOrCreate(
+                ['code' => $code],
+                ['group' => explode('.', $code)[0], 'name_hi' => $code, 'name_en' => $code],
+            );
+            DB::table('role_permission')->insert(['role_id' => $role->id, 'permission_id' => $perm->id]);
+        }
+    }
+
+    return $user;
 }
