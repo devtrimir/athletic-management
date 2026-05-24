@@ -260,7 +260,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [x] **P7-T03** Service: MedalsByMemberReport (top-N)
 - [x] **P7-T04** Service: TeamRosterReport
 - [x] **P7-T05** Service: ResignationDismissalLogReport
-- [ ] **P7-T06** Service: UnitHeadcountReport (replaces `SANKHYATMAK`)
+- [x] **P7-T06** Service: UnitHeadcountReport (replaces `SANKHYATMAK`)
 - [ ] **P7-T07** Service: PlayerLevelSummaryReport (replaces `PLAYERS LEVEL`)
 - [ ] **P7-T08** Service: NewJoinersReport
 - [ ] **P7-T09** Service: AchievementHistoryReport
