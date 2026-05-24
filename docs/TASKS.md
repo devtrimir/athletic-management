@@ -165,7 +165,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P4-T08** API: `GET /api/v1/members/{member}/teams`, `GET /api/v1/coaches/{coach}/teams`
 
 ### Frontend
-- [ ] **P4-T09** `Pages/Teams/Index.tsx` (default-current-session filter)
+- [x] **P4-T09** `Pages/Teams/Index.tsx` (default-current-session filter)
 - [ ] **P4-T10** `Pages/Teams/Create.tsx`
 - [ ] **P4-T11** `Pages/Teams/Show.tsx` (details + roster + coaches sections)
 - [ ] **P4-T12** Wire Members `Show` Teams tab + Coaches `Show` Teams tab
