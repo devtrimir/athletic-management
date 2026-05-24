@@ -91,3 +91,51 @@ test('next() after nextBatch continues the sequence without gaps', function () {
 
     expect($this->generator->next($this->orgId, $year))->toBe("UPP-{$year}-000006");
 });
+
+// ── Uniqueness ───────────────────────────────────────────────────────────────
+
+test('50 sequential calls all produce unique codes', function () {
+    $codes = array_map(fn () => $this->generator->next($this->orgId), range(1, 50));
+
+    expect(array_unique($codes))->toHaveCount(50);
+});
+
+test('concurrent processes each get a unique code via row locking', function () {
+    $n = 8;
+    $resultsTable = 'concurrency_test_codes_'.getmypid();
+
+    // Scratch table to collect codes from child processes.
+    DB::statement("CREATE TABLE {$resultsTable} (code VARCHAR(30) NOT NULL)");
+
+    $pids = [];
+    for ($i = 0; $i < $n; $i++) {
+        $pid = pcntl_fork();
+
+        if ($pid === -1) {
+            throw new RuntimeException('pcntl_fork failed');
+        }
+
+        if ($pid === 0) {
+            // Child: generate one code and record it, then exit.
+            $code = app(MemberCodeGenerator::class)->next($this->orgId);
+            DB::table($resultsTable)->insert(['code' => $code]);
+            exit(0);
+        }
+
+        $pids[] = $pid;
+    }
+
+    // Parent: wait for all children.
+    foreach ($pids as $pid) {
+        pcntl_waitpid($pid, $childStatus);
+    }
+
+    $codes = DB::table($resultsTable)->pluck('code')->all();
+    DB::statement("DROP TABLE {$resultsTable}");
+
+    expect($codes)->toHaveCount($n)
+        ->and(array_unique($codes))->toHaveCount($n);
+})->skip(
+    fn () => DB::connection()->getDriverName() !== 'mysql' || ! function_exists('pcntl_fork'),
+    'MySQL + pcntl required for concurrency test',
+);
