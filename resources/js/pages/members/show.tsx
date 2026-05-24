@@ -1,7 +1,11 @@
-import { Deferred, Head, Link, setLayoutProps } from '@inertiajs/react';
-import { useState } from 'react';
+import { Deferred, Head, Link, setLayoutProps, useHttp } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
+import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
+import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
+import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
 import { edit as editMember, index as membersIndex } from '@/actions/App/Http/Controllers/MemberController';
 import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
+import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +46,39 @@ type MemberTeamRow = {
     session: { id: number; name: string } | null;
 };
 
+type ParticipationEntry = {
+    id: number;
+    position: number | null;
+    tournament: { id: number; name_hi: string; tier_code: string | null; date_from: string | null };
+    event: { id: number; name_hi: string; gender_class: string };
+    achievement: { medal_type: string; position: number | null; remarks: string | null } | null;
+};
+
+type ParticipationGroup = {
+    session: { id: number; name: string };
+    participations: ParticipationEntry[];
+};
+
+type AchievementsData = {
+    summary: { GOLD: number; SILVER: number; BRONZE: number; MERIT: number };
+    achievements: Array<{
+        id: number;
+        medal_type: string;
+        position: number | null;
+        remarks: string | null;
+        session: { id: number; name: string };
+        tournament: { id: number; name_hi: string; tier_code: string | null };
+        event: { id: number; name_hi: string };
+    }>;
+};
+
+const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+    GOLD: 'default',
+    SILVER: 'secondary',
+    BRONZE: 'outline',
+    MERIT: 'outline',
+};
+
 export default function MembersShow({
     member,
     statusHistory,
@@ -53,6 +90,38 @@ export default function MembersShow({
     aliases?: Alias[];
     memberTeams?: MemberTeamRow[];
 }) {
+    const [activeTab, setActiveTab] = useState('overview');
+    const [participations, setParticipations] = useState<ParticipationGroup[] | null>(null);
+    const [achievementsData, setAchievementsData] = useState<AchievementsData | null>(null);
+    const { get: getParticipations, processing: loadingParticipations } = useHttp<Record<string, never>, { data: ParticipationGroup[] }>({});
+    const { get: getAchievements, processing: loadingAchievements } = useHttp<Record<string, never>, { data: AchievementsData }>({});
+    const participationsFetched = useRef(false);
+    const achievementsFetched = useRef(false);
+    const memberId = member.id;
+
+    useEffect(() => {
+        if (activeTab === 'participations' && !participationsFetched.current) {
+            participationsFetched.current = true;
+            getParticipations(MemberParticipationsController.url(memberId), {
+                onSuccess: (res) => {
+                    const r = res as unknown as { data: ParticipationGroup[] };
+                    setParticipations(r?.data ?? []);
+                },
+                onError: () => setParticipations([]),
+            });
+        }
+
+        if (activeTab === 'achievements' && !achievementsFetched.current) {
+            achievementsFetched.current = true;
+            getAchievements(MemberAchievementsController.url(memberId), {
+                onSuccess: (res) => {
+                    const r = res as unknown as { data: AchievementsData };
+                    setAchievementsData(r?.data ?? { summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 }, achievements: [] });
+                },
+                onError: () => setAchievementsData({ summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 }, achievements: [] }),
+            });
+        }
+    }, [activeTab, memberId, getParticipations, getAchievements]);
     const { t } = useTranslation();
 
     setLayoutProps({
@@ -88,7 +157,7 @@ export default function MembersShow({
                     </div>
                 </div>
 
-                <Tabs defaultValue="overview">
+                <Tabs defaultValue="overview" onValueChange={setActiveTab}>
                     <TabsList>
                         <TabsTrigger value="overview">{t('Overview')}</TabsTrigger>
                         <TabsTrigger value="status">{t('Status history')}</TabsTrigger>
@@ -203,14 +272,126 @@ export default function MembersShow({
                         </div>
                     </TabsContent>
 
-                    {/* Stubs */}
-                    {(['participations', 'achievements'] as const).map((tab) => (
-                        <TabsContent key={tab} value={tab}>
-                            <div className="rounded-xl border bg-card p-6">
-                                <p className="text-sm text-muted-foreground">{t('Coming soon')}</p>
-                            </div>
-                        </TabsContent>
-                    ))}
+                    {/* Participations */}
+                    <TabsContent value="participations">
+                        <div className="space-y-4">
+                            {loadingParticipations || participations === null ? (
+                                <div className="space-y-2">{[1, 2, 3].map((n) => <Skeleton key={n} className="h-10 w-full" />)}</div>
+                            ) : participations.length === 0 ? (
+                                <div className="rounded-xl border bg-card p-6">
+                                    <p className="text-sm text-muted-foreground">{t('No participations.')}</p>
+                                </div>
+                            ) : participations.map((group) => (
+                                <div key={group.session.id} className="rounded-xl border bg-card">
+                                    <div className="px-4 py-2 border-b">
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.session.name}</span>
+                                    </div>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>{t('Tournament')}</TableHead>
+                                                <TableHead>{t('Tier')}</TableHead>
+                                                <TableHead>{t('Event')}</TableHead>
+                                                <TableHead>{t('Medal')}</TableHead>
+                                                <TableHead>{t('Position')}</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {group.participations.map((p) => (
+                                                <TableRow key={p.id}>
+                                                    <TableCell className="font-medium">
+                                                        <Link href={showTournament.url(p.tournament.id)} className="hover:underline">
+                                                            {p.tournament.name_hi}
+                                                        </Link>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {p.tournament.tier_code
+                                                            ? <Badge variant="outline">{p.tournament.tier_code}</Badge>
+                                                            : '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Link href={showEvent.url({ tournament: p.tournament.id, event: p.event.id })} className="hover:underline">
+                                                            {p.event.name_hi}
+                                                        </Link>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {p.achievement?.medal_type
+                                                            ? <Badge variant={MEDAL_VARIANT[p.achievement.medal_type] ?? 'outline'}>{t(p.achievement.medal_type)}</Badge>
+                                                            : '—'}
+                                                    </TableCell>
+                                                    <TableCell>{p.achievement?.position ?? p.position ?? '—'}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            ))}
+                        </div>
+                    </TabsContent>
+
+                    {/* Achievements */}
+                    <TabsContent value="achievements">
+                        <div className="space-y-4">
+                            {loadingAchievements || achievementsData === null ? (
+                                <div className="space-y-2">{[1, 2, 3].map((n) => <Skeleton key={n} className="h-10 w-full" />)}</div>
+                            ) : (
+                                <>
+                                    <div className="flex flex-wrap gap-3">
+                                        {(['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const).map((m) => (
+                                            <div key={m} className="rounded-lg border bg-card px-4 py-3 flex items-center gap-2">
+                                                <Badge variant={MEDAL_VARIANT[m]}>{t(m)}</Badge>
+                                                <span className="text-xl font-bold">{achievementsData.summary[m]}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {achievementsData.achievements.length === 0 ? (
+                                        <div className="rounded-xl border bg-card p-6">
+                                            <p className="text-sm text-muted-foreground">{t('No achievements.')}</p>
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-xl border bg-card">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>{t('Medal')}</TableHead>
+                                                        <TableHead>{t('Tournament')}</TableHead>
+                                                        <TableHead>{t('Tier')}</TableHead>
+                                                        <TableHead>{t('Event')}</TableHead>
+                                                        <TableHead>{t('Session')}</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {achievementsData.achievements.map((a) => (
+                                                        <TableRow key={a.id}>
+                                                            <TableCell>
+                                                                <Badge variant={MEDAL_VARIANT[a.medal_type] ?? 'outline'}>{t(a.medal_type)}</Badge>
+                                                            </TableCell>
+                                                            <TableCell className="font-medium">
+                                                                <Link href={showTournament.url(a.tournament.id)} className="hover:underline">
+                                                                    {a.tournament.name_hi}
+                                                                </Link>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {a.tournament.tier_code
+                                                                    ? <Badge variant="outline">{a.tournament.tier_code}</Badge>
+                                                                    : '—'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Link href={showEvent.url({ tournament: a.tournament.id, event: a.event.id })} className="hover:underline">
+                                                                    {a.event.name_hi}
+                                                                </Link>
+                                                            </TableCell>
+                                                            <TableCell>{a.session.name}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </TabsContent>
                 </Tabs>
             </div>
         </>
