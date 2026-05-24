@@ -140,7 +140,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P3-T01** Migration: `coaches` (incl. nullable `member_id` FK, unique `(org, pno)` where pno not null)
 - [x] **P3-T02** Factory + seeder fixtures
 - [x] **P3-T03** `CoachPolicy`
-- [ ] **P3-T04** Form Requests + `CoachController` (Inertia CRUD)
+- [x] **P3-T04** Form Requests + `CoachController` (Inertia CRUD)
 - [ ] **P3-T05** API: `GET /api/v1/search/coaches`
 - [ ] **P3-T06** `Pages/Coaches/Index.tsx`
 - [ ] **P3-T07** `Pages/Coaches/Create.tsx` + `Edit.tsx` (with `MemberPicker` for optional link)
