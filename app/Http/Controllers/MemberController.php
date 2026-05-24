@@ -11,6 +11,7 @@ use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
 use App\Models\District;
 use App\Models\Member;
+use App\Models\TeamMember;
 use App\Models\Unit;
 use App\Services\MemberCodeGenerator;
 use Illuminate\Http\RedirectResponse;
@@ -89,6 +90,19 @@ class MemberController extends Controller
             'aliases' => Inertia::defer(fn () => NameAliasResource::collection(
                 $member->aliases()->get()
             )),
+            'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
+                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name', 'session:id,name'])
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn ($tm) => [
+                    'id' => $tm->id,
+                    'role' => $tm->role,
+                    'joined_on' => $tm->joined_on?->toDateString(),
+                    'left_on' => $tm->left_on?->toDateString(),
+                    'team' => $tm->team ? ['id' => $tm->team->id, 'name_hi' => $tm->team->name_hi] : null,
+                    'sport' => $tm->team?->sport ? ['id' => $tm->team->sport->id, 'name' => $tm->team->sport->name] : null,
+                    'session' => $tm->session ? ['id' => $tm->session->id, 'name' => $tm->session->name] : null,
+                ])),
         ]);
     }
 

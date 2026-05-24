@@ -1,8 +1,10 @@
 import { Deferred, Head, Link, router, setLayoutProps } from '@inertiajs/react';
 import { destroy, edit as editCoach, index as coachesIndex } from '@/actions/App/Http/Controllers/CoachController';
+import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -25,7 +27,15 @@ type LinkedMember = {
     mobile: string | null;
 } | null;
 
-export default function CoachesShow({ coach, member }: { coach: Coach; member?: LinkedMember }) {
+type CoachTeamRow = {
+    id: number;
+    role: string | null;
+    team: { id: number; name_hi: string } | null;
+    sport: { id: number; name: string } | null;
+    session: { id: number; name: string } | null;
+};
+
+export default function CoachesShow({ coach, member, coachTeams }: { coach: Coach; member?: LinkedMember; coachTeams?: CoachTeamRow[] }) {
     const { t } = useTranslation();
 
     setLayoutProps({
@@ -125,10 +135,43 @@ return;
                         </div>
                     </TabsContent>
 
-                    {/* Teams stub */}
+                    {/* Teams */}
                     <TabsContent value="teams">
-                        <div className="rounded-xl border bg-card p-6">
-                            <p className="text-sm text-muted-foreground">{t('Coming soon')}</p>
+                        <div className="rounded-xl border bg-card">
+                            <Deferred data="coachTeams" fallback={<div className="space-y-2 p-4">{[1, 2, 3].map((n) => <Skeleton key={n} className="h-10 w-full" />)}</div>}>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>{t('Team')}</TableHead>
+                                            <TableHead>{t('Sport')}</TableHead>
+                                            <TableHead>{t('Session')}</TableHead>
+                                            <TableHead>{t('Role')}</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(coachTeams ?? []).length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                                    {t('No team assignments.')}
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (coachTeams ?? []).map((row) => (
+                                            <TableRow key={row.id}>
+                                                <TableCell className="font-medium">
+                                                    {row.team ? (
+                                                        <Link href={showTeam.url(row.team)} className="hover:underline">
+                                                            {row.team.name_hi}
+                                                        </Link>
+                                                    ) : '—'}
+                                                </TableCell>
+                                                <TableCell>{row.sport?.name ?? '—'}</TableCell>
+                                                <TableCell>{row.session?.name ?? '—'}</TableCell>
+                                                <TableCell>{row.role ? t(row.role) : '—'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </Deferred>
                         </div>
                     </TabsContent>
                 </Tabs>
