@@ -143,7 +143,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P3-T04** Form Requests + `CoachController` (Inertia CRUD)
 - [x] **P3-T05** API: `GET /api/v1/search/coaches`
 - [x] **P3-T06** `Pages/Coaches/Index.tsx`
-- [ ] **P3-T07** `Pages/Coaches/Create.tsx` + `Edit.tsx` (with `MemberPicker` for optional link)
+- [x] **P3-T07** `Pages/Coaches/Create.tsx` + `Edit.tsx` (with `MemberPicker` for optional link)
 - [ ] **P3-T08** `Pages/Coaches/Show.tsx` (profile shell, Teams tab stubbed)
 - [ ] **P3-T09** Pest Feature: CRUD + linked-vs-standalone behavior
 - [ ] **P3-T10** Pest Feature: editing linked coach's name does not mutate the member

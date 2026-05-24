@@ -86,7 +86,7 @@ class CoachController extends Controller
         Gate::authorize('update', $coach);
 
         return Inertia::render('coaches/edit', [
-            'coach' => $coach,
+            'coach' => $coach->load('member:id,member_code,full_name_hi,full_name_en,pno,rank,player_category,player_level,current_status'),
         ]);
     }
 
