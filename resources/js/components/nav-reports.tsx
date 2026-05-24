@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Award, BarChart2, ChevronDown, ClipboardList, Hash, Medal, Star, TrendingUp, UserMinus, UserPlus } from 'lucide-react';
+import * as ReportController from '@/actions/App/Http/Controllers/ReportController';
 import ReportsMedalsController from '@/actions/App/Http/Controllers/ReportsMedalsController';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -12,17 +13,16 @@ import {
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useTranslation } from '@/hooks/use-translation';
 
-// Paths for future Inertia report pages (P7-T10/T14).
-// Replace with Wayfinder imports once those routes are registered.
+// Paths: medals uses the dedicated controller; all others use ReportController.show.
 const REPORT_PATHS = {
     medals: ReportsMedalsController.definition.url,
-    medalsByMember: '/reports/medals-by-member',
-    achievementHistory: '/reports/achievement-history',
-    teamRoster: '/reports/team-roster',
-    resignationDismissal: '/reports/resignation-dismissal-log',
-    unitHeadcount: '/reports/unit-headcount',
-    playerLevelSummary: '/reports/player-level-summary',
-    newJoiners: '/reports/new-joiners',
+    medalsByMember: ReportController.show('medals-by-member').url,
+    achievementHistory: ReportController.show('achievement-history').url,
+    teamRoster: ReportController.show('team-roster').url,
+    resignationDismissal: ReportController.show('resignation-dismissal-log').url,
+    unitHeadcount: ReportController.show('unit-headcount').url,
+    playerLevelSummary: ReportController.show('player-level-summary').url,
+    newJoiners: ReportController.show('new-joiners').url,
 } as const;
 
 export function NavReports() {
