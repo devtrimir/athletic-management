@@ -95,7 +95,10 @@ class MemberSearchService
         return collect($rows);
     }
 
-    /** SQLite path (test environment): PNO exact + LIKE on full_name_hi. */
+    /**
+     * SQLite path (test environment): PNO exact + LIKE on full_name_hi OR alias_hi.
+     * Mirrors the MySQL path which also searches name_aliases via FULLTEXT.
+     */
     private function searchSqlite(int $orgId, string $q): Collection
     {
         $base = Member::withoutGlobalScopes()
@@ -110,7 +113,10 @@ class MemberSearchService
         }
 
         return (clone $base)
-            ->where('full_name_hi', 'LIKE', '%'.$q.'%')
+            ->where(function ($query) use ($q): void {
+                $query->where('full_name_hi', 'LIKE', '%'.$q.'%')
+                    ->orWhereHas('aliases', fn ($a) => $a->where('alias_hi', 'LIKE', '%'.$q.'%'));
+            })
             ->limit(50)
             ->get();
     }
