@@ -91,7 +91,7 @@ class MemberController extends Controller
                 $member->aliases()->get()
             )),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
-                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name', 'session:id,name'])
+                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi', 'session:id,name'])
                 ->orderByDesc('id')
                 ->get()
                 ->map(fn ($tm) => [

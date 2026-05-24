@@ -21,7 +21,7 @@ class CoachTeamsController extends Controller
         $assignments = CoachAssignment::where('coach_id', $coach->id)
             ->with([
                 'team:id,name_hi,sport_id',
-                'team.sport:id,name',
+                'team.sport:id,name_hi',
                 'session:id,name',
             ])
             ->orderByDesc('id')

@@ -42,7 +42,7 @@ class TeamController extends Controller
             ->allowedSorts(['name_hi', 'created_at'])
             ->defaultSort('name_hi')
             ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-            ->with(['sport:id,name', 'session:id,name', 'unit:id,name_hi'])
+            ->with(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi'])
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
                 fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -55,8 +55,8 @@ class TeamController extends Controller
             ->orderBy('name')
             ->get();
 
-        $sports = Sport::select(['id', 'name'])
-            ->orderBy('name')
+        $sports = Sport::select(['id', 'name_hi'])
+            ->orderBy('name_hi')
             ->get();
 
         $units = Unit::select(['id', 'name_hi'])
@@ -100,7 +100,7 @@ class TeamController extends Controller
     {
         Gate::authorize('view', $team);
 
-        $team->load(['sport:id,name', 'session:id,name', 'unit:id,name_hi']);
+        $team->load(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi']);
 
         return Inertia::render('teams/show', [
             'team' => new TeamResource($team),
@@ -156,7 +156,7 @@ class TeamController extends Controller
 
         return Inertia::render('teams/edit', array_merge(
             $this->formOptions($orgId),
-            ['team' => $team->load(['sport:id,name', 'session:id,name', 'unit:id,name_hi'])],
+            ['team' => $team->load(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi'])],
         ));
     }
 
@@ -192,8 +192,8 @@ class TeamController extends Controller
                 ->where('organization_id', $orgId)
                 ->orderBy('name')
                 ->get(),
-            'sports' => Sport::select(['id', 'name'])
-                ->orderBy('name')
+            'sports' => Sport::select(['id', 'name_hi'])
+                ->orderBy('name_hi')
                 ->get(),
             'units' => Unit::select(['id', 'name_hi'])
                 ->orderBy('name_hi')

@@ -42,7 +42,7 @@ class TournamentController extends Controller
             ->allowedSorts(['name_hi', 'date_from', 'created_at'])
             ->defaultSort('-date_from')
             ->withCount('events')
-            ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name'])
+            ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name_hi'])
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
                 fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -55,8 +55,8 @@ class TournamentController extends Controller
             ->orderBy('name')
             ->get();
 
-        $sports = Sport::select(['id', 'name'])
-            ->orderBy('name')
+        $sports = Sport::select(['id', 'name_hi'])
+            ->orderBy('name_hi')
             ->get();
 
         $tiers = TournamentTier::select(['id', 'code', 'label_hi'])
@@ -100,20 +100,20 @@ class TournamentController extends Controller
     {
         Gate::authorize('view', $tournament);
 
-        $tournament->load(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name']);
+        $tournament->load(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name_hi']);
 
         $orgId = (int) $tournament->organization_id;
 
-        $sports = Sport::select(['id', 'name'])
+        $sports = Sport::select(['id', 'name_hi'])
             ->where('organization_id', $orgId)
-            ->orderBy('name')
+            ->orderBy('name_hi')
             ->get();
 
         return Inertia::render('tournaments/show', [
             'tournament' => new TournamentResource($tournament),
             'sports' => $sports,
             'events' => Inertia::defer(fn () => $tournament->events()
-                ->with('sport:id,name')
+                ->with('sport:id,name_hi')
                 ->withCount('participations')
                 ->orderBy('name_hi')
                 ->get()
@@ -140,7 +140,7 @@ class TournamentController extends Controller
 
         return Inertia::render('tournaments/edit', array_merge(
             $this->formOptions($orgId),
-            ['tournament' => $tournament->load(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name'])],
+            ['tournament' => $tournament->load(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name_hi'])],
         ));
     }
 
@@ -176,8 +176,8 @@ class TournamentController extends Controller
                 ->where('organization_id', $orgId)
                 ->orderBy('name')
                 ->get(),
-            'sports' => Sport::select(['id', 'name'])
-                ->orderBy('name')
+            'sports' => Sport::select(['id', 'name_hi'])
+                ->orderBy('name_hi')
                 ->get(),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi'])
                 ->orderByDesc('weight')

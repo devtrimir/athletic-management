@@ -200,9 +200,9 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [ ] **P5-T14** Interim `Pages/Reports/Medals.tsx`
 
 ### Tests
-- [ ] **P5-T15** Pest Feature: duplicate (event, member) → 422; idempotent bulk
-- [ ] **P5-T16** Pest Feature: medals pivot matches fixture ground truth
-- [ ] **P5-T17** Pest Browser: record a medal end-to-end
+- [x] **P5-T15** Pest Feature: duplicate (event, member) → 422; idempotent bulk
+- [x] **P5-T16** Pest Feature: medals pivot matches fixture ground truth
+- [ ] ~~**P5-T17** Pest Browser: record a medal end-to-end~~ — **skipped**: manual browser testing instead
 
 ---
 

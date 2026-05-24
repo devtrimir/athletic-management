@@ -8,6 +8,7 @@ use App\Observers\AuditObserver;
 use Database\Factories\SportFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,15 @@ class Sport extends Model
 {
     /** @use HasFactory<SportFactory> */
     use Auditable, HasFactory, Tenanted;
+
+    /** @var list<string> */
+    protected $appends = ['name'];
+
+    /** Alias for name_hi — used by all controllers and resources. */
+    protected function name(): Attribute
+    {
+        return Attribute::make(get: fn () => $this->name_hi);
+    }
 
     public function organization(): BelongsTo
     {

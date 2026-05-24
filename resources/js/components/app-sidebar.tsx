@@ -1,8 +1,10 @@
 import { Link } from '@inertiajs/react';
-import { BarChart2, LayoutGrid, Settings2, UserCheck, Users } from 'lucide-react';
+import { BarChart2, LayoutGrid, Settings2, Shield, Trophy, UserCheck, Users } from 'lucide-react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import ReportsMedalsController from '@/actions/App/Http/Controllers/ReportsMedalsController';
+import TeamController from '@/actions/App/Http/Controllers/TeamController';
+import TournamentController from '@/actions/App/Http/Controllers/TournamentController';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -27,6 +29,8 @@ export function AppSidebar() {
         { title: t('Dashboard'), href: dashboard(), icon: LayoutGrid },
         { title: t('Athletes'), href: MemberController.index.url(), icon: Users },
         { title: t('Coaches'), href: CoachController.index.url(), icon: UserCheck },
+        { title: t('Teams'), href: TeamController.index.url(), icon: Shield },
+        { title: t('Tournaments'), href: TournamentController.index.url(), icon: Trophy },
         { title: t('Reports'), href: ReportsMedalsController.url(), icon: BarChart2 },
     ];
 

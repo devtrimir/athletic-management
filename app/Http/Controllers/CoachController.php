@@ -80,7 +80,7 @@ class CoachController extends Controller
                 : null
             ),
             'coachTeams' => Inertia::defer(fn () => CoachAssignment::where('coach_id', $coach->id)
-                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name', 'session:id,name'])
+                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi', 'session:id,name'])
                 ->orderByDesc('id')
                 ->get()
                 ->map(fn ($ca) => [

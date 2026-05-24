@@ -32,7 +32,7 @@ class EventController extends Controller
     {
         Gate::authorize('view', $tournament);
 
-        $event->load('sport:id,name');
+        $event->load('sport:id,name_hi');
 
         return Inertia::render('events/show', [
             'tournament' => [
