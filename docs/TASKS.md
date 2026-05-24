@@ -187,7 +187,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 
 ### Backend
 - [x] **P5-T05** `TournamentPolicy`
-- [ ] **P5-T06** Form Requests + `TournamentController` (Inertia CRUD)
+- [x] **P5-T06** Form Requests + `TournamentController` (Inertia CRUD)
 - [ ] **P5-T07** `EventController` (create event)
 - [ ] **P5-T08** `EventParticipantController` (transactional bulk write of participations + optional achievements)
 - [ ] **P5-T09** API: members participations + achievements endpoints
