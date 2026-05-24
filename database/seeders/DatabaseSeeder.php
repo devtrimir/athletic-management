@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             SportSessionSeeder::class,
             TournamentTierSeeder::class,
             AdminUserSeeder::class,
+            CoachSeeder::class,
         ]);
     }
 }
