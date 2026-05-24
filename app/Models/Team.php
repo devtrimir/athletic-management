@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -28,6 +29,8 @@ use Illuminate\Support\Carbon;
  * @property-read Sport $sport
  * @property-read SportSession $session
  * @property-read Unit $unit
+ * @property-read int|null $team_members_count
+ * @property-read int|null $coach_assignments_count
  */
 #[Fillable([
     'organization_id',
@@ -64,5 +67,17 @@ class Team extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    /** @return HasMany<TeamMember, $this> */
+    public function teamMembers(): HasMany
+    {
+        return $this->hasMany(TeamMember::class);
+    }
+
+    /** @return HasMany<CoachAssignment, $this> */
+    public function coachAssignments(): HasMany
+    {
+        return $this->hasMany(CoachAssignment::class);
     }
 }
