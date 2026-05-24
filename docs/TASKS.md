@@ -160,8 +160,8 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ### Backend
 - [x] **P4-T04** `TeamPolicy`
 - [x] **P4-T05** Form Requests + `TeamController` (Inertia CRUD with embedded counts)
-- [ ] **P4-T06** `TeamMemberController` (bulk add by IDs, remove)
-- [ ] **P4-T07** `TeamCoachController` (add / remove)
+- [x] **P4-T06** `TeamMemberController` (bulk add by IDs, remove)
+- [x] **P4-T07** `TeamCoachController` (add / remove)
 - [ ] **P4-T08** API: `GET /api/v1/members/{member}/teams`, `GET /api/v1/coaches/{coach}/teams`
 
 ### Frontend
