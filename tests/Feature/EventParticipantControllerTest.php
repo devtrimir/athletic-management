@@ -252,3 +252,21 @@ test('store returns 404 when event belongs to a different tournament', function 
         ])
         ->assertNotFound();
 });
+
+test('duplicate member_id in same batch returns 422', function () {
+    $user = epUser('tournaments.update');
+    $tournament = epTournament($user);
+    $event = epEvent($tournament, $user);
+    $member = epMember($user);
+
+    $this->actingAs($user)
+        ->post(epRoute($tournament, $event), [
+            'participants' => [
+                ['member_id' => $member->id, 'position' => 1],
+                ['member_id' => $member->id, 'position' => 2],
+            ],
+        ])
+        ->assertSessionHasErrors('participants.0.member_id');
+
+    expect(Participation::where('event_id', $event->id)->count())->toBe(0);
+});

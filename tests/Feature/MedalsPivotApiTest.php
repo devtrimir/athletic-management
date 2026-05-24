@@ -160,3 +160,65 @@ test('medals pivot excludes other org achievements', function () {
     // Our org has no achievements
     expect($response->json('data'))->toBeEmpty();
 });
+
+test('pivot counts match seeded fixture ground truth', function () {
+    $user = medalsUser('reports.view');
+    $orgId = $user->organization_id;
+
+    // Seed known fixture:
+    // NATIONAL tier: 3 GOLD, 2 SILVER, 1 BRONZE, 0 MERIT
+    // STATE tier:    0 GOLD, 0 SILVER, 0 BRONZE, 1 MERIT
+    $national = TournamentTier::firstOrCreate(
+        ['code' => 'NATIONAL'],
+        ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+    );
+    $state = TournamentTier::firstOrCreate(
+        ['code' => 'STATE'],
+        ['label_hi' => 'राज्य', 'label_en' => 'State', 'weight' => 60],
+    );
+    $session = SportSession::factory()->create(['organization_id' => $orgId]);
+    $sport = Sport::factory()->create(['organization_id' => $orgId]);
+
+    $makeTournament = fn ($tier) => Tournament::factory()->create([
+        'organization_id' => $orgId,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+    ]);
+    $makeAchievement = function (Tournament $tournament, string $medalType) use ($orgId, $sport) {
+        $event = Event::factory()->create(['tournament_id' => $tournament->id, 'sport_id' => $sport->id]);
+        $member = Member::factory()->create(['organization_id' => $orgId]);
+        $part = Participation::factory()->create([
+            'member_id' => $member->id,
+            'event_id' => $event->id,
+            'session_id' => $tournament->session_id,
+        ]);
+        Achievement::factory()->create(['participation_id' => $part->id, 'medal_type' => $medalType]);
+    };
+
+    $natTournament = $makeTournament($national);
+    $makeAchievement($natTournament, 'GOLD');
+    $makeAchievement($natTournament, 'GOLD');
+    $makeAchievement($natTournament, 'GOLD');
+    $makeAchievement($natTournament, 'SILVER');
+    $makeAchievement($natTournament, 'SILVER');
+    $makeAchievement($natTournament, 'BRONZE');
+
+    $stateTournament = $makeTournament($state);
+    $makeAchievement($stateTournament, 'MERIT');
+
+    $response = $this->actingAs($user)->getJson(route('v1.reports.medals'))->assertOk();
+    $data = collect($response->json('data'))->keyBy('tier.code');
+
+    expect($data)->toHaveKey('NATIONAL')
+        ->and($data['NATIONAL']['GOLD'])->toBe(3)
+        ->and($data['NATIONAL']['SILVER'])->toBe(2)
+        ->and($data['NATIONAL']['BRONZE'])->toBe(1)
+        ->and($data['NATIONAL']['MERIT'])->toBe(0);
+
+    expect($data)->toHaveKey('STATE')
+        ->and($data['STATE']['GOLD'])->toBe(0)
+        ->and($data['STATE']['SILVER'])->toBe(0)
+        ->and($data['STATE']['BRONZE'])->toBe(0)
+        ->and($data['STATE']['MERIT'])->toBe(1);
+});
