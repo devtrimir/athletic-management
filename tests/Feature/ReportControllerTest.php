@@ -2,39 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Models\Organization;
-use App\Models\Permission;
-use App\Models\Role;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
-
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
-
-function rcUser(string ...$permissions): User
-{
-    $org = Organization::factory()->create();
-    $user = User::factory()->create(['organization_id' => $org->id]);
-
-    if (count($permissions) > 0) {
-        $role = Role::factory()->create(['organization_id' => $org->id]);
-        DB::table('user_role')->insert(['user_id' => $user->id, 'role_id' => $role->id, 'organization_id' => $org->id]);
-
-        foreach ($permissions as $code) {
-            $perm = Permission::firstOrCreate(
-                ['code' => $code],
-                ['group' => explode('.', $code)[0], 'name_hi' => $code, 'name_en' => $code],
-            );
-            DB::table('role_permission')->insert(['role_id' => $role->id, 'permission_id' => $perm->id]);
-        }
-    }
-
-    return $user;
-}
 
 // ---------------------------------------------------------------------------
 // Index tests

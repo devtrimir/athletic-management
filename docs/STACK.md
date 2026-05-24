@@ -28,7 +28,7 @@ Last verified: 2026-05.
 | spatie/laravel-query-builder | ^6.0 | P1 |
 | spatie/laravel-backup | ^9.0 | P10 |
 | barryvdh/laravel-dompdf | ^3.0 | P7 |
-| maatwebsite/excel | ^3.1 | P3 — ADR-0002 |
+| maatwebsite/excel | 3.1.69 | P3 — ADR-0002 |
 | sentry/sentry-laravel | ^4.0 | P10 |
 | laravel/boost | ^2.0 | dev, P0 (AI agent helper, already installed) |
 | larastan/larastan | ^3.0 | dev, P0-T03 |

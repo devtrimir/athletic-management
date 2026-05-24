@@ -27,6 +27,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('tournaments', TournamentController::class);
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/medals', ReportsMedalsController::class)->name('reports.medals');
+    Route::get('reports/{key}/export', [ReportController::class, 'export'])->name('reports.export');
     Route::get('reports/{key}', [ReportController::class, 'show'])->name('reports.show');
     Route::post('tournaments/{tournament}/events', [EventController::class, 'store'])
         ->name('tournaments.events.store')->scopeBindings();

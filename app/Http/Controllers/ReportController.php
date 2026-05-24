@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exports\ReportExport;
+use App\Jobs\ExportReportJob;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\TournamentTier;
@@ -16,10 +18,15 @@ use App\Services\Reports\PlayerLevelSummaryReport;
 use App\Services\Reports\ResignationDismissalLogReport;
 use App\Services\Reports\TeamRosterReport;
 use App\Services\Reports\UnitHeadcountReport;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ReportController extends Controller
 {
@@ -76,6 +83,34 @@ class ReportController extends Controller
             'filters' => $filters,
             ...$this->filterOptions($orgId),
         ]);
+    }
+
+    public function export(Request $request, string $key): BinaryFileResponse|JsonResponse
+    {
+        abort_unless($request->user()->can('reports.view'), 403);
+        abort_unless(array_key_exists($key, self::REPORTS), 404);
+
+        $request->validate(['format' => ['required', 'string', 'in:xlsx']]);
+
+        $orgId = (int) $request->user()->organization_id;
+        $filters = $this->buildFilters($request, $key);
+        $data = $this->runService($key, $orgId, $filters);
+
+        $title = self::REPORTS[$key]['name_hi'];
+        $filename = $key.'.xlsx';
+
+        if ($data->count() > 500) {
+            $uuid = (string) Str::uuid();
+            Cache::put("export:{$uuid}", ['status' => 'queued'], now()->addMinutes(30));
+            ExportReportJob::dispatch($uuid, $orgId, $key, $filters, $title);
+
+            return response()->json(['status' => 'queued', 'job_id' => $uuid], 202);
+        }
+
+        /** @var array<int, string> $headings */
+        $headings = $data->isNotEmpty() ? array_keys((array) $data->first()) : [];
+
+        return Excel::download(new ReportExport($data, $headings, $title), $filename);
     }
 
     /**
