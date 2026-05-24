@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AchievementHistoryController;
 use App\Http\Controllers\Api\V1\CoachSearchController;
 use App\Http\Controllers\Api\V1\CoachTeamsController;
 use App\Http\Controllers\Api\V1\MedalsByMemberController;
@@ -40,4 +41,5 @@ Route::middleware(['auth'])->prefix('v1')->name('v1.')->group(function () {
     Route::get('reports/unit-headcount', UnitHeadcountController::class)->name('reports.unit-headcount');
     Route::get('reports/player-level-summary', PlayerLevelSummaryController::class)->name('reports.player-level-summary');
     Route::get('reports/new-joiners', NewJoinersController::class)->name('reports.new-joiners');
+    Route::get('reports/achievement-history', AchievementHistoryController::class)->name('reports.achievement-history');
 });
