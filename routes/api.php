@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\MemberParticipationsController;
 use App\Http\Controllers\Api\V1\MemberSearchController;
 use App\Http\Controllers\Api\V1\MemberTeamsController;
 use App\Http\Controllers\Api\V1\ReferenceDataController;
+use App\Http\Controllers\Api\V1\TeamRosterController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
@@ -30,4 +31,5 @@ Route::middleware(['auth'])->prefix('v1')->name('v1.')->group(function () {
         ->name('districts.index');
     Route::get('reports/medals', MedalsPivotController::class)->name('reports.medals');
     Route::get('reports/medals-by-member', MedalsByMemberController::class)->name('reports.medals-by-member');
+    Route::get('reports/team-roster', TeamRosterController::class)->name('reports.team-roster');
 });
