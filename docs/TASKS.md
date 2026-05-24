@@ -166,8 +166,8 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 
 ### Frontend
 - [x] **P4-T09** `Pages/Teams/Index.tsx` (default-current-session filter)
-- [ ] **P4-T10** `Pages/Teams/Create.tsx`
-- [ ] **P4-T11** `Pages/Teams/Show.tsx` (details + roster + coaches sections)
+- [x] **P4-T10** `Pages/Teams/Create.tsx`
+- [x] **P4-T11** `Pages/Teams/Show.tsx` (details + roster + coaches sections)
 - [ ] **P4-T12** Wire Members `Show` Teams tab + Coaches `Show` Teams tab
 
 ### Tests

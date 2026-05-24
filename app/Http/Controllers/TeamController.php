@@ -11,6 +11,7 @@ use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\Unit;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -72,11 +73,13 @@ class TeamController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         Gate::authorize('create', Team::class);
 
-        return Inertia::render('teams/create');
+        $orgId = (int) $request->user()->organization_id;
+
+        return Inertia::render('teams/create', $this->formOptions($orgId));
     }
 
     public function store(StoreTeamRequest $request): RedirectResponse
@@ -97,22 +100,64 @@ class TeamController extends Controller
     {
         Gate::authorize('view', $team);
 
+        $team->load(['sport:id,name', 'session:id,name', 'unit:id,name_hi']);
+
         return Inertia::render('teams/show', [
             'team' => new TeamResource($team),
             'counts' => Inertia::defer(fn () => [
                 'players_count' => $team->teamMembers()->count(),
                 'coaches_count' => $team->coachAssignments()->count(),
             ]),
+            'members' => Inertia::defer(fn () => $team->teamMembers()
+                ->with(['member:id,full_name_hi,member_code,pno', 'session:id,name'])
+                ->orderBy('id')
+                ->get()
+                ->map(fn ($tm) => [
+                    'id' => $tm->id,
+                    'role' => $tm->role,
+                    'joined_on' => $tm->joined_on?->toDateString(),
+                    'left_on' => $tm->left_on?->toDateString(),
+                    'member' => $tm->member ? [
+                        'id' => $tm->member->id,
+                        'full_name_hi' => $tm->member->full_name_hi,
+                        'member_code' => $tm->member->member_code,
+                        'pno' => $tm->member->pno,
+                    ] : null,
+                    'session' => $tm->session ? [
+                        'id' => $tm->session->id,
+                        'name' => $tm->session->name,
+                    ] : null,
+                ])),
+            'coaches' => Inertia::defer(fn () => $team->coachAssignments()
+                ->with(['coach:id,full_name_hi,pno', 'session:id,name'])
+                ->orderBy('id')
+                ->get()
+                ->map(fn ($ca) => [
+                    'id' => $ca->id,
+                    'role' => $ca->role,
+                    'coach' => $ca->coach ? [
+                        'id' => $ca->coach->id,
+                        'full_name_hi' => $ca->coach->full_name_hi,
+                        'pno' => $ca->coach->pno,
+                    ] : null,
+                    'session' => $ca->session ? [
+                        'id' => $ca->session->id,
+                        'name' => $ca->session->name,
+                    ] : null,
+                ])),
         ]);
     }
 
-    public function edit(Team $team): Response
+    public function edit(Team $team, Request $request): Response
     {
         Gate::authorize('update', $team);
 
-        return Inertia::render('teams/edit', [
-            'team' => $team->load(['sport:id,name', 'session:id,name', 'unit:id,name_hi']),
-        ]);
+        $orgId = (int) $request->user()->organization_id;
+
+        return Inertia::render('teams/edit', array_merge(
+            $this->formOptions($orgId),
+            ['team' => $team->load(['sport:id,name', 'session:id,name', 'unit:id,name_hi'])],
+        ));
     }
 
     public function update(UpdateTeamRequest $request, Team $team): RedirectResponse
@@ -135,5 +180,24 @@ class TeamController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Team deleted.')]);
 
         return to_route('teams.index');
+    }
+
+    /**
+     * @return array{sessions: Collection, sports: Collection, units: Collection}
+     */
+    private function formOptions(int $orgId): array
+    {
+        return [
+            'sessions' => SportSession::select(['id', 'name'])
+                ->where('organization_id', $orgId)
+                ->orderBy('name')
+                ->get(),
+            'sports' => Sport::select(['id', 'name'])
+                ->orderBy('name')
+                ->get(),
+            'units' => Unit::select(['id', 'name_hi'])
+                ->orderBy('name_hi')
+                ->get(),
+        ];
     }
 }
