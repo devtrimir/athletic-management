@@ -194,6 +194,15 @@ test('edit returns member and selects', function () {
         );
 });
 
+test('edit returns 403 without members.update', function () {
+    $user = memberUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->get(route('members.edit', $member))
+        ->assertForbidden();
+});
+
 // ---------------------------------------------------------------------------
 // update
 // ---------------------------------------------------------------------------
@@ -216,6 +225,15 @@ test('update with invalid payload returns validation errors', function () {
     $this->actingAs($user)
         ->put(route('members.update', $member), ['gender' => 'X'])
         ->assertSessionHasErrors(['gender']);
+});
+
+test('update returns 403 without members.update', function () {
+    $user = memberUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->put(route('members.update', $member), ['full_name_hi' => 'नया नाम'])
+        ->assertForbidden();
 });
 
 // ---------------------------------------------------------------------------
