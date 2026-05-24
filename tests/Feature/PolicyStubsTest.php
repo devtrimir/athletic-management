@@ -78,6 +78,7 @@ dataset('policy_methods', [
     'ImportPolicy::create' => [fn () => new ImportPolicy,     'create',  'imports.run',        []],
     'ReportPolicy::viewAny' => [fn () => new ReportPolicy,     'viewAny', 'reports.view',       []],
     'ReportPolicy::view' => [fn () => new ReportPolicy,     'view',    'reports.view',       [new stdClass]],
+    'ReportPolicy::export' => [fn () => new ReportPolicy,     'export',  'reports.view',       [new stdClass]],
     'SettingsPolicy::viewAny' => [fn () => new SettingsPolicy,   'viewAny', 'settings.manage',    []],
     'SettingsPolicy::update' => [fn () => new SettingsPolicy,   'update',  'settings.manage',    [new stdClass]],
 ]);

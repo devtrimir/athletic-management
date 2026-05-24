@@ -208,52 +208,54 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 
 ## Phase 6 — Excel Import Pipeline (split into 6 sub-sprints)
 
+> **Skipped** — deferred to a later sprint. All P6 tasks remain defined below for future implementation.
+
 This is the largest single phase — broken into 6 logical sub-sprints.
 
 ### Sub-sprint 6A — Schema + storage
-- [ ] **P6-T01** Migration: `imports`
-- [ ] **P6-T02** Migration: `import_rows`
-- [ ] **P6-T03** S3 (MinIO) upload action + signed URL helper
+- [ ] ~~**P6-T01** Migration: `imports`~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T02** Migration: `import_rows`~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T03** S3 (MinIO) upload action + signed URL helper~~ — **skipped**: phase deferred
 
 ### Sub-sprint 6B — Parser core (services, no DB writes)
-- [ ] **P6-T04** `KrutidevConverter` + ≥50 reference-pair unit tests (ADR-0005: per-cell detection heuristic)
-- [ ] **P6-T05** `DateParser` (all documented formats incl. Krutidev "ls" = "से")
-- [ ] **P6-T06** `CellExtractors`: `extractPno`, `splitRankName`, `splitMultiPerson` (+ unit tests)
-- [ ] **P6-T07** `SheetClassifier` (returns one of 10 classes; tests against real `analysis/raw_*` samples)
-- [ ] **P6-T08** `SectionScanner` (stateful banner + header + data rows walker)
-- [ ] **P6-T09** `RowParsers` per sheet class (output staging records)
+- [ ] ~~**P6-T04** `KrutidevConverter` + ≥50 reference-pair unit tests (ADR-0005: per-cell detection heuristic)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T05** `DateParser` (all documented formats incl. Krutidev "ls" = "से")~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T06** `CellExtractors`: `extractPno`, `splitRankName`, `splitMultiPerson` (+ unit tests)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T07** `SheetClassifier` (returns one of 10 classes; tests against real `analysis/raw_*` samples)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T08** `SectionScanner` (stateful banner + header + data rows walker)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T09** `RowParsers` per sheet class (output staging records)~~ — **skipped**: phase deferred
 
 ### Sub-sprint 6C — Identity resolution
-- [ ] **P6-T10** `IdentityResolver` (PNO exact → name FULLTEXT ngram score ≥ threshold + Levenshtein tie-break → ambiguous candidates)
-- [ ] **P6-T11** Resolver unit tests against curated fixtures (must include known Krutidev edge cases)
+- [ ] ~~**P6-T10** `IdentityResolver` (PNO exact → name FULLTEXT ngram score ≥ threshold + Levenshtein tie-break → ambiguous candidates)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T11** Resolver unit tests against curated fixtures (must include known Krutidev edge cases)~~ — **skipped**: phase deferred
 
 ### Sub-sprint 6D — Applier (DB writes, idempotent)
-- [ ] **P6-T12** `ImportApplier` core (transactional per-row, idempotency keys for participations + team_members)
-- [ ] **P6-T13** Compensating-action log for rollback
-- [ ] **P6-T14** `ApplyImportJob` (Horizon-queued)
-- [ ] **P6-T15** `RollbackImportAction` (24 h time-window, admin-gated)
+- [ ] ~~**P6-T12** `ImportApplier` core (transactional per-row, idempotency keys for participations + team_members)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T13** Compensating-action log for rollback~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T14** `ApplyImportJob` (Horizon-queued)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T15** `RollbackImportAction` (24 h time-window, admin-gated)~~ — **skipped**: phase deferred
 
 ### Sub-sprint 6E — Workflow (HTTP + jobs)
-- [ ] **P6-T16** `POST /imports` upload + `ParseImportJob` dispatch (sha256 dedupe)
-- [ ] **P6-T17** `ImportRowController` (PATCH to resolve / reject)
-- [ ] **P6-T18** `POST /imports/{id}/apply` and `POST /imports/{id}/rollback` (Policy-gated)
-- [ ] **P6-T19** API: `GET /api/v1/imports/{id}/progress` (live counts for polling)
+- [ ] ~~**P6-T16** `POST /imports` upload + `ParseImportJob` dispatch (sha256 dedupe)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T17** `ImportRowController` (PATCH to resolve / reject)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T18** `POST /imports/{id}/apply` and `POST /imports/{id}/rollback` (Policy-gated)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T19** API: `GET /api/v1/imports/{id}/progress` (live counts for polling)~~ — **skipped**: phase deferred
 
 ### Sub-sprint 6F — Review UI
-- [ ] **P6-T20** `Pages/Imports/Index.tsx`
-- [ ] **P6-T21** `Pages/Imports/Create.tsx` (upload wizard + sheet-detection preview + mapping override)
-- [ ] **P6-T22** `Pages/Imports/Show.tsx` — Summary tab (counts + Recharts)
-- [ ] **P6-T23** `Pages/Imports/Show.tsx` — Review queue tab (ambiguous rows + inline `MemberPicker`)
-- [ ] **P6-T24** `Pages/Imports/Show.tsx` — Diff preview tab
-- [ ] **P6-T25** Live progress bar (Inertia polling, 3 s interval)
-- [ ] **P6-T26** Pest Browser: upload → review → apply → verify happy path against the `UP POLICE TEAM PLAYERS DETAILS UPDATED.xlsx` fixture
-- [ ] **P6-T27** Pest Feature: re-upload (same sha256) blocked; re-apply idempotent
+- [ ] ~~**P6-T20** `Pages/Imports/Index.tsx`~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T21** `Pages/Imports/Create.tsx` (upload wizard + sheet-detection preview + mapping override)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T22** `Pages/Imports/Show.tsx` — Summary tab (counts + Recharts)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T23** `Pages/Imports/Show.tsx` — Review queue tab (ambiguous rows + inline `MemberPicker`)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T24** `Pages/Imports/Show.tsx` — Diff preview tab~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T25** Live progress bar (Inertia polling, 3 s interval)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T26** Pest Browser: upload → review → apply → verify happy path against the `UP POLICE TEAM PLAYERS DETAILS UPDATED.xlsx` fixture~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T27** Pest Feature: re-upload (same sha256) blocked; re-apply idempotent~~ — **skipped**: phase deferred
 
 ---
 
 ## Phase 7 — Reports & Exports
 
-- [ ] **P7-T01** `ReportPolicy` + shared filter trait (`session_id`, `sport_id`, `unit_id`, `tier_id`)
+- [x] **P7-T01** `ReportPolicy` + shared filter trait (`session_id`, `sport_id`, `unit_id`, `tier_id`)
 - [ ] **P7-T02** Service: MedalTallyReport (session × tier × sport)
 - [ ] **P7-T03** Service: MedalsByMemberReport (top-N)
 - [ ] **P7-T04** Service: TeamRosterReport
