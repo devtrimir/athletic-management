@@ -162,7 +162,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P4-T05** Form Requests + `TeamController` (Inertia CRUD with embedded counts)
 - [x] **P4-T06** `TeamMemberController` (bulk add by IDs, remove)
 - [x] **P4-T07** `TeamCoachController` (add / remove)
-- [ ] **P4-T08** API: `GET /api/v1/members/{member}/teams`, `GET /api/v1/coaches/{coach}/teams`
+- [x] **P4-T08** API: `GET /api/v1/members/{member}/teams`, `GET /api/v1/coaches/{coach}/teams`
 
 ### Frontend
 - [ ] **P4-T09** `Pages/Teams/Index.tsx` (default-current-session filter)
