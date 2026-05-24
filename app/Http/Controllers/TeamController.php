@@ -7,8 +7,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Teams\StoreTeamRequest;
 use App\Http\Requests\Teams\UpdateTeamRequest;
 use App\Http\Resources\TeamResource;
+use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
+use App\Models\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -47,10 +49,26 @@ class TeamController extends Controller
             ->paginate(25)
             ->withQueryString();
 
+        $sessions = SportSession::select(['id', 'name'])
+            ->where('organization_id', $orgId)
+            ->orderBy('name')
+            ->get();
+
+        $sports = Sport::select(['id', 'name'])
+            ->orderBy('name')
+            ->get();
+
+        $units = Unit::select(['id', 'name_hi'])
+            ->orderBy('name_hi')
+            ->get();
+
         return Inertia::render('teams/index', [
             'teams' => $teams,
             'filters' => $request->query('filter', []),
             'defaultSessionId' => $defaultSessionId,
+            'sessions' => $sessions,
+            'sports' => $sports,
+            'units' => $units,
         ]);
     }
 
