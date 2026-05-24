@@ -129,7 +129,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ### Tests
 - [x] **P2-T22** Pest Feature: CRUD happy + 422 + 403 matrices
 - [x] **P2-T23** Pest Feature: search returns matches across normalization (typo + Krutidev alias)
-- [ ] **P2-T24** Pest Unit: `MemberCodeGenerator` (uniqueness under concurrency)
+- [x] **P2-T24** Pest Unit: `MemberCodeGenerator` (uniqueness under concurrency)
 - [ ] **P2-T25** Pest Browser: full member create → show → edit → status change → soft-delete flow
 - [x] ~~**P2-T26** Vitest: `MemberPicker`, `StatusChangeModal`~~ — **moved** to Phase FT
 
