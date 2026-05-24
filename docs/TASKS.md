@@ -168,7 +168,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P4-T09** `Pages/Teams/Index.tsx` (default-current-session filter)
 - [x] **P4-T10** `Pages/Teams/Create.tsx`
 - [x] **P4-T11** `Pages/Teams/Show.tsx` (details + roster + coaches sections)
-- [ ] **P4-T12** Wire Members `Show` Teams tab + Coaches `Show` Teams tab
+- [x] **P4-T12** Wire Members `Show` Teams tab + Coaches `Show` Teams tab
 
 ### Tests
 - [ ] **P4-T13** Pest Feature: duplicate-add returns 422

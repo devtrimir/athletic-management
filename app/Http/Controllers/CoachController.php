@@ -8,6 +8,7 @@ use App\Http\Requests\Coaches\StoreCoachRequest;
 use App\Http\Requests\Coaches\UpdateCoachRequest;
 use App\Http\Resources\CoachResource;
 use App\Models\Coach;
+use App\Models\CoachAssignment;
 use App\Models\Member;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -78,6 +79,17 @@ class CoachController extends Controller
                 ? Member::withoutGlobalScopes()->find($coach->member_id, ['id', 'member_code', 'full_name_hi', 'full_name_en', 'pno', 'rank', 'mobile'])
                 : null
             ),
+            'coachTeams' => Inertia::defer(fn () => CoachAssignment::where('coach_id', $coach->id)
+                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name', 'session:id,name'])
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn ($ca) => [
+                    'id' => $ca->id,
+                    'role' => $ca->role,
+                    'team' => $ca->team ? ['id' => $ca->team->id, 'name_hi' => $ca->team->name_hi] : null,
+                    'sport' => $ca->team?->sport ? ['id' => $ca->team->sport->id, 'name' => $ca->team->sport->name] : null,
+                    'session' => $ca->session ? ['id' => $ca->session->id, 'name' => $ca->session->name] : null,
+                ])),
         ]);
     }
 
