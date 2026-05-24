@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\CoachSearchController;
 use App\Http\Controllers\Api\V1\CoachTeamsController;
+use App\Http\Controllers\Api\V1\MedalsByMemberController;
 use App\Http\Controllers\Api\V1\MedalsPivotController;
 use App\Http\Controllers\Api\V1\MemberAchievementsController;
 use App\Http\Controllers\Api\V1\MemberParticipationsController;
@@ -28,4 +29,5 @@ Route::middleware(['auth'])->prefix('v1')->name('v1.')->group(function () {
     Route::get('districts', [ReferenceDataController::class, 'districts'])
         ->name('districts.index');
     Route::get('reports/medals', MedalsPivotController::class)->name('reports.medals');
+    Route::get('reports/medals-by-member', MedalsByMemberController::class)->name('reports.medals-by-member');
 });
