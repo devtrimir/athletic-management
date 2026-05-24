@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, Settings2, Users } from 'lucide-react';
+import { LayoutGrid, Settings2, UserCheck, Users } from 'lucide-react';
+import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -22,7 +23,8 @@ export function AppSidebar() {
 
     const mainNavItems: NavItem[] = [
         { title: t('Dashboard'), href: dashboard(), icon: LayoutGrid },
-        { title: t('Athletes'), href: '#', icon: Users },
+        { title: t('Athletes'), href: MemberController.index.url(), icon: Users },
+        { title: t('Coaches'), href: '#', icon: UserCheck },
     ];
 
     const adminNavItems: NavItem[] = [
