@@ -264,7 +264,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [x] **P7-T07** Service: PlayerLevelSummaryReport (replaces `PLAYERS LEVEL`)
 - [x] **P7-T08** Service: NewJoinersReport
 - [x] **P7-T09** Service: AchievementHistoryReport
-- [ ] **P7-T10** `ReportController` Inertia (`Index`, `Show`)
+- [x] **P7-T10** `ReportController` Inertia (`Index`, `Show`)
 - [ ] **P7-T11** `ExportReportJob` (XLSX via `maatwebsite/excel`)
 - [ ] **P7-T12** `ExportReportJob` (PDF via DomPDF with Noto Sans Devanagari embedded)
 - [ ] **P7-T13** API mirror: `GET /api/v1/reports/{key}`
