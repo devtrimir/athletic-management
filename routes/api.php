@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\MemberAchievementsController;
 use App\Http\Controllers\Api\V1\MemberParticipationsController;
 use App\Http\Controllers\Api\V1\MemberSearchController;
 use App\Http\Controllers\Api\V1\MemberTeamsController;
+use App\Http\Controllers\Api\V1\PlayerLevelSummaryController;
 use App\Http\Controllers\Api\V1\ReferenceDataController;
 use App\Http\Controllers\Api\V1\ResignationDismissalController;
 use App\Http\Controllers\Api\V1\TeamRosterController;
@@ -36,4 +37,5 @@ Route::middleware(['auth'])->prefix('v1')->name('v1.')->group(function () {
     Route::get('reports/team-roster', TeamRosterController::class)->name('reports.team-roster');
     Route::get('reports/resignation-dismissal-log', ResignationDismissalController::class)->name('reports.resignation-dismissal-log');
     Route::get('reports/unit-headcount', UnitHeadcountController::class)->name('reports.unit-headcount');
+    Route::get('reports/player-level-summary', PlayerLevelSummaryController::class)->name('reports.player-level-summary');
 });
