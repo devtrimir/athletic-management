@@ -262,7 +262,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [x] **P7-T05** Service: ResignationDismissalLogReport
 - [x] **P7-T06** Service: UnitHeadcountReport (replaces `SANKHYATMAK`)
 - [x] **P7-T07** Service: PlayerLevelSummaryReport (replaces `PLAYERS LEVEL`)
-- [ ] **P7-T08** Service: NewJoinersReport
+- [x] **P7-T08** Service: NewJoinersReport
 - [ ] **P7-T09** Service: AchievementHistoryReport
 - [ ] **P7-T10** `ReportController` Inertia (`Index`, `Show`)
 - [ ] **P7-T11** `ExportReportJob` (XLSX via `maatwebsite/excel`)
