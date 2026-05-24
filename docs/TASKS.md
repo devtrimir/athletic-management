@@ -153,7 +153,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ## Phase 4 — Teams, Team-Members, Coach-Assignments
 
 ### Schema
-- [ ] **P4-T01** Migration: `teams` + unique composite + soft-delete
+- [x] **P4-T01** Migration: `teams` + unique composite + soft-delete
 - [ ] **P4-T02** Migration: `team_members` + unique `(team_id, member_id)`
 - [ ] **P4-T03** Migration: `coach_assignments` + unique `(team_id, coach_id, role)`
 
