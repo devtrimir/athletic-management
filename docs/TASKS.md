@@ -138,7 +138,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ## Phase 3 — Coaches Module
 
 - [x] **P3-T01** Migration: `coaches` (incl. nullable `member_id` FK, unique `(org, pno)` where pno not null)
-- [ ] **P3-T02** Factory + seeder fixtures
+- [x] **P3-T02** Factory + seeder fixtures
 - [ ] **P3-T03** `CoachPolicy`
 - [ ] **P3-T04** Form Requests + `CoachController` (Inertia CRUD)
 - [ ] **P3-T05** API: `GET /api/v1/search/coaches`
