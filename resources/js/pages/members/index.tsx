@@ -31,13 +31,11 @@ type Member = {
 type PaginatedMembers = {
     data: Member[];
     links: PaginationLink[];
-    meta: {
-        current_page: number;
-        last_page: number;
-        total: number;
-        from: number | null;
-        to: number | null;
-    };
+    current_page: number;
+    last_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
 };
 
 type Filters = {
@@ -81,15 +79,15 @@ export default function MembersIndex({
         const clean: Record<string, string> = {};
 
         if (merged.q) {
- clean['filter[q]'] = merged.q; 
+ clean['filter[q]'] = merged.q;
 }
 
         if (merged.current_status) {
- clean['filter[current_status]'] = merged.current_status; 
+ clean['filter[current_status]'] = merged.current_status;
 }
 
         if (merged.player_category) {
- clean['filter[player_category]'] = merged.player_category; 
+ clean['filter[player_category]'] = merged.player_category;
 }
 
         router.get(MemberController.index.url(), clean, {
@@ -101,7 +99,7 @@ export default function MembersIndex({
     // Debounce text search
     useEffect(() => {
         if (debounceRef.current) {
- clearTimeout(debounceRef.current); 
+ clearTimeout(debounceRef.current);
 }
 
         debounceRef.current = setTimeout(() => {
@@ -110,8 +108,8 @@ export default function MembersIndex({
 
         return () => {
  if (debounceRef.current) {
- clearTimeout(debounceRef.current); 
-} 
+ clearTimeout(debounceRef.current);
+}
 };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
@@ -257,14 +255,14 @@ export default function MembersIndex({
                 </div>
 
                 {/* Pagination */}
-                {members.meta.last_page > 1 && (
+                {members.last_page > 1 && (
                     <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
                         <span>
-                            {members.meta.from !== null
+                            {members.from !== null
                                 ? t('Showing :from–:to of :total')
-                                    .replace(':from', String(members.meta.from))
-                                    .replace(':to', String(members.meta.to ?? ''))
-                                    .replace(':total', String(members.meta.total))
+                                    .replace(':from', String(members.from))
+                                    .replace(':to', String(members.to ?? ''))
+                                    .replace(':total', String(members.total))
                                 : ''}
                         </span>
                         <div className="flex items-center gap-1">
