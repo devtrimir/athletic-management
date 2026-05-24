@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Policies;
 
 use App\Models\User;
@@ -29,5 +31,10 @@ class CoachPolicy
     public function delete(User $user, mixed $coach): bool
     {
         return $user->can('coaches.delete');
+    }
+
+    public function restore(User $user, mixed $coach): bool
+    {
+        return $user->can('coaches.restore');
     }
 }
