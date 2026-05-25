@@ -108,6 +108,34 @@ class MemberController extends Controller
                     'sport' => $tm->team?->sport ? ['id' => $tm->team->sport->id, 'name' => $tm->team->sport->name] : null,
                     'session' => $tm->session ? ['id' => $tm->session->id, 'name' => $tm->session->name] : null,
                 ])),
+            'legacyAchievements' => Inertia::defer(fn () => $member->legacyAchievements()
+                ->with('benefits')
+                ->orderBy('period')
+                ->orderBy('sort_order')
+                ->orderBy('event_date')
+                ->get()
+                ->map(fn ($la) => [
+                    'id' => $la->id,
+                    'period' => $la->period,
+                    'level' => $la->level,
+                    'competition_details' => $la->competition_details,
+                    'event_date' => $la->event_date?->toDateString(),
+                    'venue' => $la->venue,
+                    'sport_discipline' => $la->sport_discipline,
+                    'event' => $la->event,
+                    'medal_type' => $la->medal_type,
+                    'sort_order' => $la->sort_order,
+                    'benefits' => $la->benefits->map(fn ($b) => [
+                        'id' => $b->id,
+                        'benefit_type' => $b->benefit_type,
+                        'promoted_from_rank' => $b->promoted_from_rank,
+                        'promoted_to_rank' => $b->promoted_to_rank,
+                        'cash_amount' => $b->cash_amount,
+                        'benefit_date' => $b->benefit_date?->toDateString(),
+                        'order_reference' => $b->order_reference,
+                        'remarks' => $b->remarks,
+                    ])->all(),
+                ])->all()),
         ]);
     }
 

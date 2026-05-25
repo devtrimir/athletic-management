@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type District = { id: number; name_hi: string; name_en: string };
@@ -27,6 +28,15 @@ type FormData = {
     current_unit_id: string;
     player_category: string;
     player_level: string;
+    blood_group: string;
+    caste: string;
+    promotion_date: string;
+    appointment: string;
+    home_address: string;
+    recruitment_type: string;
+    sport_event: string;
+    other_notes: string;
+    team_since: string;
 };
 
 export default function MembersCreate({ districts, units }: { districts: District[]; units: Unit[] }) {
@@ -54,6 +64,15 @@ export default function MembersCreate({ districts, units }: { districts: Distric
         current_unit_id: '',
         player_category: '',
         player_level: '',
+        blood_group: '',
+        caste: '',
+        promotion_date: '',
+        appointment: '',
+        home_address: '',
+        recruitment_type: '',
+        sport_event: '',
+        other_notes: '',
+        team_since: '',
     });
 
     function handleSubmit(e: React.FormEvent) {
@@ -261,6 +280,123 @@ export default function MembersCreate({ districts, units }: { districts: Distric
                                 </Select>
                                 <InputError message={errors.player_level} />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Additional profile */}
+                    <div className="rounded-xl border bg-card p-6 space-y-5">
+                        <h3 className="text-sm font-medium text-muted-foreground">{t('Additional profile')}</h3>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="blood_group">{t('Blood group')}</Label>
+                                <Select value={data.blood_group} onValueChange={(v) => setData('blood_group', v)}>
+                                    <SelectTrigger id="blood_group" className="w-full">
+                                        <SelectValue placeholder={t('Select blood group')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'] as const).map((bg) => (
+                                            <SelectItem key={bg} value={bg}>{bg}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.blood_group} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="recruitment_type">{t('Recruitment type')}</Label>
+                                <Select value={data.recruitment_type} onValueChange={(v) => setData('recruitment_type', v)}>
+                                    <SelectTrigger id="recruitment_type" className="w-full">
+                                        <SelectValue placeholder={t('Select recruitment type')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="DIRECT">{t('DIRECT')}</SelectItem>
+                                        <SelectItem value="SPORTS_QUOTA">{t('SPORTS_QUOTA')}</SelectItem>
+                                        <SelectItem value="PROMOTED">{t('PROMOTED')}</SelectItem>
+                                        <SelectItem value="OTHER">{t('OTHER')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.recruitment_type} />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="caste">{t('Caste')}</Label>
+                                <Input
+                                    id="caste"
+                                    value={data.caste}
+                                    onChange={(e) => setData('caste', e.target.value)}
+                                    maxLength={100}
+                                />
+                                <InputError message={errors.caste} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="appointment">{t('Appointment')}</Label>
+                                <Input
+                                    id="appointment"
+                                    value={data.appointment}
+                                    onChange={(e) => setData('appointment', e.target.value)}
+                                    maxLength={255}
+                                />
+                                <InputError message={errors.appointment} />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="sport_event">{t('Sport event')}</Label>
+                                <Input
+                                    id="sport_event"
+                                    value={data.sport_event}
+                                    onChange={(e) => setData('sport_event', e.target.value)}
+                                    maxLength={100}
+                                />
+                                <InputError message={errors.sport_event} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="promotion_date">{t('Promotion date')}</Label>
+                                <DatePicker
+                                    id="promotion_date"
+                                    value={data.promotion_date}
+                                    onChange={(v) => setData('promotion_date', v)}
+                                />
+                                <InputError message={errors.promotion_date} />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="team_since">{t('Team since')}</Label>
+                            <DatePicker
+                                id="team_since"
+                                value={data.team_since}
+                                onChange={(v) => setData('team_since', v)}
+                            />
+                            <InputError message={errors.team_since} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="home_address">{t('Home address')}</Label>
+                            <Textarea
+                                id="home_address"
+                                value={data.home_address}
+                                onChange={(e) => setData('home_address', e.target.value)}
+                                rows={3}
+                            />
+                            <InputError message={errors.home_address} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="other_notes">{t('Other notes')}</Label>
+                            <Textarea
+                                id="other_notes"
+                                value={data.other_notes}
+                                onChange={(e) => setData('other_notes', e.target.value)}
+                                rows={3}
+                            />
+                            <InputError message={errors.other_notes} />
                         </div>
                     </div>
 

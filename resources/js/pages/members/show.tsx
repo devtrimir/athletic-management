@@ -1,12 +1,14 @@
-import { Deferred, Head, Link, setLayoutProps, useHttp } from '@inertiajs/react';
+import { Deferred, Head, Link, router, setLayoutProps, useHttp } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
 import { edit as editMember, index as membersIndex } from '@/actions/App/Http/Controllers/MemberController';
+import { store as storeMemberPhoto, destroy as destroyMemberPhoto } from '@/actions/App/Http/Controllers/MemberPhotoController';
 import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
+import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +34,16 @@ type Member = {
     current_status: string;
     home_district: { id: number; name_hi: string } | null;
     current_unit: { id: number; name_hi: string } | null;
+    photo_path: string | null;
+    blood_group: string | null;
+    caste: string | null;
+    promotion_date: string | null;
+    appointment: string | null;
+    home_address: string | null;
+    recruitment_type: string | null;
+    sport_event: string | null;
+    other_notes: string | null;
+    team_since: string | null;
 };
 
 type StatusEntry = { id: number; status: string; effective_on: string; reason_hi: string | null; recorded_by_name: string | null };
@@ -79,16 +91,41 @@ const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destr
     MERIT: 'outline',
 };
 
+type LegacyAchievement = {
+    id: number;
+    period: string;
+    level: string;
+    competition_details: string;
+    event_date: string | null;
+    venue: string | null;
+    sport_discipline: string | null;
+    event: string | null;
+    medal_type: string | null;
+    sort_order: number | null;
+    benefits: Array<{
+        id: number;
+        benefit_type: string;
+        promoted_from_rank: string | null;
+        promoted_to_rank: string | null;
+        cash_amount: string | null;
+        benefit_date: string | null;
+        order_reference: string | null;
+        remarks: string | null;
+    }>;
+};
+
 export default function MembersShow({
     member,
     statusHistory,
     aliases,
     memberTeams,
+    legacyAchievements,
 }: {
     member: Member;
     statusHistory?: StatusEntry[];
     aliases?: Alias[];
     memberTeams?: MemberTeamRow[];
+    legacyAchievements?: LegacyAchievement[];
 }) {
     const [activeTab, setActiveTab] = useState('overview');
     const [participations, setParticipations] = useState<ParticipationGroup[] | null>(null);
@@ -146,9 +183,50 @@ export default function MembersShow({
 
             <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold">{member.full_name_hi}</h1>
-                        {member.full_name_en && <p className="text-muted-foreground">{member.full_name_en}</p>}
+                    <div className="flex items-start gap-4">
+                        {/* Photo */}
+                        <div className="shrink-0">
+                            {member.photo_path ? (
+                                <div className="relative group size-20 rounded-xl overflow-hidden border bg-muted">
+                                    <img
+                                        src={`/storage/${member.photo_path}`}
+                                        alt={member.full_name_hi}
+                                        className="size-full object-cover"
+                                    />
+                                    <button
+                                        className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs"
+                                        onClick={() => router.delete(destroyMemberPhoto.url(member))}
+                                    >
+                                        {t('Remove photo')}
+                                    </button>
+                                </div>
+                            ) : (
+                                <label className="flex flex-col items-center justify-center size-20 rounded-xl border-2 border-dashed bg-muted cursor-pointer hover:bg-muted/80 transition-colors">
+                                    <span className="text-xs text-muted-foreground text-center leading-tight px-1">{t('Upload photo')}</span>
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+
+                                            if (!file) {
+return;
+}
+
+                                            const fd = new FormData();
+                                            fd.append('photo', file);
+                                            router.post(storeMemberPhoto.url(member), fd);
+                                        }}
+                                    />
+                                </label>
+                            )}
+                        </div>
+
+                        <div>
+                            <h1 className="text-2xl font-bold">{member.full_name_hi}</h1>
+                            {member.full_name_en && <p className="text-muted-foreground">{member.full_name_en}</p>}
+                        </div>
                     </div>
                     <div className="flex gap-2 shrink-0">
                         <Button variant="outline" size="sm" asChild>
@@ -165,6 +243,7 @@ export default function MembersShow({
                         <TabsTrigger value="teams">{t('Teams')}</TabsTrigger>
                         <TabsTrigger value="participations">{t('Participations')}</TabsTrigger>
                         <TabsTrigger value="achievements">{t('Achievements')}</TabsTrigger>
+                        <TabsTrigger value="legacy">{t('Legacy achievements')}</TabsTrigger>
                     </TabsList>
 
                     {/* Overview */}
@@ -186,6 +265,15 @@ export default function MembersShow({
                                 {detail(t('Home district'), member.home_district?.name_hi)}
                                 {detail(t('Category'), member.player_category)}
                                 {detail(t('Level'), member.player_level)}
+                                {member.blood_group && detail(t('Blood group'), member.blood_group)}
+                                {member.caste && detail(t('Caste'), member.caste)}
+                                {member.recruitment_type && detail(t('Recruitment type'), t(member.recruitment_type))}
+                                {member.appointment && detail(t('Appointment'), member.appointment)}
+                                {member.sport_event && detail(t('Sport event'), member.sport_event)}
+                                {member.promotion_date && detail(t('Promotion date'), member.promotion_date)}
+                                {member.team_since && detail(t('Team since'), member.team_since)}
+                                {member.home_address && detail(t('Home address'), member.home_address)}
+                                {member.other_notes && detail(t('Other notes'), member.other_notes)}
                             </dl>
                         </div>
                     </TabsContent>
@@ -391,6 +479,21 @@ export default function MembersShow({
                                 </>
                             )}
                         </div>
+                    </TabsContent>
+                    {/* Legacy achievements */}
+                    <TabsContent value="legacy">
+                        <Deferred
+                            data="legacyAchievements"
+                            fallback={
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map((n) => (
+                                        <Skeleton key={n} className="h-12 w-full" />
+                                    ))}
+                                </div>
+                            }
+                        >
+                            <LegacyAchievementsTab member={member} legacyAchievements={legacyAchievements} />
+                        </Deferred>
                     </TabsContent>
                 </Tabs>
             </div>
