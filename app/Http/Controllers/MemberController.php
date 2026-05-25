@@ -37,7 +37,12 @@ class MemberController extends Controller
                 AllowedFilter::exact('current_unit_id'),
                 AllowedFilter::exact('pno'),
                 AllowedFilter::exact('mobile'),
-                AllowedFilter::partial('q', 'full_name_hi'),
+                AllowedFilter::callback('q', function ($query, string $value): void {
+                    $query->where(function ($q) use ($value): void {
+                        $q->where('full_name_hi', 'LIKE', "%{$value}%")
+                            ->orWhere('pno', 'LIKE', "%{$value}%");
+                    });
+                }),
             ])
             ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
             ->defaultSort('-created_at')

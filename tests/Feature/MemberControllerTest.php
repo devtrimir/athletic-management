@@ -79,6 +79,36 @@ test('index filters by current_status', function () {
         );
 });
 
+test('index q filter searches by full_name_hi', function () {
+    $user = memberUser('members.view');
+    Member::factory()->create(['organization_id' => $user->organization_id, 'full_name_hi' => 'राम कुमार']);
+    Member::factory()->create(['organization_id' => $user->organization_id, 'full_name_hi' => 'श्याम लाल']);
+
+    $this->actingAs($user)
+        ->get(route('members.index', ['filter' => ['q' => 'राम']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('members.total', 1)
+            ->where('members.data.0.full_name_hi', 'राम कुमार')
+        );
+});
+
+test('index q filter searches by pno', function () {
+    $user = memberUser('members.view');
+    $target = Member::factory()->create(['organization_id' => $user->organization_id, 'pno' => '1234567890']);
+    Member::factory()->create(['organization_id' => $user->organization_id, 'pno' => '9999999999']);
+
+    $this->actingAs($user)
+        ->get(route('members.index', ['filter' => ['q' => '1234567890']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('members.total', 1)
+            ->where('members.data.0.pno', '1234567890')
+        );
+});
+
 // ---------------------------------------------------------------------------
 // create
 // ---------------------------------------------------------------------------
