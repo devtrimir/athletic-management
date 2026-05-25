@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Requests\Members;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
-class ChangeStatusRequest extends FormRequest
+class StoreMemberPhotoRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -20,9 +19,7 @@ class ChangeStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', Rule::in(['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'])],
-            'effective_on' => ['required', 'date'],
-            'reason_hi' => ['nullable', 'string'],
+            'photo' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
         ];
     }
 }

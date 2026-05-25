@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Teams;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,18 +15,18 @@ class UpdateTeamRequest extends FormRequest
     }
 
     /**
-     * @return array<string, list<ValidationRule|string>>
+     * @return array<string, mixed>
      */
     public function rules(): array
     {
-        $orgId  = (int) $this->user()->organization_id;
+        $orgId = (int) $this->user()->organization_id;
         $teamId = (int) $this->route('team')?->getKey();
 
         return [
-            'sport_id'   => ['sometimes', 'required', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
+            'sport_id' => ['sometimes', 'required', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'session_id' => ['sometimes', 'required', 'integer', Rule::exists('sport_sessions', 'id')->where('organization_id', $orgId)],
-            'unit_id'    => ['sometimes', 'required', 'integer', Rule::exists('units', 'id')->where('organization_id', $orgId)],
-            'name_hi'    => [
+            'unit_id' => ['sometimes', 'required', 'integer', Rule::exists('units', 'id')->where('organization_id', $orgId)],
+            'name_hi' => [
                 'sometimes',
                 'required',
                 'string',
