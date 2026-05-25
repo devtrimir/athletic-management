@@ -7,6 +7,7 @@ use App\Http\Controllers\EventParticipantController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MemberAliasController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\MemberExportController;
 use App\Http\Controllers\MemberLegacyAchievementController;
 use App\Http\Controllers\MemberPhotoController;
 use App\Http\Controllers\MemberStatusController;
@@ -24,7 +25,9 @@ Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('members/export', [MemberExportController::class, 'index'])->name('members.export');
     Route::resource('members', MemberController::class);
+    Route::get('members/{member}/export', [MemberExportController::class, 'show'])->name('members.export.show');
     Route::resource('coaches', CoachController::class);
     Route::resource('teams', TeamController::class);
     Route::resource('tournaments', TournamentController::class);
