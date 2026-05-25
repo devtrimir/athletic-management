@@ -83,13 +83,13 @@ class MemberController extends Controller
         Gate::authorize('view', $member);
 
         return Inertia::render('members/show', [
-            'member' => new MemberResource($member->load(['homeDistrict', 'currentUnit'])),
+            'member' => (new MemberResource($member->load(['homeDistrict', 'currentUnit'])))->resolve(),
             'statusHistory' => Inertia::defer(fn () => MemberStatusHistoryResource::collection(
                 $member->statusHistory()->with('recorder')->get()
-            )),
+            )->resolve()),
             'aliases' => Inertia::defer(fn () => NameAliasResource::collection(
                 $member->aliases()->get()
-            )),
+            )->resolve()),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
                 ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi', 'session:id,name'])
                 ->orderByDesc('id')

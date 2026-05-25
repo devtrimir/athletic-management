@@ -74,7 +74,7 @@ class CoachController extends Controller
         Gate::authorize('view', $coach);
 
         return Inertia::render('coaches/show', [
-            'coach' => new CoachResource($coach),
+            'coach' => (new CoachResource($coach))->resolve(),
             'member' => Inertia::defer(fn () => $coach->member_id
                 ? Member::withoutGlobalScopes()->find($coach->member_id, ['id', 'member_code', 'full_name_hi', 'full_name_en', 'pno', 'rank', 'mobile'])
                 : null

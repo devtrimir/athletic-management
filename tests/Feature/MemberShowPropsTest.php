@@ -23,7 +23,7 @@ test('show returns member resource in Inertia props', function (): void {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('members/show')
-            ->has('member.data', fn ($m) => $m
+            ->has('member', fn ($m) => $m
                 ->has('id')
                 ->has('member_code')
                 ->has('pno')

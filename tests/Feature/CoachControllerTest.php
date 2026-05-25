@@ -215,7 +215,7 @@ test('show returns coach resource in Inertia props', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('coaches/show')
-            ->has('coach.data', fn ($c) => $c
+            ->has('coach', fn ($c) => $c
                 ->has('id')
                 ->has('full_name_hi')
                 ->has('full_name_en')

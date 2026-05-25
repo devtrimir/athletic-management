@@ -149,7 +149,7 @@ test('user with tournaments.create sees create form with options', function () {
 // ---------------------------------------------------------------------------
 
 test('user without tournaments.create gets 403 on store', function () {
-    $user    = tournamentUser();
+    $user = tournamentUser();
     $payload = validTournamentPayload($user);
 
     $this->actingAs($user)
@@ -217,7 +217,7 @@ test('show returns tournament resource in Inertia props', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('tournaments/show')
-            ->has('tournament.data', fn ($t) => $t
+            ->has('tournament', fn ($t) => $t
                 ->has('id')
                 ->has('name_hi')
                 ->has('venue')

@@ -103,7 +103,7 @@ class TeamController extends Controller
         $team->load(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi']);
 
         return Inertia::render('teams/show', [
-            'team' => new TeamResource($team),
+            'team' => (new TeamResource($team))->resolve(),
             'counts' => Inertia::defer(fn () => [
                 'players_count' => $team->teamMembers()->count(),
                 'coaches_count' => $team->coachAssignments()->count(),
