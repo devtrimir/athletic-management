@@ -10,10 +10,10 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
-type Tier = { id: number; code: string; label_hi: string };
+type Tier = { id: number; code: string; label: string };
 
 type PivotRow = {
-    tier: { code: string; label_hi: string; weight: number };
+    tier: { code: string; label: string; weight: number };
     GOLD: number;
     SILVER: number;
     BRONZE: number;
@@ -119,7 +119,7 @@ export default function ReportsMedals({
                             <SelectItem value={ALL}>{t('All Tiers')}</SelectItem>
                             {tiers.map((tier) => (
                                 <SelectItem key={tier.id} value={String(tier.id)}>
-                                    {tier.label_hi} ({tier.code})
+                                    {tier.label} ({tier.code})
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -164,7 +164,7 @@ export default function ReportsMedals({
 
                                     return (
                                         <TableRow key={row.tier.code}>
-                                            <TableCell className="font-medium">{row.tier.label_hi}</TableCell>
+                                            <TableCell className="font-medium">{row.tier.label}</TableCell>
                                             <TableCell className="text-center font-semibold">{row.GOLD}</TableCell>
                                             <TableCell className="text-center font-semibold">{row.SILVER}</TableCell>
                                             <TableCell className="text-center font-semibold">{row.BRONZE}</TableCell>

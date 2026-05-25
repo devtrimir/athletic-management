@@ -1,5 +1,7 @@
-import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
+import { Head, Link, setLayoutProps, useForm, usePage } from '@inertiajs/react';
 import { index as membersIndex, show as showMember, update } from '@/actions/App/Http/Controllers/MemberController';
+import { Combobox } from '@/components/combobox';
+import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -47,6 +49,7 @@ type FormData = {
 
 export default function MembersEdit({ member, districts, units }: { member: Member; districts: District[]; units: Unit[] }) {
     const { t } = useTranslation();
+    const { locale } = usePage().props;
 
     setLayoutProps({
         breadcrumbs: [
@@ -150,11 +153,10 @@ export default function MembersEdit({ member, districts, units }: { member: Memb
                         <div className="grid gap-5 sm:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="dob">{t('Date of birth')}</Label>
-                                <Input
+                                <DatePicker
                                     id="dob"
-                                    type="date"
                                     value={data.dob}
-                                    onChange={(e) => setData('dob', e.target.value)}
+                                    onChange={(v) => setData('dob', v)}
                                 />
                                 <InputError message={errors.dob} />
                             </div>
@@ -204,47 +206,38 @@ export default function MembersEdit({ member, districts, units }: { member: Memb
                         <div className="grid gap-5 sm:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="joining_date">{t('Joining date')}</Label>
-                                <Input
+                                <DatePicker
                                     id="joining_date"
-                                    type="date"
                                     value={data.joining_date}
-                                    onChange={(e) => setData('joining_date', e.target.value)}
+                                    onChange={(v) => setData('joining_date', v)}
                                 />
                                 <InputError message={errors.joining_date} />
                             </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="current_unit_id">{t('Unit')}</Label>
-                                <Select value={data.current_unit_id} onValueChange={(v) => setData('current_unit_id', v)}>
-                                    <SelectTrigger id="current_unit_id" className="w-full">
-                                        <SelectValue placeholder={t('Select unit')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {units.map((u) => (
-                                            <SelectItem key={u.id} value={String(u.id)}>
-                                                {u.name_hi}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    id="current_unit_id"
+                                    value={data.current_unit_id}
+                                    onValueChange={(v) => setData('current_unit_id', v)}
+                                    items={units.map((u) => ({ value: String(u.id), label: locale === 'en' ? u.name_en : u.name_hi }))}
+                                    placeholder={t('Select unit')}
+                                    searchPlaceholder={t('Search units…')}
+                                />
                                 <InputError message={errors.current_unit_id} />
                             </div>
                         </div>
 
                         <div className="grid gap-2">
                             <Label htmlFor="home_district_id">{t('Home district')}</Label>
-                            <Select value={data.home_district_id} onValueChange={(v) => setData('home_district_id', v)}>
-                                <SelectTrigger id="home_district_id" className="w-full">
-                                    <SelectValue placeholder={t('Select district')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {districts.map((d) => (
-                                        <SelectItem key={d.id} value={String(d.id)}>
-                                            {d.name_hi}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                id="home_district_id"
+                                value={data.home_district_id}
+                                onValueChange={(v) => setData('home_district_id', v)}
+                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name_en : d.name_hi }))}
+                                placeholder={t('Select district')}
+                                searchPlaceholder={t('Search districts…')}
+                            />
                             <InputError message={errors.home_district_id} />
                         </div>
                     </div>

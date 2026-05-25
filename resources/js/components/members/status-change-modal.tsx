@@ -1,9 +1,9 @@
 import { useForm } from '@inertiajs/react';
 import { store as storeStatus } from '@/actions/App/Http/Controllers/MemberStatusController';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -58,11 +58,9 @@ export function StatusChangeModal({ member, open, onOpenChange }: Props) {
                         <Label>
                             {t('Effective date')} <span className="text-destructive">*</span>
                         </Label>
-                        <Input
-                            type="date"
+                        <DatePicker
                             value={form.data.effective_on}
-                            onChange={(e) => form.setData('effective_on', e.target.value)}
-                            required
+                            onChange={(v) => form.setData('effective_on', v)}
                         />
                         <InputError message={form.errors.effective_on} />
                     </div>

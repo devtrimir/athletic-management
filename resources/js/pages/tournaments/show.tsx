@@ -2,6 +2,7 @@ import { Deferred, Head, Link, setLayoutProps, useForm } from '@inertiajs/react'
 import { Plus } from 'lucide-react';
 import { store as storeEvent, show as showEvent } from '@/actions/App/Http/Controllers/EventController';
 import { destroy as destroyTournament, edit as editTournament, index as tournamentsIndex } from '@/actions/App/Http/Controllers/TournamentController';
+import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +23,7 @@ type Tournament = {
     date_to: string | null;
     raw_date_text: string | null;
     session: { id: number; name: string } | null;
-    tier: { id: number; code: string; label_hi: string } | null;
+    tier: { id: number; code: string; label: string } | null;
     sport: { id: number; name: string } | null;
 };
 
@@ -72,16 +73,14 @@ function AddEventPanel({ tournament, sports }: { tournament: Tournament; sports:
                     <Label htmlFor="ev_sport_id">
                         {t('Sport')} <span className="text-destructive">*</span>
                     </Label>
-                    <Select value={data.sport_id} onValueChange={(v) => setData('sport_id', v)}>
-                        <SelectTrigger id="ev_sport_id">
-                            <SelectValue placeholder={t('Select sport')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {sports.map((sp) => (
-                                <SelectItem key={sp.id} value={String(sp.id)}>{sp.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <Combobox
+                        id="ev_sport_id"
+                        value={data.sport_id}
+                        onValueChange={(v) => setData('sport_id', v)}
+                        items={sports.map((sp) => ({ value: String(sp.id), label: sp.name }))}
+                        placeholder={t('Select sport')}
+                        searchPlaceholder={t('Search sports…')}
+                    />
                     <InputError message={errors.sport_id} />
                 </div>
 
@@ -183,7 +182,7 @@ export default function TournamentsShow({
                         <h1 className="text-2xl font-bold">{tournament.name_hi}</h1>
                         <div className="mt-1 flex flex-wrap gap-2">
                             {tournament.tier && (
-                                <Badge variant="secondary">{tournament.tier.label_hi}</Badge>
+                                <Badge variant="secondary">{tournament.tier.label}</Badge>
                             )}
                             {tournament.session && (
                                 <Badge variant="outline">{tournament.session.name}</Badge>
@@ -220,7 +219,7 @@ export default function TournamentsShow({
                         <div className="rounded-xl border bg-card p-6">
                             <Heading variant="small" title={t('Overview')} />
                             <dl className="mt-4 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3">
-                                {detail(t('Tier'), tournament.tier?.label_hi)}
+                                {detail(t('Tier'), tournament.tier?.label)}
                                 {detail(t('Session'), tournament.session?.name)}
                                 {detail(t('Sport'), tournament.sport?.name)}
                                 {detail(t('Venue'), tournament.venue)}

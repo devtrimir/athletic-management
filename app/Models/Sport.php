@@ -34,10 +34,10 @@ class Sport extends Model
     /** @var list<string> */
     protected $appends = ['name'];
 
-    /** Alias for name_hi — used by all controllers and resources. */
+    /** Locale-aware alias — returns name_en when locale is 'en', otherwise name_hi. */
     protected function name(): Attribute
     {
-        return Attribute::make(get: fn () => $this->name_hi);
+        return Attribute::make(get: fn () => app()->getLocale() === 'en' ? $this->name_en : $this->name_hi);
     }
 
     public function organization(): BelongsTo

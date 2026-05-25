@@ -33,6 +33,7 @@ class TournamentResource extends JsonResource
                 'id' => $this->tier->id,
                 'code' => $this->tier->code,
                 'label_hi' => $this->tier->label_hi,
+                'label' => $this->tier->label,
             ]),
             'sport' => $this->whenLoaded('sport', fn () => $this->sport ? [
                 'id' => $this->sport->id,

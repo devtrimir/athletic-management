@@ -12,7 +12,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
-type Tier = { id: number; code: string; label_hi: string };
+type Tier = { id: number; code: string; label: string };
 
 type Tournament = {
     id: number;
@@ -21,7 +21,7 @@ type Tournament = {
     venue: string | null;
     events_count: number;
     session: Session | null;
-    tier: { id: number; code: string; label_hi: string } | null;
+    tier: { id: number; code: string; label: string } | null;
     sport: Sport | null;
 };
 
@@ -160,7 +160,7 @@ clearTimeout(debounceRef.current);
                         <SelectContent>
                             <SelectItem value="all">{t('All tiers')}</SelectItem>
                             {tiers.map((tier) => (
-                                <SelectItem key={tier.id} value={String(tier.id)}>{tier.label_hi}</SelectItem>
+                                <SelectItem key={tier.id} value={String(tier.id)}>{tier.label}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -221,7 +221,7 @@ clearTimeout(debounceRef.current);
                                         <TableCell className="text-muted-foreground">{t_.session?.name ?? '—'}</TableCell>
                                         <TableCell>
                                             {t_.tier ? (
-                                                <Badge variant="secondary">{t_.tier.label_hi}</Badge>
+                                                <Badge variant="secondary">{t_.tier.label}</Badge>
                                             ) : (
                                                 <span className="select-none text-border">—</span>
                                             )}

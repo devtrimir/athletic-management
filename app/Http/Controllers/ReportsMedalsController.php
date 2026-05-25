@@ -28,11 +28,11 @@ class ReportsMedalsController extends Controller
             ->orderBy('name')
             ->get();
 
-        $sports = Sport::select(['id', 'name_hi'])
+        $sports = Sport::select(['id', 'name_hi', 'name_en'])
             ->orderBy('name_hi')
             ->get();
 
-        $tiers = TournamentTier::select(['id', 'code', 'label_hi'])
+        $tiers = TournamentTier::select(['id', 'code', 'label_hi', 'label_en'])
             ->orderByDesc('weight')
             ->get();
 

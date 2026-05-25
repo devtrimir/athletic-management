@@ -9,7 +9,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name_hi: string };
-type Tier = { id: number; code: string; label_hi: string };
+type Tier = { id: number; code: string; label: string };
 type Unit = { id: number; name_hi: string };
 type ReportMeta = { key: string; name_hi: string; name_en: string };
 type Filters = Record<string, string | number | null>;
@@ -118,7 +118,7 @@ params.unit_id = unitId;
                                 <SelectItem value={ALL}>{t('All Tiers')}</SelectItem>
                                 {tiers.map((tier) => (
                                     <SelectItem key={tier.id} value={String(tier.id)}>
-                                        {tier.label_hi}
+                                        {tier.label}
                                     </SelectItem>
                                 ))}
                             </SelectContent>

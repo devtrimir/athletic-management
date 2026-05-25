@@ -1,17 +1,18 @@
 import { Head, setLayoutProps, useForm } from '@inertiajs/react';
 import { index as tournamentsIndex, store as storeTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import { Combobox } from '@/components/combobox';
+import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
-type Tier = { id: number; code: string; label_hi: string };
+type Tier = { id: number; code: string; label: string };
 
 type FormData = {
     name_hi: string;
@@ -88,16 +89,14 @@ export default function TournamentsCreate({
                                 <Label htmlFor="session_id">
                                     {t('Session')} <span className="text-destructive">*</span>
                                 </Label>
-                                <Select value={data.session_id} onValueChange={(v) => setData('session_id', v)}>
-                                    <SelectTrigger id="session_id">
-                                        <SelectValue placeholder={t('Select session')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {sessions.map((s) => (
-                                            <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    id="session_id"
+                                    value={data.session_id}
+                                    onValueChange={(v) => setData('session_id', v)}
+                                    items={sessions.map((s) => ({ value: String(s.id), label: s.name }))}
+                                    placeholder={t('Select session')}
+                                    searchPlaceholder={t('Search sessions…')}
+                                />
                                 <InputError message={errors.session_id} />
                             </div>
 
@@ -106,33 +105,28 @@ export default function TournamentsCreate({
                                 <Label htmlFor="tier_id">
                                     {t('Tier')} <span className="text-destructive">*</span>
                                 </Label>
-                                <Select value={data.tier_id} onValueChange={(v) => setData('tier_id', v)}>
-                                    <SelectTrigger id="tier_id">
-                                        <SelectValue placeholder={t('Select tier')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {tiers.map((tier) => (
-                                            <SelectItem key={tier.id} value={String(tier.id)}>{tier.label_hi}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    id="tier_id"
+                                    value={data.tier_id}
+                                    onValueChange={(v) => setData('tier_id', v)}
+                                    items={tiers.map((tier) => ({ value: String(tier.id), label: tier.label }))}
+                                    placeholder={t('Select tier')}
+                                    searchPlaceholder={t('Search tiers…')}
+                                />
                                 <InputError message={errors.tier_id} />
                             </div>
 
                             {/* Sport */}
                             <div className="grid gap-2">
                                 <Label htmlFor="sport_id">{t('Sport')}</Label>
-                                <Select value={data.sport_id || 'none'} onValueChange={(v) => setData('sport_id', v === 'none' ? '' : v)}>
-                                    <SelectTrigger id="sport_id">
-                                        <SelectValue placeholder={t('All sports')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">{t('All sports')}</SelectItem>
-                                        {sports.map((sp) => (
-                                            <SelectItem key={sp.id} value={String(sp.id)}>{sp.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    id="sport_id"
+                                    value={data.sport_id}
+                                    onValueChange={(v) => setData('sport_id', v)}
+                                    items={sports.map((sp) => ({ value: String(sp.id), label: sp.name }))}
+                                    placeholder={t('All sports')}
+                                    searchPlaceholder={t('Search sports…')}
+                                />
                                 <InputError message={errors.sport_id} />
                             </div>
 
@@ -151,11 +145,10 @@ export default function TournamentsCreate({
                             {/* Date from */}
                             <div className="grid gap-2">
                                 <Label htmlFor="date_from">{t('Date from')}</Label>
-                                <Input
+                                <DatePicker
                                     id="date_from"
-                                    type="date"
                                     value={data.date_from}
-                                    onChange={(e) => setData('date_from', e.target.value)}
+                                    onChange={(v) => setData('date_from', v)}
                                 />
                                 <InputError message={errors.date_from} />
                             </div>
@@ -163,11 +156,10 @@ export default function TournamentsCreate({
                             {/* Date to */}
                             <div className="grid gap-2">
                                 <Label htmlFor="date_to">{t('Date to')}</Label>
-                                <Input
+                                <DatePicker
                                     id="date_to"
-                                    type="date"
                                     value={data.date_to}
-                                    onChange={(e) => setData('date_to', e.target.value)}
+                                    onChange={(v) => setData('date_to', v)}
                                 />
                                 <InputError message={errors.date_to} />
                             </div>
