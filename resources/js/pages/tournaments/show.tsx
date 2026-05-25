@@ -273,7 +273,7 @@ export default function TournamentsShow({
                                                     <TableCell className="text-right tabular-nums">{ev.participations_count}</TableCell>
                                                     <TableCell className="text-right">
                                                         <Button variant="ghost" size="sm" asChild>
-                                                            <Link href={showEvent.url(tournament.id, ev.id)}>{t('View')}</Link>
+                                                            <Link href={showEvent.url({ tournament: tournament.id, event: ev.id })}>{t('View')}</Link>
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>

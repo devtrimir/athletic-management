@@ -274,7 +274,7 @@ export default function EventsShow({
                         </div>
                     </div>
                     <Button variant="outline" size="sm" asChild>
-                        <a href={showEvent.url(tournament.id, event.id)}>{t('Refresh')}</a>
+                        <a href={showEvent.url({ tournament: tournament.id, event: event.id })}>{t('Refresh')}</a>
                     </Button>
                 </div>
 

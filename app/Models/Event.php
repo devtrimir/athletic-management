@@ -6,9 +6,11 @@ namespace App\Models;
 
 use Database\Factories\EventFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -23,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  * @property-read Tournament $tournament
  * @property-read Sport $sport
+ * @property-read Collection<int, Participation> $participations
  */
 #[Fillable([
     'tournament_id',
@@ -47,5 +50,11 @@ class Event extends Model
     public function sport(): BelongsTo
     {
         return $this->belongsTo(Sport::class);
+    }
+
+    /** @return HasMany<Participation, $this> */
+    public function participations(): HasMany
+    {
+        return $this->hasMany(Participation::class);
     }
 }
