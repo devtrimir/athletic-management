@@ -110,7 +110,7 @@ class TournamentController extends Controller
             ->get();
 
         return Inertia::render('tournaments/show', [
-            'tournament' => new TournamentResource($tournament),
+            'tournament' => (new TournamentResource($tournament))->resolve(),
             'sports' => $sports,
             'events' => Inertia::defer(fn () => $tournament->events()
                 ->with('sport:id,name_hi')
