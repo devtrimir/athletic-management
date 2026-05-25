@@ -47,4 +47,14 @@ class MemberPolicy
     {
         return $user->can('members.manageAlias');
     }
+
+    public function manageLegacyAchievements(User $user, mixed $member): bool
+    {
+        return $user->can('members.manageLegacyAchievements');
+    }
+
+    public function manageBenefits(User $user, mixed $member): bool
+    {
+        return $user->can('members.manageBenefits');
+    }
 }

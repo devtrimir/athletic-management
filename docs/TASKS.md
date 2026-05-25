@@ -135,6 +135,32 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 
 ---
 
+## Phase 2B — Member Profile Extension & Legacy Achievements
+
+> Discovered from WEBSITE.docx spec (May 2026). Extends P2 Members module with profile fields,
+> photo upload, pre/post-recruitment legacy achievement records, and a structured benefits ledger.
+> Must complete before P7 reports and P8 search-index expansion can cover the full member shape.
+> Intentional sizing overrides on PR 2 & 3 (single-concern, solo workflow — noted in P02B phase file).
+
+### PR 1 — Schema + Models + Factories (branch: `feat/p2b-t01-t04-schema-models`)
+- [ ] **P2B-T01** Migration: add 10 profile fields to `members` table (photo_path, blood_group, caste, promotion_date, appointment, home_address, recruitment_type, sport_event, other_notes, team_since) + update `MemberFactory` + update `MemberResource`
+- [ ] **P2B-T04** Migration: `member_legacy_achievements` (pre/post-recruitment history) + `achievement_benefits` (polymorphic benefits ledger) + Models + Factories + new RBAC permissions in `config/rbac.php`
+
+### PR 2 — Controllers + Requests + Routes (branch: `feat/p2b-t02-t03-t05-controllers`)
+- [ ] **P2B-T02** Update `StoreMemberRequest` + `UpdateMemberRequest` for new profile fields
+- [ ] **P2B-T03** `MemberPhotoController` (`POST /members/{member}/photo`, `DELETE /members/{member}/photo`) + storage config
+- [ ] **P2B-T05** `MemberLegacyAchievementController` (store/update/destroy) + `AchievementBenefitController` (store/update/destroy, polymorphic) + Form Requests + `MemberPolicy` additions
+
+### PR 3 — Frontend (branch: `feat/p2b-t06-t07-t08-frontend`)
+- [ ] **P2B-T06** `Members/Create.tsx` + `Members/Edit.tsx` — new profile fields + photo upload component
+- [ ] **P2B-T07** `LegacyAchievementsTab` component (3-section view: भर्ती से पूर्व / ऐतिहासिक / प्रणाली में दर्ज) + wire into `Members/Show.tsx`
+- [ ] **P2B-T08** Wire `achievement_benefits` onto live achievements: update `EventParticipantController` + `Events/Show.tsx` + `Members/Show.tsx` Achievements tab
+
+### PR 4 — Tests (branch: `feat/p2b-t09-tests`)
+- [ ] **P2B-T09** Pest Feature: photo upload, legacy CRUD, benefits CRUD, cross-org scope, benefits polymorphic resolution
+
+---
+
 ## Phase 3 — Coaches Module
 
 - [x] **P3-T01** Migration: `coaches` (incl. nullable `member_id` FK, unique `(org, pno)` where pno not null)

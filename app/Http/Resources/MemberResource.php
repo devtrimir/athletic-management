@@ -15,6 +15,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class MemberResource extends JsonResource
 {
+    /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
         return [
@@ -33,6 +34,17 @@ class MemberResource extends JsonResource
             'player_level' => $this->player_level,
             'current_status' => $this->current_status,
             'source_refs' => $this->source_refs,
+            // P2B profile fields
+            'photo_path' => $this->photo_path,
+            'blood_group' => $this->blood_group,
+            'caste' => $this->caste,
+            'promotion_date' => $this->promotion_date?->toDateString(),
+            'appointment' => $this->appointment,
+            'home_address' => $this->home_address,
+            'recruitment_type' => $this->recruitment_type,
+            'sport_event' => $this->sport_event,
+            'other_notes' => $this->other_notes,
+            'team_since' => $this->team_since?->toDateString(),
             'home_district' => $this->whenLoaded('homeDistrict', fn () => [
                 'id' => $this->homeDistrict->id,
                 'name_hi' => $this->homeDistrict->name_hi,
