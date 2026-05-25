@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Members;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,13 +15,13 @@ class StoreAliasRequest extends FormRequest
     }
 
     /**
-     * @return array<string, list<ValidationRule|string>>
+     * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
             'alias_hi' => ['required', 'string', 'max:255'],
-            'source'   => ['required', Rule::in(['krutidev', 'spelling_variant', 'rank_prefixed', 'legacy', 'manual'])],
+            'source' => ['required', Rule::in(['krutidev', 'spelling_variant', 'rank_prefixed', 'legacy', 'manual'])],
         ];
     }
 }

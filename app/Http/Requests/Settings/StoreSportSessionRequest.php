@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Settings;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,7 +20,7 @@ class StoreSportSessionRequest extends FormRequest
     }
 
     /**
-     * @return array<string, list<ValidationRule|string>>
+     * @return array<string, mixed>
      */
     public function rules(): array
     {

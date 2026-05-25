@@ -1,11 +1,14 @@
 <?php
 
+use App\Http\Controllers\AchievementBenefitController;
 use App\Http\Controllers\CoachController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventParticipantController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MemberAliasController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\MemberLegacyAchievementController;
+use App\Http\Controllers\MemberPhotoController;
 use App\Http\Controllers\MemberStatusController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportsMedalsController;
@@ -42,6 +45,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('members/{member}/status', [MemberStatusController::class, 'store'])->name('members.status.store');
     Route::post('members/{member}/aliases', [MemberAliasController::class, 'store'])->name('members.aliases.store');
     Route::delete('members/{member}/aliases/{alias}', [MemberAliasController::class, 'destroy'])->name('members.aliases.destroy');
+    Route::post('members/{member}/photo', [MemberPhotoController::class, 'store'])->name('members.photo.store');
+    Route::delete('members/{member}/photo', [MemberPhotoController::class, 'destroy'])->name('members.photo.destroy');
+    Route::post('members/{member}/legacy-achievements', [MemberLegacyAchievementController::class, 'store'])->name('members.legacy-achievements.store');
+    Route::patch('members/{member}/legacy-achievements/{legacyAchievement}', [MemberLegacyAchievementController::class, 'update'])->name('members.legacy-achievements.update');
+    Route::delete('members/{member}/legacy-achievements/{legacyAchievement}', [MemberLegacyAchievementController::class, 'destroy'])->name('members.legacy-achievements.destroy');
+    Route::post('achievement-benefits', [AchievementBenefitController::class, 'store'])->name('achievement-benefits.store');
+    Route::patch('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'update'])->name('achievement-benefits.update');
+    Route::delete('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'destroy'])->name('achievement-benefits.destroy');
 });
 
 require __DIR__.'/settings.php';
