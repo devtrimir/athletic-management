@@ -10,6 +10,7 @@ use App\Observers\AuditObserver;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,12 +38,23 @@ use Illuminate\Support\Carbon;
  * @property string $player_level
  * @property string $current_status
  * @property array<mixed>|null $source_refs
+ * @property string|null $photo_path
+ * @property string|null $blood_group
+ * @property string|null $caste
+ * @property Carbon|null $promotion_date
+ * @property string|null $appointment
+ * @property string|null $home_address
+ * @property string|null $recruitment_type
+ * @property string|null $sport_event
+ * @property string|null $other_notes
+ * @property Carbon|null $team_since
  * @property Carbon|null $deleted_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Organization $organization
  * @property-read District|null $homeDistrict
  * @property-read Unit|null $currentUnit
+ * @property-read Collection<int, MemberLegacyAchievement> $legacyAchievements
  */
 #[Fillable([
     'organization_id',
@@ -53,6 +65,16 @@ use Illuminate\Support\Carbon;
     'full_name_normalized',
     'father_name_hi',
     'rank',
+    'photo_path',
+    'blood_group',
+    'caste',
+    'promotion_date',
+    'appointment',
+    'home_address',
+    'recruitment_type',
+    'sport_event',
+    'other_notes',
+    'team_since',
     'gender',
     'dob',
     'joining_date',
@@ -78,33 +100,46 @@ class Member extends Model
         return [
             'dob' => 'date',
             'joining_date' => 'date',
+            'promotion_date' => 'date',
+            'team_since' => 'date',
             'source_refs' => 'array',
             'deleted_at' => 'datetime',
         ];
     }
 
+    /** @return BelongsTo<Organization, $this> */
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
     }
 
+    /** @return BelongsTo<District, $this> */
     public function homeDistrict(): BelongsTo
     {
         return $this->belongsTo(District::class, 'home_district_id');
     }
 
+    /** @return BelongsTo<Unit, $this> */
     public function currentUnit(): BelongsTo
     {
         return $this->belongsTo(Unit::class, 'current_unit_id');
     }
 
+    /** @return HasMany<MemberStatusHistory, $this> */
     public function statusHistory(): HasMany
     {
         return $this->hasMany(MemberStatusHistory::class)->latest('effective_on');
     }
 
+    /** @return HasMany<NameAlias, $this> */
     public function aliases(): HasMany
     {
         return $this->hasMany(NameAlias::class);
+    }
+
+    /** @return HasMany<MemberLegacyAchievement, $this> */
+    public function legacyAchievements(): HasMany
+    {
+        return $this->hasMany(MemberLegacyAchievement::class)->orderBy('period')->orderBy('level')->orderBy('sort_order');
     }
 }

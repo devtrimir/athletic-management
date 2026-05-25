@@ -42,6 +42,17 @@ class MemberFactory extends Factory
             'player_level' => fake()->randomElement(['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC']),
             'current_status' => 'ACTIVE',
             'source_refs' => null,
+            // New P2B profile fields — all nullable for backwards compat
+            'photo_path' => null,
+            'blood_group' => fake()->optional(0.5)->randomElement(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']),
+            'caste' => null,
+            'promotion_date' => fake()->optional(0.3)->dateTimeBetween('-10 years', 'now'),
+            'appointment' => null,
+            'home_address' => null,
+            'recruitment_type' => fake()->optional(0.6)->randomElement(['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER']),
+            'sport_event' => fake()->optional(0.4)->randomElement(['100m', '200m', '1500m', '-60kg', '-73kg', '-81kg', 'Freestyle']),
+            'other_notes' => null,
+            'team_since' => fake()->optional(0.5)->dateTimeBetween('-15 years', 'now'),
         ];
     }
 }
