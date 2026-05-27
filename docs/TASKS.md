@@ -203,6 +203,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P4-T14** Pest Feature: cross-session membership shows correctly grouped in profile
 - [x] ~~**P4-T15** Pest Browser: build a team end-to-end~~ — **skipped**: manual browser testing instead
 - [x] **P4-T16** `TeamExportController` (index) + route + Pest Feature (6 tests)
+- [ ] **P4-T17** Teams export FE: bulk-select + Export dialog in `teams/index.tsx`
 
 ---
 
@@ -233,6 +234,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P5-T16** Pest Feature: medals pivot matches fixture ground truth
 - [ ] ~~**P5-T17** Pest Browser: record a medal end-to-end~~ — **skipped**: manual browser testing instead
 - [x] **P5-T18** `TournamentExportController` (index) + route + Pest Feature (7 tests)
+- [ ] **P5-T19** Tournaments export FE: bulk-select + Export dialog in `tournaments/index.tsx`
 
 ---
 
