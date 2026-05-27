@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AchievementBenefitController;
 use App\Http\Controllers\CoachController;
+use App\Http\Controllers\CoachExportController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventParticipantController;
 use App\Http\Controllers\LocaleController;
@@ -15,8 +16,10 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportsMedalsController;
 use App\Http\Controllers\TeamCoachController;
 use App\Http\Controllers\TeamController;
+use App\Http\Controllers\TeamExportController;
 use App\Http\Controllers\TeamMemberController;
 use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\TournamentExportController;
 use Illuminate\Support\Facades\Route;
 
 Route::patch('/locale', [LocaleController::class, 'update'])->name('locale.update');
@@ -28,8 +31,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('members/export', [MemberExportController::class, 'index'])->name('members.export');
     Route::resource('members', MemberController::class);
     Route::get('members/{member}/export', [MemberExportController::class, 'show'])->name('members.export.show');
+    Route::get('coaches/export', [CoachExportController::class, 'index'])->name('coaches.export');
     Route::resource('coaches', CoachController::class);
+    Route::get('coaches/{coach}/export', [CoachExportController::class, 'show'])->name('coaches.export.show');
+    Route::get('teams/export', [TeamExportController::class, 'index'])->name('teams.export');
     Route::resource('teams', TeamController::class);
+    Route::get('tournaments/export', [TournamentExportController::class, 'index'])->name('tournaments.export');
     Route::resource('tournaments', TournamentController::class);
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/medals', ReportsMedalsController::class)->name('reports.medals');
