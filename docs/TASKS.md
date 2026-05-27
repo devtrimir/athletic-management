@@ -173,7 +173,8 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P3-T08** `Pages/Coaches/Show.tsx` (profile shell, Teams tab stubbed)
 - [x] **P3-T09** Pest Feature: CRUD + linked-vs-standalone behavior
 - [x] **P3-T10** Pest Feature: editing linked coach's name does not mutate the member
-- [ ] **P3-T11** `CoachExportController` (`GET coaches/export` bulk/filtered + `GET coaches/{coach}/export` individual) + Pest Feature tests
+- [x] **P3-T11** `CoachExportController` (index + show) + routes + Pest Feature (9 tests)
+- [x] **P3-T12** Coach export FE: `Pages/Coaches/Index.tsx` bulk select + export, `Pages/Coaches/Show.tsx` individual export
 
 ---
 
@@ -201,7 +202,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P4-T13** Pest Feature: duplicate-add returns 422
 - [x] **P4-T14** Pest Feature: cross-session membership shows correctly grouped in profile
 - [x] ~~**P4-T15** Pest Browser: build a team end-to-end~~ — **skipped**: manual browser testing instead
-- [ ] **P4-T16** `TeamExportController` (`GET teams/export` bulk/filtered) + Pest Feature tests
+- [x] **P4-T16** `TeamExportController` (index) + route + Pest Feature (6 tests)
 
 ---
 
@@ -226,12 +227,12 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P5-T12** `Pages/Events/Show.tsx` participants grid (inline medal selector)
 - [x] **P5-T13** Wire Member `Show` Participations + Achievements tabs
 - [ ] **P5-T14** Interim `Pages/Reports/Medals.tsx`
-- [ ] **P5-T18** `TournamentExportController` (`GET tournaments/export` bulk/filtered) + Pest Feature tests
 
 ### Tests
 - [x] **P5-T15** Pest Feature: duplicate (event, member) → 422; idempotent bulk
 - [x] **P5-T16** Pest Feature: medals pivot matches fixture ground truth
 - [ ] ~~**P5-T17** Pest Browser: record a medal end-to-end~~ — **skipped**: manual browser testing instead
+- [x] **P5-T18** `TournamentExportController` (index) + route + Pest Feature (7 tests)
 
 ---
 

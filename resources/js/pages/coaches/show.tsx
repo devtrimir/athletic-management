@@ -1,12 +1,27 @@
 import { Deferred, Head, Link, router, setLayoutProps } from '@inertiajs/react';
+import { Download } from 'lucide-react';
+import { useState } from 'react';
 import { destroy, edit as editCoach, index as coachesIndex } from '@/actions/App/Http/Controllers/CoachController';
+import { show as exportCoach } from '@/actions/App/Http/Controllers/CoachExportController';
 import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+
+const ALL_COLUMNS = [
+    { key: 'pno', label: 'PNO' },
+    { key: 'full_name_hi', label: 'Name (Hindi)' },
+    { key: 'full_name_en', label: 'Name (English)' },
+    { key: 'mobile', label: 'Mobile' },
+    { key: 'nis_certified', label: 'NIS Certified' },
+    { key: 'linked_member', label: 'Linked Member Code' },
+] as const;
 
 type Coach = {
     id: number;
@@ -38,12 +53,25 @@ type CoachTeamRow = {
 export default function CoachesShow({ coach, member, coachTeams }: { coach: Coach; member?: LinkedMember; coachTeams?: CoachTeamRow[] }) {
     const { t } = useTranslation();
 
+    const [exportOpen, setExportOpen] = useState(false);
+    const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+
     setLayoutProps({
         breadcrumbs: [
             { title: t('Coaches'), href: coachesIndex.url() },
             { title: coach.full_name_hi },
         ],
     });
+
+    function buildExportUrl(): string {
+        const params = new URLSearchParams();
+
+        for (const col of selectedColumns) {
+            params.append('columns[]', col);
+        }
+
+        return exportCoach.url(coach) + '?' + params.toString();
+    }
 
     function handleDelete() {
         if (!confirm(t('Delete this coach?'))) {
@@ -71,6 +99,10 @@ return;
                         {coach.full_name_en && <p className="text-muted-foreground">{coach.full_name_en}</p>}
                     </div>
                     <div className="flex gap-2 shrink-0">
+                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Export coach')}
+                        </Button>
                         <Button variant="outline" size="sm" asChild>
                             <Link href={editCoach.url(coach)}>{t('Edit')}</Link>
                         </Button>
@@ -176,6 +208,51 @@ return;
                     </TabsContent>
                 </Tabs>
             </div>
+
+            <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{t('Export coach')}</DialogTitle>
+                        <DialogDescription>{t('Exporting this coach.')}</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2">
+                        <p className="mb-3 text-sm font-medium">{t('Select columns to export')}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {ALL_COLUMNS.map((col) => (
+                                <div key={col.key} className="flex items-center gap-2">
+                                    <Checkbox
+                                        id={`col-${col.key}`}
+                                        checked={selectedColumns.includes(col.key)}
+                                        onCheckedChange={(checked) =>
+                                            setSelectedColumns((prev) =>
+                                                checked
+                                                    ? [...prev, col.key]
+                                                    : prev.filter((k) => k !== col.key),
+                                            )
+                                        }
+                                    />
+                                    <Label htmlFor={`col-${col.key}`}>{t(col.label)}</Label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setExportOpen(false)}>
+                            {t('Cancel')}
+                        </Button>
+                        <Button
+                            disabled={selectedColumns.length === 0}
+                            onClick={() => {
+                                window.location.href = buildExportUrl();
+                                setExportOpen(false);
+                            }}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Download Excel')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

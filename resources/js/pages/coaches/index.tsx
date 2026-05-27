@@ -1,14 +1,28 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Eye, Plus, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Download, Eye, Plus, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState   } from 'react';
+import type {Dispatch, SetStateAction} from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
+import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachExportController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+
+const ALL_COLUMNS = [
+    { key: 'pno', label: 'PNO' },
+    { key: 'full_name_hi', label: 'Name (Hindi)' },
+    { key: 'full_name_en', label: 'Name (English)' },
+    { key: 'mobile', label: 'Mobile' },
+    { key: 'nis_certified', label: 'NIS Certified' },
+    { key: 'linked_member', label: 'Linked Member Code' },
+] as const;
 
 type PaginationLink = {
     url: string | null;
@@ -58,6 +72,10 @@ export default function CoachesIndex({
     filters: Filters;
 }) {
     const { t } = useTranslation();
+
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [exportOpen, setExportOpen] = useState(false);
+    const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
 
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,6 +128,66 @@ clearTimeout(debounceRef.current);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
+    function toggleRow(id: number) {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+
+            return next;
+        });
+    }
+
+    function togglePage() {
+        const pageIds = coaches.data.map((c) => c.id);
+        const allSelected = pageIds.every((id) => selectedIds.has(id));
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+
+            for (const id of pageIds) {
+                if (allSelected) {
+                    next.delete(id);
+                } else {
+                    next.add(id);
+                }
+            }
+
+            return next;
+        });
+    }
+
+    function buildExportUrl(): string {
+        const params = new URLSearchParams();
+
+        if (selectedIds.size > 0) {
+            for (const id of selectedIds) {
+                params.append('ids[]', String(id));
+            }
+        } else {
+            if (filters.q) {
+params.append('filter[q]', filters.q);
+}
+
+            if (filters.has_member) {
+params.append('filter[has_member]', filters.has_member);
+}
+
+            if (filters.nis_certified) {
+params.append('filter[nis_certified]', filters.nis_certified);
+}
+        }
+
+        for (const col of selectedColumns) {
+            params.append('columns[]', col);
+        }
+
+        return exportCoachesUrl.url() + '?' + params.toString();
+    }
+
     const hasActiveFilters = !!(filters.q || filters.has_member || filters.nis_certified);
 
     return (
@@ -123,12 +201,20 @@ clearTimeout(debounceRef.current);
                         title={t('Coaches')}
                         description={t('Manage coaching staff')}
                     />
-                    <Button asChild size="sm">
-                        <Link href={CoachController.create.url()}>
-                            <Plus className="mr-1.5 h-4 w-4" />
-                            {t('New coach')}
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {selectedIds.size > 0
+                                ? t('Export :n selected').replace(':n', String(selectedIds.size))
+                                : t('Export coaches')}
+                        </Button>
+                        <Button asChild size="sm">
+                            <Link href={CoachController.create.url()}>
+                                <Plus className="mr-1.5 h-4 w-4" />
+                                {t('New coach')}
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Filter bar */}
@@ -195,6 +281,19 @@ clearTimeout(debounceRef.current);
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                <TableHead className="w-0">
+                                    <Checkbox
+                                        checked={
+                                            coaches.data.length > 0 && coaches.data.every((c) => selectedIds.has(c.id))
+                                                ? true
+                                                : coaches.data.some((c) => selectedIds.has(c.id))
+                                                  ? 'indeterminate'
+                                                  : false
+                                        }
+                                        onCheckedChange={togglePage}
+                                        aria-label={t('Select all on page')}
+                                    />
+                                </TableHead>
                                 <TableHead>{t('Name (Hindi)')}</TableHead>
                                 <TableHead>{t('PNO')}</TableHead>
                                 <TableHead>{t('NIS')}</TableHead>
@@ -205,7 +304,7 @@ clearTimeout(debounceRef.current);
                         <TableBody>
                             {coaches.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
                                         {hasActiveFilters
                                             ? t('No coaches match your filters.')
                                             : t('No coaches yet.')}
@@ -214,6 +313,13 @@ clearTimeout(debounceRef.current);
                             ) : (
                                 coaches.data.map((coach) => (
                                     <TableRow key={coach.id}>
+                                        <TableCell className="w-0">
+                                            <Checkbox
+                                                checked={selectedIds.has(coach.id)}
+                                                onCheckedChange={() => toggleRow(coach.id)}
+                                                aria-label={t('Select row')}
+                                            />
+                                        </TableCell>
                                         <TableCell className="font-medium">{coach.full_name_hi}</TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {coach.pno ?? <span className="select-none text-border">—</span>}
@@ -287,6 +393,17 @@ clearTimeout(debounceRef.current);
                     </div>
                 )}
             </div>
+
+            <ExportDialog
+                open={exportOpen}
+                onOpenChange={setExportOpen}
+                selectedIds={selectedIds}
+                coaches={coaches}
+                selectedColumns={selectedColumns}
+                setSelectedColumns={setSelectedColumns}
+                buildExportUrl={buildExportUrl}
+                t={t}
+            />
         </>
     );
 }
@@ -294,3 +411,74 @@ clearTimeout(debounceRef.current);
 CoachesIndex.layout = {
     breadcrumbs: [{ title: 'Coaches', href: CoachController.index.url() }],
 };
+
+function ExportDialog({
+    open,
+    onOpenChange,
+    selectedIds,
+    coaches,
+    selectedColumns,
+    setSelectedColumns,
+    buildExportUrl,
+    t,
+}: {
+    open: boolean;
+    onOpenChange: (v: boolean) => void;
+    selectedIds: Set<number>;
+    coaches: PaginatedCoaches;
+    selectedColumns: string[];
+    setSelectedColumns: Dispatch<SetStateAction<string[]>>;
+    buildExportUrl: () => string;
+    t: (key: string) => string;
+}) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{t('Export coaches')}</DialogTitle>
+                    <DialogDescription>
+                        {selectedIds.size > 0
+                            ? t('Exporting :n selected coaches.').replace(':n', String(selectedIds.size))
+                            : t('Exporting all :count coaches.').replace(':count', String(coaches.total))}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-2">
+                    <p className="mb-3 text-sm font-medium">{t('Select columns to export')}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {ALL_COLUMNS.map((col) => (
+                            <div key={col.key} className="flex items-center gap-2">
+                                <Checkbox
+                                    id={`col-${col.key}`}
+                                    checked={selectedColumns.includes(col.key)}
+                                    onCheckedChange={(checked) =>
+                                        setSelectedColumns((prev) =>
+                                            checked
+                                                ? [...prev, col.key]
+                                                : prev.filter((k) => k !== col.key),
+                                        )
+                                    }
+                                />
+                                <Label htmlFor={`col-${col.key}`}>{t(col.label)}</Label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        {t('Cancel')}
+                    </Button>
+                    <Button
+                        disabled={selectedColumns.length === 0}
+                        onClick={() => {
+                            window.location.href = buildExportUrl();
+                            onOpenChange(false);
+                        }}
+                    >
+                        <Download className="mr-1.5 h-4 w-4" />
+                        {t('Download Excel')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
