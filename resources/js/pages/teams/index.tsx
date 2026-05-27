@@ -1,13 +1,28 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Eye, Plus, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Download, Eye, Plus, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState   } from 'react';
+import type {Dispatch, SetStateAction} from 'react';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
+import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+
+const ALL_COLUMNS = [
+    { key: 'name_hi', label: 'Team Name (Hindi)' },
+    { key: 'session', label: 'Session' },
+    { key: 'sport', label: 'Sport' },
+    { key: 'unit', label: 'Unit' },
+    { key: 'in_charge_hi', label: 'In-Charge' },
+    { key: 'players_count', label: 'Players' },
+    { key: 'coaches_count', label: 'Coaches' },
+] as const;
 
 type PaginationLink = {
     url: string | null;
@@ -60,6 +75,10 @@ export default function TeamsIndex({
     units: UnitItem[];
 }) {
     const { t } = useTranslation();
+
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [exportOpen, setExportOpen] = useState(false);
+    const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
 
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,6 +136,70 @@ export default function TeamsIndex({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
+    function toggleRow(id: number) {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+
+            if (next.has(id)) {
+ next.delete(id); 
+} else {
+ next.add(id); 
+}
+
+            return next;
+        });
+    }
+
+    function togglePage() {
+        const pageIds = teams.data.map((t) => t.id);
+        const allSelected = pageIds.every((id) => selectedIds.has(id));
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+
+            for (const id of pageIds) {
+                if (allSelected) {
+ next.delete(id); 
+} else {
+ next.add(id); 
+}
+            }
+
+            return next;
+        });
+    }
+
+    function buildExportUrl(): string {
+        const params = new URLSearchParams();
+
+        if (selectedIds.size > 0) {
+            for (const id of selectedIds) {
+ params.append('ids[]', String(id)); 
+}
+        } else {
+            if (filters.q) {
+params.append('filter[q]', filters.q);
+}
+
+            if (filters.session_id) {
+params.append('filter[session_id]', filters.session_id);
+}
+
+            if (filters.sport_id) {
+params.append('filter[sport_id]', filters.sport_id);
+}
+
+            if (filters.unit_id) {
+params.append('filter[unit_id]', filters.unit_id);
+}
+        }
+
+        for (const col of selectedColumns) {
+ params.append('columns[]', col); 
+}
+
+        return exportTeamsUrl.url() + '?' + params.toString();
+    }
+
     const hasActiveFilters = !!(
         filters.q ||
         filters.session_id ||
@@ -135,12 +218,20 @@ export default function TeamsIndex({
                         title={t('Teams')}
                         description={t('Manage teams')}
                     />
-                    <Button asChild size="sm">
-                        <Link href={TeamController.create.url()}>
-                            <Plus className="mr-1.5 h-4 w-4" />
-                            {t('New team')}
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {selectedIds.size > 0
+                                ? t('Export :n selected').replace(':n', String(selectedIds.size))
+                                : t('Export teams')}
+                        </Button>
+                        <Button asChild size="sm">
+                            <Link href={TeamController.create.url()}>
+                                <Plus className="mr-1.5 h-4 w-4" />
+                                {t('New team')}
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Filter bar */}
@@ -235,6 +326,19 @@ export default function TeamsIndex({
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                <TableHead className="w-0">
+                                    <Checkbox
+                                        checked={
+                                            teams.data.length > 0 && teams.data.every((t) => selectedIds.has(t.id))
+                                                ? true
+                                                : teams.data.some((t) => selectedIds.has(t.id))
+                                                  ? 'indeterminate'
+                                                  : false
+                                        }
+                                        onCheckedChange={togglePage}
+                                        aria-label={t('Select all on page')}
+                                    />
+                                </TableHead>
                                 <TableHead>{t('Name (Hindi)')}</TableHead>
                                 <TableHead>{t('Sport')}</TableHead>
                                 <TableHead>{t('Session')}</TableHead>
@@ -249,7 +353,7 @@ export default function TeamsIndex({
                             {teams.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={8}
+                                        colSpan={9}
                                         className="py-12 text-center text-muted-foreground"
                                     >
                                         {hasActiveFilters
@@ -260,6 +364,13 @@ export default function TeamsIndex({
                             ) : (
                                 teams.data.map((team) => (
                                     <TableRow key={team.id}>
+                                        <TableCell className="w-0">
+                                            <Checkbox
+                                                checked={selectedIds.has(team.id)}
+                                                onCheckedChange={() => toggleRow(team.id)}
+                                                aria-label={t('Select row')}
+                                            />
+                                        </TableCell>
                                         <TableCell className="font-medium">
                                             {team.name_hi}
                                         </TableCell>
@@ -347,6 +458,17 @@ export default function TeamsIndex({
                     </div>
                 )}
             </div>
+
+            <ExportDialog
+                open={exportOpen}
+                onOpenChange={setExportOpen}
+                selectedIds={selectedIds}
+                teams={teams}
+                selectedColumns={selectedColumns}
+                setSelectedColumns={setSelectedColumns}
+                buildExportUrl={buildExportUrl}
+                t={t}
+            />
         </>
     );
 }
@@ -354,3 +476,74 @@ export default function TeamsIndex({
 TeamsIndex.layout = {
     breadcrumbs: [{ title: 'Teams', href: TeamController.index.url() }],
 };
+
+function ExportDialog({
+    open,
+    onOpenChange,
+    selectedIds,
+    teams,
+    selectedColumns,
+    setSelectedColumns,
+    buildExportUrl,
+    t,
+}: {
+    open: boolean;
+    onOpenChange: (v: boolean) => void;
+    selectedIds: Set<number>;
+    teams: PaginatedTeams;
+    selectedColumns: string[];
+    setSelectedColumns: Dispatch<SetStateAction<string[]>>;
+    buildExportUrl: () => string;
+    t: (key: string) => string;
+}) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{t('Export teams')}</DialogTitle>
+                    <DialogDescription>
+                        {selectedIds.size > 0
+                            ? t('Exporting :n selected teams.').replace(':n', String(selectedIds.size))
+                            : t('Exporting all :count teams.').replace(':count', String(teams.total))}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-2">
+                    <p className="mb-3 text-sm font-medium">{t('Select columns to export')}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {ALL_COLUMNS.map((col) => (
+                            <div key={col.key} className="flex items-center gap-2">
+                                <Checkbox
+                                    id={`col-${col.key}`}
+                                    checked={selectedColumns.includes(col.key)}
+                                    onCheckedChange={(checked) =>
+                                        setSelectedColumns((prev) =>
+                                            checked
+                                                ? [...prev, col.key]
+                                                : prev.filter((k) => k !== col.key),
+                                        )
+                                    }
+                                />
+                                <Label htmlFor={`col-${col.key}`}>{t(col.label)}</Label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        {t('Cancel')}
+                    </Button>
+                    <Button
+                        disabled={selectedColumns.length === 0}
+                        onClick={() => {
+                            window.location.href = buildExportUrl();
+                            onOpenChange(false);
+                        }}
+                    >
+                        <Download className="mr-1.5 h-4 w-4" />
+                        {t('Download Excel')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
