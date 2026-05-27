@@ -1,12 +1,17 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Eye, Plus, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Download, Eye, Plus, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
+import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -28,6 +33,9 @@ type Member = {
     current_unit: { id: number; name_hi: string } | null;
 };
 
+type UnitOption = { id: number; name_hi: string; name_en: string };
+type DistrictOption = { id: number; name_hi: string; name_en: string };
+
 type PaginatedMembers = {
     data: Member[];
     links: PaginationLink[];
@@ -42,10 +50,51 @@ type Filters = {
     q?: string;
     current_status?: string;
     player_category?: string;
+    player_level?: string;
+    current_unit_id?: string;
+    home_district_id?: string;
+    gender?: string;
+    blood_group?: string;
+    recruitment_type?: string;
+    joining_year_from?: string;
+    joining_year_to?: string;
 };
+
+const ALL_COLUMNS: { key: string; label: string }[] = [
+    { key: 'member_code', label: 'Member code' },
+    { key: 'pno', label: 'PNO' },
+    { key: 'full_name_hi', label: 'Name (Hindi)' },
+    { key: 'full_name_en', label: 'Name (English)' },
+    { key: 'father_name_hi', label: "Father's name" },
+    { key: 'gender', label: 'Gender' },
+    { key: 'dob', label: 'Date of birth' },
+    { key: 'rank', label: 'Rank' },
+    { key: 'mobile', label: 'Mobile' },
+    { key: 'current_status', label: 'Status' },
+    { key: 'player_category', label: 'Category' },
+    { key: 'player_level', label: 'Level' },
+    { key: 'unit', label: 'Unit' },
+    { key: 'home_district', label: 'Home district' },
+    { key: 'joining_date', label: 'Joining date' },
+    { key: 'blood_group', label: 'Blood group' },
+    { key: 'caste', label: 'Caste' },
+    { key: 'recruitment_type', label: 'Recruitment type' },
+    { key: 'appointment', label: 'Appointment' },
+    { key: 'sport_event', label: 'Sport event' },
+    { key: 'promotion_date', label: 'Promotion date' },
+    { key: 'team_since', label: 'Team since' },
+];
 
 const STATUS_OPTIONS = ['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'] as const;
 const CATEGORY_OPTIONS = ['GD', 'SKILLED'] as const;
+const LEVEL_OPTIONS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'] as const;
+const GENDER_OPTIONS: { value: string; label: string }[] = [
+    { value: 'M', label: 'Male' },
+    { value: 'F', label: 'Female' },
+    { value: 'O', label: 'Other gender' },
+];
+const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
+const RECRUITMENT_OPTIONS = ['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER'] as const;
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
     ACTIVE: 'default',
@@ -55,66 +104,309 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
     RETIRED: 'secondary',
 };
 
+// ── Filter pill ───────────────────────────────────────────────────────────────
+
+function FilterPill({
+    label,
+    activeLabel,
+    onClear,
+    children,
+}: {
+    label: string;
+    activeLabel?: string;
+    onClear: () => void;
+    children: React.ReactNode;
+}) {
+    const [open, setOpen] = useState(false);
+    const isActive = !!activeLabel;
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className={[
+                        'inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors',
+                        isActive
+                            ? 'border-primary/40 bg-primary/8 text-primary hover:bg-primary/12'
+                            : 'border-input bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    ].join(' ')}
+                >
+                    <span>{label}</span>
+                    {isActive && (
+                        <>
+                            <span className="text-primary/50">·</span>
+                            <span className="max-w-24 truncate font-semibold">{activeLabel}</span>
+                            <span
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Clear ${label}`}
+                                className="ml-0.5 flex size-4 items-center justify-center rounded-sm opacity-60 hover:opacity-100"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClear();
+                                    setOpen(false);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.stopPropagation();
+                                        onClear();
+                                        setOpen(false);
+                                    }
+                                }}
+                            >
+                                <X className="size-3" />
+                            </span>
+                        </>
+                    )}
+                    {!isActive && <ChevronDown className="size-3 opacity-50" />}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto p-0">
+                {children}
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+function OptionList({
+    options,
+    value,
+    onSelect,
+}: {
+    options: { value: string; label: string }[];
+    value: string | undefined;
+    onSelect: (v: string | undefined) => void;
+}) {
+    return (
+        <div className="py-1">
+            {options.map((opt) => (
+                <button
+                    key={opt.value}
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                    onClick={() => onSelect(value === opt.value ? undefined : opt.value)}
+                >
+                    <Check className={['size-3.5 shrink-0', value === opt.value ? 'opacity-100' : 'opacity-0'].join(' ')} />
+                    {opt.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function SearchableOptionList({
+    options,
+    value,
+    onSelect,
+    searchPlaceholder,
+}: {
+    options: { value: string; label: string }[];
+    value: string | undefined;
+    onSelect: (v: string | undefined) => void;
+    searchPlaceholder: string;
+}) {
+    return (
+        <Command className="w-56">
+            <CommandInput placeholder={searchPlaceholder} className="h-8 text-sm" />
+            <CommandList className="max-h-52">
+                <CommandEmpty>—</CommandEmpty>
+                <CommandGroup>
+                    {options.map((opt) => (
+                        <CommandItem
+                            key={opt.value}
+                            value={opt.label}
+                            onSelect={() => onSelect(value === opt.value ? undefined : opt.value)}
+                            className="gap-2"
+                        >
+                            <Check className={['size-3.5 shrink-0', value === opt.value ? 'opacity-100' : 'opacity-0'].join(' ')} />
+                            {opt.label}
+                        </CommandItem>
+                    ))}
+                </CommandGroup>
+            </CommandList>
+        </Command>
+    );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+const PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
+
 export default function MembersIndex({
     members,
     filters,
+    units,
+    districts,
+    totalCount,
+    perPage,
 }: {
     members: PaginatedMembers;
     filters: Filters;
+    units: UnitOption[];
+    districts: DistrictOption[];
+    totalCount: number;
+    perPage: number;
 }) {
     const { t } = useTranslation();
 
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [exportOpen, setExportOpen] = useState(false);
+    const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+
+    // Row selection — persists across pagination pages
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+    // Local draft for joining year (applied on blur/enter only to avoid spamming requests)
+    const [yearFrom, setYearFrom] = useState(filters.joining_year_from ?? '');
+    const [yearTo, setYearTo] = useState(filters.joining_year_to ?? '');
 
     const applyFilters = useCallback((patch: Partial<Filters>) => {
-        const current: Filters = {
+        const merged: Filters = {
             q: query || undefined,
             current_status: filters.current_status,
             player_category: filters.player_category,
+            player_level: filters.player_level,
+            current_unit_id: filters.current_unit_id,
+            home_district_id: filters.home_district_id,
+            gender: filters.gender,
+            blood_group: filters.blood_group,
+            recruitment_type: filters.recruitment_type,
+            joining_year_from: filters.joining_year_from,
+            joining_year_to: filters.joining_year_to,
+            ...patch,
         };
-        const merged: Filters = { ...current, ...patch };
 
-        // Remove empty values so URL stays clean
         const clean: Record<string, string> = {};
+        const mapping: [keyof Filters, string][] = [
+            ['q', 'filter[q]'],
+            ['current_status', 'filter[current_status]'],
+            ['player_category', 'filter[player_category]'],
+            ['player_level', 'filter[player_level]'],
+            ['current_unit_id', 'filter[current_unit_id]'],
+            ['home_district_id', 'filter[home_district_id]'],
+            ['gender', 'filter[gender]'],
+            ['blood_group', 'filter[blood_group]'],
+            ['recruitment_type', 'filter[recruitment_type]'],
+            ['joining_year_from', 'filter[joining_year_from]'],
+            ['joining_year_to', 'filter[joining_year_to]'],
+        ];
 
-        if (merged.q) {
- clean['filter[q]'] = merged.q;
-}
+        for (const [k, param] of mapping) {
+            if (merged[k]) {
+                clean[param] = merged[k]!;
+            }
+        }
 
-        if (merged.current_status) {
- clean['filter[current_status]'] = merged.current_status;
-}
+        if (perPage !== 25) {
+            clean['per_page'] = String(perPage);
+        }
 
-        if (merged.player_category) {
- clean['filter[player_category]'] = merged.player_category;
-}
-
-        router.get(MemberController.index.url(), clean, {
-            preserveState: true,
-            replace: true,
-        });
-    }, [query, filters.current_status, filters.player_category]);
+        router.get(MemberController.index.url(), clean, { preserveState: true, replace: true });
+    }, [query, filters, perPage]);
 
     // Debounce text search
     useEffect(() => {
         if (debounceRef.current) {
- clearTimeout(debounceRef.current);
-}
+            clearTimeout(debounceRef.current);
+        }
 
         debounceRef.current = setTimeout(() => {
             applyFilters({ q: query || undefined });
         }, 400);
 
         return () => {
- if (debounceRef.current) {
- clearTimeout(debounceRef.current);
-}
-};
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
-    const hasActiveFilters = !!(filters.q || filters.current_status || filters.player_category);
+    const activeFilterCount = [
+        filters.current_status, filters.player_category, filters.player_level,
+        filters.current_unit_id, filters.home_district_id, filters.gender,
+        filters.blood_group, filters.recruitment_type, filters.joining_year_from, filters.joining_year_to,
+    ].filter(Boolean).length;
+    const hasAnyFilter = !!(filters.q) || activeFilterCount > 0;
+
+    function clearAll() {
+        setQuery('');
+        setYearFrom('');
+        setYearTo('');
+        router.get(MemberController.index.url(), {}, { preserveState: false, replace: true });
+    }
+
+    function buildExportUrl(): string {
+        const params = new URLSearchParams();
+
+        if (selectedIds.size > 0) {
+            // Export only the selected rows by ID
+            for (const id of selectedIds) {
+                params.append('ids[]', String(id));
+            }
+        } else {
+            // Export filtered results
+            const filterKeys: [keyof Filters, string][] = [
+                ['q', 'filter[q]'],
+                ['current_status', 'filter[current_status]'],
+                ['player_category', 'filter[player_category]'],
+                ['player_level', 'filter[player_level]'],
+                ['current_unit_id', 'filter[current_unit_id]'],
+                ['home_district_id', 'filter[home_district_id]'],
+                ['gender', 'filter[gender]'],
+                ['blood_group', 'filter[blood_group]'],
+                ['recruitment_type', 'filter[recruitment_type]'],
+                ['joining_year_from', 'filter[joining_year_from]'],
+                ['joining_year_to', 'filter[joining_year_to]'],
+            ];
+
+            for (const [k, param] of filterKeys) {
+                if (filters[k]) {
+params.append(param, filters[k]!);
+}
+            }
+        }
+
+        for (const col of selectedColumns) {
+            params.append('columns[]', col);
+        }
+
+        return exportMembersUrl.url() + '?' + params.toString();
+    }
+
+    const pageIds = members.data.map((m) => m.id);
+    const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+    const somePageSelected = pageIds.some((id) => selectedIds.has(id));
+
+    function toggleRow(id: number) {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+
+            if (next.has(id)) {
+next.delete(id);
+} else {
+next.add(id);
+}
+
+            return next;
+        });
+    }
+
+    function togglePage() {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+
+            if (allPageSelected) {
+                pageIds.forEach((id) => next.delete(id));
+            } else {
+                pageIds.forEach((id) => next.add(id));
+            }
+
+            return next;
+        });
+    }
 
     return (
         <>
@@ -127,76 +419,215 @@ export default function MembersIndex({
                         title={t('Members')}
                         description={t('Manage athlete roster')}
                     />
-                    <Button asChild size="sm">
-                        <Link href={MemberController.create.url()}>
-                            <Plus className="mr-1.5 h-4 w-4" />
-                            {t('New member')}
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2 shrink-0">
+                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {selectedIds.size > 0
+                                ? t('Export :n selected').replace(':n', String(selectedIds.size))
+                                : t('Export')}
+                        </Button>
+                        <Button asChild size="sm">
+                            <Link href={MemberController.create.url()}>
+                                <Plus className="mr-1.5 h-4 w-4" />
+                                {t('New member')}
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Filter bar */}
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative max-w-xs flex-1">
+                {/* Filter bar — inline pills */}
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Search */}
+                    <div className="relative w-56 shrink-0">
                         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t('Search members…')}
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            className="pl-8"
+                            className="h-8 pl-8 text-sm"
                         />
                     </div>
 
-                    <Select
-                        value={filters.current_status ?? 'all'}
-                        onValueChange={(v) => applyFilters({ current_status: v === 'all' ? undefined : v })}
+                    {/* Status */}
+                    <FilterPill
+                        label={t('Status')}
+                        activeLabel={filters.current_status ? t(filters.current_status) : undefined}
+                        onClear={() => applyFilters({ current_status: undefined })}
                     >
-                        <SelectTrigger className="w-44">
-                            <SelectValue placeholder={t('All statuses')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">{t('All statuses')}</SelectItem>
-                            {STATUS_OPTIONS.map((s) => (
-                                <SelectItem key={s} value={s}>{t(s)}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        <OptionList
+                            options={STATUS_OPTIONS.map((s) => ({ value: s, label: t(s) }))}
+                            value={filters.current_status}
+                            onSelect={(v) => applyFilters({ current_status: v })}
+                        />
+                    </FilterPill>
 
-                    <Select
-                        value={filters.player_category ?? 'all'}
-                        onValueChange={(v) => applyFilters({ player_category: v === 'all' ? undefined : v })}
+                    {/* Category */}
+                    <FilterPill
+                        label={t('Category')}
+                        activeLabel={filters.player_category ? t(filters.player_category) : undefined}
+                        onClear={() => applyFilters({ player_category: undefined })}
                     >
-                        <SelectTrigger className="w-36">
-                            <SelectValue placeholder={t('All categories')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">{t('All categories')}</SelectItem>
-                            {CATEGORY_OPTIONS.map((c) => (
-                                <SelectItem key={c} value={c}>{t(c)}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        <OptionList
+                            options={CATEGORY_OPTIONS.map((c) => ({ value: c, label: t(c) }))}
+                            value={filters.player_category}
+                            onSelect={(v) => applyFilters({ player_category: v })}
+                        />
+                    </FilterPill>
 
-                    {hasActiveFilters && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                setQuery('');
-                                router.get(MemberController.index.url(), {}, { preserveState: false, replace: true });
-                            }}
+                    {/* Level */}
+                    <FilterPill
+                        label={t('Level')}
+                        activeLabel={filters.player_level ? t(filters.player_level) : undefined}
+                        onClear={() => applyFilters({ player_level: undefined })}
+                    >
+                        <OptionList
+                            options={LEVEL_OPTIONS.map((l) => ({ value: l, label: t(l) }))}
+                            value={filters.player_level}
+                            onSelect={(v) => applyFilters({ player_level: v })}
+                        />
+                    </FilterPill>
+
+                    {/* Unit */}
+                    <FilterPill
+                        label={t('Unit')}
+                        activeLabel={filters.current_unit_id ? (units.find((u) => String(u.id) === filters.current_unit_id)?.name_hi ?? filters.current_unit_id) : undefined}
+                        onClear={() => applyFilters({ current_unit_id: undefined })}
+                    >
+                        <SearchableOptionList
+                            options={units.map((u) => ({ value: String(u.id), label: u.name_hi }))}
+                            value={filters.current_unit_id}
+                            onSelect={(v) => applyFilters({ current_unit_id: v })}
+                            searchPlaceholder={t('Search units…')}
+                        />
+                    </FilterPill>
+
+                    {/* Home district */}
+                    <FilterPill
+                        label={t('District')}
+                        activeLabel={filters.home_district_id ? (districts.find((d) => String(d.id) === filters.home_district_id)?.name_hi ?? filters.home_district_id) : undefined}
+                        onClear={() => applyFilters({ home_district_id: undefined })}
+                    >
+                        <SearchableOptionList
+                            options={districts.map((d) => ({ value: String(d.id), label: d.name_hi }))}
+                            value={filters.home_district_id}
+                            onSelect={(v) => applyFilters({ home_district_id: v })}
+                            searchPlaceholder={t('Search districts…')}
+                        />
+                    </FilterPill>
+
+                    {/* Gender */}
+                    <FilterPill
+                        label={t('Gender')}
+                        activeLabel={filters.gender ? t(GENDER_OPTIONS.find((g) => g.value === filters.gender)?.label ?? filters.gender) : undefined}
+                        onClear={() => applyFilters({ gender: undefined })}
+                    >
+                        <OptionList
+                            options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: t(g.label) }))}
+                            value={filters.gender}
+                            onSelect={(v) => applyFilters({ gender: v })}
+                        />
+                    </FilterPill>
+
+                    {/* Blood group */}
+                    <FilterPill
+                        label={t('Blood group')}
+                        activeLabel={filters.blood_group}
+                        onClear={() => applyFilters({ blood_group: undefined })}
+                    >
+                        <OptionList
+                            options={BLOOD_GROUP_OPTIONS.map((bg) => ({ value: bg, label: bg }))}
+                            value={filters.blood_group}
+                            onSelect={(v) => applyFilters({ blood_group: v })}
+                        />
+                    </FilterPill>
+
+                    {/* Recruitment type */}
+                    <FilterPill
+                        label={t('Recruitment')}
+                        activeLabel={filters.recruitment_type ? t(filters.recruitment_type) : undefined}
+                        onClear={() => applyFilters({ recruitment_type: undefined })}
+                    >
+                        <OptionList
+                            options={RECRUITMENT_OPTIONS.map((r) => ({ value: r, label: t(r) }))}
+                            value={filters.recruitment_type}
+                            onSelect={(v) => applyFilters({ recruitment_type: v })}
+                        />
+                    </FilterPill>
+
+                    {/* Joining year range */}
+                    <FilterPill
+                        label={t('Joining year')}
+                        activeLabel={
+                            filters.joining_year_from || filters.joining_year_to
+                                ? [filters.joining_year_from ?? '…', filters.joining_year_to ?? '…'].join('–')
+                                : undefined
+                        }
+                        onClear={() => {
+                            setYearFrom('');
+                            setYearTo('');
+                            applyFilters({ joining_year_from: undefined, joining_year_to: undefined });
+                        }}
+                    >
+                        <div className="flex items-center gap-2 p-3">
+                            <Input
+                                type="number"
+                                placeholder={t('From')}
+                                min={1950}
+                                max={new Date().getFullYear()}
+                                className="h-8 w-20 text-sm"
+                                value={yearFrom}
+                                onChange={(e) => setYearFrom(e.target.value)}
+                                onBlur={() => applyFilters({ joining_year_from: yearFrom || undefined })}
+                                onKeyDown={(e) => e.key === 'Enter' && applyFilters({ joining_year_from: yearFrom || undefined })}
+                            />
+                            <span className="text-xs text-muted-foreground">–</span>
+                            <Input
+                                type="number"
+                                placeholder={t('To')}
+                                min={1950}
+                                max={new Date().getFullYear()}
+                                className="h-8 w-20 text-sm"
+                                value={yearTo}
+                                onChange={(e) => setYearTo(e.target.value)}
+                                onBlur={() => applyFilters({ joining_year_to: yearTo || undefined })}
+                                onKeyDown={(e) => e.key === 'Enter' && applyFilters({ joining_year_to: yearTo || undefined })}
+                            />
+                        </div>
+                    </FilterPill>
+
+                    {/* Clear all */}
+                    {hasAnyFilter && (
+                        <button
+                            type="button"
+                            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={clearAll}
                         >
-                            <X className="mr-1.5 h-4 w-4" />
+                            <X className="mr-1 inline size-3" />
                             {t('Clear filters')}
-                        </Button>
+                        </button>
                     )}
                 </div>
+
+                {/* Result count when filtering */}
+                {hasAnyFilter && (
+                    <p className="text-xs text-muted-foreground">
+                        {members.total} {t('results')}
+                    </p>
+                )}
 
                 {/* Table */}
                 <div className="overflow-hidden rounded-xl border">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                <TableHead className="w-0 pr-0">
+                                    <Checkbox
+                                        checked={allPageSelected}
+                                        data-state={somePageSelected && !allPageSelected ? 'indeterminate' : undefined}
+                                        onCheckedChange={togglePage}
+                                        aria-label={t('Select all on page')}
+                                    />
+                                </TableHead>
                                 <TableHead>{t('Code')}</TableHead>
                                 <TableHead>{t('Name (Hindi)')}</TableHead>
                                 <TableHead>{t('PNO')}</TableHead>
@@ -210,15 +641,27 @@ export default function MembersIndex({
                         <TableBody>
                             {members.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
-                                        {hasActiveFilters
+                                    <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
+                                        {hasAnyFilter
                                             ? t('No members match your filters.')
                                             : t('No members yet.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 members.data.map((member) => (
-                                    <TableRow key={member.id}>
+                                    <TableRow
+                                        key={member.id}
+                                        data-selected={selectedIds.has(member.id) || undefined}
+                                        className="cursor-pointer data-[selected]:bg-primary/5"
+                                        onClick={() => router.visit(MemberController.show.url(member.id))}
+                                    >
+                                        <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
+                                            <Checkbox
+                                                checked={selectedIds.has(member.id)}
+                                                onCheckedChange={() => toggleRow(member.id)}
+                                                aria-label={t('Select row')}
+                                            />
+                                        </TableCell>
                                         <TableCell className="font-mono text-xs text-muted-foreground">
                                             {member.member_code}
                                         </TableCell>
@@ -240,7 +683,7 @@ export default function MembersIndex({
                                                 {t(member.current_status)}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="w-0">
+                                        <TableCell className="w-0" onClick={(e) => e.stopPropagation()}>
                                             <Button variant="ghost" size="icon" title={t('View')} asChild>
                                                 <Link href={MemberController.show.url(member.id)}>
                                                     <Eye className="h-4 w-4" />
@@ -254,43 +697,161 @@ export default function MembersIndex({
                     </Table>
                 </div>
 
-                {/* Pagination */}
-                {members.last_page > 1 && (
-                    <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-                        <span>
-                            {members.from !== null
-                                ? t('Showing :from–:to of :total')
-                                    .replace(':from', String(members.from))
-                                    .replace(':to', String(members.to ?? ''))
-                                    .replace(':total', String(members.total))
-                                : ''}
-                        </span>
-                        <div className="flex items-center gap-1">
-                            {members.links.map((link, i) => (
-                                link.url ? (
-                                    <Button
-                                        key={i}
-                                        variant={link.active ? 'default' : 'outline'}
-                                        size="sm"
-                                        className="h-8 min-w-8 px-2"
-                                        onClick={() => router.get(link.url!, {}, { preserveState: true })}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                {/* Pagination + per-page selector */}
+                <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+                    {/* Per-page selector */}
+                    <div className="flex items-center gap-2 text-xs">
+                        <span>{t('Rows per page')}</span>
+                        {PER_PAGE_OPTIONS.map((n) => (
+                            <button
+                                key={n}
+                                type="button"
+                                className={[
+                                    'inline-flex h-7 min-w-7 items-center justify-center rounded-md border px-2 text-xs font-medium transition-colors',
+                                    n === perPage
+                                        ? 'border-primary bg-primary text-primary-foreground'
+                                        : 'border-input bg-background hover:bg-accent',
+                                ].join(' ')}
+                                onClick={() => {
+                                    const params: Record<string, string> = { per_page: String(n) };
+                                    const filterKeys: [keyof Filters, string][] = [
+                                        ['q', 'filter[q]'],
+                                        ['current_status', 'filter[current_status]'],
+                                        ['player_category', 'filter[player_category]'],
+                                        ['player_level', 'filter[player_level]'],
+                                        ['current_unit_id', 'filter[current_unit_id]'],
+                                        ['home_district_id', 'filter[home_district_id]'],
+                                        ['gender', 'filter[gender]'],
+                                        ['blood_group', 'filter[blood_group]'],
+                                        ['recruitment_type', 'filter[recruitment_type]'],
+                                        ['joining_year_from', 'filter[joining_year_from]'],
+                                        ['joining_year_to', 'filter[joining_year_to]'],
+                                    ];
+
+                                    for (const [k, param] of filterKeys) {
+                                        if (filters[k]) {
+params[param] = filters[k]!;
+}
+                                    }
+
+                                    router.get(MemberController.index.url(), params, { preserveState: false, replace: true });
+                                }}
+                            >
+                                {n}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Page links (only shown when multi-page) */}
+                    {members.last_page > 1 && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs">
+                                {members.from !== null
+                                    ? t('Showing :from–:to of :total')
+                                        .replace(':from', String(members.from))
+                                        .replace(':to', String(members.to ?? ''))
+                                        .replace(':total', String(members.total))
+                                    : ''}
+                            </span>
+                            <div className="flex items-center gap-1">
+                                {members.links.map((link, i) =>
+                                    link.url ? (
+                                        <Button
+                                            key={i}
+                                            variant={link.active ? 'default' : 'outline'}
+                                            size="sm"
+                                            className="h-8 min-w-8 px-2"
+                                            onClick={() => router.get(link.url!, {}, { preserveState: true })}
+                                            dangerouslySetInnerHTML={{ __html: link.label }}
+                                        />
+                                    ) : (
+                                        <Button
+                                            key={i}
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 min-w-8 px-2"
+                                            disabled
+                                            dangerouslySetInnerHTML={{ __html: link.label }}
+                                        />
+                                    ),
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Export Dialog */}
+            <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>{t('Export members')}</DialogTitle>
+                    </DialogHeader>
+
+                    <p className="text-sm text-muted-foreground">
+                        {selectedIds.size > 0
+                            ? t('Exporting :n selected members.').replace(':n', String(selectedIds.size))
+                            : hasAnyFilter
+                                ? t('Exporting filtered results (:count total).').replace(':count', String(members.total))
+                                : t('Exporting all :count members.').replace(':count', String(totalCount))}
+                    </p>
+
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    className="text-xs text-primary hover:underline"
+                                    onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
+                                >
+                                    {t('Select all')}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="text-xs text-muted-foreground hover:underline"
+                                    onClick={() => setSelectedColumns([])}
+                                >
+                                    {t('Clear')}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                            {ALL_COLUMNS.map((col) => (
+                                <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
+                                    <Checkbox
+                                        checked={selectedColumns.includes(col.key)}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedColumns((prev) =>
+                                                checked
+                                                    ? [...prev, col.key]
+                                                    : prev.filter((k) => k !== col.key),
+                                            );
+                                        }}
                                     />
-                                ) : (
-                                    <Button
-                                        key={i}
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 min-w-8 px-2"
-                                        disabled
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                )
+                                    {t(col.label)}
+                                </label>
                             ))}
                         </div>
                     </div>
-                )}
-            </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setExportOpen(false)}>
+                            {t('Cancel')}
+                        </Button>
+                        <Button
+                            disabled={selectedColumns.length === 0}
+                            onClick={() => {
+                                window.location.href = buildExportUrl();
+                                setExportOpen(false);
+                            }}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Download Excel')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

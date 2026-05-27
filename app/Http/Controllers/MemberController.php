@@ -37,22 +37,35 @@ class MemberController extends Controller
                 AllowedFilter::exact('current_unit_id'),
                 AllowedFilter::exact('pno'),
                 AllowedFilter::exact('mobile'),
+                AllowedFilter::exact('gender'),
+                AllowedFilter::exact('blood_group'),
+                AllowedFilter::exact('recruitment_type'),
                 AllowedFilter::callback('q', function ($query, string $value): void {
                     $query->where(function ($q) use ($value): void {
                         $q->where('full_name_hi', 'LIKE', "%{$value}%")
                             ->orWhere('pno', 'LIKE', "%{$value}%");
                     });
                 }),
+                AllowedFilter::callback('joining_year_from', function ($query, string $value): void {
+                    $query->whereYear('joining_date', '>=', (int) $value);
+                }),
+                AllowedFilter::callback('joining_year_to', function ($query, string $value): void {
+                    $query->whereYear('joining_date', '<=', (int) $value);
+                }),
             ])
             ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
             ->defaultSort('-created_at')
             ->with('currentUnit:id,name_hi')
-            ->paginate(25)
+            ->paginate(min((int) ($request->query('per_page', 25)), 100))
             ->withQueryString();
 
         return Inertia::render('members/index', [
             'members' => $members,
             'filters' => $request->query('filter', []),
+            'perPage' => min((int) ($request->query('per_page', 25)), 100),
+            'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'totalCount' => Member::count(),
         ]);
     }
 

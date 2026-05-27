@@ -1,9 +1,11 @@
 import { Deferred, Head, Link, router, setLayoutProps, useHttp } from '@inertiajs/react';
+import { Download } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
 import { edit as editMember, index as membersIndex } from '@/actions/App/Http/Controllers/MemberController';
+import { show as exportMember } from '@/actions/App/Http/Controllers/MemberExportController';
 import { store as storeMemberPhoto, destroy as destroyMemberPhoto } from '@/actions/App/Http/Controllers/MemberPhotoController';
 import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
@@ -12,6 +14,9 @@ import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -114,6 +119,31 @@ type LegacyAchievement = {
     }>;
 };
 
+const ALL_COLUMNS: { key: string; label: string }[] = [
+    { key: 'member_code', label: 'Member code' },
+    { key: 'pno', label: 'PNO' },
+    { key: 'full_name_hi', label: 'Name (Hindi)' },
+    { key: 'full_name_en', label: 'Name (English)' },
+    { key: 'father_name_hi', label: "Father's name" },
+    { key: 'gender', label: 'Gender' },
+    { key: 'dob', label: 'Date of birth' },
+    { key: 'rank', label: 'Rank' },
+    { key: 'mobile', label: 'Mobile' },
+    { key: 'current_status', label: 'Status' },
+    { key: 'player_category', label: 'Category' },
+    { key: 'player_level', label: 'Level' },
+    { key: 'unit', label: 'Unit' },
+    { key: 'home_district', label: 'Home district' },
+    { key: 'joining_date', label: 'Joining date' },
+    { key: 'blood_group', label: 'Blood group' },
+    { key: 'caste', label: 'Caste' },
+    { key: 'recruitment_type', label: 'Recruitment type' },
+    { key: 'appointment', label: 'Appointment' },
+    { key: 'sport_event', label: 'Sport event' },
+    { key: 'promotion_date', label: 'Promotion date' },
+    { key: 'team_since', label: 'Team since' },
+];
+
 export default function MembersShow({
     member,
     statusHistory,
@@ -169,6 +199,18 @@ export default function MembersShow({
     });
 
     const [statusOpen, setStatusOpen] = useState(false);
+    const [exportOpen, setExportOpen] = useState(false);
+    const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+
+    function buildExportUrl(): string {
+        const params = new URLSearchParams();
+
+        for (const col of selectedColumns) {
+            params.append('columns[]', col);
+        }
+
+        return exportMember.url(member) + '?' + params.toString();
+    }
 
     const detail = (label: string, value: React.ReactNode) => (
         <div className="grid gap-1">
@@ -229,6 +271,10 @@ return;
                         </div>
                     </div>
                     <div className="flex gap-2 shrink-0">
+                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Export')}
+                        </Button>
                         <Button variant="outline" size="sm" asChild>
                             <Link href={editMember.url(member)}>{t('Edit')}</Link>
                         </Button>
@@ -497,6 +543,74 @@ return;
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {/* Export column picker dialog */}
+            <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>{t('Export member')}</DialogTitle>
+                    </DialogHeader>
+
+                    <p className="text-sm text-muted-foreground">
+                        {member.full_name_hi}
+                    </p>
+
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    className="text-xs text-primary hover:underline"
+                                    onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
+                                >
+                                    {t('Select all')}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="text-xs text-muted-foreground hover:underline"
+                                    onClick={() => setSelectedColumns([])}
+                                >
+                                    {t('Clear')}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                            {ALL_COLUMNS.map((col) => (
+                                <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
+                                    <Checkbox
+                                        checked={selectedColumns.includes(col.key)}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedColumns((prev) =>
+                                                checked
+                                                    ? [...prev, col.key]
+                                                    : prev.filter((k) => k !== col.key),
+                                            );
+                                        }}
+                                    />
+                                    {t(col.label)}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setExportOpen(false)}>
+                            {t('Cancel')}
+                        </Button>
+                        <Button
+                            disabled={selectedColumns.length === 0}
+                            onClick={() => {
+                                window.location.href = buildExportUrl();
+                                setExportOpen(false);
+                            }}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Download Excel')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
