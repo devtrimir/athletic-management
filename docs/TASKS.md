@@ -227,7 +227,7 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P5-T11** `Pages/Tournaments/Index.tsx`, `Create.tsx`, `Show.tsx` (Events sub-tab)
 - [x] **P5-T12** `Pages/Events/Show.tsx` participants grid (inline medal selector)
 - [x] **P5-T13** Wire Member `Show` Participations + Achievements tabs
-- [ ] **P5-T14** Interim `Pages/Reports/Medals.tsx`
+- [x] **P5-T14** Interim `Pages/Reports/Medals.tsx`
 
 ### Tests
 - [x] **P5-T15** Pest Feature: duplicate (event, member) → 422; idempotent bulk
