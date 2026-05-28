@@ -1,16 +1,13 @@
-import { Deferred, Head, Link, router, setLayoutProps, useForm } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
-import { useState } from 'react';
-import { destroy as destroyTeamCoach, store as storeTeamCoach } from '@/actions/App/Http/Controllers/TeamCoachController';
+import { Deferred, Head, Link, router, setLayoutProps } from '@inertiajs/react';
+import { Copy, Trash2, UserPlus, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { destroy as destroyTeamCoach } from '@/actions/App/Http/Controllers/TeamCoachController';
 import { destroy as destroyTeam, edit as editTeam, index as teamsIndex } from '@/actions/App/Http/Controllers/TeamController';
-import { destroy as destroyTeamMember, store as storeTeamMember } from '@/actions/App/Http/Controllers/TeamMemberController';
-import { CoachPicker  } from '@/components/coach-picker';
-import type {CoachOption} from '@/components/coach-picker';
-import InputError from '@/components/input-error';
-import { MemberPicker  } from '@/components/member-picker';
-import type {MemberOption} from '@/components/member-picker';
+import { destroy as destroyTeamMember } from '@/actions/App/Http/Controllers/TeamMemberController';
+import { AddCoachDialog } from '@/components/teams/add-coach-dialog';
+import { AddMemberDialog } from '@/components/teams/add-member-dialog';
+import { CloneTeamDialog } from '@/components/teams/clone-team-dialog';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -43,175 +40,37 @@ type CoachAssignmentRow = {
 };
 
 type Counts = { players_count: number; coaches_count: number };
-
-type AddMemberForm = { member_id: string; session_id: string; role: string };
-type AddCoachForm = { coach_id: string; session_id: string; role: string };
+type Session = { id: number; name: string };
 
 const MEMBER_ROLES = ['PLAYER', 'CAPTAIN', 'RESERVE'] as const;
 const COACH_ROLES = ['HEAD', 'ASSISTANT'] as const;
 
-function AddMemberPanel({ team, sessions }: { team: Team; sessions: { id: number; name: string }[] }) {
-    const { t } = useTranslation();
-    const [pickedMember, setPickedMember] = useState<MemberOption | null>(null);
-
-    const { data, setData, post, errors, processing, reset } = useForm<AddMemberForm>({
-        member_id: '',
-        session_id: team.session ? String(team.session.id) : '',
-        role: 'PLAYER',
-    });
-
-    function handleMemberChange(m: MemberOption | null) {
-        setPickedMember(m);
-        setData('member_id', m ? String(m.id) : '');
-    }
-
-    function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        post(storeTeamMember.url(team), {
-            preserveScroll: true,
-            onSuccess: () => {
-                setPickedMember(null);
-                reset();
-            },
-        });
-    }
-
-    return (
-        <form onSubmit={handleSubmit} className="rounded-xl border bg-card p-4 space-y-4">
-            <h4 className="text-sm font-medium">{t('Add member')}</h4>
-            <div className="grid gap-4 sm:grid-cols-3">
-                <div className="grid gap-2">
-                    <Label htmlFor="add-member">{t('Athlete')}</Label>
-                    <MemberPicker id="add-member" value={pickedMember} onChange={handleMemberChange} />
-                    <InputError message={errors.member_id} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="add-member-session">{t('Session')}</Label>
-                    <Select value={data.session_id} onValueChange={(v) => setData('session_id', v)}>
-                        <SelectTrigger id="add-member-session" className="w-full">
-                            <SelectValue placeholder={t('Select session')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {sessions.map((s) => (
-                                <SelectItem key={s.id} value={String(s.id)}>
-                                    {s.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <InputError message={errors.session_id} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="add-member-role">{t('Role')}</Label>
-                    <Select value={data.role} onValueChange={(v) => setData('role', v)}>
-                        <SelectTrigger id="add-member-role" className="w-full">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {MEMBER_ROLES.map((r) => (
-                                <SelectItem key={r} value={r}>
-                                    {t(r)}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <InputError message={errors.role} />
-                </div>
-            </div>
-            <Button type="submit" size="sm" disabled={processing || !pickedMember}>
-                {t('Add member')}
-            </Button>
-        </form>
-    );
-}
-
-function AddCoachPanel({ team, sessions }: { team: Team; sessions: { id: number; name: string }[] }) {
-    const { t } = useTranslation();
-    const [pickedCoach, setPickedCoach] = useState<CoachOption | null>(null);
-
-    const { data, setData, post, errors, processing, reset } = useForm<AddCoachForm>({
-        coach_id: '',
-        session_id: team.session ? String(team.session.id) : '',
-        role: 'ASSISTANT',
-    });
-
-    function handleCoachChange(c: CoachOption | null) {
-        setPickedCoach(c);
-        setData('coach_id', c ? String(c.id) : '');
-    }
-
-    function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        post(storeTeamCoach.url(team), {
-            preserveScroll: true,
-            onSuccess: () => {
-                setPickedCoach(null);
-                reset();
-            },
-        });
-    }
-
-    return (
-        <form onSubmit={handleSubmit} className="rounded-xl border bg-card p-4 space-y-4">
-            <h4 className="text-sm font-medium">{t('Add coach')}</h4>
-            <div className="grid gap-4 sm:grid-cols-3">
-                <div className="grid gap-2">
-                    <Label htmlFor="add-coach">{t('Coach')}</Label>
-                    <CoachPicker id="add-coach" value={pickedCoach} onChange={handleCoachChange} />
-                    <InputError message={errors.coach_id} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="add-coach-session">{t('Session')}</Label>
-                    <Select value={data.session_id} onValueChange={(v) => setData('session_id', v)}>
-                        <SelectTrigger id="add-coach-session" className="w-full">
-                            <SelectValue placeholder={t('Select session')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {sessions.map((s) => (
-                                <SelectItem key={s.id} value={String(s.id)}>
-                                    {s.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <InputError message={errors.session_id} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="add-coach-role">{t('Role')}</Label>
-                    <Select value={data.role} onValueChange={(v) => setData('role', v)}>
-                        <SelectTrigger id="add-coach-role" className="w-full">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {COACH_ROLES.map((r) => (
-                                <SelectItem key={r} value={r}>
-                                    {t(r)}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <InputError message={errors.role} />
-                </div>
-            </div>
-            <Button type="submit" size="sm" disabled={processing || !pickedCoach}>
-                {t('Add coach')}
-            </Button>
-        </form>
-    );
-}
-
 export default function TeamsShow({
     team,
     counts,
+    sessions,
     members,
     coaches,
 }: {
     team: Team;
     counts?: Counts;
+    sessions: Session[];
     members?: TeamMemberRow[];
     coaches?: CoachAssignmentRow[];
 }) {
     const { t } = useTranslation();
+
+    const [addMemberOpen, setAddMemberOpen] = useState(false);
+    const [addCoachOpen, setAddCoachOpen] = useState(false);
+    const [cloneOpen, setCloneOpen] = useState(false);
+
+    // Filter state for Players tab
+    const [memberSessionFilter, setMemberSessionFilter] = useState('');
+    const [memberRoleFilter, setMemberRoleFilter] = useState('');
+
+    // Filter state for Coaches tab
+    const [coachSessionFilter, setCoachSessionFilter] = useState('');
+    const [coachRoleFilter, setCoachRoleFilter] = useState('');
 
     setLayoutProps({
         breadcrumbs: [
@@ -220,8 +79,30 @@ export default function TeamsShow({
         ],
     });
 
-    // sessions list for add panels — derive from team session if available
-    const sessions = team.session ? [team.session] : [];
+    // Keyboard shortcuts — only when not inside an input/textarea
+    useEffect(() => {
+        function onKeyDown(e: KeyboardEvent) {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+return;
+}
+
+            const mod = e.metaKey || e.ctrlKey;
+
+            if (mod && e.shiftKey && e.key.toLowerCase() === 'm') {
+                e.preventDefault();
+                setAddMemberOpen(true);
+            } else if (mod && e.shiftKey && e.key.toLowerCase() === 'h') {
+                e.preventDefault();
+                setAddCoachOpen(true);
+            } else if (mod && e.shiftKey && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                setCloneOpen(true);
+            }
+        }
+        window.addEventListener('keydown', onKeyDown);
+
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, []);
 
     function removeMember(memberId: number) {
         router.delete(destroyTeamMember.url(team, memberId), { preserveScroll: true });
@@ -254,9 +135,51 @@ export default function TeamsShow({
         </div>
     );
 
+    // Derive unique session options from loaded rows for filter pills
+    const memberSessions = Array.from(new Map((members ?? []).filter((r) => r.session).map((r) => [r.session!.id, r.session!])).values());
+    const coachSessions = Array.from(new Map((coaches ?? []).filter((r) => r.session).map((r) => [r.session!.id, r.session!])).values());
+
+    const filteredMembers = (members ?? []).filter((r) => {
+        if (memberSessionFilter && String(r.session?.id) !== memberSessionFilter) {
+return false;
+}
+
+        if (memberRoleFilter && r.role !== memberRoleFilter) {
+return false;
+}
+
+        return true;
+    });
+
+    const filteredCoaches = (coaches ?? []).filter((r) => {
+        if (coachSessionFilter && String(r.session?.id) !== coachSessionFilter) {
+return false;
+}
+
+        if (coachRoleFilter && r.role !== coachRoleFilter) {
+return false;
+}
+
+        return true;
+    });
+
+    const memberFiltersActive = !!(memberSessionFilter || memberRoleFilter);
+    const coachFiltersActive = !!(coachSessionFilter || coachRoleFilter);
+
     return (
         <>
             <Head title={team.name_hi} />
+
+            <AddMemberDialog open={addMemberOpen} onOpenChange={setAddMemberOpen} team={team} sessions={sessions} />
+            <AddCoachDialog open={addCoachOpen} onOpenChange={setAddCoachOpen} team={team} sessions={sessions} />
+            <CloneTeamDialog
+                open={cloneOpen}
+                onOpenChange={setCloneOpen}
+                team={team}
+                sessions={sessions}
+                members={members}
+                coaches={coaches}
+            />
 
             <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4">
@@ -267,6 +190,15 @@ export default function TeamsShow({
                         )}
                     </div>
                     <div className="flex gap-2 shrink-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCloneOpen(true)}
+                            title={t('Clone to session (⌘⇧D)')}
+                        >
+                            <Copy className="h-4 w-4 mr-1.5" />
+                            {t('Clone')}
+                        </Button>
                         <Button variant="outline" size="sm" asChild>
                             <Link href={editTeam.url(team)}>{t('Edit')}</Link>
                         </Button>
@@ -310,7 +242,61 @@ export default function TeamsShow({
 
                     {/* Players */}
                     <TabsContent value="players">
-                        <div className="space-y-4">
+                        <div className="space-y-3">
+                            {/* Tab header: filter pills + Add button */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Deferred data="members" fallback={null}>
+                                    <>
+                                        {memberSessions.length > 1 && (
+                                            <Select value={memberSessionFilter} onValueChange={setMemberSessionFilter}>
+                                                <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
+                                                    <SelectValue placeholder={t('Session')} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="">{t('All sessions')}</SelectItem>
+                                                    {memberSessions.map((s) => (
+                                                        <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                        <Select value={memberRoleFilter} onValueChange={setMemberRoleFilter}>
+                                            <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
+                                                <SelectValue placeholder={t('Role')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">{t('All roles')}</SelectItem>
+                                                {MEMBER_ROLES.map((r) => (
+                                                    <SelectItem key={r} value={r}>{t(r)}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {memberFiltersActive && (
+                                            <button
+                                                type="button"
+                                                className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                                                onClick={() => {
+ setMemberSessionFilter(''); setMemberRoleFilter('');
+}}
+                                            >
+                                                {t('Clear')}
+                                            </button>
+                                        )}
+                                        {memberFiltersActive && (
+                                            <span className="text-xs text-muted-foreground">
+                                                {t(':n results').replace(':n', String(filteredMembers.length))}
+                                            </span>
+                                        )}
+                                    </>
+                                </Deferred>
+                                <div className="ml-auto">
+                                    <Button size="sm" onClick={() => setAddMemberOpen(true)} title={t('Add member (⌘⇧M)')}>
+                                        <UserPlus className="h-4 w-4 mr-1.5" />
+                                        {t('Add member')}
+                                    </Button>
+                                </div>
+                            </div>
+
                             <Deferred data="members" fallback={tableFallback}>
                                 <div className="rounded-xl border bg-card">
                                     <Table>
@@ -324,14 +310,14 @@ export default function TeamsShow({
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {(members ?? []).length === 0 ? (
+                                            {filteredMembers.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={5} className="text-center text-muted-foreground">
                                                         {t('No members in this team.')}
                                                     </TableCell>
                                                 </TableRow>
                                             ) : (
-                                                (members ?? []).map((row) => (
+                                                filteredMembers.map((row) => (
                                                     <TableRow key={row.id}>
                                                         <TableCell className="font-medium">
                                                             {row.member?.full_name_hi ?? '—'}
@@ -358,14 +344,66 @@ export default function TeamsShow({
                                     </Table>
                                 </div>
                             </Deferred>
-
-                            <AddMemberPanel team={team} sessions={sessions} />
                         </div>
                     </TabsContent>
 
                     {/* Coaches */}
                     <TabsContent value="coaches">
-                        <div className="space-y-4">
+                        <div className="space-y-3">
+                            {/* Tab header: filter pills + Add button */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Deferred data="coaches" fallback={null}>
+                                    <>
+                                        {coachSessions.length > 1 && (
+                                            <Select value={coachSessionFilter} onValueChange={setCoachSessionFilter}>
+                                                <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
+                                                    <SelectValue placeholder={t('Session')} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="">{t('All sessions')}</SelectItem>
+                                                    {coachSessions.map((s) => (
+                                                        <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                        <Select value={coachRoleFilter} onValueChange={setCoachRoleFilter}>
+                                            <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
+                                                <SelectValue placeholder={t('Role')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">{t('All roles')}</SelectItem>
+                                                {COACH_ROLES.map((r) => (
+                                                    <SelectItem key={r} value={r}>{t(r)}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {coachFiltersActive && (
+                                            <button
+                                                type="button"
+                                                className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                                                onClick={() => {
+ setCoachSessionFilter(''); setCoachRoleFilter('');
+}}
+                                            >
+                                                {t('Clear')}
+                                            </button>
+                                        )}
+                                        {coachFiltersActive && (
+                                            <span className="text-xs text-muted-foreground">
+                                                {t(':n results').replace(':n', String(filteredCoaches.length))}
+                                            </span>
+                                        )}
+                                    </>
+                                </Deferred>
+                                <div className="ml-auto">
+                                    <Button size="sm" onClick={() => setAddCoachOpen(true)} title={t('Add coach (⌘⇧H)')}>
+                                        <Users className="h-4 w-4 mr-1.5" />
+                                        {t('Add coach')}
+                                    </Button>
+                                </div>
+                            </div>
+
                             <Deferred data="coaches" fallback={tableFallback}>
                                 <div className="rounded-xl border bg-card">
                                     <Table>
@@ -379,14 +417,14 @@ export default function TeamsShow({
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {(coaches ?? []).length === 0 ? (
+                                            {filteredCoaches.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={5} className="text-center text-muted-foreground">
                                                         {t('No coaches in this team.')}
                                                     </TableCell>
                                                 </TableRow>
                                             ) : (
-                                                (coaches ?? []).map((row) => (
+                                                filteredCoaches.map((row) => (
                                                     <TableRow key={row.id}>
                                                         <TableCell className="font-medium">
                                                             {row.coach?.full_name_hi ?? '—'}
@@ -413,8 +451,6 @@ export default function TeamsShow({
                                     </Table>
                                 </div>
                             </Deferred>
-
-                            <AddCoachPanel team={team} sessions={sessions} />
                         </div>
                     </TabsContent>
                 </Tabs>
