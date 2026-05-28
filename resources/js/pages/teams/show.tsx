@@ -276,7 +276,7 @@ return false;
                                                 type="button"
                                                 className="text-xs text-muted-foreground underline-offset-2 hover:underline"
                                                 onClick={() => {
- setMemberSessionFilter(''); setMemberRoleFilter(''); 
+ setMemberSessionFilter(''); setMemberRoleFilter('');
 }}
                                             >
                                                 {t('Clear')}
@@ -383,7 +383,7 @@ return false;
                                                 type="button"
                                                 className="text-xs text-muted-foreground underline-offset-2 hover:underline"
                                                 onClick={() => {
- setCoachSessionFilter(''); setCoachRoleFilter(''); 
+ setCoachSessionFilter(''); setCoachRoleFilter('');
 }}
                                             >
                                                 {t('Clear')}
