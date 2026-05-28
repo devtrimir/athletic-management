@@ -96,14 +96,22 @@ class TeamController extends Controller
         return to_route('teams.show', $team);
     }
 
-    public function show(Team $team): Response
+    public function show(Team $team, Request $request): Response
     {
         Gate::authorize('view', $team);
 
         $team->load(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi']);
 
+        $orgId = (int) $request->user()->organization_id;
+
+        $sessions = SportSession::select(['id', 'name'])
+            ->where('organization_id', $orgId)
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('teams/show', [
             'team' => (new TeamResource($team))->resolve(),
+            'sessions' => $sessions,
             'counts' => Inertia::defer(fn () => [
                 'players_count' => $team->teamMembers()->count(),
                 'coaches_count' => $team->coachAssignments()->count(),
