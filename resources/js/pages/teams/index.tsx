@@ -141,9 +141,9 @@ export default function TeamsIndex({
             const next = new Set(prev);
 
             if (next.has(id)) {
- next.delete(id); 
+ next.delete(id);
 } else {
- next.add(id); 
+ next.add(id);
 }
 
             return next;
@@ -158,9 +158,9 @@ export default function TeamsIndex({
 
             for (const id of pageIds) {
                 if (allSelected) {
- next.delete(id); 
+ next.delete(id);
 } else {
- next.add(id); 
+ next.add(id);
 }
             }
 
@@ -173,7 +173,7 @@ export default function TeamsIndex({
 
         if (selectedIds.size > 0) {
             for (const id of selectedIds) {
- params.append('ids[]', String(id)); 
+ params.append('ids[]', String(id));
 }
         } else {
             if (filters.q) {
@@ -194,7 +194,7 @@ params.append('filter[unit_id]', filters.unit_id);
         }
 
         for (const col of selectedColumns) {
- params.append('columns[]', col); 
+ params.append('columns[]', col);
 }
 
         return exportTeamsUrl.url() + '?' + params.toString();

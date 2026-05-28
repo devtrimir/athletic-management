@@ -18,8 +18,13 @@ class DatabaseSeeder extends Seeder
             SportSeeder::class,
             SportSessionSeeder::class,
             TournamentTierSeeder::class,
+            UnitSeeder::class,
+            MemberSeeder::class,
+            TeamSeeder::class,
+            TeamMemberSeeder::class,
             AdminUserSeeder::class,
             CoachSeeder::class,
+            TyagpatraSeeder::class,
         ]);
     }
 }

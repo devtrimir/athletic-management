@@ -1,12 +1,26 @@
 import { Deferred, Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
-import { store as storeEvent, show as showEvent } from '@/actions/App/Http/Controllers/EventController';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import {
+    destroy as destroyEvent,
+    store as storeEvent,
+    show as showEvent,
+    update as updateEvent,
+} from '@/actions/App/Http/Controllers/EventController';
 import { destroy as destroyTournament, edit as editTournament, index as tournamentsIndex } from '@/actions/App/Http/Controllers/TournamentController';
 import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -39,7 +53,7 @@ type EventRow = {
 
 type Sport = { id: number; name: string };
 
-type AddEventForm = {
+type EventForm = {
     sport_id: string;
     name_hi: string;
     discipline: string;
@@ -49,9 +63,113 @@ type AddEventForm = {
 
 const GENDER_CLASSES = ['M', 'F', 'MIXED', 'OPEN'] as const;
 
-function AddEventPanel({ tournament, sports }: { tournament: Tournament; sports: Sport[] }) {
+// ---------------------------------------------------------------------------
+// Shared event form fields
+// ---------------------------------------------------------------------------
+function EventFormFields({
+    data,
+    setData,
+    errors,
+    sports,
+    idPrefix,
+}: {
+    data: EventForm;
+    setData: (field: keyof EventForm, value: string) => void;
+    errors: Partial<Record<keyof EventForm, string>>;
+    sports: Sport[];
+    idPrefix: string;
+}) {
     const { t } = useTranslation();
-    const { data, setData, post, errors, processing, reset } = useForm<AddEventForm>({
+
+    return (
+        <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_sport_id`}>
+                    {t('Sport')} <span className="text-destructive">*</span>
+                </Label>
+                <Combobox
+                    id={`${idPrefix}_sport_id`}
+                    value={data.sport_id}
+                    onValueChange={(v) => setData('sport_id', v)}
+                    items={sports.map((sp) => ({ value: String(sp.id), label: sp.name }))}
+                    placeholder={t('Select sport')}
+                    searchPlaceholder={t('Search sports…')}
+                />
+                <InputError message={errors.sport_id} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_gender_class`}>
+                    {t('Gender class')} <span className="text-destructive">*</span>
+                </Label>
+                <Select value={data.gender_class} onValueChange={(v) => setData('gender_class', v)}>
+                    <SelectTrigger id={`${idPrefix}_gender_class`}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {GENDER_CLASSES.map((g) => (
+                            <SelectItem key={g} value={g}>{t(g)}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <InputError message={errors.gender_class} />
+            </div>
+
+            <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor={`${idPrefix}_name_hi`}>
+                    {t('Event name (Hindi)')} <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                    id={`${idPrefix}_name_hi`}
+                    value={data.name_hi}
+                    onChange={(e) => setData('name_hi', e.target.value)}
+                    maxLength={255}
+                    required
+                />
+                <InputError message={errors.name_hi} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_discipline`}>{t('Discipline')}</Label>
+                <Input
+                    id={`${idPrefix}_discipline`}
+                    value={data.discipline}
+                    onChange={(e) => setData('discipline', e.target.value)}
+                    maxLength={255}
+                />
+                <InputError message={errors.discipline} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_weight_category`}>{t('Weight category')}</Label>
+                <Input
+                    id={`${idPrefix}_weight_category`}
+                    value={data.weight_category}
+                    onChange={(e) => setData('weight_category', e.target.value)}
+                    maxLength={100}
+                />
+                <InputError message={errors.weight_category} />
+            </div>
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Add Event Dialog
+// ---------------------------------------------------------------------------
+function AddEventDialog({
+    open,
+    onOpenChange,
+    tournament,
+    sports,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    tournament: Tournament;
+    sports: Sport[];
+}) {
+    const { t } = useTranslation();
+    const { data, setData, post, errors, processing, reset } = useForm<EventForm>({
         sport_id: tournament.sport ? String(tournament.sport.id) : '',
         name_hi: '',
         discipline: '',
@@ -61,91 +179,160 @@ function AddEventPanel({ tournament, sports }: { tournament: Tournament; sports:
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        post(storeEvent.url(tournament.id), { onSuccess: () => reset() });
+        post(storeEvent.url(tournament.id), {
+            onSuccess: () => {
+                reset();
+                onOpenChange(false);
+            },
+        });
     }
 
     return (
-        <form onSubmit={handleSubmit} className="rounded-xl border bg-card p-5 space-y-4">
-            <h3 className="text-sm font-medium">{t('Add event')}</h3>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                    <Label htmlFor="ev_sport_id">
-                        {t('Sport')} <span className="text-destructive">*</span>
-                    </Label>
-                    <Combobox
-                        id="ev_sport_id"
-                        value={data.sport_id}
-                        onValueChange={(v) => setData('sport_id', v)}
-                        items={sports.map((sp) => ({ value: String(sp.id), label: sp.name }))}
-                        placeholder={t('Select sport')}
-                        searchPlaceholder={t('Search sports…')}
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{t('Add event')}</DialogTitle>
+                    <DialogDescription>{t('Add a new event to this tournament.')}</DialogDescription>
+                </DialogHeader>
+                <form id="add-event-form" onSubmit={handleSubmit}>
+                    <EventFormFields
+                        data={data}
+                        setData={(field, value) => setData(field, value)}
+                        errors={errors}
+                        sports={sports}
+                        idPrefix="add_ev"
                     />
-                    <InputError message={errors.sport_id} />
-                </div>
-
-                <div className="grid gap-2">
-                    <Label htmlFor="ev_gender_class">
-                        {t('Gender class')} <span className="text-destructive">*</span>
-                    </Label>
-                    <Select value={data.gender_class} onValueChange={(v) => setData('gender_class', v)}>
-                        <SelectTrigger id="ev_gender_class">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {GENDER_CLASSES.map((g) => (
-                                <SelectItem key={g} value={g}>{t(g)}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <InputError message={errors.gender_class} />
-                </div>
-
-                <div className="grid gap-2 sm:col-span-2">
-                    <Label htmlFor="ev_name_hi">
-                        {t('Event name (Hindi)')} <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                        id="ev_name_hi"
-                        value={data.name_hi}
-                        onChange={(e) => setData('name_hi', e.target.value)}
-                        maxLength={255}
-                        required
-                    />
-                    <InputError message={errors.name_hi} />
-                </div>
-
-                <div className="grid gap-2">
-                    <Label htmlFor="ev_discipline">{t('Discipline')}</Label>
-                    <Input
-                        id="ev_discipline"
-                        value={data.discipline}
-                        onChange={(e) => setData('discipline', e.target.value)}
-                        maxLength={255}
-                    />
-                    <InputError message={errors.discipline} />
-                </div>
-
-                <div className="grid gap-2">
-                    <Label htmlFor="ev_weight_category">{t('Weight category')}</Label>
-                    <Input
-                        id="ev_weight_category"
-                        value={data.weight_category}
-                        onChange={(e) => setData('weight_category', e.target.value)}
-                        maxLength={100}
-                    />
-                    <InputError message={errors.weight_category} />
-                </div>
-            </div>
-
-            <Button type="submit" size="sm" disabled={processing}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                {processing ? t('Saving…') : t('Add event')}
-            </Button>
-        </form>
+                </form>
+                <DialogFooter>
+                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+                        {t('Cancel')}
+                    </Button>
+                    <Button type="submit" form="add-event-form" disabled={processing}>
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        {processing ? t('Saving…') : t('Add event')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
+// ---------------------------------------------------------------------------
+// Edit Event Dialog
+// ---------------------------------------------------------------------------
+function EditEventDialog({
+    event,
+    tournament,
+    sports,
+    onClose,
+}: {
+    event: EventRow | null;
+    tournament: Tournament;
+    sports: Sport[];
+    onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const { data, setData, patch, errors, processing, reset } = useForm<EventForm>({
+        sport_id: event?.sport ? String(event.sport.id) : '',
+        name_hi: event?.name_hi ?? '',
+        discipline: event?.discipline ?? '',
+        weight_category: event?.weight_category ?? '',
+        gender_class: event?.gender_class ?? 'M',
+    });
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+
+        if (!event) {
+            return;
+        }
+
+        patch(updateEvent.url({ tournament: tournament.id, event: event.id }), {
+            onSuccess: () => {
+                reset();
+                onClose();
+            },
+        });
+    }
+
+    return (
+        <Dialog open={event !== null} onOpenChange={(open) => {
+ if (!open) {
+ onClose();
+}
+}}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{t('Edit event')}</DialogTitle>
+                    <DialogDescription>{event?.name_hi}</DialogDescription>
+                </DialogHeader>
+                <form id="edit-event-form" onSubmit={handleSubmit}>
+                    <EventFormFields
+                        data={data}
+                        setData={(field, value) => setData(field, value)}
+                        errors={errors}
+                        sports={sports}
+                        idPrefix="edit_ev"
+                    />
+                </form>
+                <DialogFooter>
+                    <Button variant="outline" type="button" onClick={onClose}>
+                        {t('Cancel')}
+                    </Button>
+                    <Button type="submit" form="edit-event-form" disabled={processing}>
+                        {processing ? t('Saving…') : t('Save changes')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Confirm Delete Dialog (generic)
+// ---------------------------------------------------------------------------
+function ConfirmDeleteDialog({
+    open,
+    onOpenChange,
+    title,
+    description,
+    confirmLabel,
+    onConfirm,
+    processing,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    title: string;
+    description: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+    processing?: boolean;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+                        {t('Cancel')}
+                    </Button>
+                    <Button variant="destructive" type="button" onClick={onConfirm} disabled={processing}>
+                        {processing ? t('Deleting…') : confirmLabel}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 export default function TournamentsShow({
     tournament,
     sports,
@@ -156,6 +343,30 @@ export default function TournamentsShow({
     events?: EventRow[];
 }) {
     const { t } = useTranslation();
+
+    const [addEventOpen, setAddEventOpen] = useState(false);
+    const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
+    const [deletingEvent, setDeletingEvent] = useState<EventRow | null>(null);
+    const [deleteTournamentOpen, setDeleteTournamentOpen] = useState(false);
+
+    const { delete: deleteEventForm, processing: deletingEventProcessing } = useForm({});
+    const { delete: deleteTournamentForm, processing: deletingTournamentProcessing } = useForm({});
+
+    function handleDeleteEvent() {
+        if (!deletingEvent) {
+            return;
+        }
+
+        deleteEventForm(destroyEvent.url({ tournament: tournament.id, event: deletingEvent.id }), {
+            onSuccess: () => setDeletingEvent(null),
+        });
+    }
+
+    function handleDeleteTournament() {
+        deleteTournamentForm(destroyTournament.url(tournament.id), {
+            onSuccess: () => setDeleteTournamentOpen(false),
+        });
+    }
 
     setLayoutProps({
         breadcrumbs: [
@@ -196,14 +407,12 @@ export default function TournamentsShow({
                         <Button variant="outline" size="sm" asChild>
                             <Link href={editTournament.url(tournament.id)}>{t('Edit')}</Link>
                         </Button>
-                        <Button variant="destructive" size="sm" asChild>
-                            <Link
-                                href={destroyTournament.url(tournament.id)}
-                                method="delete"
-                                as="button"
-                            >
-                                {t('Delete')}
-                            </Link>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleteTournamentOpen(true)}
+                        >
+                            {t('Delete')}
                         </Button>
                     </div>
                 </div>
@@ -232,6 +441,15 @@ export default function TournamentsShow({
 
                     {/* Events */}
                     <TabsContent value="events" className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-muted-foreground">
+                                {t('Manage the events for this tournament.')}
+                            </p>
+                            <Button size="sm" onClick={() => setAddEventOpen(true)}>
+                                <Plus className="mr-1.5 h-4 w-4" />
+                                {t('Add event')}
+                            </Button>
+                        </div>
                         <Deferred data="events" fallback={
                             <div className="space-y-2">
                                 {Array.from({ length: 3 }).map((_, i) => (
@@ -271,9 +489,31 @@ export default function TournamentsShow({
                                                     <TableCell className="text-muted-foreground">{ev.weight_category ?? '—'}</TableCell>
                                                     <TableCell className="text-right tabular-nums">{ev.participations_count}</TableCell>
                                                     <TableCell className="text-right">
-                                                        <Button variant="ghost" size="sm" asChild>
-                                                            <Link href={showEvent.url({ tournament: tournament.id, event: ev.id })}>{t('View')}</Link>
-                                                        </Button>
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button variant="ghost" size="sm" asChild>
+                                                                <Link href={showEvent.url({ tournament: tournament.id, event: ev.id })}>{t('View')}</Link>
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8"
+                                                                title={t('Edit event')}
+                                                                onClick={() => setEditingEvent(ev)}
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                                <span className="sr-only">{t('Edit event')}</span>
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                                                title={t('Delete event')}
+                                                                onClick={() => setDeletingEvent(ev)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                                <span className="sr-only">{t('Delete event')}</span>
+                                                            </Button>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
                                             ))
@@ -282,12 +522,45 @@ export default function TournamentsShow({
                                 </Table>
                             </div>
                         </Deferred>
-
-                        <AddEventPanel tournament={tournament} sports={sports} />
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {/* Dialogs */}
+            <AddEventDialog
+                open={addEventOpen}
+                onOpenChange={setAddEventOpen}
+                tournament={tournament}
+                sports={sports}
+            />
+            <EditEventDialog
+                event={editingEvent}
+                tournament={tournament}
+                sports={sports}
+                onClose={() => setEditingEvent(null)}
+            />
+            <ConfirmDeleteDialog
+                open={deletingEvent !== null}
+                onOpenChange={(open) => {
+ if (!open) {
+ setDeletingEvent(null);
+}
+}}
+                title={t('Delete event')}
+                description={t('This will permanently delete the event and all its participations. This action cannot be undone.')}
+                confirmLabel={t('Delete event')}
+                onConfirm={handleDeleteEvent}
+                processing={deletingEventProcessing}
+            />
+            <ConfirmDeleteDialog
+                open={deleteTournamentOpen}
+                onOpenChange={setDeleteTournamentOpen}
+                title={t('Delete tournament')}
+                description={t('This will permanently delete the tournament and all its events and participations. This action cannot be undone.')}
+                confirmLabel={t('Delete tournament')}
+                onConfirm={handleDeleteTournament}
+                processing={deletingTournamentProcessing}
+            />
         </>
     );
 }
-

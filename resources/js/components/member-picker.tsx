@@ -35,9 +35,10 @@ interface MemberPickerProps {
     placeholder?: string;
     disabled?: boolean;
     id?: string;
+    extraFilters?: Record<string, string>;
 }
 
-export function MemberPicker({ value, onChange, placeholder, disabled = false, id }: MemberPickerProps) {
+export function MemberPicker({ value, onChange, placeholder, disabled = false, id, extraFilters = {} }: MemberPickerProps) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<MemberOption[]>([]);
@@ -59,7 +60,7 @@ export function MemberPicker({ value, onChange, placeholder, disabled = false, i
 
             timerRef.current = setTimeout(() => {
                 cancel();
-                get(MemberSearchController.url({ query: { q } }), {
+                get(MemberSearchController.url({ query: { q, ...extraFilters } }), {
                     onSuccess: (res) => {
                         const response = res as unknown as SearchResponse;
                         setResults(response?.data ?? []);
@@ -68,7 +69,7 @@ export function MemberPicker({ value, onChange, placeholder, disabled = false, i
                 });
             }, 300);
         },
-        [cancel, get],
+        [cancel, get, extraFilters],
     );
 
     const displayValue = (member: MemberOption | null) => {

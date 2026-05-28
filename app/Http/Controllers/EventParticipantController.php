@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Requests\EventParticipants\StoreEventParticipantsRequest;
+use App\Http\Requests\EventParticipants\UpdateParticipantRequest;
 use App\Models\Achievement;
 use App\Models\Event;
 use App\Models\Participation;
@@ -54,5 +55,41 @@ class EventParticipantController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Participants saved.')]);
 
         return to_route('tournaments.events.show', [$tournament, $event]);
+    }
+
+    public function update(UpdateParticipantRequest $request, Tournament $tournament, Event $event, Participation $participation): RedirectResponse
+    {
+        Gate::authorize('update', $tournament);
+
+        $validated = $request->validated();
+
+        $participation->update(['position' => $validated['position'] ?? null]);
+
+        if (! empty($validated['medal_type'])) {
+            Achievement::updateOrCreate(
+                ['participation_id' => $participation->id],
+                [
+                    'medal_type' => $validated['medal_type'],
+                    'remarks' => $validated['remarks'] ?? null,
+                ],
+            );
+        } else {
+            $participation->achievement?->delete();
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant updated.')]);
+
+        return back();
+    }
+
+    public function destroy(Tournament $tournament, Event $event, Participation $participation): RedirectResponse
+    {
+        Gate::authorize('update', $tournament);
+
+        $participation->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant removed.')]);
+
+        return back();
     }
 }
