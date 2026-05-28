@@ -303,6 +303,9 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [ ] **P7-T14** `Pages/Reports/Index.tsx` gallery + `Pages/Reports/Show.tsx` (filter + table + Recharts + export buttons)
 - [ ] **P7-T15** Pest Feature: numbers match SQL-counted ground truth
 - [ ] **P7-T16** Visual check: PDF Devanagari renders correctly
+- [ ] **P7-T17** Bug: `reports/show.tsx` renders nested-object cells as raw JSON — add `renderCellValue(val: unknown): string` helper that extracts `name_hi` / `name` / `label` / `code` from objects and joins array values with `, `; affected: `team-roster` (`team`, `members` columns) and `medal-tally` (`tier` column)
+- [ ] **P7-T18** Tournament show page UX — remove inline `AddEventPanel`; add `AddEventDialog` / `EditEventDialog` / `ConfirmDeleteDialog` modals; per-row edit+delete on events table; confirm modal on tournament delete; backend: `PATCH` + `DELETE` for `EventController`
+- [ ] **P7-T19** Event show page UX — replace inline-edit participant grid with individual add/edit/delete per participant; `AddParticipantDialog`, `EditParticipantDialog`, confirm-remove; backend: `PATCH` + `DELETE` for `EventParticipantController`
 
 ---
 

@@ -46,8 +46,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('tournaments.events.store')->scopeBindings();
     Route::get('tournaments/{tournament}/events/{event}', [EventController::class, 'show'])
         ->name('tournaments.events.show')->scopeBindings();
+    Route::patch('tournaments/{tournament}/events/{event}', [EventController::class, 'update'])
+        ->name('tournaments.events.update')->scopeBindings();
+    Route::delete('tournaments/{tournament}/events/{event}', [EventController::class, 'destroy'])
+        ->name('tournaments.events.destroy')->scopeBindings();
     Route::post('tournaments/{tournament}/events/{event}/participants', [EventParticipantController::class, 'store'])
         ->name('tournaments.events.participants.store')->scopeBindings();
+    Route::patch('tournaments/{tournament}/events/{event}/participants/{participation}', [EventParticipantController::class, 'update'])
+        ->name('tournaments.events.participants.update')->scopeBindings();
+    Route::delete('tournaments/{tournament}/events/{event}/participants/{participation}', [EventParticipantController::class, 'destroy'])
+        ->name('tournaments.events.participants.destroy')->scopeBindings();
     Route::post('teams/{team}/members', [TeamMemberController::class, 'store'])->name('teams.members.store');
     Route::delete('teams/{team}/members/{member}', [TeamMemberController::class, 'destroy'])->name('teams.members.destroy');
     Route::post('teams/{team}/coaches', [TeamCoachController::class, 'store'])->name('teams.coaches.store');

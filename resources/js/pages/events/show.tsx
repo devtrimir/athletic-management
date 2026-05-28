@@ -1,13 +1,31 @@
 import { Deferred, Head, setLayoutProps, useForm } from '@inertiajs/react';
+import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
-import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
-import { store as storeParticipants } from '@/actions/App/Http/Controllers/EventParticipantController';
-import { show as showTournament, index as tournamentsIndex } from '@/actions/App/Http/Controllers/TournamentController';
+import {
+    destroy as destroyEvent,
+    update as updateEvent,
+} from '@/actions/App/Http/Controllers/EventController';
+import {
+    destroy as destroyParticipant,
+    store as storeParticipants,
+    update as updateParticipant,
+} from '@/actions/App/Http/Controllers/EventParticipantController';
+import { index as tournamentsIndex, show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
-import { MemberPicker  } from '@/components/member-picker';
-import type {MemberOption} from '@/components/member-picker';
+import InputError from '@/components/input-error';
+import { MemberPicker } from '@/components/member-picker';
+import type { MemberOption } from '@/components/member-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,21 +33,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 type TournamentRef = { id: number; name_hi: string };
+type Sport = { id: number; name: string };
 
 type EventProp = {
     id: number;
+    sport_id: number | null;
     name_hi: string;
     discipline: string | null;
     weight_category: string | null;
     gender_class: string;
     sport: { id: number; name: string } | null;
-};
-
-type AchievementRow = {
-    medal_type: string | null;
-    position: number | null;
-    remarks: string | null;
 };
 
 type ParticipationRow = {
@@ -41,214 +59,763 @@ type ParticipationRow = {
         member_code: string;
         pno: string | null;
     } | null;
-    achievement: AchievementRow | null;
+    achievement: {
+        medal_type: string | null;
+        position: number | null;
+        remarks: string | null;
+    } | null;
 };
 
-type GridRow = {
-    member_id: number;
-    full_name_hi: string;
-    member_code: string;
-    pno: string | null;
+type EventForm = {
+    sport_id: string;
+    name_hi: string;
+    discipline: string;
+    weight_category: string;
+    gender_class: string;
+};
+
+type ParticipantForm = {
     position: string;
     medal_type: string;
     remarks: string;
 };
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
 const MEDAL_TYPES = ['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const;
+const GENDER_CLASSES = ['M', 'F', 'MIXED', 'OPEN'] as const;
+const PLAYER_CATEGORIES = ['GD', 'SKILLED'] as const;
+const PLAYER_LEVELS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'] as const;
+const PLAYER_STATUSES = ['ACTIVE', 'RESIGNED', 'DISMISSED'] as const;
 
-function participationToRow(p: ParticipationRow): GridRow {
-    return {
-        member_id: p.member?.id ?? 0,
-        full_name_hi: p.member?.full_name_hi ?? '',
-        member_code: p.member?.member_code ?? '',
-        pno: p.member?.pno ?? null,
-        position: p.position != null ? String(p.position) : '',
-        medal_type: p.achievement?.medal_type ?? '',
-        remarks: p.achievement?.remarks ?? '',
-    };
-}
+const MEDAL_CLASSES: Record<string, string> = {
+    GOLD: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    SILVER: 'bg-gray-100 text-gray-700 border-gray-200',
+    BRONZE: 'bg-orange-100 text-orange-700 border-orange-200',
+    MERIT: 'bg-blue-100 text-blue-700 border-blue-200',
+};
 
-function ParticipantsGrid({
-    tournament,
-    event,
-    participations,
+// ---------------------------------------------------------------------------
+// Shared event form fields
+// ---------------------------------------------------------------------------
+
+function EventFormFields({
+    data,
+    setData,
+    errors,
+    sports,
+    idPrefix,
 }: {
-    tournament: TournamentRef;
-    event: EventProp;
-    participations: ParticipationRow[];
+    data: EventForm;
+    setData: (field: keyof EventForm, value: string) => void;
+    errors: Partial<Record<keyof EventForm, string>>;
+    sports: Sport[];
+    idPrefix: string;
 }) {
     const { t } = useTranslation();
-    const [rows, setRows] = useState<GridRow[]>(() => participations.map(participationToRow));
-    const [pickedMember, setPickedMember] = useState<MemberOption | null>(null);
-
-    const { post, processing } = useForm({});
-
-    function updateRow(idx: number, field: keyof GridRow, value: string) {
-        setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
-    }
-
-    function addMember() {
-        if (!pickedMember) {
-            return;
-        }
-
-        if (rows.some((r) => r.member_id === pickedMember.id)) {
-            return;
-        }
-
-        setRows((prev) => [
-            ...prev,
-            {
-                member_id: pickedMember.id,
-                full_name_hi: pickedMember.full_name_hi,
-                member_code: pickedMember.member_code,
-                pno: pickedMember.pno,
-                position: '',
-                medal_type: '',
-                remarks: '',
-            },
-        ]);
-        setPickedMember(null);
-    }
-
-    function removeRow(idx: number) {
-        setRows((prev) => prev.filter((_, i) => i !== idx));
-    }
-
-    function save() {
-        const participants = rows.map((r) => ({
-            member_id: r.member_id,
-            position: r.position ? parseInt(r.position, 10) : null,
-            medal_type: r.medal_type || null,
-            remarks: r.remarks || null,
-        }));
-
-        post(storeParticipants.url(tournament.id, event.id), {
-            data: { participants },
-        } as Parameters<typeof post>[1]);
-    }
 
     return (
-        <div className="space-y-6">
-            {/* Add participant */}
-            <div className="rounded-xl border bg-card p-4">
-                <Label className="mb-3 block text-sm font-medium">{t('Add participant')}</Label>
-                <div className="flex gap-3">
-                    <div className="flex-1">
-                        <MemberPicker
-                            value={pickedMember}
-                            onChange={setPickedMember}
-                            placeholder={t('Search member…')}
-                        />
-                    </div>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={addMember}
-                        disabled={!pickedMember}
-                    >
-                        {t('Add')}
-                    </Button>
-                </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_sport_id`}>
+                    {t('Sport')} <span className="text-destructive">*</span>
+                </Label>
+                <Combobox
+                    id={`${idPrefix}_sport_id`}
+                    value={data.sport_id}
+                    onValueChange={(v) => setData('sport_id', v)}
+                    items={sports.map((sp) => ({ value: String(sp.id), label: sp.name }))}
+                    placeholder={t('Select sport')}
+                    searchPlaceholder={t('Search sports…')}
+                />
+                <InputError message={errors.sport_id} />
             </div>
 
-            {/* Grid */}
-            {rows.length === 0 ? (
-                <p className="text-muted-foreground text-sm">{t('No participants yet.')}</p>
-            ) : (
-                <div className="rounded-xl border bg-card overflow-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-8">#</TableHead>
-                                <TableHead>{t('Member')}</TableHead>
-                                <TableHead className="w-28">{t('Position')}</TableHead>
-                                <TableHead className="w-36">{t('Medal')}</TableHead>
-                                <TableHead>{t('Remarks')}</TableHead>
-                                <TableHead className="w-10" />
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {rows.map((row, idx) => (
-                                <TableRow key={row.member_id}>
-                                    <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
-                                    <TableCell>
-                                        <div className="font-medium text-sm">{row.full_name_hi}</div>
-                                        <div className="text-muted-foreground text-xs">
-                                            {row.member_code}
-                                            {row.pno ? ` · ${row.pno}` : ''}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            value={row.position}
-                                            onChange={(e) => updateRow(idx, 'position', e.target.value)}
-                                            className="h-8 w-24"
-                                            placeholder="—"
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Select
-                                            value={row.medal_type || 'none'}
-                                            onValueChange={(v) => updateRow(idx, 'medal_type', v === 'none' ? '' : v)}
-                                        >
-                                            <SelectTrigger className="h-8 w-32">
-                                                <SelectValue placeholder={t('No medal')} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">{t('No medal')}</SelectItem>
-                                                {MEDAL_TYPES.map((m) => (
-                                                    <SelectItem key={m} value={m}>{t(m)}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Input
-                                            value={row.remarks}
-                                            onChange={(e) => updateRow(idx, 'remarks', e.target.value)}
-                                            className="h-8"
-                                            placeholder="—"
-                                            maxLength={255}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 px-2 text-destructive hover:text-destructive"
-                                            onClick={() => removeRow(idx)}
-                                        >
-                                            ✕
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            )}
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_gender_class`}>
+                    {t('Gender class')} <span className="text-destructive">*</span>
+                </Label>
+                <Select value={data.gender_class} onValueChange={(v) => setData('gender_class', v)}>
+                    <SelectTrigger id={`${idPrefix}_gender_class`}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {GENDER_CLASSES.map((g) => (
+                            <SelectItem key={g} value={g}>
+                                {t(g)}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <InputError message={errors.gender_class} />
+            </div>
 
-            <Button onClick={save} disabled={processing || rows.length === 0}>
-                {processing ? t('Saving…') : t('Save participants')}
-            </Button>
+            <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor={`${idPrefix}_name_hi`}>
+                    {t('Event name (Hindi)')} <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                    id={`${idPrefix}_name_hi`}
+                    value={data.name_hi}
+                    onChange={(e) => setData('name_hi', e.target.value)}
+                    maxLength={255}
+                    required
+                />
+                <InputError message={errors.name_hi} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_discipline`}>{t('Discipline')}</Label>
+                <Input
+                    id={`${idPrefix}_discipline`}
+                    value={data.discipline}
+                    onChange={(e) => setData('discipline', e.target.value)}
+                    maxLength={255}
+                />
+                <InputError message={errors.discipline} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_weight_category`}>{t('Weight category')}</Label>
+                <Input
+                    id={`${idPrefix}_weight_category`}
+                    value={data.weight_category}
+                    onChange={(e) => setData('weight_category', e.target.value)}
+                    maxLength={100}
+                />
+                <InputError message={errors.weight_category} />
+            </div>
         </div>
     );
 }
 
+// ---------------------------------------------------------------------------
+// Edit Event Dialog
+// ---------------------------------------------------------------------------
+
+function EditEventDialog({
+    open,
+    onOpenChange,
+    tournament,
+    event,
+    sports,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    tournament: TournamentRef;
+    event: EventProp;
+    sports: Sport[];
+}) {
+    const { t } = useTranslation();
+    const { data, setData, patch, errors, processing, reset } = useForm<EventForm>({
+        sport_id: event.sport_id ? String(event.sport_id) : '',
+        name_hi: event.name_hi,
+        discipline: event.discipline ?? '',
+        weight_category: event.weight_category ?? '',
+        gender_class: event.gender_class,
+    });
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        patch(updateEvent.url({ tournament: tournament.id, event: event.id }), {
+            onSuccess: () => {
+                onOpenChange(false);
+                reset();
+            },
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{t('Edit event')}</DialogTitle>
+                    <DialogDescription>{event.name_hi}</DialogDescription>
+                </DialogHeader>
+                <form id="edit-event-form" onSubmit={handleSubmit}>
+                    <EventFormFields
+                        data={data}
+                        setData={(f, v) => setData(f, v)}
+                        errors={errors}
+                        sports={sports}
+                        idPrefix="ev"
+                    />
+                </form>
+                <DialogFooter>
+                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+                        {t('Cancel')}
+                    </Button>
+                    <Button type="submit" form="edit-event-form" disabled={processing}>
+                        {processing ? t('Saving…') : t('Save changes')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Generic Confirm Delete Dialog
+// ---------------------------------------------------------------------------
+
+function ConfirmDeleteDialog({
+    open,
+    onOpenChange,
+    title,
+    description,
+    confirmLabel,
+    onConfirm,
+    processing,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    title: string;
+    description: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+    processing?: boolean;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+                        {t('Cancel')}
+                    </Button>
+                    <Button variant="destructive" type="button" onClick={onConfirm} disabled={processing}>
+                        {processing ? t('Deleting…') : confirmLabel}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Participant form fields (shared between Add and Edit dialogs)
+// ---------------------------------------------------------------------------
+
+function ParticipantFormFields({
+    data,
+    setData,
+    errors,
+    idPrefix,
+}: {
+    data: ParticipantForm;
+    setData: (field: keyof ParticipantForm, value: string) => void;
+    errors: Partial<Record<keyof ParticipantForm, string>>;
+    idPrefix: string;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_position`}>{t('Position')}</Label>
+                <Input
+                    id={`${idPrefix}_position`}
+                    type="number"
+                    min={1}
+                    value={data.position}
+                    onChange={(e) => setData('position', e.target.value)}
+                    placeholder="—"
+                    className="h-9"
+                />
+                <InputError message={errors.position} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_medal_type`}>{t('Medal')}</Label>
+                <Select
+                    value={data.medal_type || 'none'}
+                    onValueChange={(v) => setData('medal_type', v === 'none' ? '' : v)}
+                >
+                    <SelectTrigger id={`${idPrefix}_medal_type`} className="h-9">
+                        <SelectValue placeholder={t('No medal')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="none">{t('No medal')}</SelectItem>
+                        {MEDAL_TYPES.map((m) => (
+                            <SelectItem key={m} value={m}>
+                                {t(m)}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <InputError message={errors.medal_type} />
+            </div>
+
+            <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor={`${idPrefix}_remarks`}>{t('Remarks')}</Label>
+                <Input
+                    id={`${idPrefix}_remarks`}
+                    value={data.remarks}
+                    onChange={(e) => setData('remarks', e.target.value)}
+                    maxLength={500}
+                    placeholder="—"
+                />
+                <InputError message={errors.remarks} />
+            </div>
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Filter chip (inline Select pill with clear button)
+// ---------------------------------------------------------------------------
+
+function FilterChip({
+    active,
+    label,
+    options,
+    value,
+    onSelect,
+    onClear,
+}: {
+    active: boolean;
+    label: string;
+    options: readonly string[];
+    value: string;
+    onSelect: (v: string) => void;
+    onClear: () => void;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <div className="flex items-center gap-0.5">
+            <Select value={value || '__all__'} onValueChange={(v) => onSelect(v === '__all__' ? '' : v)}>
+                <SelectTrigger
+                    className={`h-7 gap-1 rounded-full border px-3 text-xs font-medium ${
+                        active
+                            ? 'border-primary/40 bg-primary/8 text-primary'
+                            : 'border-input bg-background text-muted-foreground'
+                    }`}
+                >
+                    <SelectValue placeholder={label} />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="__all__">{label}</SelectItem>
+                    {options.map((o) => (
+                        <SelectItem key={o} value={o}>
+                            {t(o)}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            {active && (
+                <button
+                    type="button"
+                    onClick={onClear}
+                    className="text-muted-foreground hover:text-foreground ml-0.5"
+                    aria-label={t('Clear filter')}
+                >
+                    <X className="h-3 w-3" />
+                </button>
+            )}
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Add Participant Dialog
+// ---------------------------------------------------------------------------
+
+function AddParticipantDialog({
+    open,
+    onOpenChange,
+    tournament,
+    event,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    tournament: TournamentRef;
+    event: EventProp;
+}) {
+    const { t } = useTranslation();
+    const [pickedMember, setPickedMember] = useState<MemberOption | null>(null);
+    const [filterCategory, setFilterCategory] = useState('');
+    const [filterLevel, setFilterLevel] = useState('');
+    const [filterStatus, setFilterStatus] = useState('ACTIVE');
+
+    const { data, setData, post, errors, processing, reset } = useForm<ParticipantForm>({
+        position: '',
+        medal_type: '',
+        remarks: '',
+    });
+
+    const extraFilters: Record<string, string> = {};
+
+    if (filterCategory) {
+extraFilters.player_category = filterCategory;
+}
+
+    if (filterLevel) {
+extraFilters.player_level = filterLevel;
+}
+
+    if (filterStatus) {
+extraFilters.current_status = filterStatus;
+}
+
+    function handleClose() {
+        reset();
+        setPickedMember(null);
+        setFilterCategory('');
+        setFilterLevel('');
+        setFilterStatus('ACTIVE');
+        onOpenChange(false);
+    }
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+
+        if (!pickedMember) {
+return;
+}
+
+        post(storeParticipants.url(tournament.id, event.id), {
+            data: {
+                participants: [
+                    {
+                        member_id: pickedMember.id,
+                        position: data.position ? parseInt(data.position, 10) : null,
+                        medal_type: data.medal_type || null,
+                        remarks: data.remarks || null,
+                    },
+                ],
+            },
+        } as Parameters<typeof post>[1]);
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={(o) => {
+ if (!o) {
+handleClose();
+} 
+}}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{t('Add participant')}</DialogTitle>
+                    <DialogDescription>{event.name_hi}</DialogDescription>
+                </DialogHeader>
+
+                <form id="add-participant-form" onSubmit={handleSubmit} className="space-y-5">
+                    {/* Member picker with filter chips */}
+                    <div className="space-y-2">
+                        <Label>{t('Athlete')}</Label>
+                        <div className="flex flex-wrap gap-2">
+                            <FilterChip
+                                active={!!filterCategory}
+                                label={t('Category')}
+                                options={PLAYER_CATEGORIES}
+                                value={filterCategory}
+                                onSelect={setFilterCategory}
+                                onClear={() => setFilterCategory('')}
+                            />
+                            <FilterChip
+                                active={!!filterLevel}
+                                label={t('Level')}
+                                options={PLAYER_LEVELS}
+                                value={filterLevel}
+                                onSelect={setFilterLevel}
+                                onClear={() => setFilterLevel('')}
+                            />
+                            <FilterChip
+                                active={!!filterStatus}
+                                label={t('Status')}
+                                options={PLAYER_STATUSES}
+                                value={filterStatus}
+                                onSelect={setFilterStatus}
+                                onClear={() => setFilterStatus('')}
+                            />
+                        </div>
+                        <MemberPicker
+                            value={pickedMember}
+                            onChange={setPickedMember}
+                            placeholder={t('Search by name or P.No…')}
+                            extraFilters={extraFilters}
+                        />
+                    </div>
+
+                    <ParticipantFormFields
+                        data={data}
+                        setData={(f, v) => setData(f, v)}
+                        errors={errors}
+                        idPrefix="add_p"
+                    />
+                </form>
+
+                <DialogFooter>
+                    <Button variant="outline" type="button" onClick={handleClose}>
+                        {t('Cancel')}
+                    </Button>
+                    <Button type="submit" form="add-participant-form" disabled={processing || !pickedMember}>
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        {processing ? t('Saving…') : t('Add participant')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Edit Participant Dialog
+// ---------------------------------------------------------------------------
+
+function EditParticipantDialog({
+    participation,
+    tournament,
+    event,
+    onClose,
+}: {
+    participation: ParticipationRow | null;
+    tournament: TournamentRef;
+    event: EventProp;
+    onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const { data, setData, patch, errors, processing, reset } = useForm<ParticipantForm>({
+        position: participation?.position != null ? String(participation.position) : '',
+        medal_type: participation?.achievement?.medal_type ?? '',
+        remarks: participation?.achievement?.remarks ?? '',
+    });
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+
+        if (!participation) {
+return;
+}
+
+        patch(
+            updateParticipant.url({
+                tournament: tournament.id,
+                event: event.id,
+                participation: participation.id,
+            }),
+            {
+                onSuccess: () => {
+                    reset();
+                    onClose();
+                },
+            },
+        );
+    }
+
+    return (
+        <Dialog open={participation !== null} onOpenChange={(o) => {
+ if (!o) {
+onClose();
+} 
+}}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{t('Edit participant')}</DialogTitle>
+                    <DialogDescription>{participation?.member?.full_name_hi}</DialogDescription>
+                </DialogHeader>
+                <form id="edit-participant-form" onSubmit={handleSubmit}>
+                    <ParticipantFormFields
+                        data={data}
+                        setData={(f, v) => setData(f, v)}
+                        errors={errors}
+                        idPrefix="edit_p"
+                    />
+                </form>
+                <DialogFooter>
+                    <Button variant="outline" type="button" onClick={onClose}>
+                        {t('Cancel')}
+                    </Button>
+                    <Button type="submit" form="edit-participant-form" disabled={processing}>
+                        {processing ? t('Saving…') : t('Save changes')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Medal Badge
+// ---------------------------------------------------------------------------
+
+function MedalBadge({ medal }: { medal: string | null }) {
+    const { t } = useTranslation();
+
+    if (!medal) {
+return <span className="text-muted-foreground text-xs">—</span>;
+}
+
+    return (
+        <span
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${MEDAL_CLASSES[medal] ?? ''}`}
+        >
+            {t(medal)}
+        </span>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Participants list (deferred child)
+// ---------------------------------------------------------------------------
+
+function ParticipantsList({
+    participations,
+    tournament,
+    event,
+}: {
+    participations: ParticipationRow[];
+    tournament: TournamentRef;
+    event: EventProp;
+}) {
+    const { t } = useTranslation();
+    const [editingParticipation, setEditingParticipation] = useState<ParticipationRow | null>(null);
+    const [deletingParticipation, setDeletingParticipation] = useState<ParticipationRow | null>(null);
+    const { delete: deleteParticipant, processing: deletingProcessing } = useForm({});
+
+    function handleDelete() {
+        if (!deletingParticipation) {
+return;
+}
+
+        deleteParticipant(
+            destroyParticipant.url({
+                tournament: tournament.id,
+                event: event.id,
+                participation: deletingParticipation.id,
+            }),
+            { onSuccess: () => setDeletingParticipation(null) },
+        );
+    }
+
+    if (participations.length === 0) {
+        return (
+            <p className="text-muted-foreground py-8 text-center text-sm">{t('No participants yet.')}</p>
+        );
+    }
+
+    return (
+        <>
+            <div className="overflow-hidden rounded-xl border">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                            <TableHead className="w-8">#</TableHead>
+                            <TableHead>{t('Member')}</TableHead>
+                            <TableHead className="w-20">{t('Position')}</TableHead>
+                            <TableHead className="w-28">{t('Medal')}</TableHead>
+                            <TableHead>{t('Remarks')}</TableHead>
+                            <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {participations.map((p, idx) => (
+                            <TableRow key={p.id}>
+                                <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
+                                <TableCell>
+                                    <div className="text-sm font-medium">{p.member?.full_name_hi}</div>
+                                    <div className="text-muted-foreground text-xs">
+                                        {p.member?.member_code}
+                                        {p.member?.pno ? ` · ${p.member.pno}` : ''}
+                                    </div>
+                                </TableCell>
+                                <TableCell className="tabular-nums">
+                                    {p.position ?? <span className="text-muted-foreground">—</span>}
+                                </TableCell>
+                                <TableCell>
+                                    <MedalBadge medal={p.achievement?.medal_type ?? null} />
+                                </TableCell>
+                                <TableCell className="text-muted-foreground max-w-[180px] truncate text-sm">
+                                    {p.achievement?.remarks || '—'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            title={t('Edit participant')}
+                                            onClick={() => setEditingParticipation(p)}
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                            <span className="sr-only">{t('Edit participant')}</span>
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-destructive hover:text-destructive"
+                                            title={t('Remove participant')}
+                                            onClick={() => setDeletingParticipation(p)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="sr-only">{t('Remove participant')}</span>
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+
+            <EditParticipantDialog
+                key={editingParticipation?.id ?? 'none'}
+                participation={editingParticipation}
+                tournament={tournament}
+                event={event}
+                onClose={() => setEditingParticipation(null)}
+            />
+            <ConfirmDeleteDialog
+                open={deletingParticipation !== null}
+                onOpenChange={(o) => {
+ if (!o) {
+setDeletingParticipation(null);
+} 
+}}
+                title={t('Remove participant')}
+                description={t('This will permanently delete the participation and any medal record. This action cannot be undone.')}
+                confirmLabel={t('Remove')}
+                onConfirm={handleDelete}
+                processing={deletingProcessing}
+            />
+        </>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 export default function EventsShow({
     tournament,
     event,
+    sports,
     participations,
 }: {
     tournament: TournamentRef;
     event: EventProp;
+    sports: Sport[];
     participations?: ParticipationRow[];
 }) {
     const { t } = useTranslation();
+    const [editEventOpen, setEditEventOpen] = useState(false);
+    const [deleteEventOpen, setDeleteEventOpen] = useState(false);
+    const [addParticipantOpen, setAddParticipantOpen] = useState(false);
+    const { delete: deleteEventForm, processing: deletingEventProcessing } = useForm({});
+
+    function handleDeleteEvent() {
+        deleteEventForm(destroyEvent.url({ tournament: tournament.id, event: event.id }), {
+            onSuccess: () => setDeleteEventOpen(false),
+        });
+    }
 
     setLayoutProps({
         breadcrumbs: [
@@ -258,11 +825,14 @@ export default function EventsShow({
         ],
     });
 
+    const participantCount = participations?.length ?? 0;
+
     return (
         <>
             <Head title={event.name_hi} />
 
             <div className="space-y-6">
+                {/* Header */}
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-2">
                         <Heading variant="small" title={event.name_hi} />
@@ -273,20 +843,69 @@ export default function EventsShow({
                             {event.weight_category && <Badge variant="outline">{event.weight_category}</Badge>}
                         </div>
                     </div>
-                    <Button variant="outline" size="sm" asChild>
-                        <a href={showEvent.url({ tournament: tournament.id, event: event.id })}>{t('Refresh')}</a>
-                    </Button>
+                    <div className="flex shrink-0 gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setEditEventOpen(true)}>
+                            <Pencil className="mr-1.5 h-4 w-4" />
+                            {t('Edit')}
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => setDeleteEventOpen(true)}>
+                            <Trash2 className="mr-1.5 h-4 w-4" />
+                            {t('Delete')}
+                        </Button>
+                    </div>
                 </div>
 
-                <Deferred data="participations" fallback={<Skeleton className="h-40 w-full rounded-xl" />}>
-                    <ParticipantsGrid
-                        tournament={tournament}
-                        event={event}
-                        participations={participations ?? []}
-                    />
-                </Deferred>
+                {/* Participants section */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-base font-semibold">{t('Participants')}</h2>
+                            {participations !== undefined && (
+                                <p className="text-muted-foreground text-sm">
+                                    {participantCount}{' '}
+                                    {t(participantCount === 1 ? 'participant' : 'participants')}
+                                </p>
+                            )}
+                        </div>
+                        <Button size="sm" onClick={() => setAddParticipantOpen(true)}>
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            {t('Add participant')}
+                        </Button>
+                    </div>
+
+                    <Deferred data="participations" fallback={<Skeleton className="h-40 w-full rounded-xl" />}>
+                        <ParticipantsList
+                            participations={participations ?? []}
+                            tournament={tournament}
+                            event={event}
+                        />
+                    </Deferred>
+                </div>
             </div>
+
+            {/* Dialogs */}
+            <EditEventDialog
+                open={editEventOpen}
+                onOpenChange={setEditEventOpen}
+                tournament={tournament}
+                event={event}
+                sports={sports}
+            />
+            <ConfirmDeleteDialog
+                open={deleteEventOpen}
+                onOpenChange={setDeleteEventOpen}
+                title={t('Delete event')}
+                description={t('This will permanently delete the event and all its participations. This action cannot be undone.')}
+                confirmLabel={t('Delete event')}
+                onConfirm={handleDeleteEvent}
+                processing={deletingEventProcessing}
+            />
+            <AddParticipantDialog
+                open={addParticipantOpen}
+                onOpenChange={setAddParticipantOpen}
+                tournament={tournament}
+                event={event}
+            />
         </>
     );
 }
-

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Events\StoreEventRequest;
+use App\Http\Requests\Events\UpdateEventRequest;
 use App\Models\Event;
+use App\Models\Sport;
 use App\Models\Tournament;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
@@ -34,6 +36,12 @@ class EventController extends Controller
 
         $event->load('sport:id,name_hi');
 
+        $orgId = $tournament->organization_id;
+        $sports = Sport::select(['id', 'name_hi'])
+            ->where('organization_id', $orgId)
+            ->orderBy('name_hi')
+            ->get();
+
         return Inertia::render('events/show', [
             'tournament' => [
                 'id' => $tournament->id,
@@ -41,6 +49,7 @@ class EventController extends Controller
             ],
             'event' => [
                 'id' => $event->id,
+                'sport_id' => $event->sport_id,
                 'name_hi' => $event->name_hi,
                 'discipline' => $event->discipline,
                 'weight_category' => $event->weight_category,
@@ -50,6 +59,7 @@ class EventController extends Controller
                     'name' => $event->sport->name,
                 ] : null,
             ],
+            'sports' => $sports,
             'participations' => Inertia::defer(fn () => $event->participations()
                 ->with(['member:id,full_name_hi,member_code,pno', 'achievement'])
                 ->orderBy('position')
@@ -70,5 +80,27 @@ class EventController extends Controller
                     ] : null,
                 ])),
         ]);
+    }
+
+    public function update(UpdateEventRequest $request, Tournament $tournament, Event $event): RedirectResponse
+    {
+        Gate::authorize('update', $tournament);
+
+        $event->update($request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Event updated.')]);
+
+        return back();
+    }
+
+    public function destroy(Tournament $tournament, Event $event): RedirectResponse
+    {
+        Gate::authorize('update', $tournament);
+
+        $event->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Event deleted.')]);
+
+        return to_route('tournaments.show', $tournament);
     }
 }

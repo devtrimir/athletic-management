@@ -133,9 +133,9 @@ clearTimeout(debounceRef.current);
             const next = new Set(prev);
 
             if (next.has(id)) {
- next.delete(id); 
+ next.delete(id);
 } else {
- next.add(id); 
+ next.add(id);
 }
 
             return next;
@@ -150,9 +150,9 @@ clearTimeout(debounceRef.current);
 
             for (const id of pageIds) {
                 if (allSelected) {
- next.delete(id); 
+ next.delete(id);
 } else {
- next.add(id); 
+ next.add(id);
 }
             }
 
@@ -165,7 +165,7 @@ clearTimeout(debounceRef.current);
 
         if (selectedIds.size > 0) {
             for (const id of selectedIds) {
- params.append('ids[]', String(id)); 
+ params.append('ids[]', String(id));
 }
         } else {
             if (filters.q) {
@@ -186,7 +186,7 @@ params.append('filter[sport_id]', filters.sport_id);
         }
 
         for (const col of selectedColumns) {
- params.append('columns[]', col); 
+ params.append('columns[]', col);
 }
 
         return exportTournamentsUrl.url() + '?' + params.toString();

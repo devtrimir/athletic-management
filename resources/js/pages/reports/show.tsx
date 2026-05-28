@@ -16,6 +16,41 @@ type Filters = Record<string, string | number | null>;
 
 const ALL = 'all';
 
+function renderCellValue(val: unknown): string {
+    if (val === null || val === undefined) {
+return '';
+}
+
+    if (Array.isArray(val)) {
+        return val
+            .map((item) => renderCellValue(item))
+            .filter(Boolean)
+            .join(', ');
+    }
+
+    if (typeof val === 'object') {
+        const obj = val as Record<string, unknown>;
+
+        // member-role pairs: { member: { full_name_hi, ... }, role, ... }
+        if (typeof obj.member === 'object' && obj.member !== null) {
+            const m = obj.member as Record<string, unknown>;
+
+            return String(m.full_name_hi ?? m.name_hi ?? m.name ?? '');
+        }
+
+        // standard display fields in priority order
+        const display = obj.name_hi ?? obj.full_name_hi ?? obj.name ?? obj.label ?? obj.code;
+
+        if (display !== undefined) {
+return String(display);
+}
+
+        return JSON.stringify(obj);
+    }
+
+    return String(val);
+}
+
 export default function ReportShow({
     report,
     data,
@@ -162,9 +197,7 @@ params.unit_id = unitId;
                                     <TableRow key={i}>
                                         {columns.map((col) => (
                                             <TableCell key={col}>
-                                                {typeof row[col] === 'object'
-                                                    ? JSON.stringify(row[col])
-                                                    : String(row[col] ?? '')}
+                                                {renderCellValue(row[col])}
                                             </TableCell>
                                         ))}
                                     </TableRow>

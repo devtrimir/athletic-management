@@ -20,10 +20,20 @@ class MemberSearchController extends Controller
 
         $validated = $request->validate([
             'q' => ['required', 'string', 'min:1', 'max:100'],
+            'player_category' => ['nullable', 'string', 'in:GD,SKILLED'],
+            'player_level' => ['nullable', 'string', 'in:ZONAL,NATIONAL,INTERNATIONAL,AIPSC'],
+            'current_status' => ['nullable', 'string', 'in:ACTIVE,RESIGNED,DISMISSED'],
         ]);
 
         $orgId = (int) $request->user()->organization_id;
-        $results = $service->search($orgId, (string) $validated['q']);
+
+        $filters = array_filter([
+            'player_category' => $validated['player_category'] ?? null,
+            'player_level' => $validated['player_level'] ?? null,
+            'current_status' => $validated['current_status'] ?? null,
+        ]);
+
+        $results = $service->search($orgId, (string) $validated['q'], $filters);
 
         return MemberSearchResource::collection($results)
             ->additional(['meta' => ['q' => $validated['q'], 'count' => $results->count()]])

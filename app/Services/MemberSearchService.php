@@ -22,7 +22,10 @@ class MemberSearchService
      *
      * @return Collection<int, mixed>
      */
-    public function search(int $orgId, string $q): Collection
+    /**
+     * @param  array<string, string>  $filters  Optional column filters (player_category, player_level, current_status).
+     */
+    public function search(int $orgId, string $q, array $filters = []): Collection
     {
         $q = $this->normalize($q);
 
@@ -31,10 +34,10 @@ class MemberSearchService
         }
 
         if (DB::connection()->getDriverName() === 'sqlite') {
-            return $this->searchSqlite($orgId, $q);
+            return $this->searchSqlite($orgId, $q, $filters);
         }
 
-        return $this->searchMysql($orgId, $q);
+        return $this->searchMysql($orgId, $q, $filters);
     }
 
     /**
@@ -54,14 +57,20 @@ class MemberSearchService
         return trim(preg_replace('/\s+/u', ' ', $q) ?? $q);
     }
 
-    /** MySQL path: PNO exact short-circuit, then FULLTEXT ngram BOOLEAN MODE. */
-    private function searchMysql(int $orgId, string $q): Collection
+    /**
+     * MySQL path: PNO exact short-circuit, then FULLTEXT ngram BOOLEAN MODE.
+     *
+     * @param  array<string, string>  $filters
+     */
+    private function searchMysql(int $orgId, string $q, array $filters = []): Collection
     {
+        [$filterSql, $filterParams] = $this->buildFilterSql($filters, 'm');
+
         // PNO short-circuit — numeric query, skip FULLTEXT
         if (ctype_digit($q)) {
             $hit = DB::select(
-                'SELECT '.implode(', ', self::COLUMNS).' FROM members WHERE organization_id = ? AND pno = ? AND deleted_at IS NULL LIMIT 1',
-                [$orgId, $q],
+                'SELECT '.implode(', ', self::COLUMNS).' FROM members WHERE organization_id = ? AND pno = ? AND deleted_at IS NULL'.$filterSql.' LIMIT 1',
+                array_merge([$orgId, $q], $filterParams),
             );
             if (count($hit) > 0) {
                 return collect($hit);
@@ -87,10 +96,10 @@ class MemberSearchService
                     SELECT a.member_id FROM name_aliases a
                     WHERE MATCH(a.alias_normalized) AGAINST (? IN BOOLEAN MODE)
                 )
-              )
+              ){$filterSql}
             ORDER BY MATCH(m.full_name_normalized) AGAINST (? IN BOOLEAN MODE) DESC
             LIMIT 50
-        SQL, [$orgId, $boolQ, $boolQ, $boolQ]);
+        SQL, array_merge([$orgId, $boolQ, $boolQ], $filterParams, [$boolQ]));
 
         return collect($rows);
     }
@@ -98,13 +107,19 @@ class MemberSearchService
     /**
      * SQLite path (test environment): PNO exact + LIKE on full_name_hi OR alias_hi.
      * Mirrors the MySQL path which also searches name_aliases via FULLTEXT.
+     *
+     * @param  array<string, string>  $filters
      */
-    private function searchSqlite(int $orgId, string $q): Collection
+    private function searchSqlite(int $orgId, string $q, array $filters = []): Collection
     {
         $base = Member::withoutGlobalScopes()
             ->where('organization_id', $orgId)
             ->whereNull('deleted_at')
             ->select(self::COLUMNS);
+
+        foreach ($filters as $column => $value) {
+            $base->where($column, $value);
+        }
 
         // PNO short-circuit
         $pnoHit = (clone $base)->where('pno', $q)->first();
@@ -119,6 +134,31 @@ class MemberSearchService
             })
             ->limit(50)
             ->get();
+    }
+
+    /**
+     * Build filter SQL clauses for raw queries.
+     * Returns [$whereSql, $params] where $whereSql starts with AND.
+     *
+     * @param  array<string, string>  $filters
+     * @param  string  $alias  Table alias (default 'm')
+     * @return array{string, list<string>}
+     */
+    private function buildFilterSql(array $filters, string $alias = 'm'): array
+    {
+        $sql = '';
+        $params = [];
+
+        $allowed = ['player_category', 'player_level', 'current_status'];
+
+        foreach ($allowed as $col) {
+            if (! empty($filters[$col])) {
+                $sql .= " AND {$alias}.{$col} = ?";
+                $params[] = $filters[$col];
+            }
+        }
+
+        return [$sql, $params];
     }
 
     /**
