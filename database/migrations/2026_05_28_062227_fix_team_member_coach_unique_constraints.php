@@ -33,12 +33,20 @@ return new class extends Migration
             ');
         }
 
+        // Step 1: add plain supporting indexes so MySQL FK constraint stays satisfied
+        // after the composite unique indexes are dropped.
+        Schema::table('team_members', function (Blueprint $table): void {
+            $table->index('team_id', 'team_members_team_id_index');
+        });
+
+        Schema::table('coach_assignments', function (Blueprint $table): void {
+            $table->index('team_id', 'coach_assignments_team_id_index');
+        });
+
+        // Step 2: swap the unique constraints.
         Schema::table('team_members', function (Blueprint $table): void {
             // Old: prevented re-enrolling in the same team across seasons.
             // New: one team per member per session (cross-team uniqueness).
-            // Must add a plain team_id index first: MySQL requires a supporting
-            // index on the FK column before the composite unique can be dropped.
-            $table->index('team_id', 'team_members_team_id_index');
             $table->dropUnique('team_members_team_id_member_id_unique');
             $table->unique(['member_id', 'session_id'], 'team_members_member_id_session_id_unique');
         });
@@ -46,8 +54,6 @@ return new class extends Migration
         Schema::table('coach_assignments', function (Blueprint $table): void {
             // Old: allowed same coach on two teams in same session (only blocked same team+role).
             // New: one team per coach per session (cross-team uniqueness).
-            // Add plain team_id index first so FK stays supported after unique drop.
-            $table->index('team_id', 'coach_assignments_team_id_index');
             $table->dropUnique('coach_assignments_team_id_coach_id_role_unique');
             $table->unique(['coach_id', 'session_id'], 'coach_assignments_coach_id_session_id_unique');
         });

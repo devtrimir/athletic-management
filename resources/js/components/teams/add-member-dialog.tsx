@@ -95,12 +95,12 @@ extraFilters.player_level = filterLevel;
 
                 {/* Search filters */}
                 <div className="flex flex-wrap gap-2">
-                    <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <Select value={filterCategory || '_all'} onValueChange={(v) => setFilterCategory(v === '_all' ? '' : v)}>
                         <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
                             <SelectValue placeholder={t('Category')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{t('All categories')}</SelectItem>
+                            <SelectItem value="_all">{t('All categories')}</SelectItem>
                             {CATEGORIES.map((c) => (
                                 <SelectItem key={c.value} value={c.value}>
                                     {t(c.label)}
@@ -109,12 +109,12 @@ extraFilters.player_level = filterLevel;
                         </SelectContent>
                     </Select>
 
-                    <Select value={filterLevel} onValueChange={setFilterLevel}>
+                    <Select value={filterLevel || '_all'} onValueChange={(v) => setFilterLevel(v === '_all' ? '' : v)}>
                         <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
                             <SelectValue placeholder={t('Level')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{t('All levels')}</SelectItem>
+                            <SelectItem value="_all">{t('All levels')}</SelectItem>
                             {LEVELS.map((l) => (
                                 <SelectItem key={l.value} value={l.value}>
                                     {t(l.label)}

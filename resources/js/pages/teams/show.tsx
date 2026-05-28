@@ -245,27 +245,27 @@ return false;
                         <div className="space-y-3">
                             {/* Tab header: filter pills + Add button */}
                             <div className="flex flex-wrap items-center gap-2">
-                                <Deferred data="members" fallback={null}>
+                                <Deferred data="members" fallback={<></>}>
                                     <>
                                         {memberSessions.length > 1 && (
-                                            <Select value={memberSessionFilter} onValueChange={setMemberSessionFilter}>
+                                            <Select value={memberSessionFilter || '_all'} onValueChange={(v) => setMemberSessionFilter(v === '_all' ? '' : v)}>
                                                 <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
                                                     <SelectValue placeholder={t('Session')} />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="">{t('All sessions')}</SelectItem>
+                                                    <SelectItem value="_all">{t('All sessions')}</SelectItem>
                                                     {memberSessions.map((s) => (
                                                         <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                         )}
-                                        <Select value={memberRoleFilter} onValueChange={setMemberRoleFilter}>
+                                        <Select value={memberRoleFilter || '_all'} onValueChange={(v) => setMemberRoleFilter(v === '_all' ? '' : v)}>
                                             <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
                                                 <SelectValue placeholder={t('Role')} />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">{t('All roles')}</SelectItem>
+                                                <SelectItem value="_all">{t('All roles')}</SelectItem>
                                                 {MEMBER_ROLES.map((r) => (
                                                     <SelectItem key={r} value={r}>{t(r)}</SelectItem>
                                                 ))}
@@ -352,27 +352,27 @@ return false;
                         <div className="space-y-3">
                             {/* Tab header: filter pills + Add button */}
                             <div className="flex flex-wrap items-center gap-2">
-                                <Deferred data="coaches" fallback={null}>
+                                <Deferred data="coaches" fallback={<></>}>
                                     <>
                                         {coachSessions.length > 1 && (
-                                            <Select value={coachSessionFilter} onValueChange={setCoachSessionFilter}>
+                                            <Select value={coachSessionFilter || '_all'} onValueChange={(v) => setCoachSessionFilter(v === '_all' ? '' : v)}>
                                                 <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
                                                     <SelectValue placeholder={t('Session')} />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="">{t('All sessions')}</SelectItem>
+                                                    <SelectItem value="_all">{t('All sessions')}</SelectItem>
                                                     {coachSessions.map((s) => (
                                                         <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                         )}
-                                        <Select value={coachRoleFilter} onValueChange={setCoachRoleFilter}>
+                                        <Select value={coachRoleFilter || '_all'} onValueChange={(v) => setCoachRoleFilter(v === '_all' ? '' : v)}>
                                             <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
                                                 <SelectValue placeholder={t('Role')} />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">{t('All roles')}</SelectItem>
+                                                <SelectItem value="_all">{t('All roles')}</SelectItem>
                                                 {COACH_ROLES.map((r) => (
                                                     <SelectItem key={r} value={r}>{t(r)}</SelectItem>
                                                 ))}
