@@ -205,6 +205,10 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P4-T16** `TeamExportController` (index) + route + Pest Feature (6 tests)
 - [x] **P4-T17** Teams export FE: bulk-select + Export dialog in `teams/index.tsx`
 
+### UX Improvements — Team Show Page
+- [~] **P4-T18** Backend: fix `(member_id, session_id)` + `(coach_id, session_id)` unique constraints; cross-session validation in `TeamMemberController` + `TeamCoachController`; new `TeamCloneController` + `CloneTeamRequest`; bilingual error messages; Pest Feature tests
+- [ ] **P4-T19** Frontend: `AddMemberDialog`, `AddCoachDialog`, `CloneTeamDialog` components; inline filter pills on Players/Coaches tabs; `teams/show.tsx` refactor; keyboard shortcuts (⌘⇧M / ⌘⇧H / ⌘D); bilingual UI strings
+
 ---
 
 ## Phase 5 — Tournaments, Events, Participations, Achievements

@@ -190,3 +190,54 @@ test('remove member deletes row and redirects to teams.show', function (): void 
         'member_id' => $member->id,
     ]);
 });
+
+// ---------------------------------------------------------------------------
+// cross-session uniqueness (new business rule)
+// ---------------------------------------------------------------------------
+
+test('adding a member already in another team for the same session returns errors', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $otherTeam = teamWithOrg($org);
+    $member = Member::factory()->create(['organization_id' => $org->id]);
+
+    // Member is already assigned to a DIFFERENT team for the same session.
+    TeamMember::factory()->create([
+        'team_id' => $otherTeam->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('teams.members.store', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $team->session_id,
+            'role' => 'PLAYER',
+        ])
+        ->assertSessionHasErrors(['member_ids.0']);
+});
+
+test('cross-session conflict does not insert a row', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $otherTeam = teamWithOrg($org);
+    $member = Member::factory()->create(['organization_id' => $org->id]);
+
+    TeamMember::factory()->create([
+        'team_id' => $otherTeam->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('teams.members.store', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $team->session_id,
+        ]);
+
+    // Only the original row should exist (in the other team).
+    $this->assertDatabaseCount('team_members', 1);
+    $this->assertDatabaseMissing('team_members', ['team_id' => $team->id]);
+});

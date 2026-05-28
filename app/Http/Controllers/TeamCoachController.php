@@ -20,14 +20,33 @@ class TeamCoachController extends Controller
 
         $data = $request->validated();
 
-        $alreadyAssigned = CoachAssignment::where('team_id', $team->id)
+        // Check: already on this team for this session.
+        $onThisTeam = CoachAssignment::where('team_id', $team->id)
             ->where('coach_id', $data['coach_id'])
-            ->where('role', $data['role'])
+            ->where('session_id', $data['session_id'])
             ->exists();
 
-        if ($alreadyAssigned) {
+        if ($onThisTeam) {
             return back()
-                ->withErrors(['coach_id' => __('This coach is already assigned to the team with that role.')])
+                ->withErrors(['coach_id' => __('This coach is already assigned to this team for this session.')])
+                ->withInput();
+        }
+
+        // Check: already on ANY other team for this session (cross-team uniqueness).
+        $crossConflict = CoachAssignment::with(['team:id,name_hi', 'coach:id,full_name_hi'])
+            ->where('session_id', $data['session_id'])
+            ->where('coach_id', $data['coach_id'])
+            ->first();
+
+        if ($crossConflict) {
+            $teamName = (string) $crossConflict->team->name_hi;
+            $coachName = (string) $crossConflict->coach->full_name_hi;
+
+            return back()
+                ->withErrors(['coach_id' => __(':name is already assigned to team :team for this session.', [
+                    'name' => $coachName,
+                    'team' => $teamName,
+                ])])
                 ->withInput();
         }
 

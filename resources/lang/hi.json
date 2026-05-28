@@ -426,5 +426,13 @@
     "This will permanently delete the event and all its participations. This action cannot be undone.": "यह स्पर्धा और उसकी सभी भागीदारियां स्थायी रूप से हटा दी जाएंगी। यह क्रिया वापस नहीं की जा सकती।",
     "This will permanently delete the tournament and all its events and participations. This action cannot be undone.": "यह टूर्नामेंट और उसकी सभी स्पर्धाएं एवं भागीदारियां स्थायी रूप से हटा दी जाएंगी। यह क्रिया वापस नहीं की जा सकती।",
     "Deleting…": "हटाया जा रहा है…",
-    "This will permanently delete the participation and any medal record. This action cannot be undone.": "इससे प्रतिभागिता और कोई भी पदक रिकॉर्ड स्थायी रूप से हट जाएगा। इसे पूर्ववत नहीं किया जा सकता।"
+    "This will permanently delete the participation and any medal record. This action cannot be undone.": "इससे प्रतिभागिता और कोई भी पदक रिकॉर्ड स्थायी रूप से हट जाएगा। इसे पूर्ववत नहीं किया जा सकता।",
+    "This member is already on the team.": "यह खिलाड़ी पहले से इस टीम में है।",
+    ":name is already assigned to team :team for this session.": ":name इस सत्र में ':team' टीम में पहले से नियुक्त है।",
+    "This coach is already assigned to this team for this session.": "यह कोच इस सत्र में इस टीम में पहले से है।",
+    "Team cloned successfully.": "टीम सफलतापूर्वक क्लोन की गई।",
+    "Team already exists for the selected session.": "चुने गए सत्र के लिए इस नाम की टीम पहले से मौजूद है।",
+    "The target session must differ from the current session.": "लक्ष्य सत्र वर्तमान सत्र से अलग होना चाहिए।",
+    ":count player(s) skipped — already in another team for the target session.": ":count खिलाड़ी छोड़े गए — वे लक्ष्य सत्र में किसी और टीम में हैं।",
+    ":count coach(es) skipped — already in another team for the target session.": ":count कोच छोड़े गए — वे लक्ष्य सत्र में किसी और टीम में हैं।"
 }
