@@ -14,6 +14,7 @@ use App\Http\Controllers\MemberPhotoController;
 use App\Http\Controllers\MemberStatusController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportsMedalsController;
+use App\Http\Controllers\TeamCloneController;
 use App\Http\Controllers\TeamCoachController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamExportController;
@@ -60,6 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('teams/{team}/members/{member}', [TeamMemberController::class, 'destroy'])->name('teams.members.destroy');
     Route::post('teams/{team}/coaches', [TeamCoachController::class, 'store'])->name('teams.coaches.store');
     Route::delete('teams/{team}/coaches/{coach}', [TeamCoachController::class, 'destroy'])->name('teams.coaches.destroy');
+    Route::post('teams/{team}/clone', TeamCloneController::class)->name('teams.clone');
     Route::post('members/{member}/status', [MemberStatusController::class, 'store'])->name('members.status.store');
     Route::post('members/{member}/aliases', [MemberAliasController::class, 'store'])->name('members.aliases.store');
     Route::delete('members/{member}/aliases/{alias}', [MemberAliasController::class, 'destroy'])->name('members.aliases.destroy');

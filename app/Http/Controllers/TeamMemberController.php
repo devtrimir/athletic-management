@@ -20,24 +20,45 @@ class TeamMemberController extends Controller
 
         $data = $request->validated();
         $memberIds = $data['member_ids'];
+        $sessionId = $data['session_id'];
 
-        $existing = TeamMember::where('team_id', $team->id)
+        // Check: already on THIS team.
+        $onThisTeam = TeamMember::where('team_id', $team->id)
             ->whereIn('member_id', $memberIds)
             ->pluck('member_id')
             ->all();
 
-        if (! empty($existing)) {
-            $errors = [];
-            foreach ($existing as $id) {
-                $index = array_search($id, $memberIds);
-                $errors["member_ids.{$index}"] = __('This member is already on the team.');
-            }
+        // Check: already on ANY team for this session (cross-team uniqueness).
+        $crossTeamConflicts = TeamMember::with(['team:id,name_hi', 'member:id,full_name_hi'])
+            ->where('session_id', $sessionId)
+            ->whereIn('member_id', $memberIds)
+            ->get(['member_id', 'team_id']);
 
+        $errors = [];
+
+        foreach ($onThisTeam as $id) {
+            $index = array_search($id, $memberIds);
+            $errors["member_ids.{$index}"] = __('This member is already on the team.');
+        }
+
+        foreach ($crossTeamConflicts as $conflict) {
+            if (in_array($conflict->member_id, $onThisTeam, true)) {
+                continue; // already reported above
+            }
+            $index = array_search($conflict->member_id, $memberIds);
+            $teamName = (string) $conflict->team->name_hi;
+            $memberName = (string) $conflict->member->full_name_hi;
+            $errors["member_ids.{$index}"] = __(':name is already assigned to team :team for this session.', [
+                'name' => $memberName,
+                'team' => $teamName,
+            ]);
+        }
+
+        if (! empty($errors)) {
             return back()->withErrors($errors)->withInput();
         }
 
         $role = $data['role'] ?? 'PLAYER';
-        $sessionId = $data['session_id'];
         $joinedOn = $data['joined_on'] ?? null;
 
         $rows = array_map(fn (int $memberId) => [
