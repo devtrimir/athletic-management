@@ -113,7 +113,7 @@ class TournamentController extends Controller
             'tournament' => (new TournamentResource($tournament))->resolve(),
             'sports' => $sports,
             'events' => Inertia::defer(fn () => $tournament->events()
-                ->with('sport:id,name_hi')
+                ->with('sport:id,name_hi,name_en')
                 ->withCount('participations')
                 ->orderBy('name_hi')
                 ->get()

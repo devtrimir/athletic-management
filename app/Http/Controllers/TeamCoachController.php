@@ -9,6 +9,7 @@ use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\Team;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
@@ -66,11 +67,37 @@ class TeamCoachController extends Controller
     {
         Gate::authorize('update', $team);
 
-        CoachAssignment::where('team_id', $team->id)
+        $ca = CoachAssignment::where('team_id', $team->id)
             ->where('coach_id', $coach->id)
-            ->delete();
+            ->first();
+
+        $ca?->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach removed from team.')]);
+
+        return to_route('teams.show', $team);
+    }
+
+    public function bulkDestroy(Request $request, Team $team): RedirectResponse
+    {
+        Gate::authorize('update', $team);
+
+        $coachIds = $request->validate([
+            'coach_ids' => ['required', 'array', 'min:1'],
+            'coach_ids.*' => ['integer'],
+        ])['coach_ids'];
+
+        $rows = CoachAssignment::where('team_id', $team->id)
+            ->whereIn('coach_id', $coachIds)
+            ->get();
+
+        foreach ($rows as $row) {
+            $row->delete();
+        }
+
+        $deleted = $rows->count();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':count coaches removed from team.', ['count' => $deleted])]);
 
         return to_route('teams.show', $team);
     }

@@ -9,17 +9,12 @@ use App\Http\Requests\Members\UpdateMemberRequest;
 use App\Http\Resources\MemberResource;
 use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
-use App\Models\Achievement;
-use App\Models\AuditLog;
 use App\Models\District;
 use App\Models\Member;
-use App\Models\Participation;
 use App\Models\Sport;
-use App\Models\SportSession;
-use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\Unit;
-use App\Models\User;
+use App\Services\AuditLogBuilder;
 use App\Services\MemberCodeGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -106,7 +101,7 @@ class MemberController extends Controller
         return to_route('members.show', $member);
     }
 
-    public function show(Member $member): Response
+    public function show(Member $member, AuditLogBuilder $auditLogBuilder): Response
     {
         Gate::authorize('view', $member);
 
@@ -119,7 +114,7 @@ class MemberController extends Controller
                 $member->aliases()->get()
             )->resolve()),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
-                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi', 'session:id,name'])
+                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi,name_en', 'session:id,name'])
                 ->orderByDesc('id')
                 ->get()
                 ->map(fn ($tm) => [
@@ -159,7 +154,7 @@ class MemberController extends Controller
                         'remarks' => $b->remarks,
                     ])->all(),
                 ])->all()),
-            'auditLog' => Inertia::defer(fn () => $this->buildAuditLog($member)),
+            'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forMember($member)),
         ]);
     }
 
@@ -195,268 +190,5 @@ class MemberController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member deleted.')]);
 
         return to_route('members.index');
-    }
-
-    /**
-     * Build a human-readable audit timeline for a member.
-     *
-     * Includes changes to the Member itself and to its MemberLegacyAchievements.
-     * FK fields (sport_id, current_unit_id, home_district_id) are resolved to
-     * their display labels so the frontend needs no extra lookups.
-     *
-     * @return array<int, array{id: int, action: string, subject: string, at: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
-     */
-    private function buildAuditLog(Member $member): array
-    {
-        // ─── Collect live entity IDs (for 'updated' log queries) ─────────
-        $statusHistoryIds = $member->statusHistory()->pluck('id');
-        $aliasIds = $member->aliases()->pluck('id');
-        $legacyAchIds = $member->legacyAchievements()->pluck('id');
-        $teamMemberIds = TeamMember::where('member_id', $member->id)->pluck('id');
-
-        // One query gives participation IDs + builds both label maps
-        $participations = Participation::where('member_id', $member->id)
-            ->with(['event:id,name_hi,tournament_id', 'event.tournament:id,name_hi'])
-            ->get();
-        $participationIds = $participations->pluck('id');
-        $achievementIds = $participationIds->isNotEmpty()
-            ? Achievement::whereIn('participation_id', $participationIds)->pluck('id')
-            : collect();
-
-        // ─── Gather all relevant audit logs ──────────────────────────────
-
-        // Member itself — all actions identified by entity_id
-        $logs = AuditLog::where('entity', 'Member')
-            ->where('entity_id', $member->id)
-            ->get();
-
-        // Entities that store member_id directly in the flat diff
-        $directEntities = [
-            ['entity' => 'MemberStatusHistory',     'ids' => $statusHistoryIds],
-            ['entity' => 'NameAlias',               'ids' => $aliasIds],
-            ['entity' => 'TeamMember',              'ids' => $teamMemberIds],
-            ['entity' => 'Participation',           'ids' => $participationIds],
-            ['entity' => 'MemberLegacyAchievement', 'ids' => $legacyAchIds],
-        ];
-
-        foreach ($directEntities as ['entity' => $entity, 'ids' => $ids]) {
-            // created/deleted: member_id is a top-level key in the flat diff
-            $logs = $logs->merge(
-                AuditLog::where('entity', $entity)
-                    ->whereIn('action', ['created', 'deleted'])
-                    ->whereRaw("JSON_EXTRACT(diff, '$.member_id') = ?", [$member->id])
-                    ->get()
-            );
-            // updated: identified by live entity_id
-            if ($ids->isNotEmpty()) {
-                $logs = $logs->merge(
-                    AuditLog::where('entity', $entity)
-                        ->where('action', 'updated')
-                        ->whereIn('entity_id', $ids)
-                        ->get()
-                );
-            }
-        }
-
-        // Achievement links via participation_id, not member_id — 2-hop query
-        if ($participationIds->isNotEmpty()) {
-            $pidList = $participationIds->all();
-            $holders = implode(',', array_fill(0, count($pidList), '?'));
-            $logs = $logs->merge(
-                AuditLog::where('entity', 'Achievement')
-                    ->whereIn('action', ['created', 'deleted'])
-                    ->whereRaw("JSON_EXTRACT(diff, '$.participation_id') IN ({$holders})", $pidList)
-                    ->get()
-            );
-            if ($achievementIds->isNotEmpty()) {
-                $logs = $logs->merge(
-                    AuditLog::where('entity', 'Achievement')
-                        ->where('action', 'updated')
-                        ->whereIn('entity_id', $achievementIds)
-                        ->get()
-                );
-            }
-        }
-
-        $allLogs = $logs->unique('id')->sortByDesc('at')->values();
-
-        // ─── Pre-load label maps (one query each, no N+1) ────────────────
-        $sportMap = Sport::pluck('name_hi', 'id');
-        $unitMap = Unit::pluck('name_hi', 'id');
-        $districtMap = District::pluck('name_hi', 'id');
-        $userMap = User::pluck('name', 'id');
-        $teamMap = Team::pluck('name_hi', 'id');
-        $sessionMap = SportSession::pluck('name', 'id');
-
-        // event_id  → "EventName · TournamentName"  (for Participation diff)
-        $eventLabelMap = $participations->mapWithKeys(fn (Participation $p) => [
-            $p->event_id => $p->event->name_hi.' · '.$p->event->tournament?->name_hi,
-        ]);
-        // participation_id → same label                (for Achievement diff)
-        $participationLabelMap = $participations->mapWithKeys(fn (Participation $p) => [
-            $p->id => $p->event->name_hi.' · '.$p->event->tournament?->name_hi,
-        ]);
-
-        // ─── Subject labels ───────────────────────────────────────────────
-        $subjectMap = [
-            'Member' => 'Member',
-            'MemberStatusHistory' => 'Status',
-            'NameAlias' => 'Alias',
-            'TeamMember' => 'Team membership',
-            'Participation' => 'Tournament participation',
-            'Achievement' => 'Achievement',
-            'MemberLegacyAchievement' => 'Legacy achievement',
-        ];
-
-        // ─── Field label maps (one per entity) ───────────────────────────
-        $fieldLabelMap = [
-            'Member' => [
-                'full_name_hi' => 'Name (Hindi)',
-                'full_name_en' => 'Name (English)',
-                'father_name_hi' => "Father's name",
-                'pno' => 'PNO',
-                'rank' => 'Rank',
-                'gender' => 'Gender',
-                'dob' => 'Date of birth',
-                'mobile' => 'Mobile',
-                'current_status' => 'Status',
-                'player_category' => 'Category',
-                'player_level' => 'Level',
-                'sport_id' => 'Sport',
-                'sport_event' => 'Sport event',
-                'current_unit_id' => 'Unit',
-                'home_district_id' => 'Home district',
-                'joining_date' => 'Joining date',
-                'blood_group' => 'Blood group',
-                'caste' => 'Caste',
-                'recruitment_type' => 'Recruitment type',
-                'appointment' => 'Appointment',
-                'promotion_date' => 'Promotion date',
-                'team_since' => 'Team since',
-                'home_address' => 'Home address',
-                'other_notes' => 'Other notes',
-                'photo_path' => 'Photo',
-            ],
-            'MemberStatusHistory' => [
-                'status' => 'Status',
-                'effective_on' => 'Effective on',
-                'reason_hi' => 'Reason',
-                'recorded_by' => 'Recorded by',
-            ],
-            'NameAlias' => [
-                'alias_hi' => 'Alias',
-                'source' => 'Source',
-            ],
-            'TeamMember' => [
-                'team_id' => 'Team',
-                'session_id' => 'Session',
-                'role' => 'Role',
-                'joined_on' => 'Joined on',
-                'left_on' => 'Left on',
-            ],
-            'Participation' => [
-                'event_id' => 'Event',
-                'session_id' => 'Session',
-                'team_id' => 'Team',
-                'position' => 'Position',
-            ],
-            'Achievement' => [
-                'participation_id' => 'Event',
-                'medal_type' => 'Medal',
-                'position' => 'Position',
-                'remarks' => 'Remarks',
-            ],
-            'MemberLegacyAchievement' => [
-                'period' => 'Period',
-                'level' => 'Level',
-                'competition_details' => 'Competition',
-                'event_date' => 'Event date',
-                'venue' => 'Venue',
-                'sport_discipline' => 'Sport discipline',
-                'event' => 'Event',
-                'medal_type' => 'Medal',
-                'sort_order' => 'Sort order',
-            ],
-        ];
-
-        // Fields to suppress from flat created/deleted diffs
-        $hiddenFields = [
-            'Member' => ['id', 'organization_id', 'full_name_normalized', 'source_refs', 'deleted_at'],
-            'MemberStatusHistory' => ['id', 'member_id'],
-            'NameAlias' => ['id', 'member_id', 'alias_normalized'],
-            'TeamMember' => ['id', 'member_id'],
-            'Participation' => ['id', 'member_id'],
-            'Achievement' => ['id'],
-            'MemberLegacyAchievement' => ['id', 'organization_id', 'member_id'],
-        ];
-
-        // ─── Value resolver ───────────────────────────────────────────────
-        $resolve = function (string $entity, string $field, mixed $value) use (
-            $sportMap, $unitMap, $districtMap, $userMap,
-            $teamMap, $sessionMap, $eventLabelMap, $participationLabelMap
-        ): ?string {
-            if ($value === null) {
-                return null;
-            }
-
-            return match (true) {
-                $entity === 'Member' && $field === 'sport_id' => $sportMap->get((int) $value) ?? (string) $value,
-                $entity === 'Member' && $field === 'current_unit_id' => $unitMap->get((int) $value) ?? (string) $value,
-                $entity === 'Member' && $field === 'home_district_id' => $districtMap->get((int) $value) ?? (string) $value,
-                $entity === 'Member' && $field === 'photo_path' => '✓',
-                $field === 'team_id' => $teamMap->get((int) $value) ?? (string) $value,
-                $field === 'session_id' => $sessionMap->get((int) $value) ?? (string) $value,
-                $field === 'recorded_by' => $userMap->get((int) $value) ?? (string) $value,
-                $field === 'event_id' => $eventLabelMap->get((int) $value) ?? (string) $value,
-                $field === 'participation_id' => $participationLabelMap->get((int) $value) ?? (string) $value,
-                default => (string) $value,
-            };
-        };
-
-        // ─── Map each log to the output shape ────────────────────────────
-        return $allLogs->map(function (AuditLog $log) use (
-            $subjectMap, $fieldLabelMap, $hiddenFields, $resolve, $userMap
-        ): array {
-            $entity = $log->entity;
-            $diff = $log->diff ?? [];
-            $changes = [];
-            $subject = $subjectMap[$entity] ?? $entity;
-            $labels = $fieldLabelMap[$entity] ?? [];
-            $hidden = $hiddenFields[$entity] ?? [];
-
-            if ($log->action === 'updated' && isset($diff['old'], $diff['new'])) {
-                foreach ($diff['new'] as $field => $newVal) {
-                    $oldVal = $diff['old'][$field] ?? null;
-                    $changes[] = [
-                        'field' => $labels[$field] ?? $field,
-                        'old' => $resolve($entity, $field, $oldVal),
-                        'new' => $resolve($entity, $field, $newVal),
-                    ];
-                }
-            } else {
-                // created or deleted — flat attributes stored in diff
-                $isDeleted = $log->action === 'deleted';
-                foreach ($diff as $field => $value) {
-                    if (in_array($field, $hidden, true) || $value === null || $value === '') {
-                        continue;
-                    }
-                    $resolved = $resolve($entity, $field, $value);
-                    $changes[] = [
-                        'field' => $labels[$field] ?? $field,
-                        'old' => $isDeleted ? $resolved : null,
-                        'new' => $isDeleted ? null : $resolved,
-                    ];
-                }
-            }
-
-            return [
-                'id' => $log->id,
-                'action' => $log->action,
-                'subject' => $subject,
-                'at' => $log->at->toIso8601String(),
-                'by' => $log->user_id ? ($userMap->get($log->user_id) ?? '#'.$log->user_id) : null,
-                'changes' => $changes,
-            ];
-        })->all();
     }
 }

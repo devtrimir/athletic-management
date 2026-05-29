@@ -47,7 +47,7 @@ class TournamentExportController extends Controller
         if (! empty($ids)) {
             $tournaments = Tournament::whereIn('id', array_map('intval', $ids))
                 ->withCount('events')
-                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name_hi'])
+                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name_hi,name_en'])
                 ->orderBy('name_hi')
                 ->get();
         } else {
@@ -61,7 +61,7 @@ class TournamentExportController extends Controller
                 ->allowedSorts(['name_hi', 'date_from', 'created_at'])
                 ->defaultSort('-date_from')
                 ->withCount('events')
-                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name_hi'])
+                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name_hi,name_en'])
                 ->when(
                     ! $request->has('filter.session_id') && $defaultSessionId,
                     fn ($q) => $q->where('session_id', $defaultSessionId)

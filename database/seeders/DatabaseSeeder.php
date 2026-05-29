@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             TeamSeeder::class,
             TeamMemberSeeder::class,
             AdminUserSeeder::class,
+            RbacRolesSeeder::class,
             CoachSeeder::class,
             TyagpatraSeeder::class,
         ]);

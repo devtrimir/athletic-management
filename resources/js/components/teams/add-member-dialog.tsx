@@ -40,15 +40,19 @@ export function AddMemberDialog({ open, onOpenChange, team, sessions }: Props) {
     const [filterCategory, setFilterCategory] = useState('');
     const [filterLevel, setFilterLevel] = useState('');
 
-    const { data, setData, post, errors, processing, reset } = useForm({
-        member_id: '',
+    const { data, setData, post, errors, processing, reset } = useForm<{
+        member_ids: string[];
+        session_id: string;
+        role: string;
+    }>({
+        member_ids: [],
         session_id: team.session ? String(team.session.id) : '',
         role: 'PLAYER',
     });
 
     function handleMemberChange(m: MemberOption | null) {
         setPickedMember(m);
-        setData('member_id', m ? String(m.id) : '');
+        setData('member_ids', m ? [String(m.id)] : []);
     }
 
     function handleSubmit(e: React.FormEvent) {
@@ -133,7 +137,7 @@ extraFilters.player_level = filterLevel;
                             onChange={handleMemberChange}
                             extraFilters={extraFilters}
                         />
-                        <InputError message={errors.member_id} />
+                        <InputError message={errors.member_ids ?? (errors as Record<string, string>)['member_ids.0']} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

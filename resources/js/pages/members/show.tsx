@@ -12,6 +12,8 @@ import { show as showTournament } from '@/actions/App/Http/Controllers/Tournamen
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
+import { ChangeLog  } from '@/components/shared/change-log';
+import type {AuditEntry} from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -95,9 +97,6 @@ const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destr
     BRONZE: 'outline',
     MERIT: 'outline',
 };
-
-type AuditChange = { field: string; old: string | null; new: string | null };
-type AuditEntry = { id: number; action: string; subject: string; at: string; by: string | null; changes: AuditChange[] };
 
 type LegacyAchievement = {
     id: number;
@@ -248,7 +247,7 @@ return;
         win.document.write(html);
         win.document.close();
         win.onload = () => {
- win.print(); win.close(); 
+ win.print(); win.close();
 };
     }
 
@@ -608,51 +607,7 @@ return;
                                 </div>
                             }
                         >
-                            {!auditLog || auditLog.length === 0 ? (
-                                <p className="py-6 text-center text-sm text-muted-foreground">{t('No changes recorded yet.')}</p>
-                            ) : (
-                                <ol className="relative ml-3 border-l border-border space-y-6 py-2">
-                                    {auditLog.map((entry) => (
-                                        <li key={entry.id} className="ms-6">
-                                            <span className="absolute -start-2 flex h-4 w-4 items-center justify-center rounded-full bg-muted ring-2 ring-background" />
-                                            <div className="mb-1 flex items-center gap-2">
-                                                <time className="text-xs text-muted-foreground">
-                                                    {new Date(entry.at).toLocaleString('hi-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                                                </time>
-                                                {entry.by && (
-                                                    <span className="text-xs text-muted-foreground">— {entry.by}</span>
-                                                )}
-                                                <Badge variant="outline" className="text-xs capitalize">
-                                                    {t(entry.action)}
-                                                </Badge>
-                                                {entry.subject !== 'Member' && (
-                                                    <Badge variant="secondary" className="text-xs">
-                                                        {t(entry.subject)}
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                            {entry.changes.length > 0 && (
-                                                <ul className="mt-1 space-y-1">
-                                                    {entry.changes.map((ch, i) => (
-                                                        <li key={i} className="text-sm">
-                                                            <span className="font-medium">{t(ch.field)}:</span>{' '}
-                                                            {ch.old !== null ? (
-                                                                <>
-                                                                    <span className="line-through text-muted-foreground">{ch.old}</span>
-                                                                    {' → '}
-                                                                    <span className="text-foreground">{ch.new ?? '—'}</span>
-                                                                </>
-                                                            ) : (
-                                                                <span className="text-foreground">{ch.new ?? '—'}</span>
-                                                            )}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </li>
-                                    ))}
-                                </ol>
-                            )}
+                            <ChangeLog entries={auditLog} primaryEntity="Member" storageKey="member-changelog-view" />
                         </Deferred>
                     </TabsContent>
                 </Tabs>

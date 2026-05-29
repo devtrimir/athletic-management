@@ -54,6 +54,7 @@ type PaginatedTeams = {
 
 type Filters = {
     q?: string;
+    pno?: string;
     session_id?: string;
     sport_id?: string;
     unit_id?: string;
@@ -83,12 +84,15 @@ export default function TeamsIndex({
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
 
     const [query, setQuery] = useState(filters.q ?? '');
+    const [pnoQuery, setPnoQuery] = useState(filters.pno ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pnoDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const applyFilters = useCallback(
         (patch: Partial<Filters>) => {
             const current: Filters = {
                 q: query || undefined,
+                pno: pnoQuery || undefined,
                 session_id: filters.session_id,
                 sport_id: filters.sport_id,
                 unit_id: filters.unit_id,
@@ -99,6 +103,10 @@ export default function TeamsIndex({
 
             if (merged.q) {
                 clean['filter[q]'] = merged.q;
+            }
+
+            if (merged.pno) {
+                clean['filter[pno]'] = merged.pno;
             }
 
             if (merged.session_id) {
@@ -118,7 +126,7 @@ export default function TeamsIndex({
                 replace: true,
             });
         },
-        [query, filters.session_id, filters.sport_id, filters.unit_id],
+        [query, pnoQuery, filters.session_id, filters.sport_id, filters.unit_id],
     );
 
     useEffect(() => {
@@ -137,6 +145,23 @@ export default function TeamsIndex({
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
+
+    useEffect(() => {
+        if (pnoDebounceRef.current) {
+            clearTimeout(pnoDebounceRef.current);
+        }
+
+        pnoDebounceRef.current = setTimeout(() => {
+            applyFilters({ pno: pnoQuery || undefined });
+        }, 400);
+
+        return () => {
+            if (pnoDebounceRef.current) {
+                clearTimeout(pnoDebounceRef.current);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pnoQuery]);
 
     function toggleRow(id: number) {
         setSelectedIds((prev) => {
@@ -180,6 +205,10 @@ export default function TeamsIndex({
         } else {
             if (filters.q) {
 params.append('filter[q]', filters.q);
+}
+
+            if (filters.pno) {
+params.append('filter[pno]', filters.pno);
 }
 
             if (filters.session_id) {
@@ -241,6 +270,7 @@ return;
 
     const hasActiveFilters = !!(
         filters.q ||
+        filters.pno ||
         filters.session_id ||
         filters.sport_id ||
         filters.unit_id
@@ -275,13 +305,23 @@ return;
 
                 {/* Filter bar */}
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative max-w-xs flex-1">
+                    <div className="relative w-52">
                         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder={t('Search teams…')}
+                            placeholder={t('Search team or in-charge…')}
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             className="pl-8"
+                        />
+                    </div>
+
+                    <div className="relative w-40">
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder={t('Search by PNO…')}
+                            value={pnoQuery}
+                            onChange={(e) => setPnoQuery(e.target.value)}
+                            className="pl-8 font-mono"
                         />
                     </div>
 
@@ -348,6 +388,7 @@ return;
                             size="sm"
                             onClick={() => {
                                 setQuery('');
+                                setPnoQuery('');
                                 router.get(TeamController.index.url(), {}, {
                                     preserveState: false,
                                     replace: true,

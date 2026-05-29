@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Concerns\Auditable;
 use App\Concerns\Tenanted;
+use App\Observers\AuditObserver;
 use Database\Factories\TeamFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,10 +43,11 @@ use Illuminate\Support\Carbon;
     'name_hi',
     'in_charge_hi',
 ])]
+#[ObservedBy([AuditObserver::class])]
 class Team extends Model
 {
     /** @use HasFactory<TeamFactory> */
-    use HasFactory, SoftDeletes, Tenanted;
+    use Auditable, HasFactory, SoftDeletes, Tenanted;
 
     /** @return BelongsTo<Organization, $this> */
     public function organization(): BelongsTo

@@ -58,8 +58,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('tournaments/{tournament}/events/{event}/participants/{participation}', [EventParticipantController::class, 'destroy'])
         ->name('tournaments.events.participants.destroy')->scopeBindings();
     Route::post('teams/{team}/members', [TeamMemberController::class, 'store'])->name('teams.members.store');
+    Route::delete('teams/{team}/members/bulk', [TeamMemberController::class, 'bulkDestroy'])->name('teams.members.bulkDestroy');
     Route::delete('teams/{team}/members/{member}', [TeamMemberController::class, 'destroy'])->name('teams.members.destroy');
     Route::post('teams/{team}/coaches', [TeamCoachController::class, 'store'])->name('teams.coaches.store');
+    Route::delete('teams/{team}/coaches/bulk', [TeamCoachController::class, 'bulkDestroy'])->name('teams.coaches.bulkDestroy');
     Route::delete('teams/{team}/coaches/{coach}', [TeamCoachController::class, 'destroy'])->name('teams.coaches.destroy');
     Route::post('teams/{team}/clone', TeamCloneController::class)->name('teams.clone');
     Route::post('members/{member}/status', [MemberStatusController::class, 'store'])->name('members.status.store');
