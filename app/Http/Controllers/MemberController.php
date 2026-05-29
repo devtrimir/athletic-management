@@ -9,11 +9,13 @@ use App\Http\Requests\Members\UpdateMemberRequest;
 use App\Http\Resources\MemberResource;
 use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
+use App\Models\AuditLog;
 use App\Models\District;
 use App\Models\Member;
 use App\Models\Sport;
 use App\Models\TeamMember;
 use App\Models\Unit;
+use App\Models\User;
 use App\Services\MemberCodeGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -153,6 +155,7 @@ class MemberController extends Controller
                         'remarks' => $b->remarks,
                     ])->all(),
                 ])->all()),
+            'auditLog' => Inertia::defer(fn () => $this->buildAuditLog($member)),
         ]);
     }
 
@@ -188,5 +191,97 @@ class MemberController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member deleted.')]);
 
         return to_route('members.index');
+    }
+
+    /**
+     * Build a human-readable audit timeline for a member.
+     *
+     * FK fields (sport_id, current_unit_id, home_district_id) are resolved to
+     * their display labels so the frontend needs no extra lookups.
+     *
+     * @return array<int, array{id: int, action: string, at: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
+     */
+    private function buildAuditLog(Member $member): array
+    {
+        $logs = AuditLog::where('entity', 'Member')
+            ->where('entity_id', $member->id)
+            ->orderByDesc('at')
+            ->get();
+
+        // Pre-load label maps to avoid N+1 queries
+        $sportMap = Sport::pluck('name_hi', 'id');
+        $unitMap = Unit::pluck('name_hi', 'id');
+        $districtMap = District::pluck('name_hi', 'id');
+        $userMap = User::pluck('name', 'id');
+
+        /** Human-readable field labels (PHP-side; frontend translates via t()). */
+        $fieldLabels = [
+            'full_name_hi' => 'Name (Hindi)',
+            'full_name_en' => 'Name (English)',
+            'father_name_hi' => "Father's name",
+            'pno' => 'PNO',
+            'rank' => 'Rank',
+            'gender' => 'Gender',
+            'dob' => 'Date of birth',
+            'mobile' => 'Mobile',
+            'current_status' => 'Status',
+            'player_category' => 'Category',
+            'player_level' => 'Level',
+            'sport_id' => 'Sport',
+            'sport_event' => 'Sport event',
+            'current_unit_id' => 'Unit',
+            'home_district_id' => 'Home district',
+            'joining_date' => 'Joining date',
+            'blood_group' => 'Blood group',
+            'caste' => 'Caste',
+            'recruitment_type' => 'Recruitment type',
+            'appointment' => 'Appointment',
+            'promotion_date' => 'Promotion date',
+            'team_since' => 'Team since',
+            'home_address' => 'Home address',
+            'other_notes' => 'Other notes',
+            'photo_path' => 'Photo',
+        ];
+
+        $resolve = function (string $field, mixed $value) use ($sportMap, $unitMap, $districtMap): ?string {
+            if ($value === null) {
+                return null;
+            }
+
+            return match ($field) {
+                'sport_id' => $sportMap->get((int) $value) ?? (string) $value,
+                'current_unit_id' => $unitMap->get((int) $value) ?? (string) $value,
+                'home_district_id' => $districtMap->get((int) $value) ?? (string) $value,
+                'photo_path' => $value ? '✓' : null,
+                default => (string) $value,
+            };
+        };
+
+        return $logs->map(function (AuditLog $log) use ($fieldLabels, $resolve, $userMap): array {
+            $diff = $log->diff ?? [];
+            $changes = [];
+
+            if ($log->action === 'updated' && isset($diff['old'], $diff['new'])) {
+                foreach ($diff['new'] as $field => $newVal) {
+                    $oldVal = $diff['old'][$field] ?? null;
+                    $label = $fieldLabels[$field] ?? $field;
+                    $changes[] = [
+                        'field' => $label,
+                        'old' => $resolve($field, $oldVal),
+                        'new' => $resolve($field, $newVal),
+                    ];
+                }
+            } elseif ($log->action === 'created') {
+                $changes[] = ['field' => 'action', 'old' => null, 'new' => 'created'];
+            }
+
+            return [
+                'id' => $log->id,
+                'action' => $log->action,
+                'at' => $log->at->toIso8601String(),
+                'by' => $log->user_id ? ($userMap->get($log->user_id) ?? '#'.$log->user_id) : null,
+                'changes' => $changes,
+            ];
+        })->all();
     }
 }

@@ -96,6 +96,9 @@ const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destr
     MERIT: 'outline',
 };
 
+type AuditChange = { field: string; old: string | null; new: string | null };
+type AuditEntry = { id: number; action: string; at: string; by: string | null; changes: AuditChange[] };
+
 type LegacyAchievement = {
     id: number;
     period: string;
@@ -150,12 +153,14 @@ export default function MembersShow({
     aliases,
     memberTeams,
     legacyAchievements,
+    auditLog,
 }: {
     member: Member;
     statusHistory?: StatusEntry[];
     aliases?: Alias[];
     memberTeams?: MemberTeamRow[];
     legacyAchievements?: LegacyAchievement[];
+    auditLog?: AuditEntry[];
 }) {
     const [activeTab, setActiveTab] = useState('overview');
     const [participations, setParticipations] = useState<ParticipationGroup[] | null>(null);
@@ -235,10 +240,16 @@ export default function MembersShow({
         const cells = cols.map((c) => `<td style="border:1px solid #ccc;padding:6px 10px">${getValue(c.key)}</td>`).join('');
         const html = `<!doctype html><html><head><meta charset="utf-8"><title>${member.full_name_hi}</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}@media print{@page{size:landscape}}</style></head><body><h2 style="margin-bottom:12px">${member.full_name_hi}</h2><table><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table></body></html>`;
         const win = window.open('', '_blank', 'width=900,height=600');
-        if (!win) return;
+
+        if (!win) {
+return;
+}
+
         win.document.write(html);
         win.document.close();
-        win.onload = () => { win.print(); win.close(); };
+        win.onload = () => {
+ win.print(); win.close(); 
+};
     }
 
     function buildExportUrl(): string {
@@ -332,6 +343,7 @@ return;
                         <TabsTrigger value="participations">{t('Participations')}</TabsTrigger>
                         <TabsTrigger value="achievements">{t('Achievements')}</TabsTrigger>
                         <TabsTrigger value="legacy">{t('Legacy achievements')}</TabsTrigger>
+                        <TabsTrigger value="changelog">{t('Change log')}</TabsTrigger>
                     </TabsList>
 
                     {/* Overview */}
@@ -581,6 +593,61 @@ return;
                             }
                         >
                             <LegacyAchievementsTab member={member} legacyAchievements={legacyAchievements} />
+                        </Deferred>
+                    </TabsContent>
+
+                    {/* Change log */}
+                    <TabsContent value="changelog">
+                        <Deferred
+                            data="auditLog"
+                            fallback={
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map((n) => (
+                                        <Skeleton key={n} className="h-14 w-full" />
+                                    ))}
+                                </div>
+                            }
+                        >
+                            {!auditLog || auditLog.length === 0 ? (
+                                <p className="py-6 text-center text-sm text-muted-foreground">{t('No changes recorded yet.')}</p>
+                            ) : (
+                                <ol className="relative ml-3 border-l border-border space-y-6 py-2">
+                                    {auditLog.map((entry) => (
+                                        <li key={entry.id} className="ms-6">
+                                            <span className="absolute -start-2 flex h-4 w-4 items-center justify-center rounded-full bg-muted ring-2 ring-background" />
+                                            <div className="mb-1 flex items-center gap-2">
+                                                <time className="text-xs text-muted-foreground">
+                                                    {new Date(entry.at).toLocaleString('hi-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                </time>
+                                                {entry.by && (
+                                                    <span className="text-xs text-muted-foreground">— {entry.by}</span>
+                                                )}
+                                                <Badge variant="outline" className="text-xs capitalize">
+                                                    {t(entry.action)}
+                                                </Badge>
+                                            </div>
+                                            {entry.changes.length > 0 && (
+                                                <ul className="mt-1 space-y-1">
+                                                    {entry.changes.map((ch, i) => (
+                                                        <li key={i} className="text-sm">
+                                                            <span className="font-medium">{t(ch.field)}:</span>{' '}
+                                                            {ch.old !== null ? (
+                                                                <>
+                                                                    <span className="line-through text-muted-foreground">{ch.old}</span>
+                                                                    {' → '}
+                                                                    <span className="text-foreground">{ch.new ?? '—'}</span>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-foreground">{ch.new ?? '—'}</span>
+                                                            )}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ol>
+                            )}
                         </Deferred>
                     </TabsContent>
                 </Tabs>
