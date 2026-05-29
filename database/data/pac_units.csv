@@ -1,21 +1,19 @@
 name_hi,name_en,unit_type
-04वीं वाहिनी PAC प्रयागराज,04th BN PAC Prayagraj,PAC
-06वीं वाहिनी PAC मेरठ,06th BN PAC Meerut,PAC
-09वीं वाहिनी PAC मुरादाबाद,09th BN PAC Moradabad,PAC
-10वीं वाहिनी PAC बाराबंकी,10th BN PAC Barabanki,PAC
-11वीं वाहिनी PAC सीतापुर,11th BN PAC Sitapur,PAC
-20वीं वाहिनी PAC आजमगढ़,20th BN PAC Azamgarh,PAC
-32वीं वाहिनी PAC लखनऊ,32nd BN PAC Lucknow,PAC
-35वीं वाहिनी PAC लखनऊ,35th BN PAC Lucknow,PAC
-47वीं वाहिनी PAC गाजियाबाद,47th BN PAC Ghaziabad,PAC
+04 BN PAC प्रयागराज,04 BN PAC Prayagraj,PAC
+04 BN PAC/पुलिस लाइन प्रयागराज,04 BN PAC / Police Line Prayagraj,PAC
+06 BN PAC मेरठ,06 BN PAC Meerut,PAC
+09 BN PAC मुरादाबाद,09 BN PAC Moradabad,PAC
+10 BN PAC बाराबंकी,10 BN PAC Barabanki,PAC
+10वीं वाहिनी पीएसी बाराबंकी,10th BN PAC Barabanki,PAC
+11 BN PAC सीतापुर,11 BN PAC Sitapur,PAC
+20वीं वाहिनी पीएसी आजमगढ,20th BN PAC Azamgarh,PAC
+32 BN PAC लखनऊ,32 BN PAC Lucknow,PAC
+32वीं वाहिनी पीएसी,32nd BN PAC,PAC
+35 BN PAC लखनऊ,35 BN PAC Lucknow,PAC
+47 BN PAC गाजियाबाद,47 BN PAC Ghaziabad,PAC
 पुलिस लाइन आगरा,Police Line Agra,DISTRICT
 पुलिस लाइन गाजियाबाद,Police Line Ghaziabad,DISTRICT
 पुलिस लाइन फतेहपुर,Police Line Fatehpur,DISTRICT
 पुलिस लाइन मुजफ्फरनगर,Police Line Muzaffarnagar,DISTRICT
 पुलिस लाइन मुरादाबाद,Police Line Moradabad,DISTRICT
-पुलिस लाइन मेरठ,Police Line Meerut,DISTRICT
-पुलिस लाइन लखनऊ,Police Line Lucknow,DISTRICT
-पुलिस लाइन वाराणसी,Police Line Varanasi,DISTRICT
-पुलिस लाइन कानपुर,Police Line Kanpur,DISTRICT
-पुलिस लाइन प्रयागराज,Police Line Prayagraj,DISTRICT
-पुलिस मुख्यालय लखनऊ,Police Headquarters Lucknow,HQ
+पुलिस लाइन मेरठ (डिस्पर्स),Police Line Meerut (Dispersed),DISTRICT
