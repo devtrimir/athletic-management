@@ -130,7 +130,7 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
         win.document.write(buildPrintHtml(data, t));
         win.document.close();
         setTimeout(() => {
- win.focus(); win.print(); 
+ win.focus(); win.print();
 }, 300);
     };
 
@@ -139,13 +139,14 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
     return (
         <Sheet open={open} onOpenChange={(v) => {
  if (!v) {
- onClose(); 
-} 
+ onClose();
+}
 }}>
             <SheetContent side="right" className="flex w-full flex-col sm:max-w-2xl">
                 <SheetHeader className="border-b pb-4">
                     {processing || !data ? (
                         <div className="space-y-2">
+                            <SheetTitle className="sr-only">{t('Loading…')}</SheetTitle>
                             <Skeleton className="h-6 w-48" />
                             <Skeleton className="h-4 w-32" />
                         </div>
@@ -248,7 +249,7 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
 
                 <div className="flex items-center gap-2 border-t pt-4">
                     <Button variant="outline" size="sm" onClick={() => {
- window.open(exportUrl, '_blank'); 
+ window.open(exportUrl, '_blank');
 }}>
                         {t('Export')}
                     </Button>

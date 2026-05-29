@@ -487,5 +487,14 @@
     "Medal": "पदक",
     "Level": "स्तर",
     "Contact": "संपर्क",
-    "Father's name": "पिता का नाम"
+    "Father's name": "पिता का नाम",
+    "Reason": "कारण",
+    "Code": "कोड",
+    "Mobile": "मोबाइल",
+    "Blood group": "रक्त समूह",
+    "Gender": "लिंग",
+    "Caste": "जाति",
+    "Sport": "खेल",
+    "Appointment": "नियुक्ति",
+    "Recruitment type": "भर्ती प्रकार"
 }

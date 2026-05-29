@@ -9,7 +9,41 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+
+type StatusHistoryItem = { status: string; effective_on: string; reason_hi: string | null };
+type TeamHistoryItem = { team_name_hi: string | null; session_name: string | null; role: string; joined_on: string | null; left_on: string | null };
+type AchievementItem = { period: string; level: string; competition_details: string; event: string | null; medal_type: string | null; event_date: string | null; venue: string | null };
+
+type MemberRecord = {
+    id: number;
+    member_code: string;
+    full_name_hi: string;
+    full_name_en: string | null;
+    father_name_hi: string | null;
+    rank: string | null;
+    gender: string | null;
+    dob: string | null;
+    joining_date: string | null;
+    mobile: string | null;
+    blood_group: string | null;
+    caste: string | null;
+    current_status: string;
+    promotion_date: string | null;
+    appointment: string | null;
+    recruitment_type: string | null;
+    sport_event: string | null;
+    player_level: string | null;
+    player_category: string | null;
+    team_since: string | null;
+    home_district: { name_hi: string } | null;
+    current_unit: { name_hi: string } | null;
+    sport: { name_hi: string } | null;
+    status_history: StatusHistoryItem[];
+    team_history: TeamHistoryItem[];
+    achievements: AchievementItem[];
+};
 
 type CoachPreview = {
     id: number;
@@ -18,14 +52,7 @@ type CoachPreview = {
     pno: string | null;
     mobile: string | null;
     nis_certified: boolean;
-    member: {
-        id: number;
-        member_code: string;
-        full_name_hi: string;
-        rank: string | null;
-        current_status: string;
-        current_unit: { name_hi: string } | null;
-    } | null;
+    member: MemberRecord | null;
 };
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -36,10 +63,25 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
     RETIRED: 'secondary',
 };
 
+const MEDAL_COLOR: Record<string, string> = {
+    GOLD: 'text-yellow-600',
+    SILVER: 'text-slate-500',
+    BRONZE: 'text-orange-600',
+};
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+        <div className="border-b py-4 last:border-0">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+            {children}
+        </div>
+    );
+}
+
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
     if (!value) {
-        return null;
-    }
+return null;
+}
 
     return (
         <div className="grid grid-cols-[150px_1fr] gap-1 py-0.5 text-sm">
@@ -53,14 +95,19 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     const row = (label: string, value: string | null | undefined) =>
         value ? `<div class="row"><span class="label">${label}</span><span class="val">${value}</span></div>` : '';
 
-    const memberSection = data.member
-        ? `<h2>${t('Linked member record')}</h2>
-          ${row(t('Name'), data.member.full_name_hi)}
-          ${row(t('Code'), data.member.member_code)}
-          ${row(t('Rank'), data.member.rank ? t(data.member.rank) : null)}
-          ${row(t('Status'), t(data.member.current_status))}
-          ${row(t('Unit'), data.member.current_unit?.name_hi)}`
-        : '';
+    const m = data.member;
+
+    const statusRows = m?.status_history.map(
+        (h) => `<tr><td>${h.effective_on}</td><td>${t(h.status)}</td><td>${h.reason_hi ?? '—'}</td></tr>`,
+    ).join('') ?? '';
+
+    const teamRows = m?.team_history.map(
+        (th) => `<tr><td>${th.team_name_hi ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${th.joined_on ?? '—'}</td><td>${th.left_on ?? t('Present')}</td></tr>`,
+    ).join('') ?? '';
+
+    const achievementRows = m?.achievements.map(
+        (a) => `<tr><td>${t(a.level)}</td><td>${a.competition_details}</td><td>${a.event ?? '—'}</td><td>${a.medal_type ? t(a.medal_type) : '—'}</td><td>${a.event_date ?? '—'}</td></tr>`,
+    ).join('') ?? '';
 
     return `<!DOCTYPE html><html><head>
     <meta charset="utf-8"><title>${data.full_name_hi}</title>
@@ -72,6 +119,9 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
         .meta{font-size:12px;color:#555;font-family:monospace}
         .row{display:grid;grid-template-columns:150px 1fr;gap:4px;padding:1px 0}
         .label{color:#555}.val{font-weight:500}
+        table{width:100%;border-collapse:collapse;margin-top:4px}
+        th{background:#f0f0f0;text-align:left;padding:4px 8px;font-size:12px;border:1px solid #ccc}
+        td{padding:4px 8px;border:1px solid #ccc;font-size:12px}
         @media print{@page{margin:1cm}}
     </style></head><body>
     <div class="header">
@@ -80,7 +130,38 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     </div>
     <h2>${t('Contact')}</h2>
     ${row(t('Mobile'), data.mobile)}
-    ${memberSection}
+    ${m ? `
+    <h2>${t('Personal')}</h2>
+    ${row(t("Father's name"), m.father_name_hi)}
+    ${row(t('Date of birth'), m.dob)}
+    ${row(t('Gender'), m.gender ? t(m.gender) : null)}
+    ${row(t('Blood group'), m.blood_group)}
+    ${row(t('Caste'), m.caste)}
+    ${row(t('Mobile'), m.mobile)}
+    ${row(t('Home district'), m.home_district?.name_hi)}
+    <h2>${t('Service')}</h2>
+    ${row(t('Code'), m.member_code)}
+    ${row(t('Rank'), m.rank ? t(m.rank) : null)}
+    ${row(t('Current unit'), m.current_unit?.name_hi)}
+    ${row(t('Joining date'), m.joining_date)}
+    ${row(t('Promotion date'), m.promotion_date)}
+    ${row(t('Recruitment type'), m.recruitment_type ? t(m.recruitment_type) : null)}
+    ${row(t('Appointment'), m.appointment)}
+    ${row(t('Sport'), m.sport?.name_hi)}
+    ${row(t('Sport event'), m.sport_event)}
+    ${row(t('Player level'), m.player_level ? t(m.player_level) : null)}
+    ${row(t('Player category'), m.player_category ? t(m.player_category) : null)}
+    ${row(t('Team since'), m.team_since)}
+    ${m.status_history.length ? `<h2>${t('Status history')}</h2>
+    <table><thead><tr><th>${t('Date')}</th><th>${t('Status')}</th><th>${t('Reason')}</th></tr></thead>
+    <tbody>${statusRows}</tbody></table>` : ''}
+    ${m.team_history.length ? `<h2>${t('Team history')}</h2>
+    <table><thead><tr><th>${t('Team')}</th><th>${t('Session')}</th><th>${t('Role')}</th><th>${t('Joined')}</th><th>${t('Left')}</th></tr></thead>
+    <tbody>${teamRows}</tbody></table>` : ''}
+    ${m.achievements.length ? `<h2>${t('Achievements')}</h2>
+    <table><thead><tr><th>${t('Level')}</th><th>${t('Competition')}</th><th>${t('Event')}</th><th>${t('Medal')}</th><th>${t('Date')}</th></tr></thead>
+    <tbody>${achievementRows}</tbody></table>` : ''}
+    ` : ''}
     </body></html>`;
 }
 
@@ -108,14 +189,14 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
 
     const handlePrint = () => {
         if (!data) {
-            return;
-        }
+return;
+}
 
         const win = window.open('', '_blank', 'width=900,height=700');
 
         if (!win) {
-            return;
-        }
+return;
+}
 
         win.document.write(buildPrintHtml(data, t));
         win.document.close();
@@ -132,10 +213,11 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
  onClose(); 
 } 
 }}>
-            <SheetContent side="right" className="flex w-full flex-col sm:max-w-xl">
+            <SheetContent side="right" className="flex w-full flex-col sm:max-w-2xl">
                 <SheetHeader className="border-b pb-4">
                     {processing || !data ? (
                         <div className="space-y-2">
+                            <SheetTitle className="sr-only">{t('Loading…')}</SheetTitle>
                             <Skeleton className="h-6 w-48" />
                             <Skeleton className="h-4 w-32" />
                         </div>
@@ -147,9 +229,18 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                             )}
                             <div className="flex flex-wrap items-center gap-2 pt-1">
                                 {data.pno && <span className="font-mono text-xs text-muted-foreground">{data.pno}</span>}
-                                <Badge variant={data.nis_certified ? 'default' : 'secondary'}>
+                                {data.member?.member_code && (
+                                    <span className="font-mono text-xs text-muted-foreground">· {data.member.member_code}</span>
+                                )}
+                                {data.member?.rank && <span className="text-xs font-medium">{t(data.member.rank)}</span>}
+                                <Badge variant={data.nis_certified ? 'default' : 'secondary'} className="ml-auto">
                                     {data.nis_certified ? t('NIS Certified') : t('Not NIS Certified')}
                                 </Badge>
+                                {data.member && (
+                                    <Badge variant={STATUS_VARIANT[data.member.current_status] ?? 'outline'}>
+                                        {t(data.member.current_status)}
+                                    </Badge>
+                                )}
                             </div>
                         </>
                     )}
@@ -158,7 +249,7 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                 <div className="flex-1 overflow-y-auto px-1">
                     {processing && (
                         <div className="space-y-3 py-4">
-                            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-4 w-full" />)}
+                            {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-4 w-full" />)}
                         </div>
                     )}
 
@@ -168,25 +259,112 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
 
                     {data && (
                         <div className="py-2">
-                            <div className="border-b py-4">
-                                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('Contact')}</h3>
-                                <InfoRow label={t('Mobile')} value={data.mobile} />
-                            </div>
+                            <Section title={t('Contact')}>
+                                <InfoRow label={t('Mobile')} value={data.mobile ?? data.member?.mobile} />
+                            </Section>
 
                             {data.member && (
-                                <div className="border-b py-4 last:border-0">
-                                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('Linked member record')}</h3>
-                                    <InfoRow label={t('Name')} value={data.member.full_name_hi} />
-                                    <InfoRow label={t('Code')} value={data.member.member_code} />
-                                    <InfoRow label={t('Rank')} value={data.member.rank ? t(data.member.rank) : null} />
-                                    <div className="grid grid-cols-[150px_1fr] gap-1 py-0.5 text-sm">
-                                        <span className="text-muted-foreground">{t('Status')}</span>
-                                        <Badge variant={STATUS_VARIANT[data.member.current_status] ?? 'outline'} className="w-fit">
-                                            {t(data.member.current_status)}
-                                        </Badge>
-                                    </div>
-                                    <InfoRow label={t('Unit')} value={data.member.current_unit?.name_hi} />
-                                </div>
+                                <>
+                                    <Section title={t('Personal')}>
+                                        <InfoRow label={t("Father's name")} value={data.member.father_name_hi} />
+                                        <InfoRow label={t('Date of birth')} value={data.member.dob} />
+                                        <InfoRow label={t('Gender')} value={data.member.gender ? t(data.member.gender) : null} />
+                                        <InfoRow label={t('Blood group')} value={data.member.blood_group} />
+                                        <InfoRow label={t('Caste')} value={data.member.caste} />
+                                        <InfoRow label={t('Home district')} value={data.member.home_district?.name_hi} />
+                                    </Section>
+
+                                    <Section title={t('Service')}>
+                                        <InfoRow label={t('Current unit')} value={data.member.current_unit?.name_hi} />
+                                        <InfoRow label={t('Joining date')} value={data.member.joining_date} />
+                                        <InfoRow label={t('Promotion date')} value={data.member.promotion_date} />
+                                        <InfoRow label={t('Recruitment type')} value={data.member.recruitment_type ? t(data.member.recruitment_type) : null} />
+                                        <InfoRow label={t('Appointment')} value={data.member.appointment} />
+                                        <InfoRow label={t('Sport')} value={data.member.sport?.name_hi} />
+                                        <InfoRow label={t('Sport event')} value={data.member.sport_event} />
+                                        <InfoRow label={t('Player level')} value={data.member.player_level ? t(data.member.player_level) : null} />
+                                        <InfoRow label={t('Player category')} value={data.member.player_category ? t(data.member.player_category) : null} />
+                                        <InfoRow label={t('Team since')} value={data.member.team_since} />
+                                    </Section>
+
+                                    {data.member.status_history.length > 0 && (
+                                        <Section title={t('Status history')}>
+                                            <div className="space-y-3">
+                                                {data.member.status_history.map((h, i) => (
+                                                    <div key={i} className="flex gap-3 text-sm">
+                                                        <div className="mt-0.5 flex flex-col items-center">
+                                                            <span className="h-2.5 w-2.5 rounded-full border-2 border-primary bg-background" />
+                                                            {i < data.member!.status_history.length - 1 && (
+                                                                <span className="mt-1 w-px flex-1 bg-border" />
+                                                            )}
+                                                        </div>
+                                                        <div className="pb-3">
+                                                            <span className="font-mono text-xs text-muted-foreground">{h.effective_on}</span>
+                                                            <p className="font-semibold">{t(h.status)}</p>
+                                                            {h.reason_hi && <p className="text-muted-foreground">{h.reason_hi}</p>}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </Section>
+                                    )}
+
+                                    {data.member.team_history.length > 0 && (
+                                        <Section title={t('Team history')}>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>{t('Team')}</TableHead>
+                                                        <TableHead>{t('Session')}</TableHead>
+                                                        <TableHead>{t('Role')}</TableHead>
+                                                        <TableHead>{t('Joined')}</TableHead>
+                                                        <TableHead>{t('Left')}</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {data.member.team_history.map((th, i) => (
+                                                        <TableRow key={i}>
+                                                            <TableCell className="font-medium">{th.team_name_hi ?? '—'}</TableCell>
+                                                            <TableCell className="text-xs">{th.session_name ?? '—'}</TableCell>
+                                                            <TableCell className="text-xs">{t(th.role)}</TableCell>
+                                                            <TableCell className="font-mono text-xs">{th.joined_on ?? '—'}</TableCell>
+                                                            <TableCell className="font-mono text-xs">{th.left_on ?? t('Present')}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </Section>
+                                    )}
+
+                                    {data.member.achievements.length > 0 && (
+                                        <Section title={t('Achievements')}>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>{t('Level')}</TableHead>
+                                                        <TableHead>{t('Competition')}</TableHead>
+                                                        <TableHead>{t('Event')}</TableHead>
+                                                        <TableHead>{t('Medal')}</TableHead>
+                                                        <TableHead>{t('Date')}</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {data.member.achievements.map((a, i) => (
+                                                        <TableRow key={i}>
+                                                            <TableCell className="whitespace-nowrap text-xs font-medium">{t(a.level)}</TableCell>
+                                                            <TableCell className="text-xs">{a.competition_details}</TableCell>
+                                                            <TableCell className="text-xs">{a.event ?? '—'}</TableCell>
+                                                            <TableCell className={`text-xs font-semibold ${MEDAL_COLOR[a.medal_type ?? ''] ?? ''}`}>
+                                                                {a.medal_type ? t(a.medal_type) : '—'}
+                                                            </TableCell>
+                                                            <TableCell className="font-mono text-xs">{a.event_date ?? '—'}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </Section>
+                                    )}
+                                </>
                             )}
                         </div>
                     )}
