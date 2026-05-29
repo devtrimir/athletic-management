@@ -115,7 +115,7 @@ function AddAchievementDialog({
                     {t('Add achievement')}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg" aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>{t('Add achievement')}</DialogTitle>
                 </DialogHeader>
@@ -195,14 +195,14 @@ function AddAchievementDialog({
                     <div className="grid gap-2">
                         <Label>{t('Medal')}</Label>
                         <Select
-                            value={form.data.medal_type}
-                            onValueChange={(v) => form.setData('medal_type', v)}
+                            value={form.data.medal_type || '__none__'}
+                            onValueChange={(v) => form.setData('medal_type', v === '__none__' ? '' : v)}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue placeholder={t('Select medal')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">{t('No medal')}</SelectItem>
+                                <SelectItem value="__none__">{t('No medal')}</SelectItem>
                                 {MEDALS.map((m) => (
                                     <SelectItem key={m} value={m}>
                                         {t(m)}
@@ -267,7 +267,7 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
                     {t('Add benefit')}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md" aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>{t('Add benefit')}</DialogTitle>
                 </DialogHeader>

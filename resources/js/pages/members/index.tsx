@@ -819,7 +819,7 @@ params[param] = filters[k]!;
 
             {/* Export Dialog */}
             <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg" aria-describedby={undefined}>
                     <DialogHeader>
                         <DialogTitle>{t('Export members')}</DialogTitle>
                     </DialogHeader>

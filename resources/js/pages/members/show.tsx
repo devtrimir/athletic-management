@@ -546,7 +546,7 @@ return;
 
             {/* Export column picker dialog */}
             <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg" aria-describedby={undefined}>
                     <DialogHeader>
                         <DialogTitle>{t('Export member')}</DialogTitle>
                     </DialogHeader>

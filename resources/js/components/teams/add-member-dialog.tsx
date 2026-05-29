@@ -88,7 +88,7 @@ extraFilters.player_level = filterLevel;
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>{t('Add member')}</DialogTitle>
                 </DialogHeader>

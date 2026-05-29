@@ -60,7 +60,7 @@ export function AddCoachDialog({ open, onOpenChange, team, sessions }: Props) {
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>{t('Add coach')}</DialogTitle>
                 </DialogHeader>
