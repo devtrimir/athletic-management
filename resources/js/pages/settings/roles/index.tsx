@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
-import SettingsLayout from '@/layouts/settings/layout';
 
 type RoleRow = {
     id: number;
@@ -42,7 +41,6 @@ export default function Index({ roles }: { roles: RoleRow[] }) {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t('Code')}</TableHead>
                             <TableHead>{t('Name')}</TableHead>
                             <TableHead className="text-right">{t('Permissions')}</TableHead>
                             <TableHead className="text-right">{t('Users')}</TableHead>
@@ -52,23 +50,25 @@ export default function Index({ roles }: { roles: RoleRow[] }) {
                     <TableBody>
                         {roles.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                <TableCell colSpan={4} className="text-center text-muted-foreground">
                                     {t('No roles yet.')}
                                 </TableCell>
                             </TableRow>
                         )}
                         {roles.map((role) => (
                             <TableRow key={role.id}>
-                                <TableCell className="font-mono text-sm">
-                                    {role.code}
-                                    {role.is_system && (
-                                        <Badge variant="secondary" className="ml-2">
-                                            {t('System')}
-                                        </Badge>
-                                    )}
-                                </TableCell>
                                 <TableCell>
-                                    {locale === 'hi' ? role.name_hi : role.name_en}
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium">
+                                            {locale === 'hi' ? role.name_hi : role.name_en}
+                                        </span>
+                                        {role.is_system && (
+                                            <Badge variant="secondary">{t('System')}</Badge>
+                                        )}
+                                    </div>
+                                    <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                                        {role.code}
+                                    </p>
                                 </TableCell>
                                 <TableCell className="text-right">{role.permissions_count}</TableCell>
                                 <TableCell className="text-right">{role.user_count}</TableCell>
@@ -112,6 +112,8 @@ export default function Index({ roles }: { roles: RoleRow[] }) {
     );
 }
 
-Index.layout = (page: React.ReactNode) => (
-    <SettingsLayout>{page}</SettingsLayout>
-);
+Index.layout = {
+    breadcrumbs: [
+        { title: 'Roles', href: RoleController.index.url() },
+    ],
+};

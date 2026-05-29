@@ -590,5 +590,21 @@
     "Confirm new password": "नया पासवर्ड पुष्टि करें",
     "Save changes": "परिवर्तन सहेजें",
     "Update roles": "भूमिकाएं अपडेट करें",
-    "Leave blank to keep the current password. Setting a new password will require the user to change it on next login.": "वर्तमान पासवर्ड रखने के लिए खाली छोड़ें। नया पासवर्ड सेट करने पर उपयोगकर्ता को अगले लॉगिन पर इसे बदलना होगा।"
+    "Leave blank to keep the current password. Setting a new password will require the user to change it on next login.": "वर्तमान पासवर्ड रखने के लिए खाली छोड़ें। नया पासवर्ड सेट करने पर उपयोगकर्ता को अगले लॉगिन पर इसे बदलना होगा।",
+    "Manage roles and their permissions": "इस संगठन में भूमिकाएं और उनकी अनुमतियां प्रबंधित करें",
+    "New role": "नई भूमिका",
+    "Permissions": "अनुमतियां",
+    "No roles yet.": "अभी तक कोई भूमिका नहीं।",
+    "System": "सिस्टम",
+    "Create a custom role for this organization": "इस संगठन के लिए कस्टम भूमिका बनाएं",
+    "Lowercase letters, numbers, and underscores only.": "केवल छोटे अक्षर, संख्याएं और अंडरस्कोर।",
+    "Create role": "भूमिका बनाएं",
+    "Role name": "भूमिका का नाम",
+    "Update permissions": "अनुमतियां अपडेट करें",
+    "Danger zone": "खतरे का क्षेत्र",
+    "Deleting a role will remove it from all users who hold it.": "भूमिका हटाने पर यह उसे धारण करने वाले सभी उपयोगकर्ताओं से हट जाएगी।",
+    "Delete role": "भूमिका हटाएं",
+    "Administration": "प्रशासन",
+    "users": "उपयोगकर्ता",
+    "The admin role always has all permissions.": "एडमिन भूमिका के पास हमेशा सभी अनुमतियां होती हैं।"
 }

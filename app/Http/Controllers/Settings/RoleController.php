@@ -122,7 +122,11 @@ class RoleController extends Controller
             'permissions.*' => ['integer', 'exists:permissions,id'],
         ]);
 
-        $permissionIds = array_map('intval', $request->input('permissions', []));
+        // The admin role always holds every permission — ignore the submitted set.
+        $permissionIds = $role->code === 'admin'
+            ? Permission::pluck('id')->map(fn ($id) => (int) $id)->all()
+            : array_map('intval', $request->input('permissions', []));
+
         $role->permissions()->sync($permissionIds);
 
         // Invalidate RBAC cache for all users who hold this role.

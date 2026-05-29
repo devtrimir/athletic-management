@@ -1,4 +1,4 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, setLayoutProps, useForm } from '@inertiajs/react';
 import RoleController from '@/actions/App/Http/Controllers/Settings/RoleController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTranslation } from '@/hooks/use-translation';
-import SettingsLayout from '@/layouts/settings/layout';
 
 type FormData = {
     code: string;
@@ -16,6 +15,13 @@ type FormData = {
 
 export default function Create() {
     const { t } = useTranslation();
+
+    setLayoutProps({
+        breadcrumbs: [
+            { title: t('Roles'), href: RoleController.index.url() },
+            { title: t('New role') },
+        ],
+    });
 
     const { data, setData, post, processing, errors } = useForm<FormData>({
         code: '',
@@ -82,6 +88,4 @@ export default function Create() {
     );
 }
 
-Create.layout = (page: React.ReactNode) => (
-    <SettingsLayout>{page}</SettingsLayout>
-);
+

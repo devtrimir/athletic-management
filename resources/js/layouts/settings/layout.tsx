@@ -1,5 +1,5 @@
-import { Link } from '@inertiajs/react';
-import { Building2, CalendarDays, MapPin, Medal, Monitor, Shield, Trophy, User } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { Building2, CalendarDays, MapPin, Medal, Monitor, Shield, Trophy, User, Users } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { Separator } from '@/components/ui/separator';
@@ -9,11 +9,13 @@ import { cn } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { index as districtsIndex } from '@/routes/districts';
 import { edit } from '@/routes/profile';
+import { index as rolesIndex } from '@/routes/roles';
 import { edit as editSecurity } from '@/routes/security';
 import { index as sessionsIndex } from '@/routes/sessions';
 import { index as sportsIndex } from '@/routes/sports';
 import { index as tournamentTiersIndex } from '@/routes/tournament-tiers';
 import { index as unitsIndex } from '@/routes/units';
+import { index as usersIndex } from '@/routes/users';
 import type { NavItem } from '@/types';
 
 function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
@@ -36,6 +38,8 @@ function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
 export default function SettingsLayout({ children }: PropsWithChildren) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
     const { t } = useTranslation();
+    const { auth } = usePage().props;
+    const canManageUsers = auth.permissions.includes('users.manage');
 
     const accountNavItems: NavItem[] = [
         { title: t('Profile'), href: edit(), icon: User },
@@ -49,6 +53,11 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
         { title: t('Units'), href: unitsIndex(), icon: Building2 },
         { title: t('Districts'), href: districtsIndex(), icon: MapPin },
         { title: t('Tournament Tiers'), href: tournamentTiersIndex(), icon: Medal },
+    ];
+
+    const adminNavItems: NavItem[] = [
+        { title: t('Users'), href: usersIndex(), icon: Users },
+        { title: t('Roles'), href: rolesIndex(), icon: Shield },
     ];
 
     return (
@@ -81,6 +90,20 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                 isActive={isCurrentOrParentUrl(item.href)}
                             />
                         ))}
+                        {canManageUsers && (
+                            <>
+                                <p className="mt-4 px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    {t('Administration')}
+                                </p>
+                                {adminNavItems.map((item) => (
+                                    <NavLink
+                                        key={item.href}
+                                        item={item}
+                                        isActive={isCurrentOrParentUrl(item.href)}
+                                    />
+                                ))}
+                            </>
+                        )}
                     </nav>
                 </aside>
 
