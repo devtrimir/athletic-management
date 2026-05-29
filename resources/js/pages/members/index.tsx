@@ -1,9 +1,10 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Check, ChevronDown, Download, Eye, Plus, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Download, Eye, Info, Plus, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
+import { MemberQuickView } from '@/components/members/member-quick-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -258,6 +259,7 @@ export default function MembersIndex({
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+    const [quickViewId, setQuickViewId] = useState<number | null>(null);
 
     // Row selection — persists across pagination pages
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -706,11 +708,23 @@ next.add(id);
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="w-0" onClick={(e) => e.stopPropagation()}>
-                                            <Button variant="ghost" size="icon" title={t('View')} asChild>
-                                                <Link href={MemberController.show.url(member.id)}>
-                                                    <Eye className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
+                                            <div className="flex items-center">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Quick info')}
+                                                    onClick={(e) => {
+ e.stopPropagation(); setQuickViewId(member.id); 
+}}
+                                                >
+                                                    <Info className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" title={t('View')} asChild>
+                                                    <Link href={MemberController.show.url(member.id)}>
+                                                        <Eye className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -874,6 +888,12 @@ params[param] = filters[k]!;
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <MemberQuickView
+                memberId={quickViewId}
+                open={quickViewId !== null}
+                onClose={() => setQuickViewId(null)}
+            />
         </>
     );
 }

@@ -1,10 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Download, Eye, Plus, Search, X } from 'lucide-react';
+import { Download, Eye, Info, Plus, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState   } from 'react';
 import type {Dispatch, SetStateAction} from 'react';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import Heading from '@/components/heading';
+import { TeamQuickView } from '@/components/teams/team-quick-view';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -78,6 +79,7 @@ export default function TeamsIndex({
 
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [exportOpen, setExportOpen] = useState(false);
+    const [quickViewId, setQuickViewId] = useState<number | null>(null);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
 
     const [query, setQuery] = useState(filters.q ?? '');
@@ -401,16 +403,28 @@ params.append('filter[unit_id]', filters.unit_id);
                                             {team.coaches_count}
                                         </TableCell>
                                         <TableCell className="w-0">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                title={t('View')}
-                                                asChild
-                                            >
-                                                <Link href={TeamController.show.url(team.id)}>
-                                                    <Eye className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
+                                            <div className="flex items-center">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Quick info')}
+                                                    onClick={(e) => {
+ e.stopPropagation(); setQuickViewId(team.id); 
+}}
+                                                >
+                                                    <Info className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('View')}
+                                                    asChild
+                                                >
+                                                    <Link href={TeamController.show.url(team.id)}>
+                                                        <Eye className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -468,6 +482,11 @@ params.append('filter[unit_id]', filters.unit_id);
                 setSelectedColumns={setSelectedColumns}
                 buildExportUrl={buildExportUrl}
                 t={t}
+            />
+            <TeamQuickView
+                teamId={quickViewId}
+                open={quickViewId !== null}
+                onClose={() => setQuickViewId(null)}
             />
         </>
     );

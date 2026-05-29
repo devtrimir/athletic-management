@@ -1,10 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Download, Eye, Plus, Search, X } from 'lucide-react';
+import { Download, Eye, Info, Plus, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState   } from 'react';
 import type {Dispatch, SetStateAction} from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachExportController';
 import Heading from '@/components/heading';
+import { CoachQuickView } from '@/components/teams/coach-quick-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -76,6 +77,7 @@ export default function CoachesIndex({
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [exportOpen, setExportOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+    const [quickViewId, setQuickViewId] = useState<number | null>(null);
 
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -343,11 +345,23 @@ params.append('filter[nis_certified]', filters.nis_certified);
                                             )}
                                         </TableCell>
                                         <TableCell className="w-0">
-                                            <Button variant="ghost" size="icon" title={t('View')} asChild>
-                                                <Link href={CoachController.show.url(coach.id)}>
-                                                    <Eye className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
+                                            <div className="flex items-center">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Quick info')}
+                                                    onClick={(e) => {
+ e.stopPropagation(); setQuickViewId(coach.id); 
+}}
+                                                >
+                                                    <Info className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" title={t('View')} asChild>
+                                                    <Link href={CoachController.show.url(coach.id)}>
+                                                        <Eye className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -403,6 +417,12 @@ params.append('filter[nis_certified]', filters.nis_certified);
                 setSelectedColumns={setSelectedColumns}
                 buildExportUrl={buildExportUrl}
                 t={t}
+            />
+
+            <CoachQuickView
+                coachId={quickViewId}
+                open={quickViewId !== null}
+                onClose={() => setQuickViewId(null)}
             />
         </>
     );

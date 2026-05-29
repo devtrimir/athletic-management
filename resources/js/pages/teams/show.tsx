@@ -1,12 +1,14 @@
 import { Deferred, Head, Link, router, setLayoutProps } from '@inertiajs/react';
-import { Copy, Trash2, UserPlus, Users } from 'lucide-react';
+import { Copy, Info, Trash2, UserPlus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { destroy as destroyTeamCoach } from '@/actions/App/Http/Controllers/TeamCoachController';
 import { destroy as destroyTeam, edit as editTeam, index as teamsIndex } from '@/actions/App/Http/Controllers/TeamController';
 import { destroy as destroyTeamMember } from '@/actions/App/Http/Controllers/TeamMemberController';
+import { MemberQuickView } from '@/components/members/member-quick-view';
 import { AddCoachDialog } from '@/components/teams/add-coach-dialog';
 import { AddMemberDialog } from '@/components/teams/add-member-dialog';
 import { CloneTeamDialog } from '@/components/teams/clone-team-dialog';
+import { CoachQuickView } from '@/components/teams/coach-quick-view';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -63,6 +65,8 @@ export default function TeamsShow({
     const [addMemberOpen, setAddMemberOpen] = useState(false);
     const [addCoachOpen, setAddCoachOpen] = useState(false);
     const [cloneOpen, setCloneOpen] = useState(false);
+    const [memberQuickViewId, setMemberQuickViewId] = useState<number | null>(null);
+    const [coachQuickViewId, setCoachQuickViewId] = useState<number | null>(null);
 
     // Filter state for Players tab
     const [memberSessionFilter, setMemberSessionFilter] = useState('');
@@ -328,14 +332,25 @@ return false;
                                                         <TableCell>{row.role ? t(row.role) : '—'}</TableCell>
                                                         <TableCell>{row.session?.name ?? '—'}</TableCell>
                                                         <TableCell className="text-right">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => row.member && removeMember(row.member.id)}
-                                                                disabled={!row.member}
-                                                            >
-                                                                {t('Remove')}
-                                                            </Button>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    title={t('Quick info')}
+                                                                    onClick={() => setMemberQuickViewId(row.member?.id ?? null)}
+                                                                    disabled={!row.member}
+                                                                >
+                                                                    <Info className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => row.member && removeMember(row.member.id)}
+                                                                    disabled={!row.member}
+                                                                >
+                                                                    {t('Remove')}
+                                                                </Button>
+                                                            </div>
                                                         </TableCell>
                                                     </TableRow>
                                                 ))
@@ -435,14 +450,25 @@ return false;
                                                         <TableCell>{row.role ? t(row.role) : '—'}</TableCell>
                                                         <TableCell>{row.session?.name ?? '—'}</TableCell>
                                                         <TableCell className="text-right">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => row.coach && removeCoach(row.coach.id)}
-                                                                disabled={!row.coach}
-                                                            >
-                                                                {t('Remove')}
-                                                            </Button>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    title={t('Quick info')}
+                                                                    onClick={() => setCoachQuickViewId(row.coach?.id ?? null)}
+                                                                    disabled={!row.coach}
+                                                                >
+                                                                    <Info className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => row.coach && removeCoach(row.coach.id)}
+                                                                    disabled={!row.coach}
+                                                                >
+                                                                    {t('Remove')}
+                                                                </Button>
+                                                            </div>
                                                         </TableCell>
                                                     </TableRow>
                                                 ))
@@ -455,6 +481,16 @@ return false;
                     </TabsContent>
                 </Tabs>
             </div>
+            <MemberQuickView
+                memberId={memberQuickViewId}
+                open={memberQuickViewId !== null}
+                onClose={() => setMemberQuickViewId(null)}
+            />
+            <CoachQuickView
+                coachId={coachQuickViewId}
+                open={coachQuickViewId !== null}
+                onClose={() => setCoachQuickViewId(null)}
+            />
         </>
     );
 }

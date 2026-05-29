@@ -1,18 +1,21 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AchievementHistoryController;
+use App\Http\Controllers\Api\V1\CoachPreviewController;
 use App\Http\Controllers\Api\V1\CoachSearchController;
 use App\Http\Controllers\Api\V1\CoachTeamsController;
 use App\Http\Controllers\Api\V1\MedalsByMemberController;
 use App\Http\Controllers\Api\V1\MedalsPivotController;
 use App\Http\Controllers\Api\V1\MemberAchievementsController;
 use App\Http\Controllers\Api\V1\MemberParticipationsController;
+use App\Http\Controllers\Api\V1\MemberPreviewController;
 use App\Http\Controllers\Api\V1\MemberSearchController;
 use App\Http\Controllers\Api\V1\MemberTeamsController;
 use App\Http\Controllers\Api\V1\NewJoinersController;
 use App\Http\Controllers\Api\V1\PlayerLevelSummaryController;
 use App\Http\Controllers\Api\V1\ReferenceDataController;
 use App\Http\Controllers\Api\V1\ResignationDismissalController;
+use App\Http\Controllers\Api\V1\TeamPreviewController;
 use App\Http\Controllers\Api\V1\TeamRosterController;
 use App\Http\Controllers\Api\V1\UnitHeadcountController;
 use Illuminate\Support\Facades\Route;
@@ -22,10 +25,13 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 Route::middleware(['auth'])->prefix('v1')->name('v1.')->group(function () {
     Route::get('search/members', MemberSearchController::class)->name('search.members');
     Route::get('search/coaches', CoachSearchController::class)->name('search.coaches');
+    Route::get('members/{member}/preview', MemberPreviewController::class)->name('members.preview');
     Route::get('members/{member}/teams', MemberTeamsController::class)->name('members.teams.index');
     Route::get('members/{member}/participations', MemberParticipationsController::class)->name('members.participations.index');
     Route::get('members/{member}/achievements', MemberAchievementsController::class)->name('members.achievements.index');
+    Route::get('coaches/{coach}/preview', CoachPreviewController::class)->name('coaches.preview');
     Route::get('coaches/{coach}/teams', CoachTeamsController::class)->name('coaches.teams.index');
+    Route::get('teams/{team}/preview', TeamPreviewController::class)->name('teams.preview');
     Route::get('tournament-tiers', [ReferenceDataController::class, 'tournamentTiers'])
         ->name('tournament-tiers.index');
     Route::get('sports', [ReferenceDataController::class, 'sports'])

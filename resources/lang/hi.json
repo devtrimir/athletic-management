@@ -455,5 +455,10 @@
     "All roles": "सभी भूमिकाएँ",
     "Add member (⌘⇧M)": "खिलाड़ी जोड़ें (⌘⇧M)",
     "Add coach (⌘⇧H)": "कोच जोड़ें (⌘⇧H)",
-    ":n results": ":n परिणाम"
+    ":n results": ":n परिणाम",
+    "Quick info": "त्वरित जानकारी",
+    "Open profile": "प्रोफ़ाइल खोलें",
+    "Print": "प्रिंट करें",
+    "Loading…": "लोड हो रहा है…",
+    "Could not load details.": "विवरण लोड नहीं हो सका।"
 }
