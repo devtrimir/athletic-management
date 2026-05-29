@@ -500,7 +500,7 @@ function ExportDialog({
                             : t('Exporting all :count coaches.').replace(':count', String(coaches.total))}
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-2">
+                <div className="min-h-0 flex-1 overflow-y-auto py-2">
                     <p className="mb-3 text-sm font-medium">{t('Select columns to export')}</p>
                     <div className="grid grid-cols-2 gap-2">
                         {ALL_COLUMNS.map((col) => (

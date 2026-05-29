@@ -854,50 +854,52 @@ params[param] = filters[k]!;
                         <DialogTitle>{t('Export members')}</DialogTitle>
                     </DialogHeader>
 
-                    <p className="text-sm text-muted-foreground">
-                        {selectedIds.size > 0
-                            ? t('Exporting :n selected members.').replace(':n', String(selectedIds.size))
-                            : hasAnyFilter
-                                ? t('Exporting filtered results (:count total).').replace(':count', String(members.total))
-                                : t('Exporting all :count members.').replace(':count', String(totalCount))}
-                    </p>
+                    <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
+                        <p className="text-sm text-muted-foreground">
+                            {selectedIds.size > 0
+                                ? t('Exporting :n selected members.').replace(':n', String(selectedIds.size))
+                                : hasAnyFilter
+                                    ? t('Exporting filtered results (:count total).').replace(':count', String(members.total))
+                                    : t('Exporting all :count members.').replace(':count', String(totalCount))}
+                        </p>
 
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    className="text-xs text-primary hover:underline"
-                                    onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
-                                >
-                                    {t('Select all')}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="text-xs text-muted-foreground hover:underline"
-                                    onClick={() => setSelectedColumns([])}
-                                >
-                                    {t('Clear')}
-                                </button>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        className="text-xs text-primary hover:underline"
+                                        onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
+                                    >
+                                        {t('Select all')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="text-xs text-muted-foreground hover:underline"
+                                        onClick={() => setSelectedColumns([])}
+                                    >
+                                        {t('Clear')}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
-                            {ALL_COLUMNS.map((col) => (
-                                <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
-                                    <Checkbox
-                                        checked={selectedColumns.includes(col.key)}
-                                        onCheckedChange={(checked) => {
-                                            setSelectedColumns((prev) =>
-                                                checked
-                                                    ? [...prev, col.key]
-                                                    : prev.filter((k) => k !== col.key),
-                                            );
-                                        }}
-                                    />
-                                    {t(col.label)}
-                                </label>
-                            ))}
+                            <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                                {ALL_COLUMNS.map((col) => (
+                                    <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
+                                        <Checkbox
+                                            checked={selectedColumns.includes(col.key)}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedColumns((prev) =>
+                                                    checked
+                                                        ? [...prev, col.key]
+                                                        : prev.filter((k) => k !== col.key),
+                                                );
+                                            }}
+                                        />
+                                        {t(col.label)}
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
