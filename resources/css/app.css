@@ -201,3 +201,42 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* ── Print styles ────────────────────────────────────────────────────────── */
+@media print {
+    /* Hide everything except the quick-view print target */
+    body > * {
+        display: none !important;
+    }
+
+    #quick-view-print-target {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 1rem !important;
+        background: white !important;
+        color: black !important;
+    }
+
+    #quick-view-print-target * {
+        color: black !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border-color: #ccc !important;
+    }
+
+    /* Keep section borders visible */
+    #quick-view-print-target [data-section] {
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    /* Hide action buttons */
+    #quick-view-print-target [data-print-hide] {
+        display: none !important;
+    }
+}

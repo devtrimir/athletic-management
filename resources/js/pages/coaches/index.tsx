@@ -351,7 +351,7 @@ params.append('filter[nis_certified]', filters.nis_certified);
                                                     size="icon"
                                                     title={t('Quick info')}
                                                     onClick={(e) => {
- e.stopPropagation(); setQuickViewId(coach.id); 
+ e.stopPropagation(); setQuickViewId(coach.id);
 }}
                                                 >
                                                     <Info className="h-4 w-4" />

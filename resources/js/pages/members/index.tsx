@@ -714,7 +714,7 @@ next.add(id);
                                                     size="icon"
                                                     title={t('Quick info')}
                                                     onClick={(e) => {
- e.stopPropagation(); setQuickViewId(member.id); 
+ e.stopPropagation(); setQuickViewId(member.id);
 }}
                                                 >
                                                     <Info className="h-4 w-4" />

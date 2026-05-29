@@ -409,7 +409,7 @@ params.append('filter[unit_id]', filters.unit_id);
                                                     size="icon"
                                                     title={t('Quick info')}
                                                     onClick={(e) => {
- e.stopPropagation(); setQuickViewId(team.id); 
+ e.stopPropagation(); setQuickViewId(team.id);
 }}
                                                 >
                                                     <Info className="h-4 w-4" />

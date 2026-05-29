@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Member;
+use App\Models\TeamMember;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -16,7 +17,26 @@ class MemberPreviewController extends Controller
     {
         Gate::authorize('view', $member);
 
-        $member->loadMissing(['homeDistrict', 'currentUnit', 'sport']);
+        $member->loadMissing([
+            'homeDistrict',
+            'currentUnit',
+            'sport',
+            'statusHistory',
+            'legacyAchievements',
+        ]);
+
+        // Load team memberships via TeamMember without a direct relation on Member
+        $teamHistory = TeamMember::with(['team', 'session'])
+            ->where('member_id', $member->id)
+            ->orderByDesc('joined_on')
+            ->get()
+            ->map(fn ($tm) => [
+                'team_name_hi' => $tm->team?->name_hi,
+                'session_name' => $tm->session?->name,
+                'role' => $tm->role,
+                'joined_on' => $tm->joined_on?->toDateString(),
+                'left_on' => $tm->left_on?->toDateString(),
+            ]);
 
         return response()->json([
             'id' => $member->id,
@@ -43,6 +63,21 @@ class MemberPreviewController extends Controller
             'home_district' => $member->homeDistrict ? ['name_hi' => $member->homeDistrict->name_hi] : null,
             'current_unit' => $member->currentUnit ? ['name_hi' => $member->currentUnit->name_hi] : null,
             'sport' => $member->sport ? ['name_hi' => $member->sport->name_hi] : null,
+            'status_history' => $member->statusHistory->map(fn ($h) => [
+                'status' => $h->status,
+                'effective_on' => $h->effective_on->toDateString(),
+                'reason_hi' => $h->reason_hi,
+            ]),
+            'team_history' => $teamHistory,
+            'achievements' => $member->legacyAchievements->map(fn ($a) => [
+                'period' => $a->period,
+                'level' => $a->level,
+                'competition_details' => $a->competition_details,
+                'event' => $a->event,
+                'medal_type' => $a->medal_type,
+                'event_date' => $a->event_date?->toDateString(),
+                'venue' => $a->venue,
+            ]),
         ]);
     }
 }
