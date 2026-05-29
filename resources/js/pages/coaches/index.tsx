@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Download, Eye, Info, Plus, Search, X } from 'lucide-react';
+import { Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState   } from 'react';
 import type {Dispatch, SetStateAction} from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
@@ -188,6 +188,41 @@ params.append('filter[nis_certified]', filters.nis_certified);
         }
 
         return exportCoachesUrl.url() + '?' + params.toString();
+    }
+
+    function handlePrint() {
+        const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+        const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
+        const bodyRows = coaches.data
+            .map(
+                (coach) =>
+                    `<tr>${cols
+                        .map((c) => {
+                            let v: string;
+
+                            if (c.key === 'nis_certified') {
+v = coach.nis_certified ? t('NIS Certified') : t('Not NIS Certified');
+} else if (c.key === 'linked_member') {
+v = coach.member?.member_code ?? '\u2014';
+} else {
+                                const raw = (coach as Record<string, unknown>)[c.key];
+                                v = raw != null && raw !== '' ? String(raw) : '\u2014';
+                            }
+
+                            return `<td>${v}</td>`;
+                        })
+                        .join('')}</tr>`,
+            )
+            .join('');
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Coaches')}</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Coaches')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
+        const win = window.open('', '_blank', 'width=900,height=700');
+
+        if (!win) {
+return;
+}
+
+        win.document.write(html);
+        win.document.close();
     }
 
     const hasActiveFilters = !!(filters.q || filters.has_member || filters.nis_certified);
@@ -416,6 +451,7 @@ params.append('filter[nis_certified]', filters.nis_certified);
                 selectedColumns={selectedColumns}
                 setSelectedColumns={setSelectedColumns}
                 buildExportUrl={buildExportUrl}
+                onPrint={handlePrint}
                 t={t}
             />
 
@@ -440,6 +476,7 @@ function ExportDialog({
     selectedColumns,
     setSelectedColumns,
     buildExportUrl,
+    onPrint,
     t,
 }: {
     open: boolean;
@@ -449,6 +486,7 @@ function ExportDialog({
     selectedColumns: string[];
     setSelectedColumns: Dispatch<SetStateAction<string[]>>;
     buildExportUrl: () => string;
+    onPrint: () => void;
     t: (key: string) => string;
 }) {
     return (
@@ -486,6 +524,17 @@ function ExportDialog({
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         {t('Cancel')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={selectedColumns.length === 0}
+                        onClick={() => {
+                            onPrint();
+                            onOpenChange(false);
+                        }}
+                    >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        {t('Print')}
                     </Button>
                     <Button
                         disabled={selectedColumns.length === 0}

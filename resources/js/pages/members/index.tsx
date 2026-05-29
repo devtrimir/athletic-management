@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Check, ChevronDown, Download, Eye, Info, Plus, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
@@ -384,6 +384,36 @@ params.append(param, filters[k]!);
         }
 
         return exportMembersUrl.url() + '?' + params.toString();
+    }
+
+    function handlePrint() {
+        const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+        const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
+        const bodyRows = members.data
+            .map(
+                (m) =>
+                    `<tr>${cols
+                        .map((c) => {
+                            if (c.key === 'unit') {
+return `<td>${m.current_unit?.name_hi ?? '\u2014'}</td>`;
+}
+
+                            const v = (m as Record<string, unknown>)[c.key];
+
+                            return `<td>${v != null && v !== '' ? String(v) : '\u2014'}</td>`;
+                        })
+                        .join('')}</tr>`,
+            )
+            .join('');
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Members')}</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Members')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
+        const win = window.open('', '_blank', 'width=900,height=700');
+
+        if (!win) {
+return;
+}
+
+        win.document.write(html);
+        win.document.close();
     }
 
     const pageIds = members.data.map((m) => m.id);
@@ -874,6 +904,17 @@ params[param] = filters[k]!;
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setExportOpen(false)}>
                             {t('Cancel')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            disabled={selectedColumns.length === 0}
+                            onClick={() => {
+                                handlePrint();
+                                setExportOpen(false);
+                            }}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            {t('Print')}
                         </Button>
                         <Button
                             disabled={selectedColumns.length === 0}
