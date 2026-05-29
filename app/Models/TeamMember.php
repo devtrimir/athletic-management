@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Concerns\Auditable;
+use App\Observers\AuditObserver;
 use Database\Factories\TeamMemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,10 +36,11 @@ use Illuminate\Support\Carbon;
     'joined_on',
     'left_on',
 ])]
+#[ObservedBy([AuditObserver::class])]
 class TeamMember extends Model
 {
     /** @use HasFactory<TeamMemberFactory> */
-    use HasFactory;
+    use Auditable, HasFactory;
 
     /**
      * @return array<string, string>
