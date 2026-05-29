@@ -97,7 +97,7 @@ const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destr
 };
 
 type AuditChange = { field: string; old: string | null; new: string | null };
-type AuditEntry = { id: number; action: string; at: string; by: string | null; changes: AuditChange[] };
+type AuditEntry = { id: number; action: string; subject: string; at: string; by: string | null; changes: AuditChange[] };
 
 type LegacyAchievement = {
     id: number;
@@ -625,6 +625,11 @@ return;
                                                 <Badge variant="outline" className="text-xs capitalize">
                                                     {t(entry.action)}
                                                 </Badge>
+                                                {entry.subject !== 'Member' && (
+                                                    <Badge variant="secondary" className="text-xs">
+                                                        {t(entry.subject)}
+                                                    </Badge>
+                                                )}
                                             </div>
                                             {entry.changes.length > 0 && (
                                                 <ul className="mt-1 space-y-1">

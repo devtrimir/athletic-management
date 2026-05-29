@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Concerns\Auditable;
 use App\Concerns\Tenanted;
+use App\Observers\AuditObserver;
 use Database\Factories\MemberLegacyAchievementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -49,10 +52,11 @@ use Illuminate\Support\Carbon;
     'medal_type',
     'sort_order',
 ])]
+#[ObservedBy([AuditObserver::class])]
 class MemberLegacyAchievement extends Model
 {
     /** @use HasFactory<MemberLegacyAchievementFactory> */
-    use HasFactory, Tenanted;
+    use Auditable, HasFactory, Tenanted;
 
     /**
      * @return array<string, string>
