@@ -35,6 +35,7 @@ type Member = {
 
 type UnitOption = { id: number; name_hi: string; name_en: string };
 type DistrictOption = { id: number; name_hi: string; name_en: string };
+type SportOption = { id: number; name_hi: string; name_en: string };
 
 type PaginatedMembers = {
     data: Member[];
@@ -56,6 +57,7 @@ type Filters = {
     gender?: string;
     blood_group?: string;
     recruitment_type?: string;
+    sport_id?: string;
     joining_year_from?: string;
     joining_year_to?: string;
 };
@@ -238,6 +240,7 @@ export default function MembersIndex({
     filters,
     units,
     districts,
+    sports,
     totalCount,
     perPage,
 }: {
@@ -245,6 +248,7 @@ export default function MembersIndex({
     filters: Filters;
     units: UnitOption[];
     districts: DistrictOption[];
+    sports: SportOption[];
     totalCount: number;
     perPage: number;
 }) {
@@ -273,6 +277,7 @@ export default function MembersIndex({
             gender: filters.gender,
             blood_group: filters.blood_group,
             recruitment_type: filters.recruitment_type,
+            sport_id: filters.sport_id,
             joining_year_from: filters.joining_year_from,
             joining_year_to: filters.joining_year_to,
             ...patch,
@@ -289,6 +294,7 @@ export default function MembersIndex({
             ['gender', 'filter[gender]'],
             ['blood_group', 'filter[blood_group]'],
             ['recruitment_type', 'filter[recruitment_type]'],
+            ['sport_id', 'filter[sport_id]'],
             ['joining_year_from', 'filter[joining_year_from]'],
             ['joining_year_to', 'filter[joining_year_to]'],
         ];
@@ -327,7 +333,8 @@ export default function MembersIndex({
     const activeFilterCount = [
         filters.current_status, filters.player_category, filters.player_level,
         filters.current_unit_id, filters.home_district_id, filters.gender,
-        filters.blood_group, filters.recruitment_type, filters.joining_year_from, filters.joining_year_to,
+        filters.blood_group, filters.recruitment_type, filters.sport_id,
+        filters.joining_year_from, filters.joining_year_to,
     ].filter(Boolean).length;
     const hasAnyFilter = !!(filters.q) || activeFilterCount > 0;
 
@@ -358,6 +365,7 @@ export default function MembersIndex({
                 ['gender', 'filter[gender]'],
                 ['blood_group', 'filter[blood_group]'],
                 ['recruitment_type', 'filter[recruitment_type]'],
+                ['sport_id', 'filter[sport_id]'],
                 ['joining_year_from', 'filter[joining_year_from]'],
                 ['joining_year_to', 'filter[joining_year_to]'],
             ];
@@ -551,6 +559,20 @@ next.add(id);
                             options={RECRUITMENT_OPTIONS.map((r) => ({ value: r, label: t(r) }))}
                             value={filters.recruitment_type}
                             onSelect={(v) => applyFilters({ recruitment_type: v })}
+                        />
+                    </FilterPill>
+
+                    {/* Sport */}
+                    <FilterPill
+                        label={t('Sport')}
+                        activeLabel={filters.sport_id ? (sports.find((s) => String(s.id) === filters.sport_id)?.name_hi ?? filters.sport_id) : undefined}
+                        onClear={() => applyFilters({ sport_id: undefined })}
+                    >
+                        <SearchableOptionList
+                            options={sports.map((s) => ({ value: String(s.id), label: s.name_hi }))}
+                            value={filters.sport_id}
+                            onSelect={(v) => applyFilters({ sport_id: v })}
+                            searchPlaceholder={t('Search sports…')}
                         />
                     </FilterPill>
 

@@ -45,6 +45,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $appointment
  * @property string|null $home_address
  * @property string|null $recruitment_type
+ * @property int|null $sport_id
  * @property string|null $sport_event
  * @property string|null $other_notes
  * @property Carbon|null $team_since
@@ -54,6 +55,7 @@ use Illuminate\Support\Carbon;
  * @property-read Organization $organization
  * @property-read District|null $homeDistrict
  * @property-read Unit|null $currentUnit
+ * @property-read Sport|null $sport
  * @property-read Collection<int, MemberLegacyAchievement> $legacyAchievements
  */
 #[Fillable([
@@ -72,6 +74,7 @@ use Illuminate\Support\Carbon;
     'appointment',
     'home_address',
     'recruitment_type',
+    'sport_id',
     'sport_event',
     'other_notes',
     'team_since',
@@ -111,6 +114,12 @@ class Member extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /** @return BelongsTo<Sport, $this> */
+    public function sport(): BelongsTo
+    {
+        return $this->belongsTo(Sport::class);
     }
 
     /** @return BelongsTo<District, $this> */

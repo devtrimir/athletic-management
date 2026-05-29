@@ -15,6 +15,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type District = { id: number; name_hi: string; name_en: string };
 type Unit = { id: number; name_hi: string; name_en: string };
+type SportOption = { id: number; name_hi: string; name_en: string };
 
 type Member = {
     id: number;
@@ -39,6 +40,7 @@ type Member = {
     appointment: string | null;
     home_address: string | null;
     recruitment_type: string | null;
+    sport_id: number | null;
     sport_event: string | null;
     other_notes: string | null;
     team_since: string | null;
@@ -64,12 +66,13 @@ type FormData = {
     appointment: string;
     home_address: string;
     recruitment_type: string;
+    sport_id: string;
     sport_event: string;
     other_notes: string;
     team_since: string;
 };
 
-export default function MembersEdit({ member, districts, units }: { member: Member; districts: District[]; units: Unit[] }) {
+export default function MembersEdit({ member, districts, units, sports }: { member: Member; districts: District[]; units: Unit[]; sports: SportOption[] }) {
     const { t } = useTranslation();
     const { locale } = usePage().props;
 
@@ -101,6 +104,7 @@ export default function MembersEdit({ member, districts, units }: { member: Memb
         appointment: member.appointment ?? '',
         home_address: member.home_address ?? '',
         recruitment_type: member.recruitment_type ?? '',
+        sport_id: member.sport_id != null ? String(member.sport_id) : '',
         sport_event: member.sport_event ?? '',
         other_notes: member.other_notes ?? '',
         team_since: member.team_since ?? '',
@@ -116,7 +120,7 @@ export default function MembersEdit({ member, districts, units }: { member: Memb
         errors.home_district_id || errors.recruitment_type || errors.appointment || errors.promotion_date
     );
     const hasSportsErrors = !!(
-        errors.player_category || errors.player_level || errors.sport_event ||
+        errors.player_category || errors.player_level || errors.sport_id || errors.sport_event ||
         errors.team_since || errors.other_notes
     );
 
@@ -465,6 +469,26 @@ export default function MembersEdit({ member, districts, units }: { member: Memb
 
                                     <div className="grid gap-5 sm:grid-cols-2">
                                         <div className="grid gap-2">
+                                            <Label htmlFor="sport_id">{t('Sport')}</Label>
+                                            <Select
+                                                value={data.sport_id}
+                                                onValueChange={(v) => setData('sport_id', v === '__clear__' ? '' : v)}
+                                            >
+                                                <SelectTrigger id="sport_id" className="w-full">
+                                                    <SelectValue placeholder={t('Select sport')} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__clear__">{t('None')}</SelectItem>
+                                                    {sports.map((s) => (
+                                                        <SelectItem key={s.id} value={String(s.id)}>
+                                                            {locale === 'en' ? s.name_en : s.name_hi}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <InputError message={errors.sport_id} />
+                                        </div>
+                                        <div className="grid gap-2">
                                             <Label htmlFor="sport_event">{t('Sport event')}</Label>
                                             <Input
                                                 id="sport_event"
@@ -474,6 +498,9 @@ export default function MembersEdit({ member, districts, units }: { member: Memb
                                             />
                                             <InputError message={errors.sport_event} />
                                         </div>
+                                    </div>
+
+                                    <div className="grid gap-5 sm:grid-cols-2">
                                         <div className="grid gap-2">
                                             <Label htmlFor="team_since">{t('Team since')}</Label>
                                             <DatePicker

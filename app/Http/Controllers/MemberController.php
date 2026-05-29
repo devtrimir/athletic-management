@@ -11,6 +11,7 @@ use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
 use App\Models\District;
 use App\Models\Member;
+use App\Models\Sport;
 use App\Models\TeamMember;
 use App\Models\Unit;
 use App\Services\MemberCodeGenerator;
@@ -40,6 +41,7 @@ class MemberController extends Controller
                 AllowedFilter::exact('gender'),
                 AllowedFilter::exact('blood_group'),
                 AllowedFilter::exact('recruitment_type'),
+                AllowedFilter::exact('sport_id'),
                 AllowedFilter::callback('q', function ($query, string $value): void {
                     $query->where(function ($q) use ($value): void {
                         $q->where('full_name_hi', 'LIKE', "%{$value}%")
@@ -65,6 +67,7 @@ class MemberController extends Controller
             'perPage' => min((int) ($request->query('per_page', 25)), 100),
             'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'totalCount' => Member::count(),
         ]);
     }
@@ -76,6 +79,7 @@ class MemberController extends Controller
         return Inertia::render('members/create', [
             'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
         ]);
     }
 
@@ -101,7 +105,7 @@ class MemberController extends Controller
         Gate::authorize('view', $member);
 
         return Inertia::render('members/show', [
-            'member' => (new MemberResource($member->load(['homeDistrict', 'currentUnit'])))->resolve(),
+            'member' => (new MemberResource($member->load(['homeDistrict', 'currentUnit', 'sport'])))->resolve(),
             'statusHistory' => Inertia::defer(fn () => MemberStatusHistoryResource::collection(
                 $member->statusHistory()->with('recorder')->get()
             )->resolve()),
@@ -157,9 +161,10 @@ class MemberController extends Controller
         Gate::authorize('update', $member);
 
         return Inertia::render('members/edit', [
-            'member' => $member,
+            'member' => $member->load('sport'),
             'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
         ]);
     }
 
