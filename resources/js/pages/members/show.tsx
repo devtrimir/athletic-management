@@ -1,5 +1,5 @@
 import { Deferred, Head, Link, router, setLayoutProps, useHttp } from '@inertiajs/react';
-import { Download } from 'lucide-react';
+import { Download, Printer } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
@@ -202,6 +202,45 @@ export default function MembersShow({
     const [exportOpen, setExportOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
 
+    function handlePrint(): void {
+        const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+        const getValue = (key: string): string => {
+            switch (key) {
+                case 'member_code': return member.member_code ?? '';
+                case 'pno': return member.pno ?? '';
+                case 'full_name_hi': return member.full_name_hi ?? '';
+                case 'full_name_en': return member.full_name_en ?? '';
+                case 'father_name_hi': return member.father_name_hi ?? '';
+                case 'gender': return member.gender === 'M' ? t('Male') : member.gender === 'F' ? t('Female') : t('Other gender');
+                case 'dob': return member.dob ?? '';
+                case 'rank': return member.rank ?? '';
+                case 'mobile': return member.mobile ?? '';
+                case 'current_status': return t(member.current_status);
+                case 'player_category': return member.player_category ?? '';
+                case 'player_level': return member.player_level ?? '';
+                case 'unit': return member.current_unit?.name_hi ?? '';
+                case 'home_district': return member.home_district?.name_hi ?? '';
+                case 'joining_date': return member.joining_date ?? '';
+                case 'blood_group': return member.blood_group ?? '';
+                case 'caste': return member.caste ?? '';
+                case 'recruitment_type': return member.recruitment_type ? t(member.recruitment_type) : '';
+                case 'appointment': return member.appointment ?? '';
+                case 'sport_event': return member.sport_event ?? '';
+                case 'promotion_date': return member.promotion_date ?? '';
+                case 'team_since': return member.team_since ?? '';
+                default: return '';
+            }
+        };
+        const headers = cols.map((c) => `<th style="border:1px solid #ccc;padding:6px 10px;background:#f5f5f5;text-align:left">${t(c.label)}</th>`).join('');
+        const cells = cols.map((c) => `<td style="border:1px solid #ccc;padding:6px 10px">${getValue(c.key)}</td>`).join('');
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${member.full_name_hi}</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}@media print{@page{size:landscape}}</style></head><body><h2 style="margin-bottom:12px">${member.full_name_hi}</h2><table><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table></body></html>`;
+        const win = window.open('', '_blank', 'width=900,height=600');
+        if (!win) return;
+        win.document.write(html);
+        win.document.close();
+        win.onload = () => { win.print(); win.close(); };
+    }
+
     function buildExportUrl(): string {
         const params = new URLSearchParams();
 
@@ -224,8 +263,8 @@ export default function MembersShow({
             <Head title={member.full_name_hi} />
 
             <div className="space-y-6">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-4 min-w-0">
                         {/* Photo */}
                         <div className="shrink-0">
                             {member.photo_path ? (
@@ -265,19 +304,22 @@ return;
                             )}
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                             <h1 className="text-2xl font-bold">{member.full_name_hi}</h1>
                             {member.full_name_en && <p className="text-muted-foreground">{member.full_name_en}</p>}
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {member.pno && (
+                                    <span className="font-mono text-sm text-muted-foreground">{member.pno}</span>
+                                )}
+                                <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                                    <Download className="mr-1.5 h-4 w-4" />
+                                    {t('Export')}
+                                </Button>
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={editMember.url(member)}>{t('Edit')}</Link>
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
-                            <Download className="mr-1.5 h-4 w-4" />
-                            {t('Export')}
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={editMember.url(member)}>{t('Edit')}</Link>
-                        </Button>
                     </div>
                 </div>
 
@@ -551,52 +593,65 @@ return;
                         <DialogTitle>{t('Export member')}</DialogTitle>
                     </DialogHeader>
 
-                    <p className="text-sm text-muted-foreground">
-                        {member.full_name_hi}
-                    </p>
+                    <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
+                        <p className="text-sm text-muted-foreground">
+                            {member.full_name_hi}
+                        </p>
 
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
-                            <div className="flex gap-3">
-                                <button
-                                    type="button"
-                                    className="text-xs text-primary hover:underline"
-                                    onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
-                                >
-                                    {t('Select all')}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="text-xs text-muted-foreground hover:underline"
-                                    onClick={() => setSelectedColumns([])}
-                                >
-                                    {t('Clear')}
-                                </button>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
+                                <div className="flex gap-3">
+                                    <button
+                                        type="button"
+                                        className="text-xs text-primary hover:underline"
+                                        onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
+                                    >
+                                        {t('Select all')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="text-xs text-muted-foreground hover:underline"
+                                        onClick={() => setSelectedColumns([])}
+                                    >
+                                        {t('Clear')}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
-                            {ALL_COLUMNS.map((col) => (
-                                <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
-                                    <Checkbox
-                                        checked={selectedColumns.includes(col.key)}
-                                        onCheckedChange={(checked) => {
-                                            setSelectedColumns((prev) =>
-                                                checked
-                                                    ? [...prev, col.key]
-                                                    : prev.filter((k) => k !== col.key),
-                                            );
-                                        }}
-                                    />
-                                    {t(col.label)}
-                                </label>
-                            ))}
+                            <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                                {ALL_COLUMNS.map((col) => (
+                                    <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
+                                        <Checkbox
+                                            checked={selectedColumns.includes(col.key)}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedColumns((prev) =>
+                                                    checked
+                                                        ? [...prev, col.key]
+                                                        : prev.filter((k) => k !== col.key),
+                                                );
+                                            }}
+                                        />
+                                        {t(col.label)}
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setExportOpen(false)}>
                             {t('Cancel')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            disabled={selectedColumns.length === 0}
+                            onClick={() => {
+                                handlePrint();
+                                setExportOpen(false);
+                            }}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            {t('Print')}
                         </Button>
                         <Button
                             disabled={selectedColumns.length === 0}
