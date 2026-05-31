@@ -27,10 +27,11 @@ export function AppSidebar() {
 
     const mainNavItems: NavItem[] = [
         { title: t('Dashboard'), href: dashboard(), icon: LayoutGrid },
-        { title: t('Athletes'), href: MemberController.index.url(), icon: Users },
-        { title: t('Coaches'), href: CoachController.index.url(), icon: UserCheck },
         { title: t('Teams'), href: TeamController.index.url(), icon: Shield },
         { title: t('Tournaments'), href: TournamentController.index.url(), icon: Trophy },
+        { title: t('Athletes'), href: MemberController.index.url(), icon: Users },
+        { title: t('Coaches'), href: CoachController.index.url(), icon: UserCheck },
+
     ];
 
     const adminNavItems: NavItem[] = [

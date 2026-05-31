@@ -1,6 +1,7 @@
-import { Deferred, Head, Link, router, setLayoutProps, useHttp } from '@inertiajs/react';
-import { Download, Printer } from 'lucide-react';
+import { Deferred, Head, Link, router, setLayoutProps, useForm, useHttp } from '@inertiajs/react';
+import { Download, Plus, Printer } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { store as storeBenefit } from '@/actions/App/Http/Controllers/AchievementBenefitController';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
@@ -9,6 +10,8 @@ import { show as exportMember } from '@/actions/App/Http/Controllers/MemberExpor
 import { store as storeMemberPhoto, destroy as destroyMemberPhoto } from '@/actions/App/Http/Controllers/MemberPhotoController';
 import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import { DatePicker } from '@/components/date-picker';
+import InputError from '@/components/input-error';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
@@ -17,11 +20,14 @@ import type {AuditEntry} from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Member = {
@@ -78,6 +84,17 @@ type ParticipationGroup = {
     participations: ParticipationEntry[];
 };
 
+type AchievementBenefitRow = {
+    id: number;
+    benefit_type: string;
+    promoted_from_rank: string | null;
+    promoted_to_rank: string | null;
+    cash_amount: string | null;
+    benefit_date: string | null;
+    order_reference: string | null;
+    remarks: string | null;
+};
+
 type AchievementsData = {
     summary: { GOLD: number; SILVER: number; BRONZE: number; MERIT: number };
     achievements: Array<{
@@ -88,6 +105,7 @@ type AchievementsData = {
         session: { id: number; name: string };
         tournament: { id: number; name_hi: string; tier_code: string | null };
         event: { id: number; name_hi: string };
+        benefits: AchievementBenefitRow[];
     }>;
 };
 
@@ -97,6 +115,156 @@ const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destr
     BRONZE: 'outline',
     MERIT: 'outline',
 };
+
+const BENEFIT_TYPES = ['PROMOTION', 'OUT_OF_TURN_PROMOTION', 'CASH_AWARD', 'COMMENDATION', 'NONE', 'OTHER'] as const;
+
+function AddAchievementBenefitDialog({ achievementId, onSaved }: { achievementId: number; onSaved: () => void }) {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const form = useForm({
+        benefitable_type: 'achievement',
+        benefitable_id: String(achievementId),
+        benefit_type: '',
+        promoted_from_rank: '',
+        promoted_to_rank: '',
+        cash_amount: '',
+        benefit_date: '',
+        order_reference: '',
+        remarks: '',
+    });
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        form.post(storeBenefit.url(), {
+            onSuccess: () => {
+                setOpen(false);
+                form.reset();
+                form.setData('benefitable_type', 'achievement');
+                form.setData('benefitable_id', String(achievementId));
+                onSaved();
+            },
+        });
+    }
+
+    const isPromotion =
+        form.data.benefit_type === 'PROMOTION' ||
+        form.data.benefit_type === 'OUT_OF_TURN_PROMOTION';
+    const isCash = form.data.benefit_type === 'CASH_AWARD';
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-xs h-7">
+                    <Plus className="size-3 mr-1" />
+                    {t('Add benefit')}
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md" aria-describedby={undefined}>
+                <DialogHeader>
+                    <DialogTitle>{t('Add benefit')}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+                    <div className="grid gap-2">
+                        <Label>
+                            {t('Benefit type')} <span className="text-destructive">*</span>
+                        </Label>
+                        <Select
+                            value={form.data.benefit_type}
+                            onValueChange={(v) => form.setData('benefit_type', v)}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('Select benefit type')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {BENEFIT_TYPES.map((bt) => (
+                                    <SelectItem key={bt} value={bt}>
+                                        {t(bt)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={form.errors.benefit_type} />
+                    </div>
+
+                    {isPromotion && (
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Promoted from rank')}</Label>
+                                <Input
+                                    value={form.data.promoted_from_rank}
+                                    onChange={(e) => form.setData('promoted_from_rank', e.target.value)}
+                                    maxLength={100}
+                                />
+                                <InputError message={form.errors.promoted_from_rank} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Promoted to rank')}</Label>
+                                <Input
+                                    value={form.data.promoted_to_rank}
+                                    onChange={(e) => form.setData('promoted_to_rank', e.target.value)}
+                                    maxLength={100}
+                                />
+                                <InputError message={form.errors.promoted_to_rank} />
+                            </div>
+                        </div>
+                    )}
+
+                    {isCash && (
+                        <div className="grid gap-2">
+                            <Label>{t('Cash amount')}</Label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                value={form.data.cash_amount}
+                                onChange={(e) => form.setData('cash_amount', e.target.value)}
+                            />
+                            <InputError message={form.errors.cash_amount} />
+                        </div>
+                    )}
+
+                    <div className="grid gap-5 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label>{t('Benefit date')}</Label>
+                            <DatePicker
+                                value={form.data.benefit_date}
+                                onChange={(v) => form.setData('benefit_date', v)}
+                            />
+                            <InputError message={form.errors.benefit_date} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>{t('Order reference')}</Label>
+                            <Input
+                                value={form.data.order_reference}
+                                onChange={(e) => form.setData('order_reference', e.target.value)}
+                                maxLength={255}
+                            />
+                            <InputError message={form.errors.order_reference} />
+                        </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label>{t('Remarks')}</Label>
+                        <Textarea
+                            value={form.data.remarks}
+                            onChange={(e) => form.setData('remarks', e.target.value)}
+                            rows={2}
+                        />
+                        <InputError message={form.errors.remarks} />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                            {t('Cancel')}
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            {t('Save benefit')}
+                        </Button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 type LegacyAchievement = {
     id: number;
@@ -193,6 +361,17 @@ export default function MembersShow({
             });
         }
     }, [activeTab, memberId, getParticipations, getAchievements]);
+
+    function refetchAchievements() {
+        achievementsFetched.current = false;
+        getAchievements(MemberAchievementsController.url(memberId), {
+            onSuccess: (res) => {
+                const r = res as unknown as { data: AchievementsData };
+                setAchievementsData(r?.data ?? { summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 }, achievements: [] });
+            },
+            onError: () => setAchievementsData({ summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 }, achievements: [] }),
+        });
+    }
     const { t } = useTranslation();
 
     setLayoutProps({
@@ -545,6 +724,7 @@ return;
                                                         <TableHead>{t('Tier')}</TableHead>
                                                         <TableHead>{t('Event')}</TableHead>
                                                         <TableHead>{t('Session')}</TableHead>
+                                                        <TableHead>{t('Benefits')}</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -569,6 +749,26 @@ return;
                                                                 </Link>
                                                             </TableCell>
                                                             <TableCell>{a.session.name}</TableCell>
+                                                            <TableCell>
+                                                                {a.benefits.length === 0 ? (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Badge variant="outline" className="text-amber-600 border-amber-400 bg-amber-50">
+                                                                            ⚠ {t('Benefit pending')}
+                                                                        </Badge>
+                                                                        <AddAchievementBenefitDialog achievementId={a.id} onSaved={refetchAchievements} />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex flex-wrap items-center gap-1">
+                                                                        {a.benefits.map((b) => (
+                                                                            <Badge key={b.id} variant="secondary" className="text-xs">
+                                                                                {t(b.benefit_type)}
+                                                                                {b.cash_amount ? ` ₹${b.cash_amount}` : ''}
+                                                                            </Badge>
+                                                                        ))}
+                                                                        <AddAchievementBenefitDialog achievementId={a.id} onSaved={refetchAchievements} />
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>

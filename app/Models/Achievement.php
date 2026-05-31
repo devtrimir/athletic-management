@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -40,5 +41,11 @@ class Achievement extends Model
     public function participation(): BelongsTo
     {
         return $this->belongsTo(Participation::class);
+    }
+
+    /** @return MorphMany<AchievementBenefit, $this> */
+    public function benefits(): MorphMany
+    {
+        return $this->morphMany(AchievementBenefit::class, 'benefitable');
     }
 }

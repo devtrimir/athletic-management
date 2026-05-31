@@ -99,7 +99,7 @@ test('returns 200 with correct structure', function (): void {
     expect($response->json('data'))->toHaveCount(1);
     expect($response->json('data.0'))->toHaveKeys(['member', 'tournament', 'event', 'medal_type', 'position']);
     expect($response->json('data.0.medal_type'))->toBe('GOLD');
-    expect($response->json('filters'))->toBe(['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null]);
+    expect($response->json('filters'))->toBe(['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null, 'member_name' => null, 'pno' => null, 'tournament_id' => null, 'event_name' => null]);
 });
 
 test('returns empty data when no achievements exist', function (): void {

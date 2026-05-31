@@ -101,7 +101,7 @@ test('returns achievement with correct shape', function (): void {
     expect($row['member']['id'])->toBe($setup['member']->id);
     expect($row['medal_type'])->toBe('GOLD');
     expect($row['tournament']['id'])->toBe($setup['tournament']->id);
-    expect(array_keys($row['event']))->toBe(['name_hi', 'discipline']);
+    expect(array_keys($row['event']))->toBe(['id', 'name_hi', 'discipline']);
 });
 
 test('org isolation — other org achievements not returned', function (): void {

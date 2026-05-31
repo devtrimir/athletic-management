@@ -26,6 +26,7 @@ class MemberAchievementsController extends Controller
                 'participation.event:id,tournament_id,name_hi',
                 'participation.event.tournament:id,name_hi,tier_id',
                 'participation.event.tournament.tier:id,code',
+                'benefits',
             ])
             ->orderByDesc('id')
             ->get();
@@ -54,6 +55,16 @@ class MemberAchievementsController extends Controller
                 'id' => $a->participation->event->id,
                 'name_hi' => $a->participation->event->name_hi,
             ],
+            'benefits' => $a->benefits->map(fn ($b) => [
+                'id' => $b->id,
+                'benefit_type' => $b->benefit_type,
+                'promoted_from_rank' => $b->promoted_from_rank,
+                'promoted_to_rank' => $b->promoted_to_rank,
+                'cash_amount' => $b->cash_amount,
+                'benefit_date' => $b->benefit_date?->toDateString(),
+                'order_reference' => $b->order_reference,
+                'remarks' => $b->remarks,
+            ])->values()->all(),
         ])->values();
 
         return response()->json([

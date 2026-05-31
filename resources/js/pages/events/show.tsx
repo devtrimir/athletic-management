@@ -1,4 +1,4 @@
-import { Deferred, Head, setLayoutProps, useForm } from '@inertiajs/react';
+import { Deferred, Head, router, setLayoutProps, useForm } from '@inertiajs/react';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -445,11 +445,12 @@ function AddParticipantDialog({
     const [filterLevel, setFilterLevel] = useState('');
     const [filterStatus, setFilterStatus] = useState('ACTIVE');
 
-    const { data, setData, post, errors, processing, reset } = useForm<ParticipantForm>({
+    const { data, setData, errors, reset } = useForm<ParticipantForm>({
         position: '',
         medal_type: '',
         remarks: '',
     });
+    const [submitting, setSubmitting] = useState(false);
 
     const extraFilters: Record<string, string> = {};
 
@@ -478,11 +479,13 @@ extraFilters.current_status = filterStatus;
         e.preventDefault();
 
         if (!pickedMember) {
-return;
-}
+            return;
+        }
 
-        post(storeParticipants.url(tournament.id, event.id), {
-            data: {
+        setSubmitting(true);
+        router.post(
+            storeParticipants.url({ tournament: tournament.id, event: event.id }),
+            {
                 participants: [
                     {
                         member_id: pickedMember.id,
@@ -492,14 +495,18 @@ return;
                     },
                 ],
             },
-        } as Parameters<typeof post>[1]);
+            {
+                onSuccess: () => handleClose(),
+                onFinish: () => setSubmitting(false),
+            },
+        );
     }
 
     return (
         <Dialog open={open} onOpenChange={(o) => {
  if (!o) {
 handleClose();
-} 
+}
 }}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
@@ -557,9 +564,9 @@ handleClose();
                     <Button variant="outline" type="button" onClick={handleClose}>
                         {t('Cancel')}
                     </Button>
-                    <Button type="submit" form="add-participant-form" disabled={processing || !pickedMember}>
+                    <Button type="submit" form="add-participant-form" disabled={submitting || !pickedMember}>
                         <Plus className="mr-1.5 h-4 w-4" />
-                        {processing ? t('Saving…') : t('Add participant')}
+                        {submitting ? t('Saving…') : t('Add participant')}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -615,7 +622,7 @@ return;
         <Dialog open={participation !== null} onOpenChange={(o) => {
  if (!o) {
 onClose();
-} 
+}
 }}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
@@ -778,7 +785,7 @@ return;
                 onOpenChange={(o) => {
  if (!o) {
 setDeletingParticipation(null);
-} 
+}
 }}
                 title={t('Remove participant')}
                 description={t('This will permanently delete the participation and any medal record. This action cannot be undone.')}

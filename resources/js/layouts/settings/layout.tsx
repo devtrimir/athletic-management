@@ -5,7 +5,7 @@ import Heading from '@/components/heading';
 import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useTranslation } from '@/hooks/use-translation';
-import { cn } from '@/lib/utils';
+import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { index as districtsIndex } from '@/routes/districts';
 import { edit } from '@/routes/profile';
@@ -75,7 +75,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                         </p>
                         {accountNavItems.map((item) => (
                             <NavLink
-                                key={item.href}
+                                key={toUrl(item.href)}
                                 item={item}
                                 isActive={isCurrentOrParentUrl(item.href)}
                             />
@@ -85,7 +85,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                         </p>
                         {referenceDataNavItems.map((item) => (
                             <NavLink
-                                key={item.href}
+                                key={toUrl(item.href)}
                                 item={item}
                                 isActive={isCurrentOrParentUrl(item.href)}
                             />
@@ -97,7 +97,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                 </p>
                                 {adminNavItems.map((item) => (
                                     <NavLink
-                                        key={item.href}
+                                        key={toUrl(item.href)}
                                         item={item}
                                         isActive={isCurrentOrParentUrl(item.href)}
                                     />

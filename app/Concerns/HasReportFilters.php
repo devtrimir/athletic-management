@@ -20,13 +20,17 @@ trait HasReportFilters
             'sport_id' => ['nullable', 'integer', 'exists:sports,id'],
             'unit_id' => ['nullable', 'integer', 'exists:units,id'],
             'tier_id' => ['nullable', 'integer', 'exists:tournament_tiers,id'],
+            'member_name' => ['nullable', 'string', 'max:100'],
+            'pno' => ['nullable', 'string', 'max:20'],
+            'tournament_id' => ['nullable', 'integer'],
+            'event_name' => ['nullable', 'string', 'max:100'],
         ];
     }
 
     /**
-     * Extract the four filter values from the request as nullable ints.
+     * Extract filter values from the request as nullable ints/strings.
      *
-     * @return array{session_id: int|null, sport_id: int|null, unit_id: int|null, tier_id: int|null}
+     * @return array{session_id: int|null, sport_id: int|null, unit_id: int|null, tier_id: int|null, member_name: string|null, tournament_id: int|null, event_name: string|null}
      */
     protected function resolvedFilters(Request $request): array
     {
@@ -35,6 +39,10 @@ trait HasReportFilters
             'sport_id' => $request->integer('sport_id') ?: null,
             'unit_id' => $request->integer('unit_id') ?: null,
             'tier_id' => $request->integer('tier_id') ?: null,
+            'member_name' => $request->input('member_name') ?: null,
+            'pno' => $request->input('pno') ?: null,
+            'tournament_id' => $request->integer('tournament_id') ?: null,
+            'event_name' => $request->input('event_name') ?: null,
         ];
     }
 }
