@@ -58,6 +58,10 @@ return [
         // ── Settings ──────────────────────────────────────────────────────────
         ['code' => 'settings.manage', 'group' => 'settings', 'name_hi' => 'सेटिंग प्रबंधित करें', 'name_en' => 'Manage settings'],
 
+        // ── Media ─────────────────────────────────────────────────────────────
+        ['code' => 'media.upload', 'group' => 'media', 'name_hi' => 'मीडिया अपलोड करें', 'name_en' => 'Upload media'],
+        ['code' => 'media.delete', 'group' => 'media', 'name_hi' => 'मीडिया हटाएं',       'name_en' => 'Delete media'],
+
         // ── Reference data ────────────────────────────────────────────────────
         ['code' => 'reference_data.manage', 'group' => 'reference_data', 'name_hi' => 'संदर्भ डेटा प्रबंधित करें', 'name_en' => 'Manage reference data'],
 

@@ -22,7 +22,7 @@ class RbacRolesSeeder extends Seeder
      *
      * @var array<int, string>
      */
-    private const DELETE_CODES = ['members.delete', 'coaches.delete', 'teams.delete', 'tournaments.delete'];
+    private const DELETE_CODES = ['members.delete', 'coaches.delete', 'teams.delete', 'tournaments.delete', 'media.delete'];
 
     /**
      * View-only permissions granted to the viewer role.

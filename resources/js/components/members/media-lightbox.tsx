@@ -7,10 +7,10 @@ export function Lightbox({ files, index, onClose }: { files: MediaFile[]; index:
     const file = files[current];
 
     function prev() {
- setCurrent((i) => (i - 1 + files.length) % files.length); 
+ setCurrent((i) => (i - 1 + files.length) % files.length);
 }
     function next() {
- setCurrent((i) => (i + 1) % files.length); 
+ setCurrent((i) => (i + 1) % files.length);
 }
 
     return (
@@ -32,7 +32,7 @@ export function Lightbox({ files, index, onClose }: { files: MediaFile[]; index:
                         type="button"
                         className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-4 py-2 text-xl text-white hover:bg-black/70"
                         onClick={(e) => {
- e.stopPropagation(); prev(); 
+ e.stopPropagation(); prev();
 }}
                     >
                         ‹
@@ -41,7 +41,7 @@ export function Lightbox({ files, index, onClose }: { files: MediaFile[]; index:
                         type="button"
                         className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-4 py-2 text-xl text-white hover:bg-black/70"
                         onClick={(e) => {
- e.stopPropagation(); next(); 
+ e.stopPropagation(); next();
 }}
                     >
                         ›

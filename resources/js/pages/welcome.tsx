@@ -49,9 +49,7 @@ export default function Welcome() {
                 <header className="border-b border-border/60 bg-background/95 backdrop-blur-sm">
                     <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                                <ShieldCheck className="h-4 w-4" />
-                            </div>
+                            <img src="/logo.jpg" alt="UP Police Sports" className="h-8 w-8" />
                             <span className="text-sm font-semibold tracking-tight">
                                 {t('Uttar Pradesh Police — Sports Unit')}
                             </span>
@@ -76,6 +74,9 @@ export default function Welcome() {
                         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground">
                             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                             {t('Replacing legacy Excel workbooks with a modern, searchable system.')}
+                        </div>
+                        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center">
+                            <img src="/logo.jpg" alt="UP Police Sports" className="h-20 w-20" />
                         </div>
                         <h1 className="mt-4 text-4xl font-bold tracking-tight lg:text-5xl">
                             {t('UP Police Sports Management System')}

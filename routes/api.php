@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\MedalsByMemberController;
 use App\Http\Controllers\Api\V1\MedalsDetailController;
 use App\Http\Controllers\Api\V1\MedalsPivotController;
 use App\Http\Controllers\Api\V1\MemberAchievementsController;
+use App\Http\Controllers\Api\V1\MemberMediaController;
 use App\Http\Controllers\Api\V1\MemberParticipationsController;
 use App\Http\Controllers\Api\V1\MemberPreviewController;
 use App\Http\Controllers\Api\V1\MemberSearchController;
@@ -30,6 +31,7 @@ Route::middleware(['auth'])->prefix('v1')->name('v1.')->group(function () {
     Route::get('members/{member}/teams', MemberTeamsController::class)->name('members.teams.index');
     Route::get('members/{member}/participations', MemberParticipationsController::class)->name('members.participations.index');
     Route::get('members/{member}/achievements', MemberAchievementsController::class)->name('members.achievements.index');
+    Route::get('members/{member}/media', MemberMediaController::class)->name('members.media.index');
     Route::get('coaches/{coach}/preview', CoachPreviewController::class)->name('coaches.preview');
     Route::get('coaches/{coach}/teams', CoachTeamsController::class)->name('coaches.teams.index');
     Route::get('teams/{team}/preview', TeamPreviewController::class)->name('teams.preview');

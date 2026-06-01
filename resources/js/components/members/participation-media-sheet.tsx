@@ -111,11 +111,11 @@ return;
                 onClick={() => inputRef.current?.click()}
                 onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
                 onDragOver={(e) => {
- e.preventDefault(); setDragOver(true); 
+ e.preventDefault(); setDragOver(true);
 }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={(e) => {
- e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); 
+ e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files);
 }}
                 className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-8 transition-colors cursor-pointer select-none ${dragOver ? 'border-primary bg-primary/5' : 'border-input hover:border-muted-foreground/50 hover:bg-muted/30'}`}
             >

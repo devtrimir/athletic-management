@@ -819,7 +819,7 @@ setDeletingParticipation(null);
                     onOpenChange={(o) => {
  if (!o) {
 setMediaParticipation(null);
-} 
+}
 }}
                     canUpload={canUpload}
                     canDelete={canDelete}
