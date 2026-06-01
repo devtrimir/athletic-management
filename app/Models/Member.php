@@ -151,4 +151,10 @@ class Member extends Model
     {
         return $this->hasMany(MemberLegacyAchievement::class)->orderBy('period')->orderBy('level')->orderBy('sort_order');
     }
+
+    /** @return HasMany<Participation, $this> */
+    public function participations(): HasMany
+    {
+        return $this->hasMany(Participation::class);
+    }
 }
