@@ -160,7 +160,7 @@ params['pno'] = pno;
 params['event_name'] = eventName;
 }
 
-        get(AchievementHistoryController.url(params), {
+        get(AchievementHistoryController.url({ query: params }), {
             onSuccess: (res) => {
                 const r = res as unknown as ApiResponse;
                 setRows(r?.data ?? []);

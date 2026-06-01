@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\TournamentTier;
+use App\Models\Unit;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,11 +37,17 @@ class ReportsMedalsController extends Controller
             ->orderByDesc('weight')
             ->get();
 
+        $units = Unit::select(['id', 'name_hi', 'name_en'])
+            ->where('organization_id', $orgId)
+            ->orderBy('name_hi')
+            ->get();
+
         return Inertia::render('reports/medals', [
             'defaultSessionId' => $defaultSessionId,
             'sessions' => $sessions,
             'sports' => $sports,
             'tiers' => $tiers,
+            'units' => $units,
         ]);
     }
 }

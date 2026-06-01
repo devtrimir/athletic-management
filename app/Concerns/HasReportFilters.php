@@ -24,6 +24,8 @@ trait HasReportFilters
             'pno' => ['nullable', 'string', 'max:20'],
             'tournament_id' => ['nullable', 'integer'],
             'event_name' => ['nullable', 'string', 'max:100'],
+            'medal_type' => ['nullable', 'string', 'in:GOLD,SILVER,BRONZE,MERIT'],
+            'gender' => ['nullable', 'string', 'in:M,F,O'],
         ];
     }
 
@@ -43,6 +45,8 @@ trait HasReportFilters
             'pno' => $request->input('pno') ?: null,
             'tournament_id' => $request->integer('tournament_id') ?: null,
             'event_name' => $request->input('event_name') ?: null,
+            'medal_type' => $request->input('medal_type') ?: null,
+            'gender' => $request->input('gender') ?: null,
         ];
     }
 }
