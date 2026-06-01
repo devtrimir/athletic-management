@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Concerns\Auditable;
+use App\Concerns\HasMedia;
 use App\Observers\AuditObserver;
 use Database\Factories\AchievementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -35,7 +36,7 @@ use Illuminate\Support\Carbon;
 class Achievement extends Model
 {
     /** @use HasFactory<AchievementFactory> */
-    use Auditable, HasFactory;
+    use Auditable, HasFactory, HasMedia;
 
     /** @return BelongsTo<Participation, $this> */
     public function participation(): BelongsTo

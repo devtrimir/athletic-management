@@ -8,6 +8,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventParticipantController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MedalsExportController;
+use App\Http\Controllers\MediaFileController;
 use App\Http\Controllers\MemberAliasController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberExportController;
@@ -78,6 +79,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('achievement-benefits', [AchievementBenefitController::class, 'store'])->name('achievement-benefits.store');
     Route::patch('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'update'])->name('achievement-benefits.update');
     Route::delete('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'destroy'])->name('achievement-benefits.destroy');
+    Route::post('participations/{participation}/media', [MediaFileController::class, 'store'])->name('participations.media.store');
+    Route::delete('participations/{participation}/media/{mediaFile}', [MediaFileController::class, 'destroy'])->name('participations.media.destroy');
 });
 
 require __DIR__.'/settings.php';

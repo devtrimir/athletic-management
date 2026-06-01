@@ -316,7 +316,10 @@ function exportRelatedCsv(rows: MedalRow[], filename: string): void {
 
 function printRelated(rows: MedalRow[], title: string): void {
     const win = window.open('', '_blank', 'width=1000,height=700');
-    if (!win) { return; }
+
+    if (!win) {
+ return; 
+}
 
     const MEDAL_COLOR: Record<string, string> = {
         GOLD: '#ca8a04',
@@ -385,7 +388,10 @@ function RelatedMedalsModal({
     const { get: fetchRows, processing } = useHttp<Record<string, never>, RelatedResponse>({});
 
     useEffect(() => {
-        if (!open) { return; }
+        if (!open) {
+ return; 
+}
+
         setRelatedData(null);
         fetchRows(
             MedalsDetailController.url({ query: { ...params, per_page: '50' } }),
@@ -491,7 +497,9 @@ function SectionCard({ title, children, action }: { title: string; children: Rea
 }
 
 function DetailRow({ label, value, full }: { label: string; value: string | null | undefined; full?: boolean }) {
-    if (!value) { return null; }
+    if (!value) {
+ return null; 
+}
 
     return (
         <div className={full ? 'col-span-2 flex flex-col gap-0.5' : 'flex flex-col gap-0.5'}>
@@ -509,7 +517,9 @@ function MedalDetailModal({ row, open, onOpenChange }: {
     const { t } = useTranslation();
     const [subModal, setSubModal] = useState<'tournament' | 'event' | 'athlete' | null>(null);
 
-    if (!row) { return null; }
+    if (!row) {
+ return null; 
+}
 
     const dateRange = [row.tournament.date_from, row.tournament.date_to].filter(Boolean).join(' – ');
     const genderLabel = GENDER_OPTIONS.find((g) => g.value === row.member.gender)?.label;
@@ -837,6 +847,7 @@ export default function ReportsMedals({
         const params = new URLSearchParams(buildParams() as Record<string, string>);
 
         const qs = params.toString();
+
         return MedalsExportController.url() + (qs ? '?' + qs : '');
     };
 

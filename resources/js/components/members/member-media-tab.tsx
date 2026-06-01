@@ -247,7 +247,7 @@ function GridThumb({
                         type="button"
                         disabled={deleting}
                         onClick={(e) => {
- e.stopPropagation(); onDelete(); 
+ e.stopPropagation(); onDelete();
 }}
                         className="flex h-6 w-6 items-center justify-center rounded-full bg-destructive/80 text-white hover:bg-destructive"
                         title={t('Delete')}

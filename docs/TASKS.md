@@ -242,6 +242,27 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 
 ---
 
+## Phase 5M — Participation & Member Media
+
+> Parallel sprint with P2B. Polymorphic `media_files` table attaches photos to `Participation` and `Achievement`. All member media traces back to a participation or achievement — no free-floating galleries. Storage paths are deterministically structured: `org_{id}/tournaments/{tid}/events/{eid}/members/{mid}/` so every file is unique by player × event × tournament.
+
+### PR 1 — Schema + Model `feat/p5m-t01-schema`
+- [ ] **P5M-T01** Migration `media_files` (org-scoped, polymorphic `mediable_type/id`, `disk`, `path` unique, `original_name`, `mime_type`, `size_bytes`, `caption_hi`, `uploaded_by` FK) + `MediaFile` model + `HasMedia` trait (added to `Participation` and `Achievement`) + `MediaFileFactory` + RBAC permissions `media:upload` + `media:delete` in `config/rbac.php` (assigned to `admin` + `data_entry`)
+
+### PR 2 — Backend `feat/p5m-t02-backend`
+- [ ] **P5M-T02** `MediaPathService` (builds deterministic storage paths by walking `Participation → Event → Tournament → Member`, or `Achievement → Participation → …`) + `MediaFileController` (`store`, `destroy`) + `StoreMediaFileRequest` (mime: jpeg/png/webp, max 10 MB, max 20 files per participation, morphable type whitelist) + `MediaPolicy` + `MediaFileResource` + routes in `web.php` + storage disk config (`public` default, S3-ready)
+
+### PR 3 — Frontend: Participation upload `feat/p5m-t03-participation-upload`
+- [ ] **P5M-T03** Reusable `MediaUploadDropzone` component (shadcn Dialog + file input, thumbnail preview, upload progress) + `ParticipationMediaSheet` (opens per participant row in `Events/Show.tsx`, shows existing thumbnails grid + dropzone + delete per image) — all strings via `t()`
+
+### PR 4 — Frontend: Member Media tab `feat/p5m-t04-member-media-tab`
+- [ ] **P5M-T04** New **"मीडिया"** tab in `Members/Show.tsx` — lazy-loaded via `useHttp`; accordion grouped by tournament → event; thumbnail grid per event; lightbox on click; download + delete actions; animated skeleton empty-state while loading — all strings via `t()`
+
+### PR 5 — Tests `feat/p5m-t05-tests`
+- [ ] **P5M-T05** Pest Feature: upload happy path (jpeg/png/webp), type rejection (PDF → 422), size rejection (> 10 MB → 422), max-count rejection (> 20 → 422), cross-org 403, `media:delete` gating (viewer → 403), media retrieval grouped by member endpoint
+
+---
+
 ## Phase 6 — Excel Import Pipeline (split into 6 sub-sprints)
 
 > **Skipped** — deferred to a later sprint. All P6 tasks remain defined below for future implementation.
