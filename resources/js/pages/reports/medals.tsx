@@ -18,7 +18,6 @@ import { useTranslation } from '@/hooks/use-translation';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Session = { id: number; name: string };
 type Sport = { id: number; name_hi: string; name_en: string };
 type Tier = { id: number; code: string; label_hi: string; label_en: string };
 type Unit = { id: number; name_hi: string; name_en: string };
@@ -82,6 +81,13 @@ type MedalRow = {
     benefit: Benefit | null;
 };
 
+type MedalCounts = {
+    GOLD: number;
+    SILVER: number;
+    BRONZE: number;
+    MERIT: number;
+};
+
 type DetailResponse = {
     data: MedalRow[];
     current_page: number;
@@ -90,10 +96,12 @@ type DetailResponse = {
     per_page: number;
     from: number | null;
     to: number | null;
+    medal_counts: MedalCounts;
 };
 
 type Filters = {
-    session_id: string;
+    year_from: string;
+    year_to: string;
     sport_id: string;
     tier_id: string;
     unit_id: string;
@@ -318,7 +326,7 @@ function printRelated(rows: MedalRow[], title: string): void {
     const win = window.open('', '_blank', 'width=1000,height=700');
 
     if (!win) {
- return; 
+ return;
 }
 
     const MEDAL_COLOR: Record<string, string> = {
@@ -389,7 +397,7 @@ function RelatedMedalsModal({
 
     useEffect(() => {
         if (!open) {
- return; 
+ return;
 }
 
         setRelatedData(null);
@@ -498,7 +506,7 @@ function SectionCard({ title, children, action }: { title: string; children: Rea
 
 function DetailRow({ label, value, full }: { label: string; value: string | null | undefined; full?: boolean }) {
     if (!value) {
- return null; 
+ return null;
 }
 
     return (
@@ -518,7 +526,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
     const [subModal, setSubModal] = useState<'tournament' | 'event' | 'athlete' | null>(null);
 
     if (!row) {
- return null; 
+ return null;
 }
 
     const dateRange = [row.tournament.date_from, row.tournament.date_to].filter(Boolean).join(' – ');
@@ -677,14 +685,14 @@ function MedalDetailModal({ row, open, onOpenChange }: {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ReportsMedals({
-    defaultSessionId,
-    sessions,
+    defaultYearFrom,
+    defaultYearTo,
     sports,
     tiers,
     units,
 }: {
-    defaultSessionId: number | null;
-    sessions: Session[];
+    defaultYearFrom: number;
+    defaultYearTo: number;
     sports: Sport[];
     tiers: Tier[];
     units: Unit[];
@@ -696,7 +704,8 @@ export default function ReportsMedals({
     });
 
     const [filters, setFilters] = useState<Filters>({
-        session_id: defaultSessionId ? String(defaultSessionId) : ALL,
+        year_from: String(defaultYearFrom),
+        year_to: String(defaultYearTo),
         sport_id: ALL,
         tier_id: ALL,
         unit_id: ALL,
@@ -725,14 +734,18 @@ export default function ReportsMedals({
     const [modalOpen, setModalOpen] = useState(false);
     const [printOpen, setPrintOpen] = useState(false);
 
-    const hasAnyFilter = Object.values(filters).some((v) => v !== ALL) || !!memberSearch;
+    const hasAnyFilter = filters.year_from !== ALL || filters.year_to !== ALL || Object.entries(filters).filter(([k]) => k !== 'year_from' && k !== 'year_to').some(([, v]) => v !== ALL) || !!memberSearch;
 
     const buildParams = useCallback(
         (extra?: Record<string, string | number>): Record<string, string> => {
             const p: Record<string, string> = {};
 
-            if (filters.session_id !== ALL) {
- p['session_id'] = filters.session_id;
+            if (filters.year_from !== ALL) {
+ p['year_from'] = filters.year_from;
+}
+
+            if (filters.year_to !== ALL) {
+ p['year_to'] = filters.year_to;
 }
 
             if (filters.sport_id !== ALL) {
@@ -819,7 +832,7 @@ export default function ReportsMedals({
     };
 
     const clearAll = () => {
-        setFilters({ session_id: ALL, sport_id: ALL, tier_id: ALL, unit_id: ALL, medal_type: ALL, gender: ALL });
+        setFilters({ year_from: ALL, year_to: ALL, sport_id: ALL, tier_id: ALL, unit_id: ALL, medal_type: ALL, gender: ALL });
         setMemberSearchDraft('');
         setMemberSearch('');
     };
@@ -852,7 +865,15 @@ export default function ReportsMedals({
     };
 
     // Label helpers
-    const sessionLabel = sessions.find((s) => String(s.id) === filters.session_id)?.name;
+    const yearRangeLabel = (() => {
+        const from = filters.year_from !== ALL ? filters.year_from : null;
+        const to = filters.year_to !== ALL ? filters.year_to : null;
+        if (from && to && from === to) return from;
+        if (from && to) return `${from} – ${to}`;
+        if (from) return `≥ ${from}`;
+        if (to) return `≤ ${to}`;
+        return undefined;
+    })();
     const sportLabel = sports.find((s) => String(s.id) === filters.sport_id)?.name_hi;
     const tierLabel = tiers.find((t) => String(t.id) === filters.tier_id)?.label_hi;
     const unitLabel = units.find((u) => String(u.id) === filters.unit_id)?.name_hi;
@@ -898,18 +919,38 @@ export default function ReportsMedals({
                         />
                     </div>
 
-                    {/* Session */}
+                    {/* Year range */}
                     <FilterPill
-                        label={t('Session')}
-                        activeLabel={sessionLabel}
-                        onClear={() => setFilter('session_id', ALL)}
+                        label={t('Year')}
+                        activeLabel={yearRangeLabel}
+                        onClear={() => setFilters((prev) => ({ ...prev, year_from: ALL, year_to: ALL }))}
                     >
-                        <SearchableOptionList
-                            options={sessions.map((s) => ({ value: String(s.id), label: s.name }))}
-                            value={filters.session_id}
-                            onSelect={(v) => setFilter('session_id', v)}
-                            searchPlaceholder={t('Search sessions…')}
-                        />
+                        <div className="flex flex-col gap-3 p-3 w-52">
+                            <div className="space-y-1">
+                                <label className="text-xs text-muted-foreground">{t('From year')}</label>
+                                <Input
+                                    type="number"
+                                    min={1900}
+                                    max={2099}
+                                    placeholder="e.g. 2019"
+                                    value={filters.year_from !== ALL ? filters.year_from : ''}
+                                    onChange={(e) => setFilter('year_from', e.target.value.trim() || ALL)}
+                                    className="h-8 text-sm"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs text-muted-foreground">{t('To year')}</label>
+                                <Input
+                                    type="number"
+                                    min={1900}
+                                    max={2099}
+                                    placeholder="e.g. 2026"
+                                    value={filters.year_to !== ALL ? filters.year_to : ''}
+                                    onChange={(e) => setFilter('year_to', e.target.value.trim() || ALL)}
+                                    className="h-8 text-sm"
+                                />
+                            </div>
+                        </div>
                     </FilterPill>
 
                     {/* Sport */}
@@ -993,10 +1034,34 @@ export default function ReportsMedals({
 
                 {/* Tabs */}
                 <Tabs value={tab} onValueChange={(v) => setTab(v as 'tally' | 'detail')}>
-                    <TabsList>
-                        <TabsTrigger value="tally">{t('Medal Tally')}</TabsTrigger>
-                        <TabsTrigger value="detail">{t('Medal Detail')}</TabsTrigger>
-                    </TabsList>
+                    <div className="flex items-center gap-3">
+                        <TabsList>
+                            <TabsTrigger value="tally">{t('Medal Tally')}</TabsTrigger>
+                            <TabsTrigger value="detail">{t('Medal Detail')}</TabsTrigger>
+                        </TabsList>
+
+                        {/* Medal counts — shown inline to the right of the tab bar */}
+                        {detailData !== null && detailData.total > 0 && (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                {([
+                                    { type: 'GOLD',   emoji: '🥇', cls: 'text-yellow-600 dark:text-yellow-400' },
+                                    { type: 'SILVER', emoji: '🥈', cls: 'text-slate-500 dark:text-slate-300' },
+                                    { type: 'BRONZE', emoji: '🥉', cls: 'text-orange-600 dark:text-orange-400' },
+                                    { type: 'MERIT',  emoji: '🏅', cls: 'text-blue-500 dark:text-blue-400' },
+                                ] as const).map(({ type, emoji, cls }) =>
+                                    detailData.medal_counts[type] > 0 ? (
+                                        <span key={type} className={`flex items-center gap-1 text-sm font-semibold ${cls}`}>
+                                            <span>{emoji}</span>
+                                            <span>{detailData.medal_counts[type]}</span>
+                                        </span>
+                                    ) : null,
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                    ({t('Total')}: <strong className="text-foreground">{detailData.total}</strong>)
+                                </span>
+                            </div>
+                        )}
+                    </div>
 
                     {/* ── Tally tab ── */}
                     <TabsContent value="tally" className="mt-4">

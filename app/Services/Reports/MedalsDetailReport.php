@@ -13,7 +13,8 @@ class MedalsDetailReport
      * Return paginated flat medal rows with full context for the detail view.
      *
      * @param  array{
-     *     session_id: int|null,
+     *     year_from: int|null,
+     *     year_to: int|null,
      *     sport_id: int|null,
      *     unit_id: int|null,
      *     tier_id: int|null,
@@ -25,9 +26,65 @@ class MedalsDetailReport
      *     event_name: string|null,
      * } $filters
      */
+    /**
+     * Return medal counts grouped by type for the same filter set.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array{GOLD: int, SILVER: int, BRONZE: int, MERIT: int}
+     */
+    public function countByType(int $orgId, array $filters): array
+    {
+        $yearFrom = $filters['year_from'] ?? null;
+        $yearTo = $filters['year_to'] ?? null;
+        $sportId = $filters['sport_id'] ?? null;
+        $unitId = $filters['unit_id'] ?? null;
+        $tierId = $filters['tier_id'] ?? null;
+        $medalType = $filters['medal_type'] ?? null;
+        $gender = $filters['gender'] ?? null;
+        $memberName = $filters['member_name'] ?? null;
+        $pno = $filters['pno'] ?? null;
+        $tournamentId = $filters['tournament_id'] ?? null;
+        $eventName = $filters['event_name'] ?? null;
+
+        $rows = DB::table('achievements as a')
+            ->join('participations as p', 'p.id', '=', 'a.participation_id')
+            ->join('members as m', 'm.id', '=', 'p.member_id')
+            ->join('events as e', 'e.id', '=', 'p.event_id')
+            ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
+            ->leftJoin('tournament_tiers as tt', 'tt.id', '=', 't.tier_id')
+            ->select(['a.medal_type', DB::raw('COUNT(*) as cnt')])
+            ->where('t.organization_id', $orgId)
+            ->whereNull('t.deleted_at')
+            ->whereNull('m.deleted_at')
+            ->when($yearFrom, fn ($q) => $q->whereYear('t.date_from', '>=', $yearFrom))
+            ->when($yearTo, fn ($q) => $q->whereYear('t.date_from', '<=', $yearTo))
+            ->when($sportId, fn ($q) => $q->where('e.sport_id', $sportId))
+            ->when($tierId, fn ($q) => $q->where('t.tier_id', $tierId))
+            ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))
+            ->when($medalType, fn ($q) => $q->where('a.medal_type', $medalType))
+            ->when($gender, fn ($q) => $q->where('m.gender', $gender))
+            ->when($memberName, fn ($q) => $q->where('m.full_name_hi', 'like', "%{$memberName}%"))
+            ->when($pno, fn ($q) => $q->where('m.pno', 'like', "%{$pno}%"))
+            ->when($tournamentId, fn ($q) => $q->where('t.id', $tournamentId))
+            ->when($eventName, fn ($q) => $q->where('e.name_hi', 'like', "%{$eventName}%"))
+            ->groupBy('a.medal_type')
+            ->get();
+
+        $counts = ['GOLD' => 0, 'SILVER' => 0, 'BRONZE' => 0, 'MERIT' => 0];
+
+        foreach ($rows as $row) {
+            if (isset($counts[$row->medal_type])) {
+                $counts[$row->medal_type] = (int) $row->cnt;
+            }
+        }
+
+        return $counts;
+    }
+
     public function run(int $orgId, array $filters, int $perPage = 25): LengthAwarePaginator
     {
-        $sessionId = $filters['session_id'] ?? null;
+        $yearFrom = $filters['year_from'] ?? null;
+        $yearTo = $filters['year_to'] ?? null;
         $sportId = $filters['sport_id'] ?? null;
         $unitId = $filters['unit_id'] ?? null;
         $tierId = $filters['tier_id'] ?? null;
@@ -102,7 +159,8 @@ class MedalsDetailReport
             ->where('t.organization_id', $orgId)
             ->whereNull('t.deleted_at')
             ->whereNull('m.deleted_at')
-            ->when($sessionId, fn ($q) => $q->where('t.session_id', $sessionId))
+            ->when($yearFrom, fn ($q) => $q->whereYear('t.date_from', '>=', $yearFrom))
+            ->when($yearTo, fn ($q) => $q->whereYear('t.date_from', '<=', $yearTo))
             ->when($sportId, fn ($q) => $q->where('e.sport_id', $sportId))
             ->when($tierId, fn ($q) => $q->where('t.tier_id', $tierId))
             ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))

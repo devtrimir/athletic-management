@@ -17,12 +17,13 @@ class MedalTallyReport
      * Returns one row per tier that has at least one achievement, with medal
      * counts keyed by type (GOLD/SILVER/BRONZE/MERIT) and a nested tier object.
      *
-     * @param  array{session_id: int|null, sport_id: int|null, unit_id: int|null, tier_id: int|null}  $filters
+     * @param  array{year_from: int|null, year_to: int|null, sport_id: int|null, unit_id: int|null, tier_id: int|null}  $filters
      * @return Collection<int, array{tier: array{code: string, label: string, weight: int}, GOLD: int, SILVER: int, BRONZE: int, MERIT: int}>
      */
     public function run(int $orgId, array $filters): Collection
     {
-        $sessionId = $filters['session_id'] ?? null;
+        $yearFrom = $filters['year_from'] ?? null;
+        $yearTo = $filters['year_to'] ?? null;
         $sportId = $filters['sport_id'] ?? null;
         $unitId = $filters['unit_id'] ?? null;
         $tierId = $filters['tier_id'] ?? null;
@@ -35,7 +36,8 @@ class MedalTallyReport
             ->select('tt.id', 'tt.code', 'tt.label_hi', 'tt.label_en', 'tt.weight', 'a.medal_type', DB::raw('COUNT(*) as cnt'))
             ->where('t.organization_id', $orgId)
             ->whereNull('t.deleted_at')
-            ->when($sessionId, fn ($q) => $q->where('t.session_id', $sessionId))
+            ->when($yearFrom, fn ($q) => $q->whereYear('t.date_from', '>=', $yearFrom))
+            ->when($yearTo, fn ($q) => $q->whereYear('t.date_from', '<=', $yearTo))
             ->when($sportId, fn ($q) => $q->where('e.sport_id', $sportId))
             ->when($tierId, fn ($q) => $q->where('t.tier_id', $tierId))
             ->when($unitId, fn ($q) => $q

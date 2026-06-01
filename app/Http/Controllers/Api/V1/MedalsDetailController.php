@@ -20,7 +20,11 @@ class MedalsDetailController extends Controller
         $perPage = min($request->integer('per_page', 25), 100);
 
         $paginator = $this->report->run($orgId, $filters, $perPage);
+        $medalCounts = $this->report->countByType($orgId, $filters);
 
-        return response()->json($paginator);
+        $data = $paginator->toArray();
+        $data['medal_counts'] = $medalCounts;
+
+        return response()->json($data);
     }
 }

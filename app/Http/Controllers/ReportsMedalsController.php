@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Sport;
-use App\Models\SportSession;
 use App\Models\TournamentTier;
 use App\Models\Unit;
 use Illuminate\Http\Request;
@@ -19,15 +18,6 @@ class ReportsMedalsController extends Controller
         abort_unless($request->user()->can('reports.view'), 403);
 
         $orgId = (int) $request->user()->organization_id;
-
-        $defaultSessionId = SportSession::where('organization_id', $orgId)
-            ->where('is_current', true)
-            ->value('id');
-
-        $sessions = SportSession::select(['id', 'name'])
-            ->where('organization_id', $orgId)
-            ->orderBy('name')
-            ->get();
 
         $sports = Sport::select(['id', 'name_hi', 'name_en'])
             ->orderBy('name_hi')
@@ -43,8 +33,8 @@ class ReportsMedalsController extends Controller
             ->get();
 
         return Inertia::render('reports/medals', [
-            'defaultSessionId' => $defaultSessionId,
-            'sessions' => $sessions,
+            'defaultYearFrom' => (int) now()->year,
+            'defaultYearTo' => (int) now()->year,
             'sports' => $sports,
             'tiers' => $tiers,
             'units' => $units,
