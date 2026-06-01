@@ -1,4 +1,4 @@
-import { Deferred, Head, Link, router, setLayoutProps, useForm, useHttp } from '@inertiajs/react';
+import { Deferred, Head, Link, router, setLayoutProps, useForm, useHttp, usePage } from '@inertiajs/react';
 import { Download, Plus, Printer } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { store as storeBenefit } from '@/actions/App/Http/Controllers/AchievementBenefitController';
@@ -14,6 +14,7 @@ import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
+import { MemberMediaTab } from '@/components/members/member-media-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { ChangeLog  } from '@/components/shared/change-log';
 import type {AuditEntry} from '@/components/shared/change-log';
@@ -337,6 +338,8 @@ export default function MembersShow({
     const participationsFetched = useRef(false);
     const achievementsFetched = useRef(false);
     const memberId = member.id;
+    const permissions = usePage().props.auth.permissions;
+    const canDeleteMedia = permissions.includes('media.delete');
 
     useEffect(() => {
         if (activeTab === 'participations' && !participationsFetched.current) {
@@ -361,6 +364,7 @@ export default function MembersShow({
             });
         }
     }, [activeTab, memberId, getParticipations, getAchievements]);
+    const [mediaKey] = useState(0);
 
     function refetchAchievements() {
         achievementsFetched.current = false;
@@ -522,6 +526,7 @@ return;
                         <TabsTrigger value="achievements">{t('Achievements')}</TabsTrigger>
                         <TabsTrigger value="legacy">{t('Legacy achievements')}</TabsTrigger>
                         <TabsTrigger value="changelog">{t('Change log')}</TabsTrigger>
+                        <TabsTrigger value="media">{t('Media')}</TabsTrigger>
                     </TabsList>
 
                     {/* Overview */}
@@ -809,6 +814,17 @@ return;
                         >
                             <ChangeLog entries={auditLog} primaryEntity="Member" storageKey="member-changelog-view" />
                         </Deferred>
+                    </TabsContent>
+
+                    {/* Media tab */}
+                    <TabsContent value="media">
+                        {activeTab === 'media' && (
+                            <MemberMediaTab
+                                key={mediaKey}
+                                memberId={memberId}
+                                canDelete={canDeleteMedia}
+                            />
+                        )}
                     </TabsContent>
                 </Tabs>
             </div>
