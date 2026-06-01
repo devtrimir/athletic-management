@@ -10,12 +10,27 @@ use App\Models\MediaFile;
 use App\Models\Participation;
 use App\Services\MediaPathService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 
 class MediaFileController extends Controller
 {
     public function __construct(private readonly MediaPathService $pathService) {}
+
+    /**
+     * List all media for a participation.
+     *
+     * GET /participations/{participation}/media
+     */
+    public function index(Request $request, Participation $participation): JsonResponse
+    {
+        Gate::authorize('view', $participation->member);
+
+        $media = $participation->media()->with('uploader:id,name')->latest()->get();
+
+        return response()->json(MediaFileResource::collection($media));
+    }
 
     /**
      * Upload one image for a participation.

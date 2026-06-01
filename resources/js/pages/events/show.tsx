@@ -1,5 +1,5 @@
 import { Deferred, Head, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
-import { Camera, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Camera, Images, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import {
     destroy as destroyEvent,
@@ -54,6 +54,7 @@ type EventProp = {
 type ParticipationRow = {
     id: number;
     position: number | null;
+    media_files_count: number;
     member: {
         id: number;
         full_name_hi: string;
@@ -751,18 +752,25 @@ return;
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-1">
-                                        {(canUpload || canDelete) && (
-                                            <Button
+                                        <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
                                                 title={t('Photos')}
                                                 onClick={() => setMediaParticipation(p)}
                                             >
-                                                <Camera className="h-4 w-4" />
+                                                {(canUpload || canDelete) ? (
+                                                    <Camera className="h-4 w-4" />
+                                                ) : (
+                                                    <Images className="h-4 w-4" />
+                                                )}
+                                                {p.media_files_count > 0 && (
+                                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
+                                                        {p.media_files_count > 9 ? '9+' : p.media_files_count}
+                                                    </span>
+                                                )}
                                                 <span className="sr-only">{t('Photos')}</span>
                                             </Button>
-                                        )}
                                         <Button
                                             variant="ghost"
                                             size="icon"

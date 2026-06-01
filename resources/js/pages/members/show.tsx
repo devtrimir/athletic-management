@@ -1,5 +1,5 @@
 import { Deferred, Head, Link, router, setLayoutProps, useForm, useHttp, usePage } from '@inertiajs/react';
-import { Download, Plus, Printer } from 'lucide-react';
+import { Camera, Download, Images, Plus, Printer } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { store as storeBenefit } from '@/actions/App/Http/Controllers/AchievementBenefitController';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
@@ -15,6 +15,7 @@ import InputError from '@/components/input-error';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
+import { ParticipationMediaSheet } from '@/components/members/participation-media-sheet';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { ChangeLog  } from '@/components/shared/change-log';
 import type {AuditEntry} from '@/components/shared/change-log';
@@ -75,6 +76,7 @@ type MemberTeamRow = {
 type ParticipationEntry = {
     id: number;
     position: number | null;
+    media_files_count: number;
     tournament: { id: number; name_hi: string; tier_code: string | null; date_from: string | null };
     event: { id: number; name_hi: string; gender_class: string };
     achievement: { medal_type: string; position: number | null; remarks: string | null } | null;
@@ -340,6 +342,8 @@ export default function MembersShow({
     const memberId = member.id;
     const permissions = usePage().props.auth.permissions;
     const canDeleteMedia = permissions.includes('media.delete');
+    const canUploadMedia = permissions.includes('media.upload');
+    const [mediaParticipationId, setMediaParticipationId] = useState<{ id: number; eventName: string } | null>(null);
 
     useEffect(() => {
         if (activeTab === 'participations' && !participationsFetched.current) {
@@ -665,6 +669,7 @@ return;
                                                 <TableHead>{t('Event')}</TableHead>
                                                 <TableHead>{t('Medal')}</TableHead>
                                                 <TableHead>{t('Position')}</TableHead>
+                                                <TableHead className="w-8" />
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -691,6 +696,27 @@ return;
                                                             : '—'}
                                                     </TableCell>
                                                     <TableCell>{p.achievement?.position ?? p.position ?? '—'}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="relative h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                            title={t('Photos')}
+                                                            onClick={() => setMediaParticipationId({ id: p.id, eventName: p.event?.name_hi ?? '' })}
+                                                        >
+                                                            {(canUploadMedia || canDeleteMedia) ? (
+                                                                <Camera className="h-3.5 w-3.5" />
+                                                            ) : (
+                                                                <Images className="h-3.5 w-3.5" />
+                                                            )}
+                                                            {p.media_files_count > 0 && (
+                                                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
+                                                                    {p.media_files_count > 9 ? '9+' : p.media_files_count}
+                                                                </span>
+                                                            )}
+                                                            <span className="sr-only">{t('Photos')}</span>
+                                                        </Button>
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -828,6 +854,21 @@ return;
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {mediaParticipationId !== null && (
+                <ParticipationMediaSheet
+                    participationId={mediaParticipationId.id}
+                    memberName={member.full_name_hi}
+                    open={mediaParticipationId !== null}
+                    onOpenChange={(o) => {
+ if (!o) {
+setMediaParticipationId(null);
+}
+}}
+                    canUpload={canUploadMedia}
+                    canDelete={canDeleteMedia}
+                />
+            )}
 
             {/* Export column picker dialog */}
             <Dialog open={exportOpen} onOpenChange={setExportOpen}>

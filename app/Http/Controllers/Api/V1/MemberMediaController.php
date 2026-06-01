@@ -109,7 +109,7 @@ class MemberMediaController extends Controller
             ->with([
                 'event:id,tournament_id,sport_id,name_hi',
                 'event.tournament:id,name_hi,date_from,tier_id',
-                'event.tournament.tier:id,code,name_hi',
+                'event.tournament.tier:id,code,label_hi',
                 'event.sport:id,name_hi',
                 'achievement:participation_id,medal_type',
             ])
@@ -163,7 +163,7 @@ class MemberMediaController extends Controller
                     'id' => $tournament->id,
                     'name_hi' => $tournament->name_hi,
                     'date_from' => $tournament->date_from?->toDateString(),
-                    'tier' => $tournament->tier ? ['code' => $tournament->tier->code, 'name_hi' => $tournament->tier->name_hi] : null,
+                    'tier' => $tournament->tier ? ['code' => $tournament->tier->code, 'label_hi' => $tournament->tier->label_hi] : null,
                 ] : null,
                 'events' => $events,
                 'total' => $files->count(),

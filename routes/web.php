@@ -79,6 +79,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('achievement-benefits', [AchievementBenefitController::class, 'store'])->name('achievement-benefits.store');
     Route::patch('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'update'])->name('achievement-benefits.update');
     Route::delete('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'destroy'])->name('achievement-benefits.destroy');
+    Route::get('participations/{participation}/media', [MediaFileController::class, 'index'])->name('participations.media.index');
     Route::post('participations/{participation}/media', [MediaFileController::class, 'store'])->name('participations.media.store');
     Route::delete('participations/{participation}/media/{mediaFile}', [MediaFileController::class, 'destroy'])->name('participations.media.destroy');
 });

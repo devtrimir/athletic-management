@@ -25,6 +25,7 @@ class MemberParticipationsController extends Controller
                 'event.tournament.tier:id,code',
                 'achievement:participation_id,medal_type,position,remarks',
             ])
+            ->withCount('media')
             ->orderByDesc('session_id')
             ->get();
 
@@ -38,6 +39,7 @@ class MemberParticipationsController extends Controller
                     'participations' => $group->map(fn ($p) => [
                         'id' => $p->id,
                         'position' => $p->position,
+                        'media_files_count' => $p->media_count,
                         'tournament' => [
                             'id' => $p->event->tournament->id,
                             'name_hi' => $p->event->tournament->name_hi,

@@ -62,11 +62,13 @@ class EventController extends Controller
             'sports' => $sports,
             'participations' => Inertia::defer(fn () => $event->participations()
                 ->with(['member:id,full_name_hi,member_code,pno', 'achievement'])
+                ->withCount('media')
                 ->orderBy('position')
                 ->get()
                 ->map(fn ($p) => [
                     'id' => $p->id,
                     'position' => $p->position,
+                    'media_files_count' => $p->media_count,
                     'member' => $p->member ? [
                         'id' => $p->member->id,
                         'full_name_hi' => $p->member->full_name_hi,
