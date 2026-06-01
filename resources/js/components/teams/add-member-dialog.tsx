@@ -40,15 +40,19 @@ export function AddMemberDialog({ open, onOpenChange, team, sessions }: Props) {
     const [filterCategory, setFilterCategory] = useState('');
     const [filterLevel, setFilterLevel] = useState('');
 
-    const { data, setData, post, errors, processing, reset } = useForm({
-        member_id: '',
+    const { data, setData, post, errors, processing, reset } = useForm<{
+        member_ids: string[];
+        session_id: string;
+        role: string;
+    }>({
+        member_ids: [],
         session_id: team.session ? String(team.session.id) : '',
         role: 'PLAYER',
     });
 
     function handleMemberChange(m: MemberOption | null) {
         setPickedMember(m);
-        setData('member_id', m ? String(m.id) : '');
+        setData('member_ids', m ? [String(m.id)] : []);
     }
 
     function handleSubmit(e: React.FormEvent) {
@@ -88,19 +92,19 @@ extraFilters.player_level = filterLevel;
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>{t('Add member')}</DialogTitle>
                 </DialogHeader>
 
                 {/* Search filters */}
                 <div className="flex flex-wrap gap-2">
-                    <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <Select value={filterCategory || '_all'} onValueChange={(v) => setFilterCategory(v === '_all' ? '' : v)}>
                         <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
                             <SelectValue placeholder={t('Category')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{t('All categories')}</SelectItem>
+                            <SelectItem value="_all">{t('All categories')}</SelectItem>
                             {CATEGORIES.map((c) => (
                                 <SelectItem key={c.value} value={c.value}>
                                     {t(c.label)}
@@ -109,12 +113,12 @@ extraFilters.player_level = filterLevel;
                         </SelectContent>
                     </Select>
 
-                    <Select value={filterLevel} onValueChange={setFilterLevel}>
+                    <Select value={filterLevel || '_all'} onValueChange={(v) => setFilterLevel(v === '_all' ? '' : v)}>
                         <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
                             <SelectValue placeholder={t('Level')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{t('All levels')}</SelectItem>
+                            <SelectItem value="_all">{t('All levels')}</SelectItem>
                             {LEVELS.map((l) => (
                                 <SelectItem key={l.value} value={l.value}>
                                     {t(l.label)}
@@ -133,7 +137,7 @@ extraFilters.player_level = filterLevel;
                             onChange={handleMemberChange}
                             extraFilters={extraFilters}
                         />
-                        <InputError message={errors.member_id} />
+                        <InputError message={errors.member_ids ?? (errors as Record<string, string>)['member_ids.0']} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

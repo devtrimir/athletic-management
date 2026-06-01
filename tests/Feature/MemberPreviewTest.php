@@ -1,0 +1,67 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Models\Member;
+use App\Models\Organization;
+use App\Models\Permission;
+use App\Models\Role;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+
+uses(RefreshDatabase::class);
+
+function memberPreviewUser(): User
+{
+    $org = Organization::factory()->create();
+    $user = User::factory()->create(['organization_id' => $org->id]);
+
+    $role = Role::factory()->create(['organization_id' => $org->id]);
+    DB::table('user_role')->insert(['user_id' => $user->id, 'role_id' => $role->id, 'organization_id' => $org->id]);
+
+    $perm = Permission::firstOrCreate(
+        ['code' => 'members.view'],
+        ['group' => 'members', 'name_hi' => 'members.view', 'name_en' => 'members.view'],
+    );
+    DB::table('role_permission')->insert(['role_id' => $role->id, 'permission_id' => $perm->id]);
+
+    return $user;
+}
+
+test('unauthenticated user cannot access member preview', function () {
+    $member = Member::factory()->create();
+
+    $this->getJson(route('v1.members.preview', $member))
+        ->assertUnauthorized();
+});
+
+test('user without permission cannot access member preview', function () {
+    $org = Organization::factory()->create();
+    $user = User::factory()->create(['organization_id' => $org->id]);
+    $member = Member::factory()->create(['organization_id' => $org->id]);
+
+    $this->actingAs($user)
+        ->getJson(route('v1.members.preview', $member))
+        ->assertForbidden();
+});
+
+test('authorized user can view member preview', function () {
+    $user = memberPreviewUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->getJson(route('v1.members.preview', $member))
+        ->assertOk()
+        ->assertJsonStructure(['id', 'full_name_hi', 'pno', 'recruitment_type']);
+});
+
+test('user cannot preview member from another organization', function () {
+    $user = memberPreviewUser();
+    $other = Organization::factory()->create();
+    $member = Member::factory()->create(['organization_id' => $other->id]);
+
+    $this->actingAs($user)
+        ->getJson(route('v1.members.preview', $member))
+        ->assertNotFound();
+});

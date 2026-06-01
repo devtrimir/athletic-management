@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Concerns\Auditable;
 use App\Concerns\Tenanted;
+use App\Observers\AuditObserver;
 use Database\Factories\CoachFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,10 +40,11 @@ use Illuminate\Support\Carbon;
     'mobile',
     'nis_certified',
 ])]
+#[ObservedBy([AuditObserver::class])]
 class Coach extends Model
 {
     /** @use HasFactory<CoachFactory> */
-    use HasFactory, SoftDeletes, Tenanted;
+    use Auditable, HasFactory, SoftDeletes, Tenanted;
 
     /**
      * @return array<string, string>

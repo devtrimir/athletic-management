@@ -20,7 +20,7 @@ class StoreAchievementBenefitRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'benefitable_type' => ['required', Rule::in(['member_legacy_achievement'])],
+            'benefitable_type' => ['required', Rule::in(['member_legacy_achievement', 'achievement'])],
             'benefitable_id' => ['required', 'integer', 'min:1'],
             'benefit_type' => ['required', Rule::in(['PROMOTION', 'OUT_OF_TURN_PROMOTION', 'CASH_AWARD', 'COMMENDATION', 'NONE', 'OTHER'])],
             'promoted_from_rank' => ['nullable', 'string', 'max:100'],

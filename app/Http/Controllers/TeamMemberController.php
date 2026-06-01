@@ -9,6 +9,7 @@ use App\Models\Member;
 use App\Models\Team;
 use App\Models\TeamMember;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
@@ -61,18 +62,16 @@ class TeamMemberController extends Controller
         $role = $data['role'] ?? 'PLAYER';
         $joinedOn = $data['joined_on'] ?? null;
 
-        $rows = array_map(fn (int $memberId) => [
-            'team_id' => $team->id,
-            'member_id' => $memberId,
-            'session_id' => $sessionId,
-            'role' => $role,
-            'joined_on' => $joinedOn,
-            'left_on' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ], $memberIds);
-
-        TeamMember::insert($rows);
+        foreach ($memberIds as $memberId) {
+            TeamMember::create([
+                'team_id' => $team->id,
+                'member_id' => $memberId,
+                'session_id' => $sessionId,
+                'role' => $role,
+                'joined_on' => $joinedOn,
+                'left_on' => null,
+            ]);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Members added to team.')]);
 
@@ -83,11 +82,37 @@ class TeamMemberController extends Controller
     {
         Gate::authorize('update', $team);
 
-        TeamMember::where('team_id', $team->id)
+        $tm = TeamMember::where('team_id', $team->id)
             ->where('member_id', $member->id)
-            ->delete();
+            ->first();
+
+        $tm?->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member removed from team.')]);
+
+        return to_route('teams.show', $team);
+    }
+
+    public function bulkDestroy(Request $request, Team $team): RedirectResponse
+    {
+        Gate::authorize('update', $team);
+
+        $memberIds = $request->validate([
+            'member_ids' => ['required', 'array', 'min:1'],
+            'member_ids.*' => ['integer'],
+        ])['member_ids'];
+
+        $rows = TeamMember::where('team_id', $team->id)
+            ->whereIn('member_id', $memberIds)
+            ->get();
+
+        foreach ($rows as $row) {
+            $row->delete();
+        }
+
+        $deleted = $rows->count();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':count members removed from team.', ['count' => $deleted])]);
 
         return to_route('teams.show', $team);
     }

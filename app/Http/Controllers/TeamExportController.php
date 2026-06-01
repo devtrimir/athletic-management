@@ -46,7 +46,7 @@ class TeamExportController extends Controller
         if (! empty($ids)) {
             $teams = Team::whereIn('id', array_map('intval', $ids))
                 ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-                ->with(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi'])
+                ->with(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])
                 ->orderBy('name_hi')
                 ->get();
         } else {
@@ -60,7 +60,7 @@ class TeamExportController extends Controller
                 ->allowedSorts(['name_hi', 'created_at'])
                 ->defaultSort('name_hi')
                 ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-                ->with(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi'])
+                ->with(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])
                 ->when(
                     ! $request->has('filter.session_id') && $defaultSessionId,
                     fn ($q) => $q->where('session_id', $defaultSessionId)

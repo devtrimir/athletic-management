@@ -1,9 +1,10 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Check, ChevronDown, Download, Eye, Plus, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
+import { MemberQuickView } from '@/components/members/member-quick-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,6 +36,7 @@ type Member = {
 
 type UnitOption = { id: number; name_hi: string; name_en: string };
 type DistrictOption = { id: number; name_hi: string; name_en: string };
+type SportOption = { id: number; name_hi: string; name_en: string };
 
 type PaginatedMembers = {
     data: Member[];
@@ -56,6 +58,7 @@ type Filters = {
     gender?: string;
     blood_group?: string;
     recruitment_type?: string;
+    sport_id?: string;
     joining_year_from?: string;
     joining_year_to?: string;
 };
@@ -238,6 +241,7 @@ export default function MembersIndex({
     filters,
     units,
     districts,
+    sports,
     totalCount,
     perPage,
 }: {
@@ -245,6 +249,7 @@ export default function MembersIndex({
     filters: Filters;
     units: UnitOption[];
     districts: DistrictOption[];
+    sports: SportOption[];
     totalCount: number;
     perPage: number;
 }) {
@@ -254,6 +259,7 @@ export default function MembersIndex({
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+    const [quickViewId, setQuickViewId] = useState<number | null>(null);
 
     // Row selection — persists across pagination pages
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -273,6 +279,7 @@ export default function MembersIndex({
             gender: filters.gender,
             blood_group: filters.blood_group,
             recruitment_type: filters.recruitment_type,
+            sport_id: filters.sport_id,
             joining_year_from: filters.joining_year_from,
             joining_year_to: filters.joining_year_to,
             ...patch,
@@ -289,6 +296,7 @@ export default function MembersIndex({
             ['gender', 'filter[gender]'],
             ['blood_group', 'filter[blood_group]'],
             ['recruitment_type', 'filter[recruitment_type]'],
+            ['sport_id', 'filter[sport_id]'],
             ['joining_year_from', 'filter[joining_year_from]'],
             ['joining_year_to', 'filter[joining_year_to]'],
         ];
@@ -327,7 +335,8 @@ export default function MembersIndex({
     const activeFilterCount = [
         filters.current_status, filters.player_category, filters.player_level,
         filters.current_unit_id, filters.home_district_id, filters.gender,
-        filters.blood_group, filters.recruitment_type, filters.joining_year_from, filters.joining_year_to,
+        filters.blood_group, filters.recruitment_type, filters.sport_id,
+        filters.joining_year_from, filters.joining_year_to,
     ].filter(Boolean).length;
     const hasAnyFilter = !!(filters.q) || activeFilterCount > 0;
 
@@ -358,6 +367,7 @@ export default function MembersIndex({
                 ['gender', 'filter[gender]'],
                 ['blood_group', 'filter[blood_group]'],
                 ['recruitment_type', 'filter[recruitment_type]'],
+                ['sport_id', 'filter[sport_id]'],
                 ['joining_year_from', 'filter[joining_year_from]'],
                 ['joining_year_to', 'filter[joining_year_to]'],
             ];
@@ -374,6 +384,36 @@ params.append(param, filters[k]!);
         }
 
         return exportMembersUrl.url() + '?' + params.toString();
+    }
+
+    function handlePrint() {
+        const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+        const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
+        const bodyRows = members.data
+            .map(
+                (m) =>
+                    `<tr>${cols
+                        .map((c) => {
+                            if (c.key === 'unit') {
+return `<td>${m.current_unit?.name_hi ?? '\u2014'}</td>`;
+}
+
+                            const v = (m as Record<string, unknown>)[c.key];
+
+                            return `<td>${v != null && v !== '' ? String(v) : '\u2014'}</td>`;
+                        })
+                        .join('')}</tr>`,
+            )
+            .join('');
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Members')}</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Members')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
+        const win = window.open('', '_blank', 'width=900,height=700');
+
+        if (!win) {
+return;
+}
+
+        win.document.write(html);
+        win.document.close();
     }
 
     const pageIds = members.data.map((m) => m.id);
@@ -554,6 +594,20 @@ next.add(id);
                         />
                     </FilterPill>
 
+                    {/* Sport */}
+                    <FilterPill
+                        label={t('Sport')}
+                        activeLabel={filters.sport_id ? (sports.find((s) => String(s.id) === filters.sport_id)?.name_hi ?? filters.sport_id) : undefined}
+                        onClear={() => applyFilters({ sport_id: undefined })}
+                    >
+                        <SearchableOptionList
+                            options={sports.map((s) => ({ value: String(s.id), label: s.name_hi }))}
+                            value={filters.sport_id}
+                            onSelect={(v) => applyFilters({ sport_id: v })}
+                            searchPlaceholder={t('Search sports…')}
+                        />
+                    </FilterPill>
+
                     {/* Joining year range */}
                     <FilterPill
                         label={t('Joining year')}
@@ -684,11 +738,23 @@ next.add(id);
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="w-0" onClick={(e) => e.stopPropagation()}>
-                                            <Button variant="ghost" size="icon" title={t('View')} asChild>
-                                                <Link href={MemberController.show.url(member.id)}>
-                                                    <Eye className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
+                                            <div className="flex items-center">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Quick info')}
+                                                    onClick={(e) => {
+ e.stopPropagation(); setQuickViewId(member.id);
+}}
+                                                >
+                                                    <Info className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" title={t('View')} asChild>
+                                                    <Link href={MemberController.show.url(member.id)}>
+                                                        <Eye className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -783,61 +849,74 @@ params[param] = filters[k]!;
 
             {/* Export Dialog */}
             <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg" aria-describedby={undefined}>
                     <DialogHeader>
                         <DialogTitle>{t('Export members')}</DialogTitle>
                     </DialogHeader>
 
-                    <p className="text-sm text-muted-foreground">
-                        {selectedIds.size > 0
-                            ? t('Exporting :n selected members.').replace(':n', String(selectedIds.size))
-                            : hasAnyFilter
-                                ? t('Exporting filtered results (:count total).').replace(':count', String(members.total))
-                                : t('Exporting all :count members.').replace(':count', String(totalCount))}
-                    </p>
+                    <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
+                        <p className="text-sm text-muted-foreground">
+                            {selectedIds.size > 0
+                                ? t('Exporting :n selected members.').replace(':n', String(selectedIds.size))
+                                : hasAnyFilter
+                                    ? t('Exporting filtered results (:count total).').replace(':count', String(members.total))
+                                    : t('Exporting all :count members.').replace(':count', String(totalCount))}
+                        </p>
 
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    className="text-xs text-primary hover:underline"
-                                    onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
-                                >
-                                    {t('Select all')}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="text-xs text-muted-foreground hover:underline"
-                                    onClick={() => setSelectedColumns([])}
-                                >
-                                    {t('Clear')}
-                                </button>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        className="text-xs text-primary hover:underline"
+                                        onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
+                                    >
+                                        {t('Select all')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="text-xs text-muted-foreground hover:underline"
+                                        onClick={() => setSelectedColumns([])}
+                                    >
+                                        {t('Clear')}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
-                            {ALL_COLUMNS.map((col) => (
-                                <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
-                                    <Checkbox
-                                        checked={selectedColumns.includes(col.key)}
-                                        onCheckedChange={(checked) => {
-                                            setSelectedColumns((prev) =>
-                                                checked
-                                                    ? [...prev, col.key]
-                                                    : prev.filter((k) => k !== col.key),
-                                            );
-                                        }}
-                                    />
-                                    {t(col.label)}
-                                </label>
-                            ))}
+                            <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                                {ALL_COLUMNS.map((col) => (
+                                    <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
+                                        <Checkbox
+                                            checked={selectedColumns.includes(col.key)}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedColumns((prev) =>
+                                                    checked
+                                                        ? [...prev, col.key]
+                                                        : prev.filter((k) => k !== col.key),
+                                                );
+                                            }}
+                                        />
+                                        {t(col.label)}
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setExportOpen(false)}>
                             {t('Cancel')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            disabled={selectedColumns.length === 0}
+                            onClick={() => {
+                                handlePrint();
+                                setExportOpen(false);
+                            }}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            {t('Print')}
                         </Button>
                         <Button
                             disabled={selectedColumns.length === 0}
@@ -852,6 +931,12 @@ params[param] = filters[k]!;
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <MemberQuickView
+                memberId={quickViewId}
+                open={quickViewId !== null}
+                onClose={() => setQuickViewId(null)}
+            />
         </>
     );
 }

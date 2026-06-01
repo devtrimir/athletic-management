@@ -10,6 +10,7 @@ use App\Http\Resources\CoachResource;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\Member;
+use App\Services\AuditLogBuilder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -69,7 +70,7 @@ class CoachController extends Controller
         return to_route('coaches.show', $coach);
     }
 
-    public function show(Coach $coach): Response
+    public function show(Coach $coach, AuditLogBuilder $auditLogBuilder): Response
     {
         Gate::authorize('view', $coach);
 
@@ -80,7 +81,7 @@ class CoachController extends Controller
                 : null
             ),
             'coachTeams' => Inertia::defer(fn () => CoachAssignment::where('coach_id', $coach->id)
-                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi', 'session:id,name'])
+                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi,name_en', 'session:id,name'])
                 ->orderByDesc('id')
                 ->get()
                 ->map(fn ($ca) => [
@@ -90,6 +91,7 @@ class CoachController extends Controller
                     'sport' => $ca->team?->sport ? ['id' => $ca->team->sport->id, 'name' => $ca->team->sport->name] : null,
                     'session' => $ca->session ? ['id' => $ca->session->id, 'name' => $ca->session->name] : null,
                 ])),
+            'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forCoach($coach)),
         ]);
     }
 

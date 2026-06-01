@@ -21,7 +21,7 @@ class MemberTeamsController extends Controller
         $memberships = TeamMember::where('member_id', $member->id)
             ->with([
                 'team:id,name_hi,sport_id',
-                'team.sport:id,name_hi',
+                'team.sport:id,name_hi,name_en',
                 'session:id,name',
             ])
             ->orderByDesc('id')

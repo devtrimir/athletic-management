@@ -52,6 +52,9 @@ return [
         // ── Reports ───────────────────────────────────────────────────────────
         ['code' => 'reports.view', 'group' => 'reports', 'name_hi' => 'रिपोर्ट देखें', 'name_en' => 'View reports'],
 
+        // ── Users ─────────────────────────────────────────────────────────────
+        ['code' => 'users.manage', 'group' => 'users', 'name_hi' => 'उपयोगकर्ता प्रबंधित करें', 'name_en' => 'Manage users'],
+
         // ── Settings ──────────────────────────────────────────────────────────
         ['code' => 'settings.manage', 'group' => 'settings', 'name_hi' => 'सेटिंग प्रबंधित करें', 'name_en' => 'Manage settings'],
 

@@ -31,7 +31,7 @@ export function StatusChangeModal({ member, open, onOpenChange }: Props) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>{t('Change status')}</DialogTitle>
                 </DialogHeader>

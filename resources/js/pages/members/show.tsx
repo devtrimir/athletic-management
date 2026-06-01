@@ -1,6 +1,7 @@
-import { Deferred, Head, Link, router, setLayoutProps, useHttp } from '@inertiajs/react';
-import { Download } from 'lucide-react';
+import { Deferred, Head, Link, router, setLayoutProps, useForm, useHttp, usePage } from '@inertiajs/react';
+import { Download, Plus, Printer } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { store as storeBenefit } from '@/actions/App/Http/Controllers/AchievementBenefitController';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
@@ -9,17 +10,25 @@ import { show as exportMember } from '@/actions/App/Http/Controllers/MemberExpor
 import { store as storeMemberPhoto, destroy as destroyMemberPhoto } from '@/actions/App/Http/Controllers/MemberPhotoController';
 import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import { DatePicker } from '@/components/date-picker';
+import InputError from '@/components/input-error';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
+import { MemberMediaTab } from '@/components/members/member-media-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
+import { ChangeLog  } from '@/components/shared/change-log';
+import type {AuditEntry} from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Member = {
@@ -76,6 +85,17 @@ type ParticipationGroup = {
     participations: ParticipationEntry[];
 };
 
+type AchievementBenefitRow = {
+    id: number;
+    benefit_type: string;
+    promoted_from_rank: string | null;
+    promoted_to_rank: string | null;
+    cash_amount: string | null;
+    benefit_date: string | null;
+    order_reference: string | null;
+    remarks: string | null;
+};
+
 type AchievementsData = {
     summary: { GOLD: number; SILVER: number; BRONZE: number; MERIT: number };
     achievements: Array<{
@@ -86,6 +106,7 @@ type AchievementsData = {
         session: { id: number; name: string };
         tournament: { id: number; name_hi: string; tier_code: string | null };
         event: { id: number; name_hi: string };
+        benefits: AchievementBenefitRow[];
     }>;
 };
 
@@ -95,6 +116,156 @@ const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destr
     BRONZE: 'outline',
     MERIT: 'outline',
 };
+
+const BENEFIT_TYPES = ['PROMOTION', 'OUT_OF_TURN_PROMOTION', 'CASH_AWARD', 'COMMENDATION', 'NONE', 'OTHER'] as const;
+
+function AddAchievementBenefitDialog({ achievementId, onSaved }: { achievementId: number; onSaved: () => void }) {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const form = useForm({
+        benefitable_type: 'achievement',
+        benefitable_id: String(achievementId),
+        benefit_type: '',
+        promoted_from_rank: '',
+        promoted_to_rank: '',
+        cash_amount: '',
+        benefit_date: '',
+        order_reference: '',
+        remarks: '',
+    });
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        form.post(storeBenefit.url(), {
+            onSuccess: () => {
+                setOpen(false);
+                form.reset();
+                form.setData('benefitable_type', 'achievement');
+                form.setData('benefitable_id', String(achievementId));
+                onSaved();
+            },
+        });
+    }
+
+    const isPromotion =
+        form.data.benefit_type === 'PROMOTION' ||
+        form.data.benefit_type === 'OUT_OF_TURN_PROMOTION';
+    const isCash = form.data.benefit_type === 'CASH_AWARD';
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-xs h-7">
+                    <Plus className="size-3 mr-1" />
+                    {t('Add benefit')}
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md" aria-describedby={undefined}>
+                <DialogHeader>
+                    <DialogTitle>{t('Add benefit')}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+                    <div className="grid gap-2">
+                        <Label>
+                            {t('Benefit type')} <span className="text-destructive">*</span>
+                        </Label>
+                        <Select
+                            value={form.data.benefit_type}
+                            onValueChange={(v) => form.setData('benefit_type', v)}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('Select benefit type')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {BENEFIT_TYPES.map((bt) => (
+                                    <SelectItem key={bt} value={bt}>
+                                        {t(bt)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={form.errors.benefit_type} />
+                    </div>
+
+                    {isPromotion && (
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Promoted from rank')}</Label>
+                                <Input
+                                    value={form.data.promoted_from_rank}
+                                    onChange={(e) => form.setData('promoted_from_rank', e.target.value)}
+                                    maxLength={100}
+                                />
+                                <InputError message={form.errors.promoted_from_rank} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Promoted to rank')}</Label>
+                                <Input
+                                    value={form.data.promoted_to_rank}
+                                    onChange={(e) => form.setData('promoted_to_rank', e.target.value)}
+                                    maxLength={100}
+                                />
+                                <InputError message={form.errors.promoted_to_rank} />
+                            </div>
+                        </div>
+                    )}
+
+                    {isCash && (
+                        <div className="grid gap-2">
+                            <Label>{t('Cash amount')}</Label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                value={form.data.cash_amount}
+                                onChange={(e) => form.setData('cash_amount', e.target.value)}
+                            />
+                            <InputError message={form.errors.cash_amount} />
+                        </div>
+                    )}
+
+                    <div className="grid gap-5 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label>{t('Benefit date')}</Label>
+                            <DatePicker
+                                value={form.data.benefit_date}
+                                onChange={(v) => form.setData('benefit_date', v)}
+                            />
+                            <InputError message={form.errors.benefit_date} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>{t('Order reference')}</Label>
+                            <Input
+                                value={form.data.order_reference}
+                                onChange={(e) => form.setData('order_reference', e.target.value)}
+                                maxLength={255}
+                            />
+                            <InputError message={form.errors.order_reference} />
+                        </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label>{t('Remarks')}</Label>
+                        <Textarea
+                            value={form.data.remarks}
+                            onChange={(e) => form.setData('remarks', e.target.value)}
+                            rows={2}
+                        />
+                        <InputError message={form.errors.remarks} />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                            {t('Cancel')}
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            {t('Save benefit')}
+                        </Button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 type LegacyAchievement = {
     id: number;
@@ -150,12 +321,14 @@ export default function MembersShow({
     aliases,
     memberTeams,
     legacyAchievements,
+    auditLog,
 }: {
     member: Member;
     statusHistory?: StatusEntry[];
     aliases?: Alias[];
     memberTeams?: MemberTeamRow[];
     legacyAchievements?: LegacyAchievement[];
+    auditLog?: AuditEntry[];
 }) {
     const [activeTab, setActiveTab] = useState('overview');
     const [participations, setParticipations] = useState<ParticipationGroup[] | null>(null);
@@ -165,6 +338,8 @@ export default function MembersShow({
     const participationsFetched = useRef(false);
     const achievementsFetched = useRef(false);
     const memberId = member.id;
+    const permissions = usePage().props.auth.permissions;
+    const canDeleteMedia = permissions.includes('media.delete');
 
     useEffect(() => {
         if (activeTab === 'participations' && !participationsFetched.current) {
@@ -189,6 +364,18 @@ export default function MembersShow({
             });
         }
     }, [activeTab, memberId, getParticipations, getAchievements]);
+    const [mediaKey] = useState(0);
+
+    function refetchAchievements() {
+        achievementsFetched.current = false;
+        getAchievements(MemberAchievementsController.url(memberId), {
+            onSuccess: (res) => {
+                const r = res as unknown as { data: AchievementsData };
+                setAchievementsData(r?.data ?? { summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 }, achievements: [] });
+            },
+            onError: () => setAchievementsData({ summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 }, achievements: [] }),
+        });
+    }
     const { t } = useTranslation();
 
     setLayoutProps({
@@ -201,6 +388,51 @@ export default function MembersShow({
     const [statusOpen, setStatusOpen] = useState(false);
     const [exportOpen, setExportOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+
+    function handlePrint(): void {
+        const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+        const getValue = (key: string): string => {
+            switch (key) {
+                case 'member_code': return member.member_code ?? '';
+                case 'pno': return member.pno ?? '';
+                case 'full_name_hi': return member.full_name_hi ?? '';
+                case 'full_name_en': return member.full_name_en ?? '';
+                case 'father_name_hi': return member.father_name_hi ?? '';
+                case 'gender': return member.gender === 'M' ? t('Male') : member.gender === 'F' ? t('Female') : t('Other gender');
+                case 'dob': return member.dob ?? '';
+                case 'rank': return member.rank ?? '';
+                case 'mobile': return member.mobile ?? '';
+                case 'current_status': return t(member.current_status);
+                case 'player_category': return member.player_category ?? '';
+                case 'player_level': return member.player_level ?? '';
+                case 'unit': return member.current_unit?.name_hi ?? '';
+                case 'home_district': return member.home_district?.name_hi ?? '';
+                case 'joining_date': return member.joining_date ?? '';
+                case 'blood_group': return member.blood_group ?? '';
+                case 'caste': return member.caste ?? '';
+                case 'recruitment_type': return member.recruitment_type ? t(member.recruitment_type) : '';
+                case 'appointment': return member.appointment ?? '';
+                case 'sport_event': return member.sport_event ?? '';
+                case 'promotion_date': return member.promotion_date ?? '';
+                case 'team_since': return member.team_since ?? '';
+                default: return '';
+            }
+        };
+        const headers = cols.map((c) => `<th style="border:1px solid #ccc;padding:6px 10px;background:#f5f5f5;text-align:left">${t(c.label)}</th>`).join('');
+        const cells = cols.map((c) => `<td style="border:1px solid #ccc;padding:6px 10px">${getValue(c.key)}</td>`).join('');
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${member.full_name_hi}</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}@media print{@page{size:landscape}}</style></head><body><h2 style="margin-bottom:12px">${member.full_name_hi}</h2><table><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table></body></html>`;
+        const win = window.open('', '_blank', 'width=900,height=600');
+
+        if (!win) {
+return;
+}
+
+        win.document.write(html);
+        win.document.close();
+        win.onload = () => {
+ win.print(); win.close();
+};
+    }
 
     function buildExportUrl(): string {
         const params = new URLSearchParams();
@@ -224,8 +456,8 @@ export default function MembersShow({
             <Head title={member.full_name_hi} />
 
             <div className="space-y-6">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-4 min-w-0">
                         {/* Photo */}
                         <div className="shrink-0">
                             {member.photo_path ? (
@@ -265,19 +497,22 @@ return;
                             )}
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                             <h1 className="text-2xl font-bold">{member.full_name_hi}</h1>
                             {member.full_name_en && <p className="text-muted-foreground">{member.full_name_en}</p>}
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {member.pno && (
+                                    <span className="font-mono text-sm text-muted-foreground">{member.pno}</span>
+                                )}
+                                <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                                    <Download className="mr-1.5 h-4 w-4" />
+                                    {t('Export')}
+                                </Button>
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={editMember.url(member)}>{t('Edit')}</Link>
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
-                            <Download className="mr-1.5 h-4 w-4" />
-                            {t('Export')}
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={editMember.url(member)}>{t('Edit')}</Link>
-                        </Button>
                     </div>
                 </div>
 
@@ -290,6 +525,8 @@ return;
                         <TabsTrigger value="participations">{t('Participations')}</TabsTrigger>
                         <TabsTrigger value="achievements">{t('Achievements')}</TabsTrigger>
                         <TabsTrigger value="legacy">{t('Legacy achievements')}</TabsTrigger>
+                        <TabsTrigger value="changelog">{t('Change log')}</TabsTrigger>
+                        <TabsTrigger value="media">{t('Media')}</TabsTrigger>
                     </TabsList>
 
                     {/* Overview */}
@@ -492,6 +729,7 @@ return;
                                                         <TableHead>{t('Tier')}</TableHead>
                                                         <TableHead>{t('Event')}</TableHead>
                                                         <TableHead>{t('Session')}</TableHead>
+                                                        <TableHead>{t('Benefits')}</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -516,6 +754,26 @@ return;
                                                                 </Link>
                                                             </TableCell>
                                                             <TableCell>{a.session.name}</TableCell>
+                                                            <TableCell>
+                                                                {a.benefits.length === 0 ? (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Badge variant="outline" className="text-amber-600 border-amber-400 bg-amber-50">
+                                                                            ⚠ {t('Benefit pending')}
+                                                                        </Badge>
+                                                                        <AddAchievementBenefitDialog achievementId={a.id} onSaved={refetchAchievements} />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex flex-wrap items-center gap-1">
+                                                                        {a.benefits.map((b) => (
+                                                                            <Badge key={b.id} variant="secondary" className="text-xs">
+                                                                                {t(b.benefit_type)}
+                                                                                {b.cash_amount ? ` ₹${b.cash_amount}` : ''}
+                                                                            </Badge>
+                                                                        ))}
+                                                                        <AddAchievementBenefitDialog achievementId={a.id} onSaved={refetchAchievements} />
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -541,62 +799,102 @@ return;
                             <LegacyAchievementsTab member={member} legacyAchievements={legacyAchievements} />
                         </Deferred>
                     </TabsContent>
+
+                    {/* Change log */}
+                    <TabsContent value="changelog">
+                        <Deferred
+                            data="auditLog"
+                            fallback={
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map((n) => (
+                                        <Skeleton key={n} className="h-14 w-full" />
+                                    ))}
+                                </div>
+                            }
+                        >
+                            <ChangeLog entries={auditLog} primaryEntity="Member" storageKey="member-changelog-view" />
+                        </Deferred>
+                    </TabsContent>
+
+                    {/* Media tab */}
+                    <TabsContent value="media">
+                        {activeTab === 'media' && (
+                            <MemberMediaTab
+                                key={mediaKey}
+                                memberId={memberId}
+                                canDelete={canDeleteMedia}
+                            />
+                        )}
+                    </TabsContent>
                 </Tabs>
             </div>
 
             {/* Export column picker dialog */}
             <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg" aria-describedby={undefined}>
                     <DialogHeader>
                         <DialogTitle>{t('Export member')}</DialogTitle>
                     </DialogHeader>
 
-                    <p className="text-sm text-muted-foreground">
-                        {member.full_name_hi}
-                    </p>
+                    <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
+                        <p className="text-sm text-muted-foreground">
+                            {member.full_name_hi}
+                        </p>
 
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
-                            <div className="flex gap-3">
-                                <button
-                                    type="button"
-                                    className="text-xs text-primary hover:underline"
-                                    onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
-                                >
-                                    {t('Select all')}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="text-xs text-muted-foreground hover:underline"
-                                    onClick={() => setSelectedColumns([])}
-                                >
-                                    {t('Clear')}
-                                </button>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
+                                <div className="flex gap-3">
+                                    <button
+                                        type="button"
+                                        className="text-xs text-primary hover:underline"
+                                        onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
+                                    >
+                                        {t('Select all')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="text-xs text-muted-foreground hover:underline"
+                                        onClick={() => setSelectedColumns([])}
+                                    >
+                                        {t('Clear')}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
-                            {ALL_COLUMNS.map((col) => (
-                                <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
-                                    <Checkbox
-                                        checked={selectedColumns.includes(col.key)}
-                                        onCheckedChange={(checked) => {
-                                            setSelectedColumns((prev) =>
-                                                checked
-                                                    ? [...prev, col.key]
-                                                    : prev.filter((k) => k !== col.key),
-                                            );
-                                        }}
-                                    />
-                                    {t(col.label)}
-                                </label>
-                            ))}
+                            <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                                {ALL_COLUMNS.map((col) => (
+                                    <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
+                                        <Checkbox
+                                            checked={selectedColumns.includes(col.key)}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedColumns((prev) =>
+                                                    checked
+                                                        ? [...prev, col.key]
+                                                        : prev.filter((k) => k !== col.key),
+                                                );
+                                            }}
+                                        />
+                                        {t(col.label)}
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setExportOpen(false)}>
                             {t('Cancel')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            disabled={selectedColumns.length === 0}
+                            onClick={() => {
+                                handlePrint();
+                                setExportOpen(false);
+                            }}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            {t('Print')}
                         </Button>
                         <Button
                             disabled={selectedColumns.length === 0}

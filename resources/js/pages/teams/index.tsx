@@ -1,10 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Download, Eye, Plus, Search, X } from 'lucide-react';
+import { Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState   } from 'react';
 import type {Dispatch, SetStateAction} from 'react';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import Heading from '@/components/heading';
+import { TeamQuickView } from '@/components/teams/team-quick-view';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -53,6 +54,7 @@ type PaginatedTeams = {
 
 type Filters = {
     q?: string;
+    pno?: string;
     session_id?: string;
     sport_id?: string;
     unit_id?: string;
@@ -78,15 +80,19 @@ export default function TeamsIndex({
 
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [exportOpen, setExportOpen] = useState(false);
+    const [quickViewId, setQuickViewId] = useState<number | null>(null);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
 
     const [query, setQuery] = useState(filters.q ?? '');
+    const [pnoQuery, setPnoQuery] = useState(filters.pno ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pnoDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const applyFilters = useCallback(
         (patch: Partial<Filters>) => {
             const current: Filters = {
                 q: query || undefined,
+                pno: pnoQuery || undefined,
                 session_id: filters.session_id,
                 sport_id: filters.sport_id,
                 unit_id: filters.unit_id,
@@ -97,6 +103,10 @@ export default function TeamsIndex({
 
             if (merged.q) {
                 clean['filter[q]'] = merged.q;
+            }
+
+            if (merged.pno) {
+                clean['filter[pno]'] = merged.pno;
             }
 
             if (merged.session_id) {
@@ -116,7 +126,7 @@ export default function TeamsIndex({
                 replace: true,
             });
         },
-        [query, filters.session_id, filters.sport_id, filters.unit_id],
+        [query, pnoQuery, filters.session_id, filters.sport_id, filters.unit_id],
     );
 
     useEffect(() => {
@@ -135,6 +145,23 @@ export default function TeamsIndex({
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
+
+    useEffect(() => {
+        if (pnoDebounceRef.current) {
+            clearTimeout(pnoDebounceRef.current);
+        }
+
+        pnoDebounceRef.current = setTimeout(() => {
+            applyFilters({ pno: pnoQuery || undefined });
+        }, 400);
+
+        return () => {
+            if (pnoDebounceRef.current) {
+                clearTimeout(pnoDebounceRef.current);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pnoQuery]);
 
     function toggleRow(id: number) {
         setSelectedIds((prev) => {
@@ -180,6 +207,10 @@ export default function TeamsIndex({
 params.append('filter[q]', filters.q);
 }
 
+            if (filters.pno) {
+params.append('filter[pno]', filters.pno);
+}
+
             if (filters.session_id) {
 params.append('filter[session_id]', filters.session_id);
 }
@@ -200,8 +231,46 @@ params.append('filter[unit_id]', filters.unit_id);
         return exportTeamsUrl.url() + '?' + params.toString();
     }
 
+    function handlePrint() {
+        const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+        const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
+        const bodyRows = teams.data
+            .map(
+                (team) =>
+                    `<tr>${cols
+                        .map((c) => {
+                            let v: string;
+
+                            if (c.key === 'session') {
+v = team.session?.name ?? '\u2014';
+} else if (c.key === 'sport') {
+v = team.sport?.name ?? '\u2014';
+} else if (c.key === 'unit') {
+v = team.unit?.name_hi ?? '\u2014';
+} else {
+                                const raw = (team as Record<string, unknown>)[c.key];
+                                v = raw != null && raw !== '' ? String(raw) : '\u2014';
+                            }
+
+                            return `<td>${v}</td>`;
+                        })
+                        .join('')}</tr>`,
+            )
+            .join('');
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Teams')}</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Teams')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
+        const win = window.open('', '_blank', 'width=900,height=700');
+
+        if (!win) {
+return;
+}
+
+        win.document.write(html);
+        win.document.close();
+    }
+
     const hasActiveFilters = !!(
         filters.q ||
+        filters.pno ||
         filters.session_id ||
         filters.sport_id ||
         filters.unit_id
@@ -236,13 +305,23 @@ params.append('filter[unit_id]', filters.unit_id);
 
                 {/* Filter bar */}
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative max-w-xs flex-1">
+                    <div className="relative w-52">
                         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder={t('Search teams…')}
+                            placeholder={t('Search team or in-charge…')}
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             className="pl-8"
+                        />
+                    </div>
+
+                    <div className="relative w-40">
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder={t('Search by PNO…')}
+                            value={pnoQuery}
+                            onChange={(e) => setPnoQuery(e.target.value)}
+                            className="pl-8 font-mono"
                         />
                     </div>
 
@@ -309,6 +388,7 @@ params.append('filter[unit_id]', filters.unit_id);
                             size="sm"
                             onClick={() => {
                                 setQuery('');
+                                setPnoQuery('');
                                 router.get(TeamController.index.url(), {}, {
                                     preserveState: false,
                                     replace: true,
@@ -401,16 +481,28 @@ params.append('filter[unit_id]', filters.unit_id);
                                             {team.coaches_count}
                                         </TableCell>
                                         <TableCell className="w-0">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                title={t('View')}
-                                                asChild
-                                            >
-                                                <Link href={TeamController.show.url(team.id)}>
-                                                    <Eye className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
+                                            <div className="flex items-center">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Quick info')}
+                                                    onClick={(e) => {
+ e.stopPropagation(); setQuickViewId(team.id);
+}}
+                                                >
+                                                    <Info className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('View')}
+                                                    asChild
+                                                >
+                                                    <Link href={TeamController.show.url(team.id)}>
+                                                        <Eye className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -467,7 +559,13 @@ params.append('filter[unit_id]', filters.unit_id);
                 selectedColumns={selectedColumns}
                 setSelectedColumns={setSelectedColumns}
                 buildExportUrl={buildExportUrl}
+                onPrint={handlePrint}
                 t={t}
+            />
+            <TeamQuickView
+                teamId={quickViewId}
+                open={quickViewId !== null}
+                onClose={() => setQuickViewId(null)}
             />
         </>
     );
@@ -485,6 +583,7 @@ function ExportDialog({
     selectedColumns,
     setSelectedColumns,
     buildExportUrl,
+    onPrint,
     t,
 }: {
     open: boolean;
@@ -494,6 +593,7 @@ function ExportDialog({
     selectedColumns: string[];
     setSelectedColumns: Dispatch<SetStateAction<string[]>>;
     buildExportUrl: () => string;
+    onPrint: () => void;
     t: (key: string) => string;
 }) {
     return (
@@ -507,7 +607,7 @@ function ExportDialog({
                             : t('Exporting all :count teams.').replace(':count', String(teams.total))}
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-2">
+                <div className="min-h-0 flex-1 overflow-y-auto py-2">
                     <p className="mb-3 text-sm font-medium">{t('Select columns to export')}</p>
                     <div className="grid grid-cols-2 gap-2">
                         {ALL_COLUMNS.map((col) => (
@@ -531,6 +631,17 @@ function ExportDialog({
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         {t('Cancel')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={selectedColumns.length === 0}
+                        onClick={() => {
+                            onPrint();
+                            onOpenChange(false);
+                        }}
+                    >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        {t('Print')}
                     </Button>
                     <Button
                         disabled={selectedColumns.length === 0}

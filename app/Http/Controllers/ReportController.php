@@ -8,6 +8,7 @@ use App\Exports\ReportExport;
 use App\Jobs\ExportReportJob;
 use App\Models\Sport;
 use App\Models\SportSession;
+use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\Reports\AchievementHistoryReport;
@@ -76,6 +77,20 @@ class ReportController extends Controller
         $orgId = (int) $request->user()->organization_id;
         $filters = $this->buildFilters($request, $key);
         $data = $this->runService($key, $orgId, $filters);
+
+        if ($key === 'achievement-history') {
+            return Inertia::render('reports/achievement-history', [
+                'report' => ['key' => $key, ...self::REPORTS[$key]],
+                'data' => $data,
+                'filters' => $filters,
+                ...$this->filterOptions($orgId),
+                'tournaments' => Tournament::select(['id', 'name_hi', 'date_from'])
+                    ->where('organization_id', $orgId)
+                    ->whereNull('deleted_at')
+                    ->orderByDesc('date_from')
+                    ->get(),
+            ]);
+        }
 
         return Inertia::render('reports/show', [
             'report' => ['key' => $key, ...self::REPORTS[$key]],
@@ -149,6 +164,19 @@ class ReportController extends Controller
         if ($key === 'resignation-dismissal-log') {
             $extra = $request->validate(['status' => ['nullable', 'string', 'in:RESIGNED,DISMISSED']]);
             $filters['status'] = $extra['status'] ?? null;
+        }
+
+        if ($key === 'achievement-history') {
+            $extra = $request->validate([
+                'member_name' => ['nullable', 'string', 'max:100'],
+                'pno' => ['nullable', 'string', 'max:20'],
+                'tournament_id' => ['nullable', 'integer'],
+                'event_name' => ['nullable', 'string', 'max:100'],
+            ]);
+            $filters['member_name'] = $extra['member_name'] ?? null;
+            $filters['pno'] = $extra['pno'] ?? null;
+            $filters['tournament_id'] = isset($extra['tournament_id']) ? (int) $extra['tournament_id'] : null;
+            $filters['event_name'] = $extra['event_name'] ?? null;
         }
 
         return $filters;

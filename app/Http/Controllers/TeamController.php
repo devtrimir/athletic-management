@@ -7,10 +7,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Teams\StoreTeamRequest;
 use App\Http\Requests\Teams\UpdateTeamRequest;
 use App\Http\Resources\TeamResource;
+use App\Models\CoachAssignment;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\Unit;
+use App\Services\AuditLogBuilder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,12 +40,31 @@ class TeamController extends Controller
                 AllowedFilter::exact('session_id'),
                 AllowedFilter::exact('sport_id'),
                 AllowedFilter::exact('unit_id'),
-                AllowedFilter::partial('q', 'name_hi'),
+                AllowedFilter::callback('q', function ($query, $value) {
+                    $term = '%'.mb_strtolower((string) $value).'%';
+                    $query->where(function ($q) use ($term) {
+                        $q->whereRaw('LOWER(name_hi) LIKE ?', [$term])
+                            ->orWhereRaw('LOWER(COALESCE(in_charge_hi, \'\')) LIKE ?', [$term]);
+                    });
+                }),
+                AllowedFilter::callback('pno', function ($query, $value) {
+                    $term = '%'.mb_strtolower(trim((string) $value)).'%';
+                    $teamIdsByMember = TeamMember::whereHas(
+                        'member',
+                        fn ($m) => $m->whereRaw('LOWER(pno) LIKE ?', [$term])
+                    )->pluck('team_id');
+                    $teamIdsByCoach = CoachAssignment::whereHas(
+                        'coach',
+                        fn ($c) => $c->whereRaw('LOWER(pno) LIKE ?', [$term])
+                    )->pluck('team_id');
+                    $teamIds = $teamIdsByMember->merge($teamIdsByCoach)->unique()->values();
+                    $query->whereIn('id', $teamIds);
+                }),
             ])
             ->allowedSorts(['name_hi', 'created_at'])
             ->defaultSort('name_hi')
             ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-            ->with(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi'])
+            ->with(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
                 fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -55,7 +77,7 @@ class TeamController extends Controller
             ->orderBy('name')
             ->get();
 
-        $sports = Sport::select(['id', 'name_hi'])
+        $sports = Sport::select(['id', 'name_hi', 'name_en'])
             ->orderBy('name_hi')
             ->get();
 
@@ -96,11 +118,11 @@ class TeamController extends Controller
         return to_route('teams.show', $team);
     }
 
-    public function show(Team $team, Request $request): Response
+    public function show(Team $team, Request $request, AuditLogBuilder $auditLogBuilder): Response
     {
         Gate::authorize('view', $team);
 
-        $team->load(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi']);
+        $team->load(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi']);
 
         $orgId = (int) $request->user()->organization_id;
 
@@ -153,6 +175,7 @@ class TeamController extends Controller
                         'name' => $ca->session->name,
                     ] : null,
                 ])),
+            'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forTeam($team)),
         ]);
     }
 
@@ -164,7 +187,7 @@ class TeamController extends Controller
 
         return Inertia::render('teams/edit', array_merge(
             $this->formOptions($orgId),
-            ['team' => $team->load(['sport:id,name_hi', 'session:id,name', 'unit:id,name_hi'])],
+            ['team' => $team->load(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])],
         ));
     }
 
@@ -200,7 +223,7 @@ class TeamController extends Controller
                 ->where('organization_id', $orgId)
                 ->orderBy('name')
                 ->get(),
-            'sports' => Sport::select(['id', 'name_hi'])
+            'sports' => Sport::select(['id', 'name_hi', 'name_en'])
                 ->orderBy('name_hi')
                 ->get(),
             'units' => Unit::select(['id', 'name_hi'])

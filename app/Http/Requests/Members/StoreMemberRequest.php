@@ -44,6 +44,7 @@ class StoreMemberRequest extends FormRequest
             'appointment' => ['nullable', 'string', 'max:255'],
             'home_address' => ['nullable', 'string'],
             'recruitment_type' => ['nullable', Rule::in(['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER'])],
+            'sport_id' => ['nullable', 'exists:sports,id'],
             'sport_event' => ['nullable', 'string', 'max:100'],
             'other_notes' => ['nullable', 'string'],
             'team_since' => ['nullable', 'date'],

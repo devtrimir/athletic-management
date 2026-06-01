@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Concerns\Auditable;
+use App\Observers\AuditObserver;
 use Database\Factories\AchievementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -27,14 +31,21 @@ use Illuminate\Support\Carbon;
     'position',
     'remarks',
 ])]
+#[ObservedBy([AuditObserver::class])]
 class Achievement extends Model
 {
     /** @use HasFactory<AchievementFactory> */
-    use HasFactory;
+    use Auditable, HasFactory;
 
     /** @return BelongsTo<Participation, $this> */
     public function participation(): BelongsTo
     {
         return $this->belongsTo(Participation::class);
+    }
+
+    /** @return MorphMany<AchievementBenefit, $this> */
+    public function benefits(): MorphMany
+    {
+        return $this->morphMany(AchievementBenefit::class, 'benefitable');
     }
 }

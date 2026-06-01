@@ -3,9 +3,11 @@
 use App\Http\Controllers\AchievementBenefitController;
 use App\Http\Controllers\CoachController;
 use App\Http\Controllers\CoachExportController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventParticipantController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\MedalsExportController;
 use App\Http\Controllers\MemberAliasController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberExportController;
@@ -28,7 +30,7 @@ Route::patch('/locale', [LocaleController::class, 'update'])->name('locale.updat
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('members/export', [MemberExportController::class, 'index'])->name('members.export');
     Route::resource('members', MemberController::class);
     Route::get('members/{member}/export', [MemberExportController::class, 'show'])->name('members.export.show');
@@ -41,6 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('tournaments', TournamentController::class);
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/medals', ReportsMedalsController::class)->name('reports.medals');
+    Route::get('reports/medals/export', MedalsExportController::class)->name('reports.medals.export');
     Route::get('reports/{key}/export', [ReportController::class, 'export'])->name('reports.export');
     Route::get('reports/{key}', [ReportController::class, 'show'])->name('reports.show');
     Route::post('tournaments/{tournament}/events', [EventController::class, 'store'])
@@ -58,8 +61,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('tournaments/{tournament}/events/{event}/participants/{participation}', [EventParticipantController::class, 'destroy'])
         ->name('tournaments.events.participants.destroy')->scopeBindings();
     Route::post('teams/{team}/members', [TeamMemberController::class, 'store'])->name('teams.members.store');
+    Route::delete('teams/{team}/members/bulk', [TeamMemberController::class, 'bulkDestroy'])->name('teams.members.bulkDestroy');
     Route::delete('teams/{team}/members/{member}', [TeamMemberController::class, 'destroy'])->name('teams.members.destroy');
     Route::post('teams/{team}/coaches', [TeamCoachController::class, 'store'])->name('teams.coaches.store');
+    Route::delete('teams/{team}/coaches/bulk', [TeamCoachController::class, 'bulkDestroy'])->name('teams.coaches.bulkDestroy');
     Route::delete('teams/{team}/coaches/{coach}', [TeamCoachController::class, 'destroy'])->name('teams.coaches.destroy');
     Route::post('teams/{team}/clone', TeamCloneController::class)->name('teams.clone');
     Route::post('members/{member}/status', [MemberStatusController::class, 'store'])->name('members.status.store');

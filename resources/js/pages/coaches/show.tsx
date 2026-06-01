@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { destroy, edit as editCoach, index as coachesIndex } from '@/actions/App/Http/Controllers/CoachController';
 import { show as exportCoach } from '@/actions/App/Http/Controllers/CoachExportController';
 import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
+import { ChangeLog  } from '@/components/shared/change-log';
+import type {AuditEntry} from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -50,7 +52,7 @@ type CoachTeamRow = {
     session: { id: number; name: string } | null;
 };
 
-export default function CoachesShow({ coach, member, coachTeams }: { coach: Coach; member?: LinkedMember; coachTeams?: CoachTeamRow[] }) {
+export default function CoachesShow({ coach, member, coachTeams, auditLog }: { coach: Coach; member?: LinkedMember; coachTeams?: CoachTeamRow[]; auditLog?: AuditEntry[] }) {
     const { t } = useTranslation();
 
     const [exportOpen, setExportOpen] = useState(false);
@@ -116,6 +118,7 @@ return;
                     <TabsList>
                         <TabsTrigger value="overview">{t('Overview')}</TabsTrigger>
                         <TabsTrigger value="teams">{t('Teams')}</TabsTrigger>
+                        <TabsTrigger value="changelog">{t('Change log')}</TabsTrigger>
                     </TabsList>
 
                     {/* Overview */}
@@ -205,6 +208,22 @@ return;
                                 </Table>
                             </Deferred>
                         </div>
+                    </TabsContent>
+
+                    {/* Change log */}
+                    <TabsContent value="changelog">
+                        <Deferred
+                            data="auditLog"
+                            fallback={
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map((n) => (
+                                        <Skeleton key={n} className="h-14 w-full" />
+                                    ))}
+                                </div>
+                            }
+                        >
+                            <ChangeLog entries={auditLog} primaryEntity="Coach" storageKey="coach-changelog-view" />
+                        </Deferred>
                     </TabsContent>
                 </Tabs>
             </div>

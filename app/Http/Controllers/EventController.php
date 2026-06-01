@@ -34,10 +34,10 @@ class EventController extends Controller
     {
         Gate::authorize('view', $tournament);
 
-        $event->load('sport:id,name_hi');
+        $event->load('sport:id,name_hi,name_en');
 
         $orgId = $tournament->organization_id;
-        $sports = Sport::select(['id', 'name_hi'])
+        $sports = Sport::select(['id', 'name_hi', 'name_en'])
             ->where('organization_id', $orgId)
             ->orderBy('name_hi')
             ->get();

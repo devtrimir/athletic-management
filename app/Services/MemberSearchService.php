@@ -69,7 +69,7 @@ class MemberSearchService
         // PNO short-circuit — numeric query, skip FULLTEXT
         if (ctype_digit($q)) {
             $hit = DB::select(
-                'SELECT '.implode(', ', self::COLUMNS).' FROM members WHERE organization_id = ? AND pno = ? AND deleted_at IS NULL'.$filterSql.' LIMIT 1',
+                'SELECT m.'.implode(', m.', self::COLUMNS).' FROM members m WHERE m.organization_id = ? AND m.pno = ? AND m.deleted_at IS NULL'.$filterSql.' LIMIT 1',
                 array_merge([$orgId, $q], $filterParams),
             );
             if (count($hit) > 0) {

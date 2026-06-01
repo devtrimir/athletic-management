@@ -45,6 +45,7 @@ class UpdateMemberRequest extends FormRequest
             'appointment' => ['sometimes', 'nullable', 'string', 'max:255'],
             'home_address' => ['sometimes', 'nullable', 'string'],
             'recruitment_type' => ['sometimes', 'nullable', Rule::in(['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER'])],
+            'sport_id' => ['sometimes', 'nullable', 'exists:sports,id'],
             'sport_event' => ['sometimes', 'nullable', 'string', 'max:100'],
             'other_notes' => ['sometimes', 'nullable', 'string'],
             'team_since' => ['sometimes', 'nullable', 'date'],

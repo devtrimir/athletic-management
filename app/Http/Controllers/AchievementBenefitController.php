@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Members\StoreAchievementBenefitRequest;
 use App\Http\Requests\Members\UpdateAchievementBenefitRequest;
+use App\Models\Achievement;
 use App\Models\AchievementBenefit;
 use App\Models\Member;
 use App\Models\MemberLegacyAchievement;
@@ -36,6 +37,13 @@ class AchievementBenefitController extends Controller
             'organization_id' => $member->organization_id,
         ]));
 
+        if (
+            in_array($data['benefit_type'] ?? '', ['PROMOTION', 'OUT_OF_TURN_PROMOTION'], true)
+            && ! empty($data['promoted_to_rank'])
+        ) {
+            $member->update(['rank' => $data['promoted_to_rank']]);
+        }
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Benefit recorded.')]);
 
         return to_route('members.show', $member);
@@ -48,6 +56,14 @@ class AchievementBenefitController extends Controller
         Gate::authorize('manageBenefits', $member);
 
         $benefit->update($request->validated());
+
+        $updated = $request->validated();
+        if (
+            in_array($updated['benefit_type'] ?? $benefit->benefit_type, ['PROMOTION', 'OUT_OF_TURN_PROMOTION'], true)
+            && ! empty($updated['promoted_to_rank'])
+        ) {
+            $member->update(['rank' => $updated['promoted_to_rank']]);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Benefit updated.')]);
 
@@ -76,6 +92,10 @@ class AchievementBenefitController extends Controller
     {
         if ($parent instanceof MemberLegacyAchievement) {
             return $parent->member;
+        }
+
+        if ($parent instanceof Achievement) {
+            return $parent->participation->member;
         }
 
         abort(422, 'Cannot resolve member from benefitable type.');

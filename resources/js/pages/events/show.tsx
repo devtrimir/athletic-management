@@ -1,5 +1,5 @@
-import { Deferred, Head, setLayoutProps, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Deferred, Head, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
+import { Camera, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import {
     destroy as destroyEvent,
@@ -16,6 +16,7 @@ import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { MemberPicker } from '@/components/member-picker';
 import type { MemberOption } from '@/components/member-picker';
+import { ParticipationMediaSheet } from '@/components/members/participation-media-sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -445,11 +446,12 @@ function AddParticipantDialog({
     const [filterLevel, setFilterLevel] = useState('');
     const [filterStatus, setFilterStatus] = useState('ACTIVE');
 
-    const { data, setData, post, errors, processing, reset } = useForm<ParticipantForm>({
+    const { data, setData, errors, reset } = useForm<ParticipantForm>({
         position: '',
         medal_type: '',
         remarks: '',
     });
+    const [submitting, setSubmitting] = useState(false);
 
     const extraFilters: Record<string, string> = {};
 
@@ -478,11 +480,13 @@ extraFilters.current_status = filterStatus;
         e.preventDefault();
 
         if (!pickedMember) {
-return;
-}
+            return;
+        }
 
-        post(storeParticipants.url(tournament.id, event.id), {
-            data: {
+        setSubmitting(true);
+        router.post(
+            storeParticipants.url({ tournament: tournament.id, event: event.id }),
+            {
                 participants: [
                     {
                         member_id: pickedMember.id,
@@ -492,14 +496,18 @@ return;
                     },
                 ],
             },
-        } as Parameters<typeof post>[1]);
+            {
+                onSuccess: () => handleClose(),
+                onFinish: () => setSubmitting(false),
+            },
+        );
     }
 
     return (
         <Dialog open={open} onOpenChange={(o) => {
  if (!o) {
 handleClose();
-} 
+}
 }}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
@@ -557,9 +565,9 @@ handleClose();
                     <Button variant="outline" type="button" onClick={handleClose}>
                         {t('Cancel')}
                     </Button>
-                    <Button type="submit" form="add-participant-form" disabled={processing || !pickedMember}>
+                    <Button type="submit" form="add-participant-form" disabled={submitting || !pickedMember}>
                         <Plus className="mr-1.5 h-4 w-4" />
-                        {processing ? t('Saving…') : t('Add participant')}
+                        {submitting ? t('Saving…') : t('Add participant')}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -615,7 +623,7 @@ return;
         <Dialog open={participation !== null} onOpenChange={(o) => {
  if (!o) {
 onClose();
-} 
+}
 }}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
@@ -671,14 +679,19 @@ function ParticipantsList({
     participations,
     tournament,
     event,
+    canUpload,
+    canDelete,
 }: {
     participations: ParticipationRow[];
     tournament: TournamentRef;
     event: EventProp;
+    canUpload: boolean;
+    canDelete: boolean;
 }) {
     const { t } = useTranslation();
     const [editingParticipation, setEditingParticipation] = useState<ParticipationRow | null>(null);
     const [deletingParticipation, setDeletingParticipation] = useState<ParticipationRow | null>(null);
+    const [mediaParticipation, setMediaParticipation] = useState<ParticipationRow | null>(null);
     const { delete: deleteParticipant, processing: deletingProcessing } = useForm({});
 
     function handleDelete() {
@@ -738,6 +751,18 @@ return;
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-1">
+                                        {(canUpload || canDelete) && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                title={t('Photos')}
+                                                onClick={() => setMediaParticipation(p)}
+                                            >
+                                                <Camera className="h-4 w-4" />
+                                                <span className="sr-only">{t('Photos')}</span>
+                                            </Button>
+                                        )}
                                         <Button
                                             variant="ghost"
                                             size="icon"
@@ -778,7 +803,7 @@ return;
                 onOpenChange={(o) => {
  if (!o) {
 setDeletingParticipation(null);
-} 
+}
 }}
                 title={t('Remove participant')}
                 description={t('This will permanently delete the participation and any medal record. This action cannot be undone.')}
@@ -786,6 +811,20 @@ setDeletingParticipation(null);
                 onConfirm={handleDelete}
                 processing={deletingProcessing}
             />
+            {mediaParticipation && (
+                <ParticipationMediaSheet
+                    participationId={mediaParticipation.id}
+                    memberName={mediaParticipation.member?.full_name_hi ?? ''}
+                    open={mediaParticipation !== null}
+                    onOpenChange={(o) => {
+ if (!o) {
+setMediaParticipation(null);
+} 
+}}
+                    canUpload={canUpload}
+                    canDelete={canDelete}
+                />
+            )}
         </>
     );
 }
@@ -806,6 +845,9 @@ export default function EventsShow({
     participations?: ParticipationRow[];
 }) {
     const { t } = useTranslation();
+    const permissions = usePage().props.auth.permissions;
+    const canUploadMedia = permissions.includes('media.upload');
+    const canDeleteMedia = permissions.includes('media.delete');
     const [editEventOpen, setEditEventOpen] = useState(false);
     const [deleteEventOpen, setDeleteEventOpen] = useState(false);
     const [addParticipantOpen, setAddParticipantOpen] = useState(false);
@@ -878,6 +920,8 @@ export default function EventsShow({
                             participations={participations ?? []}
                             tournament={tournament}
                             event={event}
+                            canUpload={canUploadMedia}
+                            canDelete={canDeleteMedia}
                         />
                     </Deferred>
                 </div>

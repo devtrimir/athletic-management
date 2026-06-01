@@ -45,6 +45,11 @@ class MemberResource extends JsonResource
             'sport_event' => $this->sport_event,
             'other_notes' => $this->other_notes,
             'team_since' => $this->team_since?->toDateString(),
+            'sport' => $this->whenLoaded('sport', fn () => [
+                'id' => $this->sport->id,
+                'name_hi' => $this->sport->name_hi,
+                'name_en' => $this->sport->name_en ?? $this->sport->name_hi,
+            ]),
             'home_district' => $this->whenLoaded('homeDistrict', fn () => [
                 'id' => $this->homeDistrict->id,
                 'name_hi' => $this->homeDistrict->name_hi,
