@@ -19,9 +19,12 @@ class MemberParticipationsController extends Controller
 
         $participations = Participation::where('member_id', $member->id)
             ->with([
-                'session:id,name',
-                'event:id,tournament_id,name_hi,gender_class',
-                'event.tournament:id,name_hi,tier_id,date_from',
+                'session:id,name,is_current',
+                'team:id,name_hi',
+                'event:id,tournament_id,sport_id,name_hi,gender_class,discipline,weight_category',
+                'event.sport:id,name_hi,name_en',
+                'event.tournament:id,name_hi,tier_id,date_from,date_to,venue,session_id,sport_id',
+                'event.tournament.sport:id,name_hi,name_en',
                 'event.tournament.tier:id,code',
                 'achievement:id,participation_id,medal_type,position,remarks',
                 'achievement.benefits',
@@ -36,7 +39,11 @@ class MemberParticipationsController extends Controller
                 $session = $group->first()->session;
 
                 return [
-                    'session' => ['id' => $session->id, 'name' => $session->name],
+                    'session' => [
+                        'id' => $session->id,
+                        'name' => $session->name,
+                        'is_current' => (bool) $session->is_current,
+                    ],
                     'participations' => $group->map(fn ($p) => [
                         'id' => $p->id,
                         'position' => $p->position,
@@ -46,13 +53,33 @@ class MemberParticipationsController extends Controller
                             'name_hi' => $p->event->tournament->name_hi,
                             'tier_code' => $p->event->tournament->tier->code ?? null,
                             'date_from' => $p->event->tournament->date_from?->toDateString(),
+                            'date_to' => $p->event->tournament->date_to?->toDateString(),
+                            'venue' => $p->event->tournament->venue,
+                            'sport' => $p->event->tournament->sport ? [
+                                'id' => $p->event->tournament->sport->id,
+                                'name_hi' => $p->event->tournament->sport->name_hi,
+                                'name_en' => $p->event->tournament->sport->name_en,
+                            ] : null,
+                            'session_id' => $p->event->tournament->session_id,
                         ],
                         'event' => [
                             'id' => $p->event->id,
                             'name_hi' => $p->event->name_hi,
                             'gender_class' => $p->event->gender_class,
+                            'discipline' => $p->event->discipline,
+                            'weight_category' => $p->event->weight_category,
+                            'sport' => $p->event->sport ? [
+                                'id' => $p->event->sport->id,
+                                'name_hi' => $p->event->sport->name_hi,
+                                'name_en' => $p->event->sport->name_en,
+                            ] : null,
                         ],
+                        'team' => $p->team ? [
+                            'id' => $p->team->id,
+                            'name_hi' => $p->team->name_hi,
+                        ] : null,
                         'achievement' => $p->achievement ? [
+                            'id' => $p->achievement->id,
                             'medal_type' => $p->achievement->medal_type,
                             'position' => $p->achievement->position,
                             'remarks' => $p->achievement->remarks,

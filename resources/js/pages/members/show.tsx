@@ -7,8 +7,8 @@ import {
     useHttp,
     usePage,
 } from '@inertiajs/react';
-import { Camera, Download, Images, Printer } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Award, Camera, Download, Images, Medal, Minus, Trophy, Printer } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
@@ -30,12 +30,13 @@ import { ParticipationMediaSheet } from '@/components/members/participation-medi
 import { PromotionsTab } from '@/components/members/promotions-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { ChangeLog } from '@/components/shared/change-log';
-import type { AuditEntry } from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Table,
@@ -47,6 +48,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import memberAuditLog from '@/routes/members/audit-log';
 
 type Member = {
     id: number;
@@ -108,9 +110,22 @@ type ParticipationEntry = {
         name_hi: string;
         tier_code: string | null;
         date_from: string | null;
+        date_to: string | null;
+        venue: string | null;
+        session_id: number | null;
+        sport: { id: number; name_hi: string; name_en: string } | null;
     };
-    event: { id: number; name_hi: string; gender_class: string };
+    event: {
+        id: number;
+        name_hi: string;
+        gender_class: string;
+        discipline: string | null;
+        weight_category: string | null;
+        sport: { id: number; name_hi: string; name_en: string } | null;
+    };
+    team: { id: number; name_hi: string } | null;
     achievement: {
+        id: number;
         medal_type: string;
         position: number | null;
         remarks: string | null;
@@ -119,7 +134,7 @@ type ParticipationEntry = {
 };
 
 type ParticipationGroup = {
-    session: { id: number; name: string };
+    session: { id: number; name: string; is_current?: boolean };
     participations: ParticipationEntry[];
 };
 
@@ -159,20 +174,10 @@ type AchievementsData = {
         position: number | null;
         remarks: string | null;
         session: { id: number; name: string };
-        tournament: { id: number; name_hi: string; tier_code: string | null };
+        tournament: { id: number; name_hi: string; tier_code: string | null; venue: string | null; date_from: string | null; date_to: string | null; sport: { id: number; name_hi: string; name_en: string } | null };
         event: { id: number; name_hi: string };
         benefits: AchievementBenefitRow[];
     }>;
-};
-
-const MEDAL_VARIANT: Record<
-    string,
-    'default' | 'secondary' | 'outline' | 'destructive'
-> = {
-    GOLD: 'default',
-    SILVER: 'secondary',
-    BRONZE: 'outline',
-    MERIT: 'outline',
 };
 
 type LegacyAchievement = {
@@ -230,7 +235,6 @@ export default function MembersShow({
     legacyAchievements,
     promotions,
     ranks,
-    auditLog,
 }: {
     member: Member;
     statusHistory?: StatusEntry[];
@@ -239,7 +243,6 @@ export default function MembersShow({
     legacyAchievements?: LegacyAchievement[];
     promotions?: PromotionRow[];
     ranks?: RankOption[];
-    auditLog?: AuditEntry[];
 }) {
     const [activeTab, setActiveTab] = useState('overview');
     const [participations, setParticipations] = useState<
@@ -255,6 +258,7 @@ export default function MembersShow({
     >({});
     const participationsFetched = useRef(false);
     const achievementsFetched = useRef(false);
+    const promotionsFetched = useRef(false);
     const memberId = member.id;
     const permissions = usePage().props.auth.permissions;
     const canDeleteMedia = permissions.includes('media.delete');
@@ -263,6 +267,49 @@ export default function MembersShow({
         id: number;
         eventName: string;
     } | null>(null);
+    const refreshMemberHistory = useCallback(() => {
+        participationsFetched.current = false;
+        achievementsFetched.current = false;
+        promotionsFetched.current = false;
+        setParticipations(null);
+        setAchievementsData(null);
+
+        router.reload({
+            only: ['member', 'promotions', 'auditLog'],
+            preserveScroll: true,
+            preserveState: true,
+        });
+
+        getParticipations(MemberParticipationsController.url(memberId), {
+            onSuccess: (res) => {
+                const r = res as unknown as { data: ParticipationGroup[] };
+                setParticipations(r?.data ?? []);
+            },
+            onError: () => setParticipations([]),
+        });
+
+        getAchievements(MemberAchievementsController.url(memberId), {
+            onSuccess: (res) => {
+                const r = res as unknown as { data: AchievementsData };
+                setAchievementsData(
+                    r?.data ?? {
+                        summary: {
+                            GOLD: 0,
+                            SILVER: 0,
+                            BRONZE: 0,
+                            MERIT: 0,
+                        },
+                        achievements: [],
+                    },
+                );
+            },
+            onError: () =>
+                setAchievementsData({
+                    summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 },
+                    achievements: [],
+                }),
+        });
+    }, [getAchievements, getParticipations, memberId]);
 
     useEffect(() => {
         if ((activeTab === 'events' || activeTab === 'promotions') && !participationsFetched.current) {
@@ -300,6 +347,15 @@ export default function MembersShow({
                     }),
             });
         }
+
+        if (activeTab === 'events' && !promotionsFetched.current) {
+            promotionsFetched.current = true;
+            router.reload({
+                only: ['promotions'],
+                preserveScroll: true,
+                preserveState: true,
+            });
+        }
     }, [activeTab, memberId, getParticipations, getAchievements]);
     const [mediaKey] = useState(0);
     const { t } = useTranslation();
@@ -317,6 +373,198 @@ export default function MembersShow({
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
+    const [eventSearch, setEventSearch] = useState('');
+    const [sessionFilter, setSessionFilter] = useState<'all' | 'current' | string>('current');
+    const [medalFilter, setMedalFilter] = useState<'all' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'none'>('all');
+    const [tierFilter, setTierFilter] = useState<string>('all');
+    const [classFilter, setClassFilter] = useState<string>('all');
+    const [benefitFilter, setBenefitFilter] = useState<'all' | 'benefit' | 'promotion' | 'cash' | 'both'>('all');
+    const promotionLookup = useMemo(() => {
+        const map = new Map<string, PromotionRow[]>();
+
+        for (const promotion of promotions ?? []) {
+            for (const evidence of promotion.evidences) {
+                const key = `${evidence.type}:${evidence.evidence_id}`;
+                const current = map.get(key) ?? [];
+
+                current.push(promotion);
+                map.set(key, current);
+            }
+        }
+
+        return map;
+    }, [promotions]);
+
+    const promotionSummary = useCallback((promotion: PromotionRow): string => {
+        const parts: string[] = [];
+
+        if (promotion.from_rank || promotion.to_rank) {
+            const fromRank = promotion.from_rank ?? t('Unknown');
+            const toRank = promotion.to_rank ?? t('Unknown');
+
+            parts.push(`${fromRank} → ${toRank}`);
+        }
+
+        return parts.join(' · ');
+    }, [t]);
+
+    const promotionRewardMeta = useCallback((promotion: PromotionRow): string[] => {
+        const parts: string[] = [];
+
+        if (promotion.cash_reward_amount) {
+            parts.push(`₹${promotion.cash_reward_amount}`);
+        }
+
+        if (promotion.cash_reward_date) {
+            parts.push(promotion.cash_reward_date);
+        }
+
+        if (promotion.cash_reward_reference) {
+            parts.push(promotion.cash_reward_reference);
+        }
+
+        return parts;
+    }, []);
+
+    const filteredSessionGroups = useMemo(() => {
+        const isCurrentSession = (value: unknown): boolean => value === true || value === 1 || value === '1';
+
+        const matchesFilters = (item: ParticipationEntry): boolean => {
+            const search = eventSearch.trim().toLowerCase();
+            const promotionMatches =
+                (promotionLookup.get(`participation:${item.id}`)?.length ?? 0) +
+                (item.achievement?.id ? promotionLookup.get(`achievement:${item.achievement.id}`)?.length ?? 0 : 0);
+            const hasBenefit = !!item.achievement?.benefits?.length;
+            const hasPromotion = promotionMatches > 0;
+            const hasCashReward =
+                (promotionLookup.get(`participation:${item.id}`)?.some((promotion) => Boolean(promotion.cash_reward_amount)) ?? false) ||
+                (item.achievement?.id ? promotionLookup.get(`achievement:${item.achievement.id}`)?.some((promotion) => Boolean(promotion.cash_reward_amount)) ?? false : false);
+
+            if (medalFilter !== 'all') {
+                if (medalFilter === 'none' && item.achievement?.medal_type) {
+                    return false;
+                }
+
+                if (medalFilter !== 'none' && item.achievement?.medal_type !== medalFilter) {
+                    return false;
+                }
+            }
+
+            if (tierFilter !== 'all' && item.tournament.tier_code !== tierFilter) {
+                return false;
+            }
+
+            if (classFilter !== 'all' && item.event.gender_class !== classFilter) {
+                return false;
+            }
+
+            if (benefitFilter === 'benefit' && !hasBenefit) {
+                return false;
+            }
+
+            if (benefitFilter === 'promotion' && !hasPromotion) {
+                return false;
+            }
+
+            if (benefitFilter === 'cash' && !hasCashReward) {
+                return false;
+            }
+
+            if (benefitFilter === 'both' && (!hasBenefit || !hasPromotion)) {
+                return false;
+            }
+
+            if (!search) {
+                return true;
+            }
+
+            const haystack = [
+                item.tournament.name_hi,
+                item.event.name_hi,
+                item.tournament.tier_code ?? '',
+                item.event.gender_class ?? '',
+                item.achievement?.medal_type ?? '',
+                item.achievement?.benefits?.map((benefit) => benefit.benefit_type).join(' ') ?? '',
+                promotionLookup.get(`participation:${item.id}`)?.map((promotion) => promotionSummary(promotion)).join(' ') ?? '',
+                item.achievement?.id ? promotionLookup.get(`achievement:${item.achievement.id}`)?.map((promotion) => promotionSummary(promotion)).join(' ') ?? '' : '',
+            ]
+                .join(' ')
+                .toLowerCase();
+
+            return haystack.includes(search);
+        };
+
+        return (participations ?? [])
+            .filter((group) => {
+                if (sessionFilter === 'current') {
+                    return isCurrentSession(group.session.is_current);
+                }
+
+                if (sessionFilter !== 'all' && sessionFilter !== 'current') {
+                    return String(group.session.id) === sessionFilter;
+                }
+
+                return true;
+            })
+            .map((group) => ({
+                ...group,
+                participations: group.participations.filter(matchesFilters),
+            }))
+            .filter((group) => group.participations.length > 0)
+            .sort((a, b) => Number(isCurrentSession(b.session.is_current)) - Number(isCurrentSession(a.session.is_current)));
+    }, [benefitFilter, classFilter, eventSearch, medalFilter, participations, promotionLookup, promotionSummary, sessionFilter, tierFilter]);
+
+    const eventPromotionRows = useCallback((participation: ParticipationEntry): PromotionRow[] => {
+        const seen = new Map<number, PromotionRow>();
+
+        for (const promotion of promotionLookup.get(`participation:${participation.id}`) ?? []) {
+            seen.set(promotion.id, promotion);
+        }
+
+        if (participation.achievement?.id) {
+            for (const promotion of promotionLookup.get(`achievement:${participation.achievement.id}`) ?? []) {
+                seen.set(promotion.id, promotion);
+            }
+        }
+
+        return Array.from(seen.values());
+    }, [promotionLookup]);
+
+    function eventBadgeClass(kind: 'session' | 'tier' | 'class' | 'medal' | 'promotion' | 'benefit' | 'cash'): string {
+        const base = 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium';
+
+        switch (kind) {
+            case 'session':
+                return `${base} border-slate-200 bg-slate-50 text-slate-700`;
+            case 'tier':
+                return `${base} border-indigo-200 bg-indigo-50 text-indigo-700`;
+            case 'class':
+                return `${base} border-amber-200 bg-amber-50 text-amber-800`;
+            case 'medal':
+                return `${base} border-emerald-200 bg-emerald-50 text-emerald-700`;
+            case 'promotion':
+                return `${base} border-blue-200 bg-blue-50 text-blue-700`;
+            case 'benefit':
+                return `${base} border-violet-200 bg-violet-50 text-violet-700`;
+            case 'cash':
+                return `${base} border-rose-200 bg-rose-50 text-rose-700`;
+        }
+    }
+
+    function medalBadgeContent(medalType: string): { icon: JSX.Element; label: string; className: string } {
+        switch (medalType) {
+            case 'GOLD':
+                return { icon: <Trophy className="h-3.5 w-3.5" />, label: t('Gold'), className: 'border-amber-200 bg-amber-50 text-amber-700' };
+            case 'SILVER':
+                return { icon: <Award className="h-3.5 w-3.5" />, label: t('Silver'), className: 'border-slate-200 bg-slate-50 text-slate-700' };
+            case 'BRONZE':
+                return { icon: <Medal className="h-3.5 w-3.5" />, label: t('Bronze'), className: 'border-orange-200 bg-orange-50 text-orange-700' };
+            case 'MERIT':
+                return { icon: <Minus className="h-3.5 w-3.5" />, label: t('MERIT'), className: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+            default:
+                return { icon: <Medal className="h-3.5 w-3.5" />, label: t(medalType), className: 'border-slate-200 bg-slate-50 text-slate-700' };
+        }
+    }
 
     function handlePrint(): void {
         const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
@@ -522,7 +770,7 @@ export default function MembersShow({
                             {t('Legacy achievements')}
                         </TabsTrigger>
                         <TabsTrigger value="promotions">
-                            {t('Promotions')}
+                            {t('Promotions & rewards')}
                         </TabsTrigger>
                         <TabsTrigger value="changelog">
                             {t('Change log')}
@@ -842,93 +1090,256 @@ export default function MembersShow({
                                             ['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const
                                         ).map((m) => (
                                             <div key={m} className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3">
-                                                <Badge variant={MEDAL_VARIANT[m]}>{t(m)}</Badge>
+                                                {(() => {
+                                                    const medal = medalBadgeContent(m);
+
+                                                    return (
+                                                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}>
+                                                            {medal.icon}
+                                                            {medal.label}
+                                                        </span>
+                                                    );
+                                                })()}
                                                 <span className="text-xl font-bold">{achievementsData.summary[m]}</span>
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="rounded-xl border bg-card">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>{t('Tournament')}</TableHead>
-                                                    <TableHead>{t('Date')}</TableHead>
-                                                    <TableHead>{t('Tier')}</TableHead>
-                                                    <TableHead>{t('Event')}</TableHead>
-                                                    <TableHead>{t('Class')}</TableHead>
-                                                    <TableHead>{t('Medal')}</TableHead>
-                                                    <TableHead>{t('Position')}</TableHead>
-                                                    <TableHead>{t('Benefits')}</TableHead>
-                                                    <TableHead className="w-8" />
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {participations.flatMap((group) => group.participations.map((p) => (
-                                                    <TableRow key={p.id}>
-                                                        <TableCell className="font-medium">
-                                                            <div className="space-y-1">
-                                                                <Link href={showTournament.url(p.tournament.id)} className="hover:underline">{p.tournament.name_hi}</Link>
-                                                                <p className="text-xs text-muted-foreground">{group.session.name}</p>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {p.tournament.date_from ?? '—'}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {p.tournament.tier_code ? <Badge variant="outline">{p.tournament.tier_code}</Badge> : '—'}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Link href={showEvent.url({ tournament: p.tournament.id, event: p.event.id })} className="hover:underline">
-                                                                {p.event.name_hi}
-                                                            </Link>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="outline">{p.event.gender_class || '—'}</Badge>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {p.achievement?.medal_type ? <Badge variant={MEDAL_VARIANT[p.achievement.medal_type] ?? 'outline'}>{t(p.achievement.medal_type)}</Badge> : '—'}
-                                                        </TableCell>
-                                                        <TableCell>{p.achievement?.position ?? p.position ?? '—'}</TableCell>
-                                                        <TableCell>
-                                                            {p.achievement?.benefits && p.achievement.benefits.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    <Badge variant="outline" className="border-emerald-400 bg-emerald-50 text-emerald-700">{t('Benefit recorded')}</Badge>
-                                                                    {p.achievement.benefits.map((benefit) => (
-                                                                        <div key={benefit.id} className="flex flex-col gap-0.5 rounded-md border bg-muted/30 px-2 py-1">
-                                                                            <Badge variant="secondary" className="w-fit text-xs">
-                                                                                {t(benefit.benefit_type)}
-                                                                                {benefit.cash_amount ? ` ₹${benefit.cash_amount}` : ''}
-                                                                            </Badge>
-                                                                            <div className="text-[11px] text-muted-foreground">
-                                                                                {benefit.benefit_date && <span>{benefit.benefit_date}</span>}
-                                                                                {benefit.order_reference && (
-                                                                                    <span className="ml-1">{benefit.order_reference}</span>
-                                                                                )}
-                                                                                {benefit.remarks && (
-                                                                                    <p className="line-clamp-2">{benefit.remarks}</p>
-                                                                                )}
+
+                                    <div className="rounded-xl border bg-card p-4">
+                                        <div className="mb-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                            <span className="rounded-md border bg-white px-2 py-1">{t('Current')} {sessionFilter === 'current' ? 'on' : 'off'}</span>
+                                            {medalFilter !== 'all' && <span className="rounded-md border bg-white px-2 py-1">{t('Medal')}: {t(medalFilter)}</span>}
+                                            {tierFilter !== 'all' && <span className="rounded-md border bg-white px-2 py-1">{t('Tier')}: {tierFilter}</span>}
+                                            {classFilter !== 'all' && <span className="rounded-md border bg-white px-2 py-1">{t('Class')}: {classFilter}</span>}
+                                            {benefitFilter !== 'all' && <span className="rounded-md border bg-white px-2 py-1">{t('Benefits')}: {t(benefitFilter)}</span>}
+                                            {eventSearch && <span className="rounded-md border bg-white px-2 py-1">{t('Search')}: {eventSearch}</span>}
+                                        </div>
+                                        <div className="flex flex-wrap gap-3">
+                                            <div className="min-w-[240px] flex-1 basis-[280px] space-y-1.5">
+                                                <Label htmlFor="event-search" className="text-xs font-medium text-muted-foreground">{t('Search…')}</Label>
+                                                <Input id="event-search" className="h-10 border-slate-200 bg-white shadow-sm" value={eventSearch} onChange={(e) => setEventSearch(e.target.value)} placeholder={t('Search events, medals, benefits…')} />
+                                            </div>
+                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
+                                                <Label className="text-xs font-medium text-muted-foreground">{t('Session')}</Label>
+                                                <Select value={sessionFilter} onValueChange={(v) => setSessionFilter(v as 'all' | 'current' | string)}>
+                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
+                                                        <SelectValue placeholder={t('All sessions')} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="current">{t('Current')}</SelectItem>
+                                                        <SelectItem value="all">{t('All sessions')}</SelectItem>
+                                                        {(participations ?? []).map((group) => (
+                                                            <SelectItem key={group.session.id} value={String(group.session.id)}>{group.session.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
+                                                <Label className="text-xs font-medium text-muted-foreground">{t('Medal')}</Label>
+                                                <Select value={medalFilter} onValueChange={(v) => setMedalFilter(v as typeof medalFilter)}>
+                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
+                                                        <SelectValue placeholder={t('All medals')} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">{t('All medals')}</SelectItem>
+                                                        <SelectItem value="GOLD">{t('Gold')}</SelectItem>
+                                                        <SelectItem value="SILVER">{t('Silver')}</SelectItem>
+                                                        <SelectItem value="BRONZE">{t('Bronze')}</SelectItem>
+                                                        <SelectItem value="MERIT">{t('MERIT')}</SelectItem>
+                                                        <SelectItem value="none">{t('No medal')}</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
+                                                <Label className="text-xs font-medium text-muted-foreground">{t('Tier')}</Label>
+                                                <Select value={tierFilter} onValueChange={setTierFilter}>
+                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
+                                                        <SelectValue placeholder={t('All tiers')} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">{t('All tiers')}</SelectItem>
+                                                        {Array.from(new Set((participations ?? []).flatMap((group) => group.participations.map((p) => p.tournament.tier_code).filter(Boolean) as string[]))).map((tier) => (
+                                                            <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
+                                                <Label className="text-xs font-medium text-muted-foreground">{t('Class')}</Label>
+                                                <Select value={classFilter} onValueChange={setClassFilter}>
+                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
+                                                        <SelectValue placeholder={t('All types')} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">{t('All types')}</SelectItem>
+                                                        {Array.from(new Set((participations ?? []).flatMap((group) => group.participations.map((p) => p.event.gender_class)))).map((item) => (
+                                                            <SelectItem key={item} value={item}>{item}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
+                                                <Label className="text-xs font-medium text-muted-foreground">{t('Benefits')}</Label>
+                                                <Select value={benefitFilter} onValueChange={(v) => setBenefitFilter(v as typeof benefitFilter)}>
+                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
+                                                        <SelectValue placeholder={t('All types')} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">{t('All types')}</SelectItem>
+                                                        <SelectItem value="benefit">{t('Benefit recorded')}</SelectItem>
+                                                        <SelectItem value="promotion">{t('Promotion')}</SelectItem>
+                                                        <SelectItem value="cash">{t('Cash reward')}</SelectItem>
+                                                        <SelectItem value="both">{t('Promotion')} + {t('Cash reward')}</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {filteredSessionGroups.length === 0 ? (
+                                        <div className="rounded-xl border bg-card p-6">
+                                            <p className="text-sm text-muted-foreground">{t('No results')}</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {filteredSessionGroups.map((group) => (
+                                                <div key={group.session.id} className="rounded-xl border bg-card">
+                                                    <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                                                        <div>
+                                                            <h4 className="text-sm font-medium">
+                                                                {group.session.name}
+                                                                {group.session.is_current ? <Badge className="ml-2" variant="secondary">{t('Current')}</Badge> : null}
+                                                            </h4>
+                                                            <p className="text-xs text-muted-foreground">{t('Events')}</p>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {group.participations.length} {t('records')}
+                                                        </p>
+                                                    </div>
+                                                    <div className="space-y-3 p-4">
+                                                        {group.participations
+                                                            .reduce<Array<{ key: string; eventName: string; rows: ParticipationEntry[] }>>((acc, item) => {
+                                                                const key = `${item.tournament.id}:${item.event.id}`;
+                                                                const existing = acc.find((entry) => entry.key === key);
+
+                                                                if (existing) {
+                                                                    existing.rows.push(item);
+                                                                } else {
+                                                                    acc.push({ key, eventName: item.event.name_hi, rows: [item] });
+                                                                }
+
+                                                                return acc;
+                                                            }, [])
+                                                            .map((eventGroup) => (
+                                                            <div key={eventGroup.key} className="rounded-lg border bg-white shadow-sm">
+                                                                <div className="border-b bg-slate-50 px-4 py-3">
+                                                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                                                        <div className="min-w-0 space-y-1">
+                                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                                <Link href={showTournament.url(eventGroup.rows[0].tournament.id)} className="truncate font-medium hover:underline">
+                                                                                    {eventGroup.rows[0].tournament.name_hi}
+                                                                                </Link>
+                                                                                <span className={eventBadgeClass('tier')}>{eventGroup.rows[0].tournament.tier_code ?? t('Unknown')}</span>
+                                                                                <span className={eventBadgeClass('class')}>{eventGroup.rows[0].event.gender_class || t('Unknown')}</span>
+                                                                            </div>
+                                                                            <Link href={showEvent.url({ tournament: eventGroup.rows[0].tournament.id, event: eventGroup.rows[0].event.id })} className="block truncate text-sm text-muted-foreground hover:underline">
+                                                                                {eventGroup.eventName}
+                                                                            </Link>
+                                                                            <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+                                                                                {eventGroup.rows[0].tournament.sport && <span className="rounded-md border bg-white px-2 py-0.5">{t('Sport')}: {eventGroup.rows[0].tournament.sport.name_hi}</span>}
+                                                                                {eventGroup.rows[0].tournament.venue && <span className="rounded-md border bg-white px-2 py-0.5">{t('Venue')}: {eventGroup.rows[0].tournament.venue}</span>}
+                                                                                {eventGroup.rows[0].tournament.date_from && <span className="rounded-md border bg-white px-2 py-0.5">{t('Date')}: {eventGroup.rows[0].tournament.date_to ? `${eventGroup.rows[0].tournament.date_from} - ${eventGroup.rows[0].tournament.date_to}` : eventGroup.rows[0].tournament.date_from}</span>}
+                                                                                {eventGroup.rows[0].team && <span className="rounded-md border bg-white px-2 py-0.5">{t('Team')}: {eventGroup.rows[0].team.name_hi}</span>}
                                                                             </div>
                                                                         </div>
-                                                                    ))}
+                                                                        <div className="shrink-0 text-xs text-muted-foreground">
+                                                                            {eventGroup.rows.length} {t('records')}
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
-                                                            ) : '—'}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <Button variant="ghost" size="icon" className="relative h-7 w-7 text-muted-foreground hover:text-foreground" title={t('Photos')} onClick={() => setMediaParticipationId({ id: p.id, eventName: p.event?.name_hi ?? '' })}>
-                                                                {canUploadMedia || canDeleteMedia ? <Camera className="h-3.5 w-3.5" /> : <Images className="h-3.5 w-3.5" />}
-                                                                {p.media_files_count > 0 && (
-                                                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
-                                                                        {p.media_files_count > 9 ? '9+' : p.media_files_count}
-                                                                    </span>
-                                                                )}
-                                                                <span className="sr-only">{t('Photos')}</span>
-                                                            </Button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
+                                                                <div className="space-y-3 p-4">
+                                                                        {eventGroup.rows.map((p) => (
+                                                                            <div key={p.id} className="flex w-full items-start gap-3 rounded-md border bg-white p-3 shadow-sm">
+                                                                                <div className="min-w-0 flex-1 space-y-2">
+                                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                                            {p.achievement?.medal_type ? (() => {
+                                                                                                const medal = medalBadgeContent(p.achievement.medal_type);
+
+                                                                                                return (
+                                                                                                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}>
+                                                                                                        {medal.icon}
+                                                                                                        {medal.label}
+                                                                                                    </span>
+                                                                                                );
+                                                                                            })() : <span className={eventBadgeClass('medal')}>{t('No medal')}</span>}
+                                                                                            <span className="text-xs text-muted-foreground">
+                                                                                                #{p.achievement?.position ?? p.position ?? '—'}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+                                                                                            {p.event.sport && <span className="rounded-md border bg-muted/30 px-2 py-0.5">{t('Sport')}: {p.event.sport.name_hi}</span>}
+                                                                                            {p.tournament.venue && <span className="rounded-md border bg-muted/30 px-2 py-0.5">{t('Venue')}: {p.tournament.venue}</span>}
+                                                                                            {p.event.discipline && <span className="rounded-md border bg-muted/30 px-2 py-0.5">{t('Discipline')}: {p.event.discipline}</span>}
+                                                                                            {p.event.weight_category && <span className="rounded-md border bg-muted/30 px-2 py-0.5">{t('Weight category')}: {p.event.weight_category}</span>}
+                                                                                        </div>
+                                                                                        <div className="grid gap-3 md:grid-cols-2">
+                                                                                            <div className="space-y-1">
+                                                                                                <p className="text-xs font-medium text-muted-foreground">{t('Benefits')}</p>
+                                                                                                <div className="flex flex-wrap gap-1.5">
+                                                                                                    {p.achievement?.benefits?.length ? p.achievement.benefits.map((benefit) => (
+                                                                                                        <span key={benefit.id} className={eventBadgeClass('benefit')}>
+                                                                                                            {t(benefit.benefit_type)}
+                                                                                                            {benefit.cash_amount ? ` ₹${benefit.cash_amount}` : ''}
+                                                                                                        </span>
+                                                                                                    )) : <span className="text-xs text-muted-foreground">—</span>}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div className="space-y-1">
+                                                                                                <p className="text-xs font-medium text-muted-foreground">{t('Promotion')}</p>
+                                                                                                {eventPromotionRows(p).length > 0 ? (
+                                                                                                    <div className="flex flex-wrap gap-1.5">
+                                                                                                        {eventPromotionRows(p).map((promotion) => {
+                                                                                                            const rewardMeta = promotionRewardMeta(promotion);
+
+                                                                                                            return (
+                                                                                                                <span key={promotion.id} className="inline-flex max-w-full items-start gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium leading-4 text-blue-700">
+                                                                                                                    <span className="shrink-0">{t('Promotion')}</span>
+                                                                                                                    <span className="truncate">
+                                                                                                                        {promotionSummary(promotion)}
+                                                                                                                        {rewardMeta.length > 0 ? ` · ${rewardMeta.join(' · ')}` : ''}
+                                                                                                                    </span>
+                                                                                                                </span>
+                                                                                                            );
+                                                                                                        })}
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <span className="text-xs text-muted-foreground">—</span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                </div>
+                                                                                <Button variant="ghost" size="icon" className="relative h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground" title={t('Photos')} onClick={() => setMediaParticipationId({ id: p.id, eventName: p.event?.name_hi ?? '' })}>
+                                                                                        {canUploadMedia || canDeleteMedia ? <Camera className="h-3.5 w-3.5" /> : <Images className="h-3.5 w-3.5" />}
+                                                                                        {p.media_files_count > 0 && (
+                                                                                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
+                                                                                                {p.media_files_count > 9 ? '9+' : p.media_files_count}
+                                                                                            </span>
+                                                                                        )}
+                                                                                        <span className="sr-only">{t('Photos')}</span>
+                                                                                    </Button>
+                                                                                <div className="mt-2 text-[11px] text-muted-foreground">
+                                                                                    {p.tournament.date_from ?? t('No date')}
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                </div>
+                                                            </div>
+                                                            ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -977,31 +1388,18 @@ export default function MembersShow({
                                 participations={participations ?? []}
                                 legacyAchievements={legacyAchievements}
                                 achievements={achievementsData?.achievements ?? []}
-                                onSaved={() => router.reload({ only: ['member', 'promotions', 'auditLog'] })}
+                                onSaved={refreshMemberHistory}
                             />
                         </Deferred>
                     </TabsContent>
                     {/* Change log */}
                     <TabsContent value="changelog">
-                        <Deferred
-                            data="auditLog"
-                            fallback={
-                                <div className="space-y-2">
-                                    {[1, 2, 3].map((n) => (
-                                        <Skeleton
-                                            key={n}
-                                            className="h-14 w-full"
-                                        />
-                                    ))}
-                                </div>
-                            }
-                        >
                             <ChangeLog
-                                entries={auditLog}
+                                entries={[]}
                                 primaryEntity="Member"
                                 storageKey="member-changelog-view"
+                                endpoint={memberAuditLog.index.url(member)}
                             />
-                        </Deferred>
                     </TabsContent>
 
                     {/* Media tab */}

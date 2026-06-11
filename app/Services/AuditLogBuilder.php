@@ -252,6 +252,7 @@ class AuditLogBuilder
                 $field === 'recorded_by' => $userMap->get((int) $value) ?? (string) $value,
                 $field === 'event_id' => $eventLabelMap->get((int) $value) ?? (string) $value,
                 $field === 'participation_id' => $participationLabelMap->get((int) $value) ?? (string) $value,
+                is_array($value) || is_object($value) => json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[complex value]',
                 default => (string) $value,
             };
         };

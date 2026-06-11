@@ -1,5 +1,5 @@
 import { AlignLeft, Check, ChevronDown, GitBranch, LayoutList, Search, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -97,6 +97,27 @@ function OptionList({
     );
 }
 
+function getPeriodStart(selected: 'month' | 'quarter' | 'half_year' | 'year' | undefined): Date | null {
+    if (!selected) {
+        return null;
+    }
+
+    const now = new Date();
+
+    switch (selected) {
+        case 'month':
+            return new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        case 'quarter':
+            return new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+        case 'half_year':
+            return new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+        case 'year':
+            return new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+        default:
+            return null;
+    }
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface ChangeLogProps {
@@ -106,10 +127,17 @@ interface ChangeLogProps {
     primaryEntity: string;
     /** localStorage key for persisting the selected view mode */
     storageKey: string;
+    /** Optional endpoint for chunked loading */
+    endpoint?: string;
 }
 
-export function ChangeLog({ entries, primaryEntity, storageKey }: ChangeLogProps) {
+export function ChangeLog({ entries, primaryEntity, storageKey, endpoint }: ChangeLogProps) {
     const { t } = useTranslation();
+    const [remoteEntries, setRemoteEntries] = useState<AuditEntry[] | undefined>(undefined);
+    const [hasMore, setHasMore] = useState(false);
+    const [page, setPage] = useState(1);
+    const [perPage] = useState(25);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     const [view, setView] = useState<'timeline' | 'table' | 'compact'>(() => {
         if (typeof window === 'undefined') {
@@ -122,44 +150,86 @@ return 'timeline';
     });
     const [search, setSearch]   = useState('');
     const [year, setYear]       = useState<string | undefined>(undefined);
+    const [period, setPeriod]   = useState<'month' | 'quarter' | 'half_year' | 'year' | undefined>(undefined);
     const [action, setAction]   = useState<string | undefined>(undefined);
     const [subject, setSubject] = useState<string | undefined>(undefined);
 
+    useEffect(() => {
+        if (!endpoint) {
+            return;
+        }
+
+        let alive = true;
+
+        fetch(`${endpoint}?page=1&per_page=${perPage}`)
+            .then((response) => response.json())
+            .then((payload: { data: AuditEntry[]; meta?: { has_more: boolean } }) => {
+                if (!alive) {
+                    return;
+                }
+
+                setRemoteEntries(payload.data ?? []);
+                setHasMore(payload.meta?.has_more ?? false);
+            })
+            .catch(() => {
+                if (!alive) {
+                    return;
+                }
+
+                setRemoteEntries([]);
+                setHasMore(false);
+            });
+
+        return () => {
+            alive = false;
+        };
+    }, [endpoint, perPage]);
+
+    const sourceEntries = endpoint ? remoteEntries : entries;
+
     const yearOptions = useMemo(() => {
-        if (!entries) {
+        if (!sourceEntries) {
 return [];
 }
 
-        const years = [...new Set(entries.map((e) => new Date(e.at).getFullYear().toString()))].sort().reverse();
+        const years = [...new Set(sourceEntries.map((e) => new Date(e.at).getFullYear().toString()))].sort().reverse();
 
         return years.map((y) => ({ value: y, label: y }));
-    }, [entries]);
+    }, [sourceEntries]);
 
     const actionOptions = useMemo(() => {
-        if (!entries) {
+        if (!sourceEntries) {
 return [];
 }
 
-        return [...new Set(entries.map((e) => e.action))].map((a) => ({ value: a, label: t(a) }));
-    }, [entries, t]);
+        return [...new Set(sourceEntries.map((e) => e.action))].map((a) => ({ value: a, label: t(a) }));
+    }, [sourceEntries, t]);
 
     const subjectOptions = useMemo(() => {
-        if (!entries) {
+        if (!sourceEntries) {
 return [];
 }
 
-        return [...new Set(entries.map((e) => e.subject))].map((s) => ({ value: s, label: t(s) }));
-    }, [entries, t]);
+        return [...new Set(sourceEntries.map((e) => e.subject))].map((s) => ({ value: s, label: t(s) }));
+    }, [sourceEntries, t]);
 
     const visible = useMemo(() => {
-        if (!entries) {
+        if (!sourceEntries) {
 return [];
 }
 
-        return entries.filter((entry) => {
+        return sourceEntries.filter((entry) => {
+            const entryDate = new Date(entry.at);
+
             if (year    && new Date(entry.at).getFullYear().toString() !== year)  {
 return false;
 }
+
+            const periodStart = getPeriodStart(period);
+
+            if (periodStart && entryDate < periodStart) {
+                return false;
+            }
 
             if (action  && entry.action  !== action)  {
 return false;
@@ -187,14 +257,38 @@ return false;
 
             return true;
         });
-    }, [entries, year, action, subject, search]);
+    }, [sourceEntries, year, period, action, subject, search]);
 
-    const anyFilter = !!(year ?? action ?? subject ?? search);
+    const anyFilter = !!(year ?? period ?? action ?? subject ?? search);
+
+    const summary = useMemo(() => {
+        const total = visible.length;
+        const byAction = visible.reduce<Record<string, number>>((acc, entry) => {
+            acc[entry.action] = (acc[entry.action] ?? 0) + 1;
+
+            return acc;
+        }, {});
+
+        return { total, byAction };
+    }, [visible]);
+
+    const groupedByDate = useMemo(() => {
+        const groups = new Map<string, AuditEntry[]>();
+
+        for (const entry of visible) {
+            const key = new Date(entry.at).toLocaleDateString('hi-IN', { dateStyle: 'long' });
+            const current = groups.get(key) ?? [];
+            current.push(entry);
+            groups.set(key, current);
+        }
+
+        return Array.from(groups.entries());
+    }, [visible]);
 
     return (
         <>
-            {/* Toolbar */}
-            <div className="mb-4 flex flex-wrap items-center gap-2">
+            <div className="sticky top-0 z-10 mb-4 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
                 <div className="relative">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -207,6 +301,23 @@ return false;
 
                 <FilterPill label={t('Year')} activeLabel={year} onClear={() => setYear(undefined)}>
                     <OptionList options={yearOptions} value={year} onSelect={setYear} />
+                </FilterPill>
+
+                <FilterPill
+                    label={t('Period')}
+                    activeLabel={period ? t(period === 'month' ? 'Last one month' : period === 'quarter' ? 'Last quarter' : period === 'half_year' ? 'Last half year' : 'Last year') : undefined}
+                    onClear={() => setPeriod(undefined)}
+                >
+                    <OptionList
+                        options={[
+                            { value: 'month', label: t('Last one month') },
+                            { value: 'quarter', label: t('Last quarter') },
+                            { value: 'half_year', label: t('Last half year') },
+                            { value: 'year', label: t('Last year') },
+                        ]}
+                        value={period}
+                        onSelect={(v) => setPeriod(v as typeof period)}
+                    />
                 </FilterPill>
 
                 <FilterPill
@@ -230,8 +341,12 @@ return false;
                         type="button"
                         className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
                         onClick={() => {
- setSearch(''); setYear(undefined); setAction(undefined); setSubject(undefined);
-}}
+                            setSearch('');
+                            setYear(undefined);
+                            setPeriod(undefined);
+                            setAction(undefined);
+                            setSubject(undefined);
+                        }}
                     >
                         {t('Clear filters')}
                     </button>
@@ -266,6 +381,39 @@ return false;
                         </ToggleGroupItem>
                     </ToggleGroup>
                 </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span className="rounded-md border bg-background px-2 py-1">{summary.total} {t('records')}</span>
+                    {Object.entries(summary.byAction).map(([key, count]) => (
+                        <span key={key} className="rounded-md border bg-background px-2 py-1">
+                            {t(key)}: {count}
+                        </span>
+                    ))}
+                </div>
+                {endpoint && hasMore && (
+                    <div className="mt-3 flex justify-center">
+                        <button
+                            type="button"
+                            className="rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                const nextPage = page + 1;
+                                setPage(nextPage);
+                                setLoadingMore(true);
+                                fetch(`${endpoint}?page=${nextPage}&per_page=${perPage}`)
+                                    .then((response) => response.json())
+                                    .then((payload: { data: AuditEntry[]; meta?: { has_more: boolean } }) => {
+                                        setRemoteEntries((current) => [...(current ?? []), ...(payload.data ?? [])]);
+                                        setHasMore(payload.meta?.has_more ?? false);
+                                    })
+                                    .finally(() => setLoadingMore(false));
+                            }}
+                            disabled={loadingMore}
+                        >
+                            {loadingMore ? t('Loading…') : t('Load more')}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Content */}
@@ -357,9 +505,13 @@ return false;
                 </ol>
             ) : (
                 /* timeline (default) */
-                <ol className="relative ml-3 space-y-6 border-l border-border py-2">
-                    {visible.map((entry) => (
-                        <li key={entry.id} className="ms-6">
+                <div className="space-y-6">
+                    {groupedByDate.map(([dateLabel, items]) => (
+                        <section key={dateLabel} className="rounded-xl border bg-card">
+                            <div className="border-b px-4 py-2 text-xs font-medium text-muted-foreground">{dateLabel}</div>
+                            <ol className="relative ml-3 space-y-6 border-l border-border py-4">
+                                {items.map((entry) => (
+                                    <li key={entry.id} className="ms-6">
                             <span className="absolute -start-2 flex h-4 w-4 items-center justify-center rounded-full bg-muted ring-2 ring-background" />
                             <div className="mb-1 flex items-center gap-2">
                                 <time className="text-xs text-muted-foreground">
@@ -395,9 +547,12 @@ return false;
                                     ))}
                                 </ul>
                             )}
-                        </li>
+                                    </li>
+                                ))}
+                            </ol>
+                        </section>
                     ))}
-                </ol>
+                </div>
             )}
         </>
     );

@@ -153,6 +153,60 @@ test('member promotion records evidence and appears in database', function () {
     expect($promotion?->evidences()->count())->toBe(3);
 });
 
+test('member promotion updates cash reward fields', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    [$fromRank, $toRank] = promotionRanks($member->organization);
+    $member->update(['rank' => $fromRank->code]);
+    [, $participation, $achievement] = promotionFixtures($member);
+
+    $promotion = MemberPromotion::create([
+        'organization_id' => $member->organization_id,
+        'member_id' => $member->id,
+        'promotion_date' => now()->toDateString(),
+        'from_rank' => $fromRank->code,
+        'to_rank' => $toRank->code,
+        'cash_reward_amount' => '1000.00',
+        'cash_reward_date' => now()->toDateString(),
+        'cash_reward_reference' => 'OLD-REF',
+        'cash_reward_remarks' => 'Old remarks.',
+        'recorded_by' => $user->id,
+    ]);
+
+    $promotion->evidences()->createMany([
+        [
+            'organization_id' => $member->organization_id,
+            'evidencable_type' => 'participation',
+            'evidencable_id' => $participation->id,
+        ],
+        [
+            'organization_id' => $member->organization_id,
+            'evidencable_type' => 'achievement',
+            'evidencable_id' => $achievement->id,
+        ],
+    ]);
+
+    $response = $this->actingAs($user)->patch(route('members.promotions.update', [$member, $promotion]), [
+        'to_rank' => $toRank->code,
+        'cash_reward_amount' => '7500.00',
+        'cash_reward_date' => now()->addDay()->toDateString(),
+        'cash_reward_reference' => 'NEW-REF',
+        'cash_reward_remarks' => 'Updated reward.',
+        'evidences' => [
+            ['type' => 'participation', 'id' => $participation->id],
+            ['type' => 'achievement', 'id' => $achievement->id],
+        ],
+    ]);
+
+    $response->assertRedirect(route('members.show', $member));
+
+    $promotion->refresh();
+
+    expect($promotion->cash_reward_amount)->toBe('7500.00');
+    expect($promotion->cash_reward_reference)->toBe('NEW-REF');
+    expect($promotion->cash_reward_remarks)->toBe('Updated reward.');
+});
+
 test('member promotion accepts uploaded order documents', function () {
     Storage::fake('public');
 

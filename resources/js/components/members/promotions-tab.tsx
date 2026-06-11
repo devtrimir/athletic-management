@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { store as storeBenefit, update as updateBenefit } from '@/routes/achievement-benefits';
 
 type LegacyAchievement = {
     id: number;
@@ -57,6 +58,8 @@ type ParticipationGroup = {
 };
 
 type PromotionEvidence = { id: number; type: 'member_legacy_achievement' | 'achievement' | 'participation'; evidence_id: number };
+type PromotionEvidenceRef = { type: PromotionEvidence['type']; id: number };
+type RewardOption = { key: string; label: string; target: { type: 'participation'; id: number } | null };
 type PromotionBenefit = {
     id: number;
     benefit_type: string;
@@ -64,6 +67,7 @@ type PromotionBenefit = {
     benefit_date: string | null;
     order_reference: string | null;
     remarks: string | null;
+    source_label?: string;
 };
 type PromotionRow = {
     id: number;
@@ -162,6 +166,21 @@ function benefitBadgeText(benefit: PromotionBenefit, t: (key: string) => string)
     }
 
     return parts.join(' · ');
+}
+
+function medalBadgeContent(medalType: string): { icon: JSX.Element; label: string; className: string } {
+    switch (medalType) {
+        case 'GOLD':
+            return { icon: <span aria-hidden="true">🏆</span>, label: 'Gold', className: 'border-amber-200 bg-amber-50 text-amber-700' };
+        case 'SILVER':
+            return { icon: <span aria-hidden="true">🏅</span>, label: 'Silver', className: 'border-slate-200 bg-slate-50 text-slate-700' };
+        case 'BRONZE':
+            return { icon: <span aria-hidden="true">🥉</span>, label: 'Bronze', className: 'border-orange-200 bg-orange-50 text-orange-700' };
+        case 'MERIT':
+            return { icon: <span aria-hidden="true">•</span>, label: 'MERIT', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+        default:
+            return { icon: <span aria-hidden="true">🏅</span>, label: medalType, className: 'border-slate-200 bg-slate-50 text-slate-700' };
+    }
 }
 
 function resolveRankLabel(value: string | null, ranks: RankOption[], locale: string): string {
@@ -460,8 +479,21 @@ function PromotionDialog({
     const { locale } = usePage().props as { locale?: string };
     const resolvedLocale = locale ?? 'en';
     const [open, setOpen] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
     const [availableRanks, setAvailableRanks] = useState(ranks);
-    const selectedDefaults = promotion?.evidences.map((e) => evidenceKey(e.type, e.evidence_id)) ?? [];
+    const [pendingPayload, setPendingPayload] = useState<{
+        promotion_date: string;
+        from_rank: string;
+        to_rank: string;
+        cash_reward_amount: string;
+        cash_reward_date: string;
+        cash_reward_reference: string;
+        cash_reward_remarks: string;
+        reason: string;
+        remarks: string;
+        evidences: PromotionEvidenceRef[];
+    } | null>(null);
+    const selectedDefaults = useMemo(() => promotion?.evidences.map((e) => evidenceKey(e.type, e.evidence_id)) ?? [], [promotion]);
     const [selected, setSelected] = useState<string[]>(selectedDefaults);
     const rankItems: ComboboxItem[] = useMemo(() => {
         const items = availableRanks.map((rank) => ({
@@ -493,6 +525,29 @@ function PromotionDialog({
         }),
     });
 
+    function resetFormState() {
+        form.setData({
+            promotion_date: promotion?.promotion_date ?? '',
+            from_rank: promotion?.from_rank ?? memberRank ?? '',
+            to_rank: promotion?.to_rank ?? '',
+            cash_reward_amount: promotion?.cash_reward_amount ?? '',
+            cash_reward_date: promotion?.cash_reward_date ?? '',
+            cash_reward_reference: promotion?.cash_reward_reference ?? '',
+            cash_reward_remarks: promotion?.cash_reward_remarks ?? '',
+            reason: promotion?.reason ?? '',
+            remarks: promotion?.remarks ?? '',
+            evidences: selectedDefaults.map((key) => {
+                const [type, id] = key.split(':');
+
+                return { type, id: Number(id) };
+            }),
+        });
+        setSelected(selectedDefaults);
+        form.clearErrors();
+        setPendingPayload(null);
+        setConfirmOpen(false);
+    }
+
     function handleRankCreated(rank: RankOption) {
         setAvailableRanks((prev) => {
             if (prev.some((item) => item.code === rank.code)) {
@@ -506,28 +561,57 @@ function PromotionDialog({
     }
 
     const options = useMemo(() => {
-        const participation = participations.flatMap((group) =>
-            group.participations.map((item) => ({
-                key: evidenceKey('participation', item.id),
-                label: `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}${item.achievement?.benefits && item.achievement.benefits.length > 0 ? ` · ${summarizeBenefits(item.achievement.benefits, t)}` : ''}`,
-            })),
-        );
-        const legacy = legacyAchievements.map((item) => ({
-            key: evidenceKey('member_legacy_achievement', item.id),
-            label: `${t(item.period)} · ${t(item.level)} · ${item.competition_details}`,
-        }));
-        const live = achievements.map((item) => ({
-            key: evidenceKey('achievement', item.id),
-            label: `${t(item.medal_type)} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.benefits.length > 0 ? ` · ${t('Benefit recorded')}` : ''}`,
-        }));
+        const deduped = new Map<string, { key: string; label: string; evidences: PromotionEvidenceRef[]; priority: number }>();
 
-        return [...participation, ...live, ...legacy];
+        for (const group of participations) {
+            for (const item of group.participations) {
+                const key = `event:${item.tournament.id}:${item.event.id}`;
+                const evidences: PromotionEvidenceRef[] = [{ type: 'participation', id: item.id }];
+
+                if (item.achievement?.id) {
+                    evidences.push({ type: 'achievement', id: item.achievement.id });
+                }
+
+                const label = `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}${item.achievement?.benefits && item.achievement.benefits.length > 0 ? ` · ${summarizeBenefits(item.achievement.benefits, t)}` : ''}`;
+                const existing = deduped.get(key);
+
+                if (!existing || existing.priority < 2) {
+                    deduped.set(key, { key, label, evidences, priority: 2 });
+                }
+            }
+        }
+
+        for (const item of achievements) {
+            const key = `event:${item.tournament.id}:${item.event.id}`;
+
+            if (!deduped.has(key)) {
+                deduped.set(key, {
+                    key,
+                    label: `${t(item.medal_type)} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.benefits.length > 0 ? ` · ${t('Benefit recorded')}` : ''}`,
+                    evidences: [{ type: 'achievement', id: item.id }],
+                    priority: 1,
+                });
+            }
+        }
+
+        for (const item of legacyAchievements) {
+            const key = evidenceKey('member_legacy_achievement', item.id);
+
+            if (!deduped.has(key)) {
+                deduped.set(key, {
+                    key,
+                    label: `${t(item.period)} · ${t(item.level)} · ${item.competition_details}`,
+                    evidences: [{ type: 'member_legacy_achievement', id: item.id }],
+                    priority: 0,
+                });
+            }
+        }
+
+        return Array.from(deduped.values()).map(({ key, label, evidences }) => ({ key, label, evidences }));
     }, [achievements, legacyAchievements, participations, t]);
 
-    function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-
-        const payload = {
+    function buildPayload() {
+        return {
             promotion_date: form.data.promotion_date,
             from_rank: form.data.from_rank,
             to_rank: form.data.to_rank,
@@ -537,17 +621,17 @@ function PromotionDialog({
             cash_reward_remarks: form.data.cash_reward_remarks,
             reason: form.data.reason,
             remarks: form.data.remarks,
-            evidences: selected.map((key) => {
-                const [type, id] = key.split(':');
-
-                return { type: type as PromotionEvidence['type'], id: Number(id) };
-            }),
+            evidences: selected.flatMap((key) => options.find((item) => item.key === key)?.evidences ?? []),
         };
+    }
 
+    function submitPromotion(payload: ReturnType<typeof buildPayload>) {
         if (promotion) {
             router.patch(`/members/${memberId}/promotions/${promotion.id}`, payload, {
                 onSuccess: () => {
                     setOpen(false);
+                    setConfirmOpen(false);
+                    setPendingPayload(null);
                     onSaved();
                 },
             });
@@ -558,6 +642,8 @@ function PromotionDialog({
         router.post(`/members/${memberId}/promotions`, payload, {
             onSuccess: () => {
                 setOpen(false);
+                setConfirmOpen(false);
+                setPendingPayload(null);
                 form.reset();
                 setSelected([]);
                 onSaved();
@@ -565,8 +651,32 @@ function PromotionDialog({
         });
     }
 
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setPendingPayload(buildPayload());
+        setConfirmOpen(true);
+    }
+
+    function handleConfirmSave() {
+        const payload = pendingPayload ?? buildPayload();
+
+        submitPromotion(payload);
+    }
+
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (nextOpen) {
+                    resetFormState();
+                } else {
+                    setConfirmOpen(false);
+                    setPendingPayload(null);
+                }
+            }}
+        >
             <DialogTrigger asChild>
                 {promotion ? (
                     <Button variant="outline" size="sm">
@@ -682,6 +792,349 @@ function PromotionDialog({
                     </DialogFooter>
                 </form>
             </DialogContent>
+            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <DialogContent className="max-w-lg" aria-describedby={undefined}>
+                    <DialogHeader>
+                        <DialogTitle>{t('Confirm promotion')}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 text-sm">
+                        <p className="text-muted-foreground">{t('Please review the promotion details before saving.')}</p>
+                        <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline">{resolveRankLabel(form.data.from_rank, ranks, resolvedLocale) || t('Unknown')}</Badge>
+                                <span className="text-muted-foreground">→</span>
+                                <Badge>{resolveRankLabel(form.data.to_rank, ranks, resolvedLocale) || t('Unknown')}</Badge>
+                            </div>
+                            <p><span className="font-medium">{t('Promotion date')}:</span> {form.data.promotion_date || '—'}</p>
+                            <p><span className="font-medium">{t('Cash reward')}:</span> {form.data.cash_reward_amount ? `₹${form.data.cash_reward_amount}` : '—'}</p>
+                            <p><span className="font-medium">{t('Supporting evidence')}:</span> {selected.length}</p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>{t('Back')}</Button>
+                        <Button
+                            type="button"
+                            onClick={handleConfirmSave}
+                        >
+                            {promotion ? t('Confirm update') : t('Confirm save')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </Dialog>
+    );
+}
+
+function CashRewardDialog({
+    participations,
+    onSaved,
+}: {
+    participations: ParticipationGroup[];
+    onSaved: () => void;
+}) {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [selected, setSelected] = useState<string[]>([]);
+    const [data, setData] = useState({
+        cash_amount: '',
+        benefit_date: '',
+        order_reference: '',
+        remarks: '',
+    });
+
+    const rewardOptions = useMemo<RewardOption[]>(() => {
+        const deduped = new Map<string, RewardOption>();
+
+        for (const group of participations) {
+            for (const item of group.participations) {
+                const key = `participation:${item.id}`;
+                const label = `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}`;
+
+                deduped.set(key, {
+                    key,
+                    label,
+                    target: { type: 'participation', id: item.id },
+                });
+            }
+        }
+
+        return Array.from(deduped.values());
+    }, [participations, t]);
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setSaving(true);
+        setErrors({});
+
+        try {
+            if (selected.length === 0) {
+                setErrors({ benefitable_id: t('Select at least one event.') });
+
+                return;
+            }
+
+            const selectedOptions = selected
+                .map((key) => rewardOptions.find((item) => item.key === key))
+                .filter((item): item is RewardOption => Boolean(item?.target));
+
+            if (selectedOptions.length === 0) {
+                setErrors({ benefitable_id: t('Select at least one event.') });
+
+                return;
+            }
+
+            for (const option of selectedOptions) {
+                const response = await fetch(storeBenefit.url(), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': getCsrfToken(),
+                    },
+                    body: JSON.stringify({
+                        benefitable_type: option.target.type,
+                        benefitable_id: option.target.id,
+                        benefit_type: 'CASH_AWARD',
+                        cash_amount: data.cash_amount,
+                        benefit_date: data.benefit_date || null,
+                        order_reference: data.order_reference || null,
+                        remarks: data.remarks || null,
+                    }),
+                });
+
+                if (response.status === 422) {
+                    const json = (await response.json()) as { errors?: Record<string, string[]> };
+                    const nextErrors: Record<string, string> = {};
+
+                    Object.entries(json.errors ?? {}).forEach(([field, messages]) => {
+                        nextErrors[field] = messages[0] ?? t('The field is invalid.');
+                    });
+
+                    setErrors(nextErrors);
+
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('Unable to save cash reward.');
+                }
+            }
+
+            setOpen(false);
+            setSelected([]);
+            setData({
+                cash_amount: '',
+                benefit_date: '',
+                order_reference: '',
+                remarks: '',
+            });
+            onSaved();
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                    <Plus className="mr-1.5 size-3.5" />
+                    {t('Cash reward')}
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-xl" aria-describedby={undefined}>
+                <DialogHeader>
+                    <DialogTitle>{t('Cash reward')}</DialogTitle>
+                </DialogHeader>
+
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div className="grid gap-2">
+                        <Label>{t('Events')}</Label>
+                        <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
+                            {rewardOptions.map((item) => (
+                                <label key={item.key} className="flex items-start gap-2 text-sm">
+                                    <Checkbox
+                                        checked={selected.includes(item.key)}
+                                        onCheckedChange={(checked) => {
+                                            setSelected((prev) =>
+                                                checked
+                                                    ? [...prev, item.key]
+                                                    : prev.filter((value) => value !== item.key),
+                                            );
+                                        }}
+                                    />
+                                    <span className="min-w-0 flex-1">{item.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <InputError message={errors.benefitable_id} />
+                        <p className="text-xs text-muted-foreground">
+                            {selected.length > 0
+                                ? t('{{count}} events selected').replace('{{count}}', String(selected.length))
+                                : t('Select one or more events.')}
+                        </p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label>{t('Cash amount')}</Label>
+                            <Input type="number" min="0" step="0.01" value={data.cash_amount} onChange={(e) => setData((prev) => ({ ...prev, cash_amount: e.target.value }))} />
+                            <InputError message={errors.cash_amount} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>{t('Benefit date')}</Label>
+                            <DatePicker value={data.benefit_date} onChange={(v) => setData((prev) => ({ ...prev, benefit_date: v }))} />
+                            <InputError message={errors.benefit_date} />
+                        </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label>{t('Order reference')}</Label>
+                            <Input value={data.order_reference} onChange={(e) => setData((prev) => ({ ...prev, order_reference: e.target.value }))} />
+                            <InputError message={errors.order_reference} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>{t('Remarks')}</Label>
+                            <Input value={data.remarks} onChange={(e) => setData((prev) => ({ ...prev, remarks: e.target.value }))} />
+                            <InputError message={errors.remarks} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('Cancel')}</Button>
+                        <Button type="submit" disabled={saving}>
+                            {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+                            {t('Save cash reward')}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function CashRewardEditDialog({
+    reward,
+    onSaved,
+}: {
+    reward: PromotionBenefit;
+    onSaved: () => void;
+}) {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [data, setData] = useState({
+        cash_amount: reward.cash_amount ?? '',
+        benefit_date: reward.benefit_date ?? '',
+        order_reference: reward.order_reference ?? '',
+        remarks: reward.remarks ?? '',
+    });
+
+    function resetFormState() {
+        setData({
+            cash_amount: reward.cash_amount ?? '',
+            benefit_date: reward.benefit_date ?? '',
+            order_reference: reward.order_reference ?? '',
+            remarks: reward.remarks ?? '',
+        });
+        setErrors({});
+    }
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setSaving(true);
+        setErrors({});
+
+        router.post(
+            updateBenefit.url(reward.id),
+            {
+                _method: 'PATCH',
+                cash_amount: data.cash_amount,
+                benefit_date: data.benefit_date || null,
+                order_reference: data.order_reference || null,
+                remarks: data.remarks || null,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setOpen(false);
+                    onSaved();
+                },
+                onError: (nextErrors) => {
+                    const mappedErrors: Record<string, string> = {};
+
+                    Object.entries(nextErrors).forEach(([field, message]) => {
+                        mappedErrors[field] = Array.isArray(message) ? message[0] ?? t('The field is invalid.') : message;
+                    });
+
+                    setErrors(mappedErrors);
+                },
+                onFinish: () => {
+                    setSaving(false);
+                },
+            },
+        );
+    }
+
+    return (
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (nextOpen) {
+                    resetFormState();
+                }
+            }}
+        >
+            <DialogTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                    {t('Edit')}
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md" aria-describedby={undefined}>
+                <DialogHeader>
+                    <DialogTitle>{t('Edit cash reward')}</DialogTitle>
+                </DialogHeader>
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div className="grid gap-2">
+                        <Label>{t('Cash amount')}</Label>
+                        <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={data.cash_amount}
+                            onChange={(e) => setData((prev) => ({ ...prev, cash_amount: e.target.value }))}
+                        />
+                        <InputError message={errors.cash_amount} />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label>{t('Benefit date')}</Label>
+                            <DatePicker value={data.benefit_date} onChange={(v) => setData((prev) => ({ ...prev, benefit_date: v }))} />
+                            <InputError message={errors.benefit_date} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>{t('Order reference')}</Label>
+                            <Input value={data.order_reference} onChange={(e) => setData((prev) => ({ ...prev, order_reference: e.target.value }))} />
+                            <InputError message={errors.order_reference} />
+                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>{t('Remarks')}</Label>
+                        <Input value={data.remarks} onChange={(e) => setData((prev) => ({ ...prev, remarks: e.target.value }))} />
+                        <InputError message={errors.remarks} />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('Cancel')}</Button>
+                        <Button type="submit" disabled={saving}>
+                            {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+                            {t('Save changes')}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
         </Dialog>
     );
 }
@@ -721,32 +1174,54 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
         const item = achievements.find((a) => a.id === evidence.evidence_id);
 
         return item
-            ? `${t(item.medal_type)} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.tournament.tier_code ? ` · ${item.tournament.tier_code}` : ''}${item.benefits.length > 0 ? ` · ${summarizeBenefits(item.benefits, t)}` : ''}`
+            ? `${medalBadgeContent(item.medal_type).label} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.tournament.tier_code ? ` · ${item.tournament.tier_code}` : ''}${item.benefits.length > 0 ? ` · ${summarizeBenefits(item.benefits, t)}` : ''}`
             : `${t('Achievement')} #${evidence.evidence_id}`;
     }
 
-    function labelForEvidence(evidence: PromotionEvidence): string {
-        return evidenceSummary(evidence);
+    function labelForEvidence(evidence: PromotionEvidence): JSX.Element {
+        if (evidence.type === 'achievement') {
+            const item = achievements.find((a) => a.id === evidence.evidence_id);
+
+            if (item) {
+                const medal = medalBadgeContent(item.medal_type);
+
+                return (
+                    <span className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium leading-4 ${medal.className}`}>
+                        {medal.icon}
+                        <span className="truncate">
+                            {medal.label}
+                            {' '}
+                            {item.tournament.name_hi}
+                            {' · '}
+                            {item.event.name_hi}
+                        </span>
+                    </span>
+                );
+            }
+        }
+
+        return <span>{evidenceSummary(evidence)}</span>;
     }
 
     function benefitsForPromotion(promotion: PromotionRow): PromotionBenefit[] {
-        const benefits: PromotionBenefit[] = [];
+        const benefits = new Map<number, PromotionBenefit>();
 
         for (const evidence of promotion.evidences) {
             if (evidence.type === 'achievement') {
                 const item = achievements.find((achievement) => achievement.id === evidence.evidence_id);
 
                 if (item) {
-                    benefits.push(
-                        ...item.benefits.map((benefit) => ({
+                    for (const benefit of item.benefits) {
+                        benefits.set(benefit.id, {
                             id: benefit.id,
                             benefit_type: benefit.benefit_type,
                             cash_amount: benefit.cash_amount,
                             benefit_date: null,
                             order_reference: null,
                             remarks: null,
-                        })),
-                    );
+                            source_label: undefined,
+                        });
+                    }
                 }
             }
 
@@ -755,22 +1230,62 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
                     const item = group.participations.find((participation) => participation.id === evidence.evidence_id);
 
                     if (item?.achievement?.benefits?.length) {
-                        benefits.push(
-                            ...item.achievement.benefits.map((benefit) => ({
-                                id: benefit.id,
-                                benefit_type: benefit.benefit_type,
-                                cash_amount: benefit.cash_amount,
-                                benefit_date: benefit.benefit_date,
-                                order_reference: benefit.order_reference,
-                                remarks: benefit.remarks,
-                            })),
-                        );
+                        for (const benefit of item.achievement.benefits) {
+                            benefits.set(benefit.id, {
+                                    id: benefit.id,
+                                    benefit_type: benefit.benefit_type,
+                                    cash_amount: benefit.cash_amount,
+                                    benefit_date: benefit.benefit_date,
+                                    order_reference: benefit.order_reference,
+                                    remarks: benefit.remarks,
+                                    source_label: `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}`,
+                            });
+                        }
                     }
                 }
             }
         }
 
-        return benefits;
+        return Array.from(benefits.values());
+    }
+
+    function cashRewardsForEvents(): PromotionBenefit[] {
+        const seen = new Map<number, PromotionBenefit>();
+        const promotionCashRewards = new Set<number>();
+
+        for (const promotion of promotions ?? []) {
+            if (promotion.cash_reward_amount) {
+                promotionCashRewards.add(promotion.id);
+            }
+        }
+
+        for (const group of participations) {
+            for (const item of group.participations) {
+                if (!item.achievement?.benefits?.length) {
+                    continue;
+                }
+
+                for (const benefit of item.achievement.benefits) {
+                    if (benefit.benefit_type !== 'CASH_AWARD') {
+                        continue;
+                    }
+
+                    if (!seen.has(benefit.id) && benefit.benefit_type === 'CASH_AWARD') {
+                        seen.set(benefit.id, {
+                            id: benefit.id,
+                            benefit_type: benefit.benefit_type,
+                            cash_amount: benefit.cash_amount,
+                            benefit_date: benefit.benefit_date,
+                            order_reference: benefit.order_reference,
+                            remarks: benefit.remarks,
+                            source_label: `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}`,
+                        });
+                    }
+                }
+            }
+        }
+
+        return Array.from(seen.values());
     }
 
     function handleDelete(id: number) {
@@ -783,13 +1298,16 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
         <div className="space-y-4 rounded-xl border bg-card p-6">
             <div className="flex items-center justify-between gap-3">
                 <div>
-                    <h3 className="text-sm font-medium">{t('Promotions')}</h3>
+                    <h3 className="text-sm font-medium">{t('Promotions & rewards')}</h3>
                     <p className="text-xs text-muted-foreground">
                         {t('Current rank')}: {memberRank ? resolveRankLabel(memberRank, ranks, resolvedLocale) : t('Unknown')}
                     </p>
                     <p className="text-xs text-muted-foreground">{t('Promotion decisions based on multiple achievements and performance evidence.')}</p>
                 </div>
-                <PromotionDialog memberId={memberId} memberRank={memberRank} ranks={ranks} participations={participations} legacyAchievements={legacyAchievements} achievements={achievements} onSaved={onSaved} />
+                <div className="flex items-center gap-2">
+                    <CashRewardDialog participations={participations} onSaved={onSaved} />
+                    <PromotionDialog memberId={memberId} memberRank={memberRank} ranks={ranks} participations={participations} legacyAchievements={legacyAchievements} achievements={achievements} onSaved={onSaved} />
+                </div>
             </div>
 
             {(promotions ?? []).length === 0 ? (
@@ -853,6 +1371,38 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
                     ))}
                 </div>
             )}
+
+            <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-medium">{t('Cash rewards')}</h4>
+                    <p className="text-xs text-muted-foreground">{t('Cash rewards recorded against events.')}</p>
+                </div>
+                {cashRewardsForEvents().length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t('No cash rewards yet.')}</p>
+                ) : (
+                    <div className="space-y-2">
+                                {cashRewardsForEvents().map((reward) => (
+                                    <div key={reward.id} className="flex items-start justify-between gap-3 rounded-md border bg-muted/20 p-3">
+                                        <div className="min-w-0 space-y-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Badge variant="secondary">{t('Cash reward')} {reward.cash_amount ? `₹${reward.cash_amount}` : ''}</Badge>
+                                                {reward.benefit_date && <span className="text-xs text-muted-foreground">{reward.benefit_date}</span>}
+                                    </div>
+                                    {reward.source_label && <p className="text-xs text-muted-foreground">{reward.source_label}</p>}
+                                    <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+                                        {reward.order_reference && <span>{reward.order_reference}</span>}
+                                        {reward.remarks && <span>{reward.remarks}</span>}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <CashRewardEditDialog reward={reward} onSaved={onSaved} />
+                                    <p className="text-xs text-muted-foreground">{t('Edit from the Events tab')}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

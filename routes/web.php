@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AchievementBenefitController;
+use App\Http\Controllers\Api\V1\MemberAuditLogController;
 use App\Http\Controllers\CoachController;
 use App\Http\Controllers\CoachExportController;
 use App\Http\Controllers\DashboardController;
@@ -80,6 +81,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('members/{member}/promotions', [MemberPromotionController::class, 'store'])->name('members.promotions.store');
     Route::patch('members/{member}/promotions/{promotion}', [MemberPromotionController::class, 'update'])->name('members.promotions.update');
     Route::delete('members/{member}/promotions/{promotion}', [MemberPromotionController::class, 'destroy'])->name('members.promotions.destroy');
+    Route::get('members/{member}/audit-log', MemberAuditLogController::class)->name('members.audit-log.index');
     Route::post('achievement-benefits', [AchievementBenefitController::class, 'store'])->name('achievement-benefits.store');
     Route::patch('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'update'])->name('achievement-benefits.update');
     Route::delete('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'destroy'])->name('achievement-benefits.destroy');

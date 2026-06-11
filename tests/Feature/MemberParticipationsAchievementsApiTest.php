@@ -108,6 +108,7 @@ test('participations API returns empty data when member has no participations', 
 test('participations API returns data grouped by session', function () {
     $user = paApiUser('members.view');
     $setup = paApiSetup($user);
+    $setup['session']->update(['is_current' => true]);
 
     $response = $this->actingAs($user)
         ->getJson(route('v1.members.participations.index', $setup['member']))
@@ -117,6 +118,7 @@ test('participations API returns data grouped by session', function () {
 
     expect($data)->toHaveCount(1);
     expect($data[0]['session']['id'])->toBe($setup['session']->id);
+    expect($data[0]['session']['is_current'])->toBeTrue();
     expect($data[0]['participations'])->toHaveCount(1);
     expect($data[0]['participations'][0]['id'])->toBe($setup['participation']->id);
     expect($data[0]['participations'][0]['tournament']['id'])->toBe($setup['tournament']->id);
