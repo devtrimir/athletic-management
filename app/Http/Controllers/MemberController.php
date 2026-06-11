@@ -9,8 +9,12 @@ use App\Http\Requests\Members\UpdateMemberRequest;
 use App\Http\Resources\MemberResource;
 use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
+use App\Models\AuditLog;
+use App\Models\Designation;
 use App\Models\District;
 use App\Models\Member;
+use App\Models\MemberPromotion;
+use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TeamMember;
 use App\Models\Unit;
@@ -52,6 +56,8 @@ class MemberController extends Controller
                 AllowedFilter::exact('posting_district_id'),
                 AllowedFilter::exact('current_unit_id'),
                 AllowedFilter::exact('pno'),
+                AllowedFilter::exact('rank'),
+                AllowedFilter::exact('designation'),
                 AllowedFilter::exact('mobile'),
                 AllowedFilter::exact('gender'),
                 AllowedFilter::exact('blood_group'),
@@ -73,9 +79,9 @@ class MemberController extends Controller
             ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
             ->defaultSort('-created_at')
             ->with([
-                'currentUnit:id,name_hi',
-                'homeDistrict:id,name_hi',
-                'postingDistrict:id,name_hi',
+                'currentUnit:id,name_hi,name_en',
+                'homeDistrict:id,name_hi,name_en',
+                'postingDistrict:id,name_hi,name_en',
                 'sport:id,name_hi,name_en',
                 'playableSports:id,name_hi,name_en',
             ])
@@ -89,6 +95,8 @@ class MemberController extends Controller
             'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name_hi', 'name_en', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name_hi,name_en,short_name')->get(['code', 'name_hi', 'name_en', 'short_name', 'mapped_rank_code']),
             'totalCount' => Member::count(),
         ]);
     }
@@ -101,6 +109,8 @@ class MemberController extends Controller
             'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name_en', 'name_hi', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name_en,name_hi,short_name')->get(['code', 'name_en', 'name_hi', 'short_name', 'mapped_rank_code']),
         ]);
     }
 
@@ -110,6 +120,7 @@ class MemberController extends Controller
 
         $orgId = (int) $request->user()->organization_id;
         $data = $request->validated();
+        $beforePlayableSportIds = [];
         $playableSportIds = $this->playableSportIds($data);
         unset($data['playable_sport_ids']);
 
@@ -119,6 +130,7 @@ class MemberController extends Controller
         ]));
 
         $member->playableSports()->sync($playableSportIds);
+        $this->logPlayableSportChanges($member, $beforePlayableSportIds, $playableSportIds);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member created.')]);
 
@@ -178,6 +190,26 @@ class MemberController extends Controller
                         'remarks' => $b->remarks,
                     ])->all(),
                 ])->all()),
+            'promotions' => Inertia::defer(fn () => MemberPromotion::where('member_id', $member->id)
+                ->with(['evidences', 'recorder'])
+                ->orderByDesc('promotion_date')
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn ($promotion) => [
+                    'id' => $promotion->id,
+                    'promotion_date' => $promotion->promotion_date?->toDateString(),
+                    'from_rank' => $promotion->from_rank,
+                    'to_rank' => $promotion->to_rank,
+                    'reason' => $promotion->reason,
+                    'remarks' => $promotion->remarks,
+                    'recorded_by_name' => $promotion->recorder?->name,
+                    'evidences' => $promotion->evidences->map(fn ($evidence) => [
+                        'id' => $evidence->id,
+                        'type' => $evidence->evidencable_type,
+                        'evidence_id' => $evidence->evidencable_id,
+                    ])->all(),
+                ])->all()),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name_hi', 'name_en', 'short_name']),
             'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forMember($member)),
         ]);
     }
@@ -191,6 +223,8 @@ class MemberController extends Controller
             'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name_en', 'name_hi', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name_en,name_hi,short_name')->get(['code', 'name_en', 'name_hi', 'short_name', 'mapped_rank_code']),
         ]);
     }
 
@@ -199,6 +233,7 @@ class MemberController extends Controller
         Gate::authorize('update', $member);
 
         $data = $request->validated();
+        $beforePlayableSportIds = $member->playableSports()->pluck('sports.id')->all();
         $playableSportIds = $this->playableSportIds($data);
         $shouldSyncPlayableSports = array_key_exists('playable_sport_ids', $data);
         unset($data['playable_sport_ids']);
@@ -207,6 +242,7 @@ class MemberController extends Controller
 
         if ($shouldSyncPlayableSports) {
             $member->playableSports()->sync($playableSportIds);
+            $this->logPlayableSportChanges($member, $beforePlayableSportIds, $playableSportIds);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member updated.')]);
@@ -239,5 +275,43 @@ class MemberController extends Controller
             ->reject(fn (int $sportId): bool => $sportId === $primarySportId)
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<int, int>  $beforeIds
+     * @param  array<int, int>  $afterIds
+     */
+    private function logPlayableSportChanges(Member $member, array $beforeIds, array $afterIds): void
+    {
+        $added = array_values(array_diff($afterIds, $beforeIds));
+        $removed = array_values(array_diff($beforeIds, $afterIds));
+
+        foreach ($added as $sportId) {
+            AuditLog::create([
+                'user_id' => auth()->id(),
+                'organization_id' => $member->organization_id,
+                'entity' => 'MemberSport',
+                'entity_id' => $member->id,
+                'action' => 'created',
+                'diff' => [
+                    'member_id' => $member->id,
+                    'sport_id' => $sportId,
+                ],
+            ]);
+        }
+
+        foreach ($removed as $sportId) {
+            AuditLog::create([
+                'user_id' => auth()->id(),
+                'organization_id' => $member->organization_id,
+                'entity' => 'MemberSport',
+                'entity_id' => $member->id,
+                'action' => 'deleted',
+                'diff' => [
+                    'member_id' => $member->id,
+                    'sport_id' => $sportId,
+                ],
+            ]);
+        }
     }
 }

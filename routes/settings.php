@@ -59,10 +59,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/ranks', RankController::class)
         ->except(['show'])
         ->names('ranks');
+    Route::post('settings/ranks/inline', [RankController::class, 'storeInline'])
+        ->name('ranks.inline.store');
 
     Route::resource('settings/designations', DesignationController::class)
         ->except(['show'])
         ->names('designations');
+    Route::post('settings/designations/inline', [DesignationController::class, 'storeInline'])
+        ->name('designations.inline.store');
 
     Route::resource('settings/users', UserController::class)
         ->except(['show'])

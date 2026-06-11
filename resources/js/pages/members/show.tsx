@@ -4,13 +4,11 @@ import {
     Link,
     router,
     setLayoutProps,
-    useForm,
     useHttp,
     usePage,
 } from '@inertiajs/react';
-import { Camera, Download, Images, Plus, Printer } from 'lucide-react';
+import { Camera, Download, Images, Printer } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { store as storeBenefit } from '@/actions/App/Http/Controllers/AchievementBenefitController';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
@@ -25,35 +23,19 @@ import {
 } from '@/actions/App/Http/Controllers/MemberPhotoController';
 import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
-import { DatePicker } from '@/components/date-picker';
-import InputError from '@/components/input-error';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
 import { ParticipationMediaSheet } from '@/components/members/participation-media-sheet';
+import { PromotionsTab } from '@/components/members/promotions-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Table,
@@ -64,7 +46,6 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Member = {
@@ -75,6 +56,7 @@ type Member = {
     full_name_en: string | null;
     father_name_hi: string | null;
     rank: string | null;
+    designation: string | null;
     gender: string;
     dob: string | null;
     joining_date: string | null;
@@ -132,6 +114,7 @@ type ParticipationEntry = {
         medal_type: string;
         position: number | null;
         remarks: string | null;
+        benefits?: AchievementBenefitRow[];
     } | null;
 };
 
@@ -150,6 +133,23 @@ type AchievementBenefitRow = {
     order_reference: string | null;
     remarks: string | null;
 };
+
+type PromotionRow = {
+    id: number;
+    promotion_date: string | null;
+    from_rank: string | null;
+    to_rank: string;
+    cash_reward_amount: string | null;
+    cash_reward_date: string | null;
+    cash_reward_reference: string | null;
+    cash_reward_remarks: string | null;
+    reason: string | null;
+    remarks: string | null;
+    recorded_by_name: string | null;
+    evidences: { id: number; type: string; evidence_id: number }[];
+};
+
+type RankOption = { code: string; name_hi: string; name_en: string; short_name: string | null };
 
 type AchievementsData = {
     summary: { GOLD: number; SILVER: number; BRONZE: number; MERIT: number };
@@ -174,203 +174,6 @@ const MEDAL_VARIANT: Record<
     BRONZE: 'outline',
     MERIT: 'outline',
 };
-
-const BENEFIT_TYPES = [
-    'PROMOTION',
-    'OUT_OF_TURN_PROMOTION',
-    'CASH_AWARD',
-    'COMMENDATION',
-    'NONE',
-    'OTHER',
-] as const;
-
-function AddAchievementBenefitDialog({
-    achievementId,
-    onSaved,
-}: {
-    achievementId: number;
-    onSaved: () => void;
-}) {
-    const { t } = useTranslation();
-    const [open, setOpen] = useState(false);
-    const form = useForm({
-        benefitable_type: 'achievement',
-        benefitable_id: String(achievementId),
-        benefit_type: '',
-        promoted_from_rank: '',
-        promoted_to_rank: '',
-        cash_amount: '',
-        benefit_date: '',
-        order_reference: '',
-        remarks: '',
-    });
-
-    function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        form.post(storeBenefit.url(), {
-            onSuccess: () => {
-                setOpen(false);
-                form.reset();
-                form.setData('benefitable_type', 'achievement');
-                form.setData('benefitable_id', String(achievementId));
-                onSaved();
-            },
-        });
-    }
-
-    const isPromotion =
-        form.data.benefit_type === 'PROMOTION' ||
-        form.data.benefit_type === 'OUT_OF_TURN_PROMOTION';
-    const isCash = form.data.benefit_type === 'CASH_AWARD';
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 text-xs">
-                    <Plus className="mr-1 size-3" />
-                    {t('Add benefit')}
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md" aria-describedby={undefined}>
-                <DialogHeader>
-                    <DialogTitle>{t('Add benefit')}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="mt-2 space-y-4">
-                    <div className="grid gap-2">
-                        <Label>
-                            {t('Benefit type')}{' '}
-                            <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                            value={form.data.benefit_type}
-                            onValueChange={(v) =>
-                                form.setData('benefit_type', v)
-                            }
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue
-                                    placeholder={t('Select benefit type')}
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {BENEFIT_TYPES.map((bt) => (
-                                    <SelectItem key={bt} value={bt}>
-                                        {t(bt)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <InputError message={form.errors.benefit_type} />
-                    </div>
-
-                    {isPromotion && (
-                        <div className="grid gap-5 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label>{t('Promoted from rank')}</Label>
-                                <Input
-                                    value={form.data.promoted_from_rank}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'promoted_from_rank',
-                                            e.target.value,
-                                        )
-                                    }
-                                    maxLength={100}
-                                />
-                                <InputError
-                                    message={form.errors.promoted_from_rank}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>{t('Promoted to rank')}</Label>
-                                <Input
-                                    value={form.data.promoted_to_rank}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'promoted_to_rank',
-                                            e.target.value,
-                                        )
-                                    }
-                                    maxLength={100}
-                                />
-                                <InputError
-                                    message={form.errors.promoted_to_rank}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {isCash && (
-                        <div className="grid gap-2">
-                            <Label>{t('Cash amount')}</Label>
-                            <Input
-                                type="number"
-                                step="0.01"
-                                value={form.data.cash_amount}
-                                onChange={(e) =>
-                                    form.setData('cash_amount', e.target.value)
-                                }
-                            />
-                            <InputError message={form.errors.cash_amount} />
-                        </div>
-                    )}
-
-                    <div className="grid gap-5 sm:grid-cols-2">
-                        <div className="grid gap-2">
-                            <Label>{t('Benefit date')}</Label>
-                            <DatePicker
-                                value={form.data.benefit_date}
-                                onChange={(v) =>
-                                    form.setData('benefit_date', v)
-                                }
-                            />
-                            <InputError message={form.errors.benefit_date} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>{t('Order reference')}</Label>
-                            <Input
-                                value={form.data.order_reference}
-                                onChange={(e) =>
-                                    form.setData(
-                                        'order_reference',
-                                        e.target.value,
-                                    )
-                                }
-                                maxLength={255}
-                            />
-                            <InputError message={form.errors.order_reference} />
-                        </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label>{t('Remarks')}</Label>
-                        <Textarea
-                            value={form.data.remarks}
-                            onChange={(e) =>
-                                form.setData('remarks', e.target.value)
-                            }
-                            rows={2}
-                        />
-                        <InputError message={form.errors.remarks} />
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setOpen(false)}
-                        >
-                            {t('Cancel')}
-                        </Button>
-                        <Button type="submit" disabled={form.processing}>
-                            {t('Save benefit')}
-                        </Button>
-                    </div>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}
 
 type LegacyAchievement = {
     id: number;
@@ -425,6 +228,8 @@ export default function MembersShow({
     aliases,
     memberTeams,
     legacyAchievements,
+    promotions,
+    ranks,
     auditLog,
 }: {
     member: Member;
@@ -432,6 +237,8 @@ export default function MembersShow({
     aliases?: Alias[];
     memberTeams?: MemberTeamRow[];
     legacyAchievements?: LegacyAchievement[];
+    promotions?: PromotionRow[];
+    ranks?: RankOption[];
     auditLog?: AuditEntry[];
 }) {
     const [activeTab, setActiveTab] = useState('overview');
@@ -458,7 +265,7 @@ export default function MembersShow({
     } | null>(null);
 
     useEffect(() => {
-        if (activeTab === 'participations' && !participationsFetched.current) {
+        if ((activeTab === 'events' || activeTab === 'promotions') && !participationsFetched.current) {
             participationsFetched.current = true;
             getParticipations(MemberParticipationsController.url(memberId), {
                 onSuccess: (res) => {
@@ -469,7 +276,7 @@ export default function MembersShow({
             });
         }
 
-        if (activeTab === 'achievements' && !achievementsFetched.current) {
+        if (activeTab === 'events' && !achievementsFetched.current) {
             achievementsFetched.current = true;
             getAchievements(MemberAchievementsController.url(memberId), {
                 onSuccess: (res) => {
@@ -495,26 +302,6 @@ export default function MembersShow({
         }
     }, [activeTab, memberId, getParticipations, getAchievements]);
     const [mediaKey] = useState(0);
-
-    function refetchAchievements() {
-        achievementsFetched.current = false;
-        getAchievements(MemberAchievementsController.url(memberId), {
-            onSuccess: (res) => {
-                const r = res as unknown as { data: AchievementsData };
-                setAchievementsData(
-                    r?.data ?? {
-                        summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 },
-                        achievements: [],
-                    },
-                );
-            },
-            onError: () =>
-                setAchievementsData({
-                    summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 },
-                    achievements: [],
-                }),
-        });
-    }
     const { t } = useTranslation();
     const { locale } = usePage().props;
 
@@ -730,12 +517,7 @@ export default function MembersShow({
                             {t('Status history')}
                         </TabsTrigger>
                         <TabsTrigger value="teams">{t('Teams')}</TabsTrigger>
-                        <TabsTrigger value="participations">
-                            {t('Participations')}
-                        </TabsTrigger>
-                        <TabsTrigger value="achievements">
-                            {t('Achievements')}
-                        </TabsTrigger>
+                        <TabsTrigger value="events">{t('Events')}</TabsTrigger>
                         <TabsTrigger value="legacy">
                             {t('Legacy achievements')}
                         </TabsTrigger>
@@ -786,6 +568,7 @@ export default function MembersShow({
                                 {detail(t('Date of birth'), member.dob)}
                                 {detail(t('Mobile'), member.mobile)}
                                 {detail(t('Rank'), member.rank)}
+                                {detail(t('Designation'), member.designation)}
                                 {detail(t('Joining date'), member.joining_date)}
                                 {detail(
                                     t('Home district'),
@@ -1031,11 +814,13 @@ export default function MembersShow({
                         </div>
                     </TabsContent>
 
-                    {/* Participations */}
-                    <TabsContent value="participations">
+                    {/* Events */}
+                    <TabsContent value="events">
                         <div className="space-y-4">
                             {loadingParticipations ||
-                            participations === null ? (
+                            participations === null ||
+                            loadingAchievements ||
+                            achievementsData === null ? (
                                 <div className="space-y-2">
                                     {[1, 2, 3].map((n) => (
                                         <Skeleton
@@ -1047,398 +832,104 @@ export default function MembersShow({
                             ) : participations.length === 0 ? (
                                 <div className="rounded-xl border bg-card p-6">
                                     <p className="text-sm text-muted-foreground">
-                                        {t('No participations.')}
+                                        {t('No events.')}
                                     </p>
                                 </div>
                             ) : (
-                                participations.map((group) => (
-                                    <div
-                                        key={group.session.id}
-                                        className="rounded-xl border bg-card"
-                                    >
-                                        <div className="border-b px-4 py-2">
-                                            <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                                {group.session.name}
-                                            </span>
-                                        </div>
+                                <div className="space-y-4">
+                                    <div className="flex flex-wrap gap-3">
+                                        {(
+                                            ['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const
+                                        ).map((m) => (
+                                            <div key={m} className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3">
+                                                <Badge variant={MEDAL_VARIANT[m]}>{t(m)}</Badge>
+                                                <span className="text-xl font-bold">{achievementsData.summary[m]}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="rounded-xl border bg-card">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>
-                                                        {t('Tournament')}
-                                                    </TableHead>
-                                                    <TableHead>
-                                                        {t('Tier')}
-                                                    </TableHead>
-                                                    <TableHead>
-                                                        {t('Event')}
-                                                    </TableHead>
-                                                    <TableHead>
-                                                        {t('Medal')}
-                                                    </TableHead>
-                                                    <TableHead>
-                                                        {t('Position')}
-                                                    </TableHead>
+                                                    <TableHead>{t('Tournament')}</TableHead>
+                                                    <TableHead>{t('Date')}</TableHead>
+                                                    <TableHead>{t('Tier')}</TableHead>
+                                                    <TableHead>{t('Event')}</TableHead>
+                                                    <TableHead>{t('Class')}</TableHead>
+                                                    <TableHead>{t('Medal')}</TableHead>
+                                                    <TableHead>{t('Position')}</TableHead>
+                                                    <TableHead>{t('Benefits')}</TableHead>
                                                     <TableHead className="w-8" />
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {group.participations.map(
-                                                    (p) => (
-                                                        <TableRow key={p.id}>
-                                                            <TableCell className="font-medium">
-                                                                <Link
-                                                                    href={showTournament.url(
-                                                                        p
-                                                                            .tournament
-                                                                            .id,
-                                                                    )}
-                                                                    className="hover:underline"
-                                                                >
-                                                                    {
-                                                                        p
-                                                                            .tournament
-                                                                            .name_hi
-                                                                    }
-                                                                </Link>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {p.tournament
-                                                                    .tier_code ? (
-                                                                    <Badge variant="outline">
-                                                                        {
-                                                                            p
-                                                                                .tournament
-                                                                                .tier_code
-                                                                        }
-                                                                    </Badge>
-                                                                ) : (
-                                                                    '—'
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <Link
-                                                                    href={showEvent.url(
-                                                                        {
-                                                                            tournament:
-                                                                                p
-                                                                                    .tournament
-                                                                                    .id,
-                                                                            event: p
-                                                                                .event
-                                                                                .id,
-                                                                        },
-                                                                    )}
-                                                                    className="hover:underline"
-                                                                >
-                                                                    {
-                                                                        p.event
-                                                                            .name_hi
-                                                                    }
-                                                                </Link>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {p.achievement
-                                                                    ?.medal_type ? (
-                                                                    <Badge
-                                                                        variant={
-                                                                            MEDAL_VARIANT[
-                                                                                p
-                                                                                    .achievement
-                                                                                    .medal_type
-                                                                            ] ??
-                                                                            'outline'
-                                                                        }
-                                                                    >
-                                                                        {t(
-                                                                            p
-                                                                                .achievement
-                                                                                .medal_type,
-                                                                        )}
-                                                                    </Badge>
-                                                                ) : (
-                                                                    '—'
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {p.achievement
-                                                                    ?.position ??
-                                                                    p.position ??
-                                                                    '—'}
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="relative h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                                    title={t(
-                                                                        'Photos',
-                                                                    )}
-                                                                    onClick={() =>
-                                                                        setMediaParticipationId(
-                                                                            {
-                                                                                id: p.id,
-                                                                                eventName:
-                                                                                    p
-                                                                                        .event
-                                                                                        ?.name_hi ??
-                                                                                    '',
-                                                                            },
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    {canUploadMedia ||
-                                                                    canDeleteMedia ? (
-                                                                        <Camera className="h-3.5 w-3.5" />
-                                                                    ) : (
-                                                                        <Images className="h-3.5 w-3.5" />
-                                                                    )}
-                                                                    {p.media_files_count >
-                                                                        0 && (
-                                                                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
-                                                                            {p.media_files_count >
-                                                                            9
-                                                                                ? '9+'
-                                                                                : p.media_files_count}
-                                                                        </span>
-                                                                    )}
-                                                                    <span className="sr-only">
-                                                                        {t(
-                                                                            'Photos',
-                                                                        )}
+                                                {participations.flatMap((group) => group.participations.map((p) => (
+                                                    <TableRow key={p.id}>
+                                                        <TableCell className="font-medium">
+                                                            <div className="space-y-1">
+                                                                <Link href={showTournament.url(p.tournament.id)} className="hover:underline">{p.tournament.name_hi}</Link>
+                                                                <p className="text-xs text-muted-foreground">{group.session.name}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {p.tournament.date_from ?? '—'}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {p.tournament.tier_code ? <Badge variant="outline">{p.tournament.tier_code}</Badge> : '—'}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Link href={showEvent.url({ tournament: p.tournament.id, event: p.event.id })} className="hover:underline">
+                                                                {p.event.name_hi}
+                                                            </Link>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{p.event.gender_class || '—'}</Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {p.achievement?.medal_type ? <Badge variant={MEDAL_VARIANT[p.achievement.medal_type] ?? 'outline'}>{t(p.achievement.medal_type)}</Badge> : '—'}
+                                                        </TableCell>
+                                                        <TableCell>{p.achievement?.position ?? p.position ?? '—'}</TableCell>
+                                                        <TableCell>
+                                                            {p.achievement?.benefits && p.achievement.benefits.length > 0 ? (
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    <Badge variant="outline" className="border-emerald-400 bg-emerald-50 text-emerald-700">{t('Benefit recorded')}</Badge>
+                                                                    {p.achievement.benefits.map((benefit) => (
+                                                                        <div key={benefit.id} className="flex flex-col gap-0.5 rounded-md border bg-muted/30 px-2 py-1">
+                                                                            <Badge variant="secondary" className="w-fit text-xs">
+                                                                                {t(benefit.benefit_type)}
+                                                                                {benefit.cash_amount ? ` ₹${benefit.cash_amount}` : ''}
+                                                                            </Badge>
+                                                                            <div className="text-[11px] text-muted-foreground">
+                                                                                {benefit.benefit_date && <span>{benefit.benefit_date}</span>}
+                                                                                {benefit.order_reference && (
+                                                                                    <span className="ml-1">{benefit.order_reference}</span>
+                                                                                )}
+                                                                                {benefit.remarks && (
+                                                                                    <p className="line-clamp-2">{benefit.remarks}</p>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : '—'}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button variant="ghost" size="icon" className="relative h-7 w-7 text-muted-foreground hover:text-foreground" title={t('Photos')} onClick={() => setMediaParticipationId({ id: p.id, eventName: p.event?.name_hi ?? '' })}>
+                                                                {canUploadMedia || canDeleteMedia ? <Camera className="h-3.5 w-3.5" /> : <Images className="h-3.5 w-3.5" />}
+                                                                {p.media_files_count > 0 && (
+                                                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
+                                                                        {p.media_files_count > 9 ? '9+' : p.media_files_count}
                                                                     </span>
-                                                                </Button>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ),
-                                                )}
+                                                                )}
+                                                                <span className="sr-only">{t('Photos')}</span>
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )))}
                                             </TableBody>
                                         </Table>
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </TabsContent>
-
-                    {/* Achievements */}
-                    <TabsContent value="achievements">
-                        <div className="space-y-4">
-                            {loadingAchievements ||
-                            achievementsData === null ? (
-                                <div className="space-y-2">
-                                    {[1, 2, 3].map((n) => (
-                                        <Skeleton
-                                            key={n}
-                                            className="h-10 w-full"
-                                        />
-                                    ))}
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="flex flex-wrap gap-3">
-                                        {(
-                                            [
-                                                'GOLD',
-                                                'SILVER',
-                                                'BRONZE',
-                                                'MERIT',
-                                            ] as const
-                                        ).map((m) => (
-                                            <div
-                                                key={m}
-                                                className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3"
-                                            >
-                                                <Badge
-                                                    variant={MEDAL_VARIANT[m]}
-                                                >
-                                                    {t(m)}
-                                                </Badge>
-                                                <span className="text-xl font-bold">
-                                                    {
-                                                        achievementsData
-                                                            .summary[m]
-                                                    }
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    {achievementsData.achievements.length ===
-                                    0 ? (
-                                        <div className="rounded-xl border bg-card p-6">
-                                            <p className="text-sm text-muted-foreground">
-                                                {t('No achievements.')}
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <div className="rounded-xl border bg-card">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>
-                                                            {t('Medal')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Tournament')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Tier')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Event')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Session')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Benefits')}
-                                                        </TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {achievementsData.achievements.map(
-                                                        (a) => (
-                                                            <TableRow
-                                                                key={a.id}
-                                                            >
-                                                                <TableCell>
-                                                                    <Badge
-                                                                        variant={
-                                                                            MEDAL_VARIANT[
-                                                                                a
-                                                                                    .medal_type
-                                                                            ] ??
-                                                                            'outline'
-                                                                        }
-                                                                    >
-                                                                        {t(
-                                                                            a.medal_type,
-                                                                        )}
-                                                                    </Badge>
-                                                                </TableCell>
-                                                                <TableCell className="font-medium">
-                                                                    <Link
-                                                                        href={showTournament.url(
-                                                                            a
-                                                                                .tournament
-                                                                                .id,
-                                                                        )}
-                                                                        className="hover:underline"
-                                                                    >
-                                                                        {
-                                                                            a
-                                                                                .tournament
-                                                                                .name_hi
-                                                                        }
-                                                                    </Link>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    {a
-                                                                        .tournament
-                                                                        .tier_code ? (
-                                                                        <Badge variant="outline">
-                                                                            {
-                                                                                a
-                                                                                    .tournament
-                                                                                    .tier_code
-                                                                            }
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        '—'
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Link
-                                                                        href={showEvent.url(
-                                                                            {
-                                                                                tournament:
-                                                                                    a
-                                                                                        .tournament
-                                                                                        .id,
-                                                                                event: a
-                                                                                    .event
-                                                                                    .id,
-                                                                            },
-                                                                        )}
-                                                                        className="hover:underline"
-                                                                    >
-                                                                        {
-                                                                            a
-                                                                                .event
-                                                                                .name_hi
-                                                                        }
-                                                                    </Link>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    {
-                                                                        a
-                                                                            .session
-                                                                            .name
-                                                                    }
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    {a.benefits
-                                                                        .length ===
-                                                                    0 ? (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Badge
-                                                                                variant="outline"
-                                                                                className="border-amber-400 bg-amber-50 text-amber-600"
-                                                                            >
-                                                                                ⚠{' '}
-                                                                                {t(
-                                                                                    'Benefit pending',
-                                                                                )}
-                                                                            </Badge>
-                                                                            <AddAchievementBenefitDialog
-                                                                                achievementId={
-                                                                                    a.id
-                                                                                }
-                                                                                onSaved={
-                                                                                    refetchAchievements
-                                                                                }
-                                                                            />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="flex flex-wrap items-center gap-1">
-                                                                            {a.benefits.map(
-                                                                                (
-                                                                                    b,
-                                                                                ) => (
-                                                                                    <Badge
-                                                                                        key={
-                                                                                            b.id
-                                                                                        }
-                                                                                        variant="secondary"
-                                                                                        className="text-xs"
-                                                                                    >
-                                                                                        {t(
-                                                                                            b.benefit_type,
-                                                                                        )}
-                                                                                        {b.cash_amount
-                                                                                            ? ` ₹${b.cash_amount}`
-                                                                                            : ''}
-                                                                                    </Badge>
-                                                                                ),
-                                                                            )}
-                                                                            <AddAchievementBenefitDialog
-                                                                                achievementId={
-                                                                                    a.id
-                                                                                }
-                                                                                onSaved={
-                                                                                    refetchAchievements
-                                                                                }
-                                                                            />
-                                                                        </div>
-                                                                    )}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ),
-                                                    )}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    )}
-                                </>
                             )}
                         </div>
                     </TabsContent>
@@ -1465,7 +956,30 @@ export default function MembersShow({
                     </TabsContent>
                     {/* Promotions */}
                     <TabsContent value="promotions">
-                        Promotions content goes here.
+                        <Deferred
+                            data="promotions"
+                            fallback={
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map((n) => (
+                                        <Skeleton
+                                            key={n}
+                                            className="h-12 w-full"
+                                        />
+                                    ))}
+                                </div>
+                            }
+                        >
+                            <PromotionsTab
+                                memberId={member.id}
+                                memberRank={member.rank}
+                                ranks={ranks ?? []}
+                                promotions={promotions}
+                                participations={participations ?? []}
+                                legacyAchievements={legacyAchievements}
+                                achievements={achievementsData?.achievements ?? []}
+                                onSaved={() => router.reload({ only: ['member', 'promotions', 'auditLog'] })}
+                            />
+                        </Deferred>
                     </TabsContent>
                     {/* Change log */}
                     <TabsContent value="changelog">

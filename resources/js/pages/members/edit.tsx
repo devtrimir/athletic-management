@@ -1,4 +1,5 @@
 import { Head, Link, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import { index as membersIndex, show as showMember, update } from '@/actions/App/Http/Controllers/MemberController';
 import { destroy as destroyMemberPhoto, store as storeMemberPhoto } from '@/actions/App/Http/Controllers/MemberPhotoController';
 import { Combobox } from '@/components/combobox';
@@ -18,6 +19,7 @@ type District = { id: number; name_hi: string; name_en: string };
 type Unit = { id: number; name_hi: string; name_en: string };
 type SportOption = { id: number; name_hi: string; name_en: string };
 type PlayableSport = { id: number; name_hi: string; name_en: string };
+type MasterOption = { code: string; name_en: string; name_hi: string | null; short_name: string | null };
 
 type Member = {
     id: number;
@@ -27,6 +29,7 @@ type Member = {
     full_name_en: string | null;
     father_name_hi: string | null;
     rank: string | null;
+    designation: string | null;
     gender: string;
     dob: string | null;
     joining_date: string | null;
@@ -56,6 +59,7 @@ type FormData = {
     full_name_en: string;
     father_name_hi: string;
     rank: string;
+    designation: string;
     gender: string;
     dob: string;
     joining_date: string;
@@ -78,9 +82,15 @@ type FormData = {
     team_since: string;
 };
 
-export default function MembersEdit({ member, districts, units, sports }: { member: Member; districts: District[]; units: Unit[]; sports: SportOption[] }) {
+export default function MembersEdit({ member, districts, units, sports, ranks, designations }: { member: Member; districts: District[]; units: Unit[]; sports: SportOption[]; ranks: MasterOption[]; designations: MasterOption[] }) {
     const { t } = useTranslation();
     const { locale } = usePage().props;
+    const initialRankSelection = ranks.find((rank) => [rank.code, rank.name_en, rank.name_hi, rank.short_name].filter(Boolean).includes(member.rank ?? ''))?.code ?? '__other__';
+    const initialDesignationSelection = designations.find((designation) => [designation.code, designation.name_en, designation.name_hi, designation.short_name].filter(Boolean).includes(member.designation ?? ''))?.code ?? '__other__';
+    const [rankSelection, setRankSelection] = useState(initialRankSelection);
+    const [rankCustom, setRankCustom] = useState(initialRankSelection === '__other__' ? (member.rank ?? '') : '');
+    const [designationSelection, setDesignationSelection] = useState(initialDesignationSelection);
+    const [designationCustom, setDesignationCustom] = useState(initialDesignationSelection === '__other__' ? (member.designation ?? '') : '');
 
     setLayoutProps({
         breadcrumbs: [
@@ -96,6 +106,7 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
         full_name_en: member.full_name_en ?? '',
         father_name_hi: member.father_name_hi ?? '',
         rank: member.rank ?? '',
+        designation: member.designation ?? '',
         gender: member.gender,
         dob: member.dob ?? '',
         joining_date: member.joining_date ?? '',
@@ -124,13 +135,21 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
         errors.caste || errors.home_address
     );
     const hasServiceErrors = !!(
-        errors.pno || errors.rank || errors.joining_date || errors.current_unit_id ||
+        errors.pno || errors.rank || errors.designation || errors.joining_date || errors.current_unit_id ||
         errors.home_district_id || errors.posting_district_id || errors.appointment || errors.promotion_date
     );
     const hasSportsErrors = !!(
         errors.player_category || errors.player_level || errors.sport_id || errors.sport_event ||
         errors.playable_sport_ids || errors.team_since || errors.other_notes
     );
+
+    function masterLabel(item: MasterOption): string {
+        const name = locale === 'en' ? item.name_en : (item.name_hi ?? item.name_en);
+
+        return item.short_name ? `${item.short_name} - ${name}` : name;
+    }
+
+    const designationLabel = t('Designation');
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -354,13 +373,76 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="rank">{t('Rank')}</Label>
-                                            <Input
-                                                id="rank"
-                                                value={data.rank}
-                                                onChange={(e) => setData('rank', e.target.value)}
-                                                maxLength={100}
-                                            />
+                                            <Select
+                                                value={rankSelection}
+                                                onValueChange={(value) => {
+                                                    setRankSelection(value);
+                                                    setData('rank', value === '__other__' ? rankCustom : value);
+                                                }}
+                                            >
+                                                <SelectTrigger id="rank" className="h-9 w-full">
+                                                    <SelectValue placeholder={t('Select rank')} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {ranks.map((rank) => (
+                                                        <SelectItem key={rank.code} value={rank.code}>
+                                                            {masterLabel(rank)}
+                                                        </SelectItem>
+                                                    ))}
+                                                    <SelectItem value="__other__">{t('Other')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {rankSelection === '__other__' && (
+                                                <Input
+                                                    className="mt-2 h-9"
+                                                    value={rankCustom}
+                                                    onChange={(e) => {
+                                                        setRankCustom(e.target.value);
+                                                        setData('rank', e.target.value.trim());
+                                                    }}
+                                                    maxLength={100}
+                                                    placeholder={t('Enter rank')}
+                                                />
+                                            )}
                                             <InputError message={errors.rank} />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="designation">
+                                                {designationLabel}{' '}
+                                                <span className="text-muted-foreground">{t('(optional)')}</span>
+                                            </Label>
+                                            <Select
+                                                value={designationSelection}
+                                                onValueChange={(value) => {
+                                                    setDesignationSelection(value);
+                                                    setData('designation', value === '__other__' ? designationCustom : value);
+                                                }}
+                                            >
+                                                <SelectTrigger id="designation" className="h-9 w-full">
+                                                    <SelectValue placeholder={t('Select designation')} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {designations.map((designation) => (
+                                                        <SelectItem key={designation.code} value={designation.code}>
+                                                            {masterLabel(designation)}
+                                                        </SelectItem>
+                                                    ))}
+                                                    <SelectItem value="__other__">{t('Other')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {designationSelection === '__other__' && (
+                                                <Input
+                                                    className="mt-2 h-9"
+                                                    value={designationCustom}
+                                                    onChange={(e) => {
+                                                        setDesignationCustom(e.target.value);
+                                                        setData('designation', e.target.value.trim());
+                                                    }}
+                                                    maxLength={100}
+                                                    placeholder={t('Enter designation')}
+                                                />
+                                            )}
+                                            <InputError message={errors.designation} />
                                         </div>
                                     </div>
 

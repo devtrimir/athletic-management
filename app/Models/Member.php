@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $full_name_normalized
  * @property string|null $father_name_hi
  * @property string|null $rank
+ * @property string|null $designation
  * @property string $gender
  * @property Carbon|null $dob
  * @property Carbon|null $joining_date
@@ -72,6 +73,7 @@ use Illuminate\Support\Carbon;
     'full_name_normalized',
     'father_name_hi',
     'rank',
+    'designation',
     'photo_path',
     'blood_group',
     'caste',

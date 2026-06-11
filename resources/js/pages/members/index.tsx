@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Check, ChevronDown, Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
@@ -32,9 +32,9 @@ type Member = {
     player_category: string;
     player_level: string;
     current_status: string;
-    home_district: { id: number; name_hi: string } | null;
-    current_unit: { id: number; name_hi: string } | null;
-    posting_district: { id: number; name_hi: string } | null;
+    home_district: { id: number; name_hi: string; name_en: string } | null;
+    current_unit: { id: number; name_hi: string; name_en: string } | null;
+    posting_district: { id: number; name_hi: string; name_en: string } | null;
     sport: SportOption | null;
     playable_sports: SportOption[];
 };
@@ -42,6 +42,7 @@ type Member = {
 type UnitOption = { id: number; name_hi: string; name_en: string };
 type DistrictOption = { id: number; name_hi: string; name_en: string };
 type SportOption = { id: number; name_hi: string; name_en: string };
+type MasterOption = { code: string; name_hi: string | null; name_en: string; short_name: string | null };
 
 type PaginatedMembers = {
     data: Member[];
@@ -58,6 +59,8 @@ type Filters = {
     current_status?: string;
     player_category?: string;
     player_level?: string;
+    rank?: string;
+    designation?: string;
     current_unit_id?: string;
     home_district_id?: string;
     posting_district_id?: string;
@@ -77,6 +80,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'gender', label: 'Gender' },
     { key: 'dob', label: 'Date of birth' },
     { key: 'rank', label: 'Rank' },
+    { key: 'designation', label: 'Designation' },
     { key: 'mobile', label: 'Mobile' },
     { key: 'current_status', label: 'Status' },
     { key: 'player_category', label: 'Category' },
@@ -125,6 +129,10 @@ const LEVEL_BADGE_CLASS: Record<string, string> = {
 
 function displayCategory(category: string): string {
     return category === 'SKILLED' ? 'SPORTS_QUOTA' : category;
+}
+
+function localeName(entity: { name_hi: string; name_en: string }, locale: string): string {
+    return locale === 'en' ? entity.name_en : (entity.name_hi ?? entity.name_en);
 }
 
 function SportCell({ member }: { member: Member }) {
@@ -312,6 +320,8 @@ export default function MembersIndex({
     units,
     districts,
     sports,
+    ranks,
+    designations,
     totalCount,
     perPage,
 }: {
@@ -320,10 +330,13 @@ export default function MembersIndex({
     units: UnitOption[];
     districts: DistrictOption[];
     sports: SportOption[];
+    ranks: MasterOption[];
+    designations: MasterOption[];
     totalCount: number;
     perPage: number;
 }) {
     const { t } = useTranslation();
+    const { locale } = usePage().props;
 
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -344,6 +357,8 @@ export default function MembersIndex({
             current_status: filters.current_status,
             player_category: filters.player_category,
             player_level: filters.player_level,
+            rank: filters.rank,
+            designation: filters.designation,
             current_unit_id: filters.current_unit_id,
             home_district_id: filters.home_district_id,
             posting_district_id: filters.posting_district_id,
@@ -361,6 +376,8 @@ export default function MembersIndex({
             ['current_status', 'filter[current_status]'],
             ['player_category', 'filter[player_category]'],
             ['player_level', 'filter[player_level]'],
+            ['rank', 'filter[rank]'],
+            ['designation', 'filter[designation]'],
             ['current_unit_id', 'filter[current_unit_id]'],
             ['home_district_id', 'filter[home_district_id]'],
             ['posting_district_id', 'filter[posting_district_id]'],
@@ -404,7 +421,7 @@ export default function MembersIndex({
 
     const activeFilterCount = [
         filters.current_status, filters.player_category, filters.player_level,
-        filters.current_unit_id, filters.home_district_id, filters.posting_district_id, filters.gender,
+        filters.rank, filters.designation, filters.current_unit_id, filters.home_district_id, filters.posting_district_id, filters.gender,
         filters.blood_group, filters.sport_id,
         filters.joining_year_from, filters.joining_year_to,
     ].filter(Boolean).length;
@@ -432,6 +449,8 @@ export default function MembersIndex({
                 ['current_status', 'filter[current_status]'],
                 ['player_category', 'filter[player_category]'],
                 ['player_level', 'filter[player_level]'],
+                ['rank', 'filter[rank]'],
+                ['designation', 'filter[designation]'],
                 ['current_unit_id', 'filter[current_unit_id]'],
                 ['home_district_id', 'filter[home_district_id]'],
                 ['posting_district_id', 'filter[posting_district_id]'],
@@ -605,14 +624,46 @@ next.add(id);
                         />
                     </FilterPill>
 
+                    <FilterPill
+                        label={t('Rank')}
+                        activeLabel={filters.rank ? (ranks.find((rank) => rank.code === filters.rank) ? localeName(ranks.find((rank) => rank.code === filters.rank)!, locale) : filters.rank) : undefined}
+                        onClear={() => applyFilters({ rank: undefined })}
+                    >
+                        <SearchableOptionList
+                            options={ranks.map((rank) => ({
+                                value: rank.code,
+                                label: locale === 'en' ? rank.name_en : (rank.name_hi ?? rank.name_en),
+                            }))}
+                            value={filters.rank}
+                            onSelect={(v) => applyFilters({ rank: v })}
+                            searchPlaceholder={t('Search ranks…')}
+                        />
+                    </FilterPill>
+
+                    <FilterPill
+                        label={t('Designation')}
+                        activeLabel={filters.designation ? (designations.find((designation) => designation.code === filters.designation) ? localeName(designations.find((designation) => designation.code === filters.designation)!, locale) : filters.designation) : undefined}
+                        onClear={() => applyFilters({ designation: undefined })}
+                    >
+                        <SearchableOptionList
+                            options={designations.map((designation) => ({
+                                value: designation.code,
+                                label: locale === 'en' ? designation.name_en : (designation.name_hi ?? designation.name_en),
+                            }))}
+                            value={filters.designation}
+                            onSelect={(v) => applyFilters({ designation: v })}
+                            searchPlaceholder={t('Search designations…')}
+                        />
+                    </FilterPill>
+
                     {/* Unit */}
                     <FilterPill
                         label={t('Unit')}
-                        activeLabel={filters.current_unit_id ? (units.find((u) => String(u.id) === filters.current_unit_id)?.name_hi ?? filters.current_unit_id) : undefined}
+                        activeLabel={filters.current_unit_id ? (units.find((u) => String(u.id) === filters.current_unit_id) ? localeName(units.find((u) => String(u.id) === filters.current_unit_id)!, locale) : filters.current_unit_id) : undefined}
                         onClear={() => applyFilters({ current_unit_id: undefined })}
                     >
                         <SearchableOptionList
-                            options={units.map((u) => ({ value: String(u.id), label: u.name_hi }))}
+                            options={units.map((u) => ({ value: String(u.id), label: localeName(u, locale) }))}
                             value={filters.current_unit_id}
                             onSelect={(v) => applyFilters({ current_unit_id: v })}
                             searchPlaceholder={t('Search units…')}
@@ -622,11 +673,11 @@ next.add(id);
                     {/* Home district */}
                     <FilterPill
                         label={t('Home district')}
-                        activeLabel={filters.home_district_id ? (districts.find((d) => String(d.id) === filters.home_district_id)?.name_hi ?? filters.home_district_id) : undefined}
+                        activeLabel={filters.home_district_id ? (districts.find((d) => String(d.id) === filters.home_district_id) ? localeName(districts.find((d) => String(d.id) === filters.home_district_id)!, locale) : filters.home_district_id) : undefined}
                         onClear={() => applyFilters({ home_district_id: undefined })}
                     >
                         <SearchableOptionList
-                            options={districts.map((d) => ({ value: String(d.id), label: d.name_hi }))}
+                            options={districts.map((d) => ({ value: String(d.id), label: localeName(d, locale) }))}
                             value={filters.home_district_id}
                             onSelect={(v) => applyFilters({ home_district_id: v })}
                             searchPlaceholder={t('Search districts…')}
@@ -636,11 +687,11 @@ next.add(id);
                     {/* Posting district */}
                     <FilterPill
                         label={t('Posting district')}
-                        activeLabel={filters.posting_district_id ? (districts.find((d) => String(d.id) === filters.posting_district_id)?.name_hi ?? filters.posting_district_id) : undefined}
+                        activeLabel={filters.posting_district_id ? (districts.find((d) => String(d.id) === filters.posting_district_id) ? localeName(districts.find((d) => String(d.id) === filters.posting_district_id)!, locale) : filters.posting_district_id) : undefined}
                         onClear={() => applyFilters({ posting_district_id: undefined })}
                     >
                         <SearchableOptionList
-                            options={districts.map((d) => ({ value: String(d.id), label: d.name_hi }))}
+                            options={districts.map((d) => ({ value: String(d.id), label: localeName(d, locale) }))}
                             value={filters.posting_district_id}
                             onSelect={(v) => applyFilters({ posting_district_id: v })}
                             searchPlaceholder={t('Search districts…')}
@@ -826,7 +877,7 @@ next.add(id);
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {member.posting_district?.name_hi ?? <span className="select-none text-border">—</span>}
+                                            {member.posting_district ? localeName(member.posting_district, locale) : <span className="select-none text-border">—</span>}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={STATUS_VARIANT[member.current_status] ?? 'outline'}>

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreRankRequest;
 use App\Http\Requests\Settings\UpdateRankRequest;
 use App\Models\Rank;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -42,6 +43,29 @@ class RankController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Rank created.')]);
 
         return to_route('ranks.index');
+    }
+
+    public function storeInline(StoreRankRequest $request): JsonResponse
+    {
+        Gate::authorize('create', Rank::class);
+
+        $rank = Rank::create($request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Rank created.')]);
+
+        return response()->json([
+            'rank' => [
+                'code' => $rank->code,
+                'name_en' => $rank->name_en,
+                'name_hi' => $rank->name_hi,
+                'short_name' => $rank->short_name,
+                'rank_order' => $rank->rank_order,
+                'cadre_type' => $rank->cadre_type,
+                'is_gazetted' => $rank->is_gazetted,
+                'is_active' => $rank->is_active,
+                'aliases' => $rank->aliases,
+            ],
+        ]);
     }
 
     public function edit(Rank $rank): Response

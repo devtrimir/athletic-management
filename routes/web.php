@@ -14,6 +14,7 @@ use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberExportController;
 use App\Http\Controllers\MemberLegacyAchievementController;
 use App\Http\Controllers\MemberPhotoController;
+use App\Http\Controllers\MemberPromotionController;
 use App\Http\Controllers\MemberStatusController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportsMedalsController;
@@ -76,12 +77,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('members/{member}/legacy-achievements', [MemberLegacyAchievementController::class, 'store'])->name('members.legacy-achievements.store');
     Route::patch('members/{member}/legacy-achievements/{legacyAchievement}', [MemberLegacyAchievementController::class, 'update'])->name('members.legacy-achievements.update');
     Route::delete('members/{member}/legacy-achievements/{legacyAchievement}', [MemberLegacyAchievementController::class, 'destroy'])->name('members.legacy-achievements.destroy');
+    Route::post('members/{member}/promotions', [MemberPromotionController::class, 'store'])->name('members.promotions.store');
+    Route::patch('members/{member}/promotions/{promotion}', [MemberPromotionController::class, 'update'])->name('members.promotions.update');
+    Route::delete('members/{member}/promotions/{promotion}', [MemberPromotionController::class, 'destroy'])->name('members.promotions.destroy');
     Route::post('achievement-benefits', [AchievementBenefitController::class, 'store'])->name('achievement-benefits.store');
     Route::patch('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'update'])->name('achievement-benefits.update');
     Route::delete('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'destroy'])->name('achievement-benefits.destroy');
     Route::get('participations/{participation}/media', [MediaFileController::class, 'index'])->name('participations.media.index');
     Route::post('participations/{participation}/media', [MediaFileController::class, 'store'])->name('participations.media.store');
     Route::delete('participations/{participation}/media/{mediaFile}', [MediaFileController::class, 'destroy'])->name('participations.media.destroy');
+    Route::get('members/{member}/promotions/{promotion}/media', [MediaFileController::class, 'indexPromotion'])->name('members.promotions.media.index');
+    Route::post('members/{member}/promotions/{promotion}/media', [MediaFileController::class, 'storePromotion'])->name('members.promotions.media.store');
+    Route::delete('members/{member}/promotions/{promotion}/media/{mediaFile}', [MediaFileController::class, 'destroyPromotion'])->name('members.promotions.media.destroy');
 });
 
 require __DIR__.'/settings.php';

@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\StoreDesignationRequest;
 use App\Http\Requests\Settings\UpdateDesignationRequest;
 use App\Models\Designation;
 use App\Models\Rank;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -49,6 +50,28 @@ class DesignationController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Designation created.')]);
 
         return to_route('designations.index');
+    }
+
+    public function storeInline(StoreDesignationRequest $request): JsonResponse
+    {
+        Gate::authorize('create', Designation::class);
+
+        $designation = Designation::create($request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Designation created.')]);
+
+        return response()->json([
+            'designation' => [
+                'code' => $designation->code,
+                'name_en' => $designation->name_en,
+                'name_hi' => $designation->name_hi,
+                'short_name' => $designation->short_name,
+                'designation_order' => $designation->designation_order,
+                'mapped_rank_code' => $designation->mapped_rank_code,
+                'designation_type' => $designation->designation_type,
+                'is_active' => $designation->is_active,
+            ],
+        ]);
     }
 
     public function edit(Designation $designation): Response

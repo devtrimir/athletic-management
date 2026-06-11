@@ -54,12 +54,14 @@ export function Combobox({
                     aria-expanded={open}
                     disabled={disabled}
                     className={cn(
-                        'border-input h-9 w-full justify-between px-3 font-normal',
+                        'border-input h-9 w-full min-w-0 justify-between px-3 font-normal',
                         !selected && 'text-muted-foreground',
                         className,
                     )}
                 >
-                    <span className="truncate">{selected?.label ?? (placeholder ?? t('Select…'))}</span>
+                    <span className="min-w-0 flex-1 truncate text-left">
+                        {selected?.label ?? (placeholder ?? t('Select…'))}
+                    </span>
                     <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>

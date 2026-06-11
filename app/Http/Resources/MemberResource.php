@@ -26,6 +26,7 @@ class MemberResource extends JsonResource
             'full_name_en' => $this->full_name_en,
             'father_name_hi' => $this->father_name_hi,
             'rank' => $this->rank,
+            'designation' => $this->designation,
             'gender' => $this->gender,
             'dob' => $this->dob?->toDateString(),
             'joining_date' => $this->joining_date?->toDateString(),

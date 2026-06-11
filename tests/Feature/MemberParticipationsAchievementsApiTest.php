@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Achievement;
+use App\Models\AchievementBenefit;
 use App\Models\Event;
 use App\Models\Member;
 use App\Models\Organization;
@@ -142,6 +143,32 @@ test('participations API includes achievement when present', function () {
 
     expect($achievement['medal_type'])->toBe('GOLD')
         ->and($achievement['position'])->toBe(1);
+});
+
+test('participations API marks achievements that already have a benefit', function () {
+    $user = paApiUser('members.view');
+    $setup = paApiSetup($user);
+
+    $achievement = Achievement::factory()->create([
+        'participation_id' => $setup['participation']->id,
+        'medal_type' => 'GOLD',
+        'position' => 1,
+    ]);
+
+    AchievementBenefit::create([
+        'organization_id' => $user->organization_id,
+        'benefitable_type' => 'achievement',
+        'benefitable_id' => $achievement->id,
+        'benefit_type' => 'CASH_AWARD',
+        'cash_amount' => 2500,
+        'benefit_date' => now()->toDateString(),
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.members.participations.index', $setup['member']))
+        ->assertOk();
+
+    expect($response->json('data.0.participations.0.achievement.benefits.0.benefit_type'))->toBe('CASH_AWARD');
 });
 
 test('participations API returns 404 for member from another org', function () {

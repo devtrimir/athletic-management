@@ -64,6 +64,8 @@ return [
 
         // ── Reference data ────────────────────────────────────────────────────
         ['code' => 'reference_data.manage', 'group' => 'reference_data', 'name_hi' => 'संदर्भ डेटा प्रबंधित करें', 'name_en' => 'Manage reference data'],
+        ['code' => 'ranks.manage', 'group' => 'reference_data', 'name_hi' => 'पद प्रबंधित करें', 'name_en' => 'Manage ranks'],
+        ['code' => 'designations.manage', 'group' => 'reference_data', 'name_hi' => 'पदनाम प्रबंधित करें', 'name_en' => 'Manage designations'],
 
     ],
 ];

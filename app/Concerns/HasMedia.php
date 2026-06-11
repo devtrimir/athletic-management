@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 /**
  * Adds media relationship to models that can own uploaded images.
  *
- * Supported mediable types: Participation, Achievement.
+ * Supported mediable types: Participation, Achievement, MemberPromotion.
  *
  * @mixin Model
  */

@@ -23,7 +23,8 @@ class MemberParticipationsController extends Controller
                 'event:id,tournament_id,name_hi,gender_class',
                 'event.tournament:id,name_hi,tier_id,date_from',
                 'event.tournament.tier:id,code',
-                'achievement:participation_id,medal_type,position,remarks',
+                'achievement:id,participation_id,medal_type,position,remarks',
+                'achievement.benefits',
             ])
             ->withCount('media')
             ->orderByDesc('session_id')
@@ -55,6 +56,16 @@ class MemberParticipationsController extends Controller
                             'medal_type' => $p->achievement->medal_type,
                             'position' => $p->achievement->position,
                             'remarks' => $p->achievement->remarks,
+                            'benefits' => $p->achievement->benefits->map(fn ($b) => [
+                                'id' => $b->id,
+                                'benefit_type' => $b->benefit_type,
+                                'promoted_from_rank' => $b->promoted_from_rank,
+                                'promoted_to_rank' => $b->promoted_to_rank,
+                                'cash_amount' => $b->cash_amount,
+                                'benefit_date' => $b->benefit_date?->toDateString(),
+                                'order_reference' => $b->order_reference,
+                                'remarks' => $b->remarks,
+                            ])->values()->all(),
                         ] : null,
                     ])->values(),
                 ];

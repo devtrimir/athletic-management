@@ -868,10 +868,23 @@ export default function ReportsMedals({
     const yearRangeLabel = (() => {
         const from = filters.year_from !== ALL ? filters.year_from : null;
         const to = filters.year_to !== ALL ? filters.year_to : null;
-        if (from && to && from === to) return from;
-        if (from && to) return `${from} – ${to}`;
-        if (from) return `≥ ${from}`;
-        if (to) return `≤ ${to}`;
+
+        if (from && to && from === to) {
+return from;
+}
+
+        if (from && to) {
+return `${from} – ${to}`;
+}
+
+        if (from) {
+return `≥ ${from}`;
+}
+
+        if (to) {
+return `≤ ${to}`;
+}
+
         return undefined;
     })();
     const sportLabel = sports.find((s) => String(s.id) === filters.sport_id)?.name_hi;

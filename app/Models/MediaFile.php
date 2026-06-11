@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Storage;
  * @property int $uploaded_by
  * @property Carbon $created_at
  * @property Carbon $updated_at
- * @property-read Participation|Achievement $mediable
+ * @property-read Participation|Achievement|MemberPromotion $mediable
  * @property-read User $uploader
  */
 #[Fillable([

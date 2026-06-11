@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreMediaFileRequest;
+use App\Http\Requests\StorePromotionMediaFileRequest;
 use App\Http\Resources\MediaFileResource;
 use App\Models\MediaFile;
+use App\Models\Member;
+use App\Models\MemberPromotion;
 use App\Models\Participation;
 use App\Services\MediaPathService;
 use Illuminate\Http\JsonResponse;
@@ -74,6 +77,72 @@ class MediaFileController extends Controller
         $mediaFile->load('uploader');
 
         return response()->json(new MediaFileResource($mediaFile), 201);
+    }
+
+    public function indexPromotion(Request $request, Member $member, MemberPromotion $promotion): JsonResponse
+    {
+        Gate::authorize('manageBenefits', $member);
+
+        abort_if($promotion->member_id !== $member->id, 404);
+
+        $media = $promotion->media()->with('uploader:id,name')->latest()->get();
+
+        return response()->json(MediaFileResource::collection($media));
+    }
+
+    public function storePromotion(StorePromotionMediaFileRequest $request, Member $member, MemberPromotion $promotion): JsonResponse
+    {
+        Gate::authorize('manageBenefits', $member);
+
+        abort_if($promotion->member_id !== $member->id, 404);
+
+        $existing = $promotion->media()->count();
+
+        if ($existing >= StoreMediaFileRequest::MAX_FILES_PER_CONTEXT) {
+            return response()->json([
+                'message' => __('validation.max_files', ['max' => StoreMediaFileRequest::MAX_FILES_PER_CONTEXT]),
+            ], 422);
+        }
+
+        $file = $request->file('file');
+        $path = $this->pathService->buildPath($promotion, $file);
+
+        Storage::disk('public')->putFileAs(
+            dirname($path),
+            $file,
+            basename($path),
+        );
+
+        $mediaFile = MediaFile::create([
+            'organization_id' => $promotion->member->organization_id,
+            'mediable_type' => MemberPromotion::class,
+            'mediable_id' => $promotion->id,
+            'disk' => 'public',
+            'path' => $path,
+            'original_name' => $file->getClientOriginalName(),
+            'mime_type' => $file->getMimeType() ?? 'application/pdf',
+            'size_bytes' => $file->getSize(),
+            'caption_hi' => $request->input('caption'),
+            'uploaded_by' => $request->user()->id,
+        ]);
+
+        $mediaFile->load('uploader');
+
+        return response()->json(new MediaFileResource($mediaFile), 201);
+    }
+
+    public function destroyPromotion(Member $member, MemberPromotion $promotion, MediaFile $mediaFile): JsonResponse
+    {
+        Gate::authorize('manageBenefits', $member);
+
+        abort_if($promotion->member_id !== $member->id, 404);
+
+        abort_if($mediaFile->mediable_type !== MemberPromotion::class || $mediaFile->mediable_id !== $promotion->id, 404);
+
+        Storage::disk($mediaFile->disk)->delete($mediaFile->path);
+        $mediaFile->delete();
+
+        return response()->json(null, 204);
     }
 
     /**

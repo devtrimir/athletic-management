@@ -47,6 +47,34 @@ test('store creates designation and redirects', function (): void {
     expect(Designation::where('code', 'TEST_DESIGNATION')->exists())->toBeTrue();
 });
 
+test('store inline creates designation and returns created data', function (): void {
+    $rank = Rank::create([
+        'code' => 'INLINE_MAP',
+        'name_en' => 'Inline Map',
+        'rank_order' => 1,
+        'is_gazetted' => false,
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($this->admin)
+        ->postJson(route('designations.inline.store'), [
+            'code' => 'INLINE_DESIGNATION',
+            'name_en' => 'Inline Designation',
+            'short_name' => 'ID',
+            'name_hi' => 'इनलाइन पद',
+            'designation_order' => 98,
+            'mapped_rank_code' => $rank->code,
+            'designation_type' => 'DISTRICT',
+            'is_active' => true,
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('designation.code', 'INLINE_DESIGNATION')
+        ->assertJsonPath('designation.name_en', 'Inline Designation');
+
+    expect(Designation::where('code', 'INLINE_DESIGNATION')->exists())->toBeTrue();
+});
+
 test('store is forbidden without permission', function (): void {
     $this->actingAs($this->user)
         ->post(route('designations.store'), [

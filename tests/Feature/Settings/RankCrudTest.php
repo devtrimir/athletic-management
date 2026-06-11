@@ -39,6 +39,24 @@ test('store creates rank and redirects', function (): void {
     expect(Rank::where('code', 'TEST_RANK')->exists())->toBeTrue();
 });
 
+test('store inline creates rank and returns created data', function (): void {
+    $response = $this->actingAs($this->admin)
+        ->postJson(route('ranks.inline.store'), [
+            'code' => 'INLINE_RANK',
+            'name_en' => 'Inline Rank',
+            'short_name' => 'IR',
+            'name_hi' => 'इनलाइन रैंक',
+            'rank_order' => 998,
+            'is_active' => true,
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('rank.code', 'INLINE_RANK')
+        ->assertJsonPath('rank.name_en', 'Inline Rank');
+
+    expect(Rank::where('code', 'INLINE_RANK')->exists())->toBeTrue();
+});
+
 test('store is forbidden without permission', function (): void {
     $this->actingAs($this->user)
         ->post(route('ranks.store'), [

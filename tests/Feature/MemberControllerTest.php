@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\AuditLog;
 use App\Models\District;
 use App\Models\Member;
 use App\Models\Organization;
@@ -190,6 +191,38 @@ test('index includes primary and playable sports', function () {
         );
 });
 
+test('index filters by rank', function () {
+    $user = memberUser('members.view');
+    Member::factory()->create(['organization_id' => $user->organization_id, 'rank' => 'Inspector']);
+    Member::factory()->create(['organization_id' => $user->organization_id, 'rank' => 'Constable']);
+
+    $this->actingAs($user)
+        ->get(route('members.index', ['filter' => ['rank' => 'Inspector']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('filters.rank', 'Inspector')
+            ->where('members.total', 1)
+            ->where('members.data.0.rank', 'Inspector')
+        );
+});
+
+test('index filters by designation', function () {
+    $user = memberUser('members.view');
+    Member::factory()->create(['organization_id' => $user->organization_id, 'designation' => 'Station House Officer']);
+    Member::factory()->create(['organization_id' => $user->organization_id, 'designation' => 'Inspector']);
+
+    $this->actingAs($user)
+        ->get(route('members.index', ['filter' => ['designation' => 'Station House Officer']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('filters.designation', 'Station House Officer')
+            ->where('members.total', 1)
+            ->where('members.data.0.designation', 'Station House Officer')
+        );
+});
+
 test('index q filter searches by full_name_hi', function () {
     $user = memberUser('members.view');
     Member::factory()->create(['organization_id' => $user->organization_id, 'full_name_hi' => 'राम कुमार']);
@@ -234,6 +267,8 @@ test('user with members.create sees create form', function () {
             ->component('members/create')
             ->has('districts')
             ->has('units')
+            ->has('ranks')
+            ->has('designations')
         );
 });
 
@@ -273,6 +308,8 @@ test('store with invalid payload returns validation errors', function () {
 test('store creates member and redirects to show', function () {
     $user = memberUser('members.create');
     $postingDistrict = District::factory()->create();
+    $primarySport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $otherSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
 
     $response = $this->actingAs($user)
         ->post(route('members.store'), [
@@ -281,6 +318,8 @@ test('store creates member and redirects to show', function () {
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
             'posting_district_id' => $postingDistrict->id,
+            'sport_id' => $primarySport->id,
+            'playable_sport_ids' => [$primarySport->id, $otherSport->id],
         ]);
 
     $member = Member::withoutGlobalScopes()->latest()->first();
@@ -290,6 +329,8 @@ test('store creates member and redirects to show', function () {
         ->and($member->member_code)->toStartWith('UPP-');
 
     $response->assertRedirect(route('members.show', $member));
+
+    expect(AuditLog::where('entity', 'MemberSport')->where('entity_id', $member->id)->where('action', 'created')->count())->toBe(1);
 });
 
 // ---------------------------------------------------------------------------
@@ -335,6 +376,8 @@ test('edit returns member and selects', function () {
             ->has('member')
             ->has('districts')
             ->has('units')
+            ->has('ranks')
+            ->has('designations')
         );
 });
 
@@ -353,13 +396,18 @@ test('edit returns 403 without members.update', function () {
 
 test('update changes member and redirects to show', function () {
     $user = memberUser('members.update');
-    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $primarySport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $removedSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $addedSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id, 'sport_id' => $primarySport->id]);
+    $member->playableSports()->sync([$removedSport->id]);
     $postingDistrict = District::factory()->create();
 
     $this->actingAs($user)
         ->put(route('members.update', $member), [
             'full_name_hi' => 'नया नाम',
             'posting_district_id' => $postingDistrict->id,
+            'playable_sport_ids' => [$addedSport->id],
         ])
         ->assertRedirect(route('members.show', $member));
 
@@ -367,6 +415,13 @@ test('update changes member and redirects to show', function () {
 
     expect($member->full_name_hi)->toBe('नया नाम')
         ->and($member->posting_district_id)->toBe($postingDistrict->id);
+
+    $memberSportLogs = AuditLog::where('entity', 'MemberSport')
+        ->where('entity_id', $member->id)
+        ->get();
+
+    expect($memberSportLogs->contains(fn (AuditLog $log) => $log->action === 'created' && (int) ($log->diff['sport_id'] ?? 0) === $addedSport->id))->toBeTrue();
+    expect($memberSportLogs->contains(fn (AuditLog $log) => $log->action === 'deleted' && (int) ($log->diff['sport_id'] ?? 0) === $removedSport->id))->toBeTrue();
 });
 
 test('update with invalid payload returns validation errors', function () {

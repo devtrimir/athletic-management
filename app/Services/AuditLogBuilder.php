@@ -10,7 +10,9 @@ use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\District;
 use App\Models\Member;
+use App\Models\MemberPromotion;
 use App\Models\Participation;
+use App\Models\PromotionEvidence;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
@@ -32,7 +34,10 @@ class AuditLogBuilder
         $statusHistoryIds = $member->statusHistory()->pluck('id');
         $aliasIds = $member->aliases()->pluck('id');
         $legacyAchIds = $member->legacyAchievements()->pluck('id');
+        $promotionIds = MemberPromotion::where('member_id', $member->id)->pluck('id');
+        $promotionEvidenceIds = PromotionEvidence::whereHas('memberPromotion', fn ($q) => $q->where('member_id', $member->id))->pluck('id');
         $teamMemberIds = TeamMember::where('member_id', $member->id)->pluck('id');
+        $playableSportIds = $member->playableSports()->pluck('sports.id');
 
         $participations = Participation::where('member_id', $member->id)
             ->with(['event:id,name_hi,tournament_id', 'event.tournament:id,name_hi'])
@@ -51,6 +56,9 @@ class AuditLogBuilder
             ['entity' => 'TeamMember',              'ids' => $teamMemberIds],
             ['entity' => 'Participation',           'ids' => $participationIds],
             ['entity' => 'MemberLegacyAchievement', 'ids' => $legacyAchIds],
+            ['entity' => 'MemberPromotion',         'ids' => $promotionIds],
+            ['entity' => 'PromotionEvidence',       'ids' => $promotionEvidenceIds],
+            ['entity' => 'MemberSport',             'ids' => $playableSportIds],
         ];
 
         foreach ($directEntities as ['entity' => $entity, 'ids' => $ids]) {
@@ -114,6 +122,8 @@ class AuditLogBuilder
             'Participation' => 'Tournament participation',
             'Achievement' => 'Achievement',
             'MemberLegacyAchievement' => 'Legacy achievement',
+            'MemberPromotion' => 'Promotion',
+            'PromotionEvidence' => 'Promotion evidence',
         ];
 
         $fieldLabelMap = [
@@ -123,6 +133,7 @@ class AuditLogBuilder
                 'father_name_hi' => "Father's name",
                 'pno' => 'PNO',
                 'rank' => 'Rank',
+                'designation' => 'Designation',
                 'gender' => 'Gender',
                 'dob' => 'Date of birth',
                 'mobile' => 'Mobile',
@@ -185,6 +196,27 @@ class AuditLogBuilder
                 'medal_type' => 'Medal',
                 'sort_order' => 'Sort order',
             ],
+            'MemberPromotion' => [
+                'promotion_date' => 'Promotion date',
+                'from_rank' => 'From rank',
+                'to_rank' => 'To rank',
+                'cash_reward_amount' => 'Cash reward amount',
+                'cash_reward_date' => 'Cash reward date',
+                'cash_reward_reference' => 'Cash reward reference',
+                'cash_reward_remarks' => 'Cash reward remarks',
+                'reason' => 'Reason',
+                'remarks' => 'Remarks',
+                'recorded_by' => 'Recorded by',
+            ],
+            'PromotionEvidence' => [
+                'member_promotion_id' => 'Promotion',
+                'evidencable_type' => 'Evidence type',
+                'evidencable_id' => 'Evidence',
+            ],
+            'MemberSport' => [
+                'member_id' => 'Member',
+                'sport_id' => 'Sport',
+            ],
         ];
 
         $hiddenFields = [
@@ -195,6 +227,9 @@ class AuditLogBuilder
             'Participation' => ['id', 'member_id'],
             'Achievement' => ['id'],
             'MemberLegacyAchievement' => ['id', 'organization_id', 'member_id'],
+            'MemberPromotion' => ['id', 'organization_id', 'member_id', 'recorded_by'],
+            'PromotionEvidence' => ['id', 'organization_id', 'member_promotion_id'],
+            'MemberSport' => ['id', 'member_id'],
         ];
 
         $resolve = function (string $entity, string $field, mixed $value) use (
@@ -210,6 +245,7 @@ class AuditLogBuilder
                 $entity === 'Member' && $field === 'current_unit_id' => $unitMap->get((int) $value) ?? (string) $value,
                 $entity === 'Member' && $field === 'home_district_id' => $districtMap->get((int) $value) ?? (string) $value,
                 $entity === 'Member' && $field === 'posting_district_id' => $districtMap->get((int) $value) ?? (string) $value,
+                $entity === 'MemberSport' && $field === 'sport_id' => $sportMap->get((int) $value) ?? (string) $value,
                 $entity === 'Member' && $field === 'photo_path' => '✓',
                 $field === 'team_id' => $teamMap->get((int) $value) ?? (string) $value,
                 $field === 'session_id' => $sessionMap->get((int) $value) ?? (string) $value,
