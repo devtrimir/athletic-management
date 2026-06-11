@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Requests\Settings;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdateRankRequest extends FormRequest
+{
+    protected function prepareForValidation(): void
+    {
+        $aliases = $this->input('aliases');
+
+        if (is_string($aliases)) {
+            $aliases = array_values(array_filter(array_map('trim', explode(',', $aliases))));
+        }
+
+        $this->merge([
+            'aliases' => $aliases,
+        ]);
+    }
+
+    public function authorize(): bool
+    {
+        return $this->user()?->can('update', $this->route('rank')) ?? false;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'code' => ['required', 'string', 'max:50', 'unique:ranks,code,'.(string) $this->route('rank')?->id],
+            'name_en' => ['required', 'string', 'max:255'],
+            'short_name' => ['nullable', 'string', 'max:100'],
+            'name_hi' => ['nullable', 'string', 'max:255'],
+            'rank_order' => ['required', 'integer', 'min:1'],
+            'cadre_type' => ['nullable', 'string', 'max:50'],
+            'is_gazetted' => ['boolean'],
+            'aliases' => ['nullable', 'array'],
+            'aliases.*' => ['string', 'max:255'],
+            'is_active' => ['boolean'],
+        ];
+    }
+}

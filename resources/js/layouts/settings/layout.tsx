@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Building2, CalendarDays, MapPin, Medal, Monitor, Shield, Trophy, User, Users } from 'lucide-react';
+import { BriefcaseIcon, Building2, CalendarDays, LocateIcon, Medal, Monitor, Shield, ShieldIcon, Trophy, User, Users } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { Separator } from '@/components/ui/separator';
@@ -7,8 +7,10 @@ import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useTranslation } from '@/hooks/use-translation';
 import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
+import { index as designationsIndex } from '@/routes/designations';
 import { index as districtsIndex } from '@/routes/districts';
 import { edit } from '@/routes/profile';
+import { index as ranksIndex } from '@/routes/ranks';
 import { index as rolesIndex } from '@/routes/roles';
 import { edit as editSecurity } from '@/routes/security';
 import { index as sessionsIndex } from '@/routes/sessions';
@@ -51,7 +53,9 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
         { title: t('Sessions'), href: sessionsIndex(), icon: CalendarDays },
         { title: t('Sports'), href: sportsIndex(), icon: Trophy },
         { title: t('Units'), href: unitsIndex(), icon: Building2 },
-        { title: t('Districts'), href: districtsIndex(), icon: MapPin },
+        { title: t('Districts'), href: districtsIndex(), icon: LocateIcon },
+        { title: t('Ranks'), href: ranksIndex(), icon: ShieldIcon },
+        { title: t('Designations'), href: designationsIndex(), icon: BriefcaseIcon },
         { title: t('Tournament Tiers'), href: tournamentTiersIndex(), icon: Medal },
     ];
 

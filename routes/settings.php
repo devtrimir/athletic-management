@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Settings\DesignationController;
 use App\Http\Controllers\Settings\DistrictController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\RankController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\SportController;
@@ -53,6 +55,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/tournament-tiers', TournamentTierController::class)
         ->except(['show'])
         ->names('tournament-tiers');
+
+    Route::resource('settings/ranks', RankController::class)
+        ->except(['show'])
+        ->names('ranks');
+
+    Route::resource('settings/designations', DesignationController::class)
+        ->except(['show'])
+        ->names('designations');
 
     Route::resource('settings/users', UserController::class)
         ->except(['show'])
