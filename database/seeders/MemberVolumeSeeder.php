@@ -27,7 +27,7 @@ class MemberVolumeSeeder extends Seeder
 
     private const RANKS = ['Constable', 'Head Constable', 'SI', 'Inspector'];
 
-    private const CATEGORIES = ['GD', 'SKILLED'];
+    private const CATEGORIES = ['GD', 'SPORTS_QUOTA'];
 
     private const LEVELS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'];
 

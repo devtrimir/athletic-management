@@ -48,6 +48,7 @@ type Member = {
     player_level: string;
     current_status: string;
     home_district: { id: number; name_hi: string } | null;
+    posting_district: { id: number; name_hi: string } | null;
     current_unit: { id: number; name_hi: string } | null;
     photo_path: string | null;
     blood_group: string | null;
@@ -56,6 +57,8 @@ type Member = {
     appointment: string | null;
     home_address: string | null;
     recruitment_type: string | null;
+    sport: { id: number; name_hi: string; name_en: string } | null;
+    playable_sports: { id: number; name_hi: string; name_en: string }[];
     sport_event: string | null;
     other_notes: string | null;
     team_since: string | null;
@@ -310,7 +313,6 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
-    { key: 'recruitment_type', label: 'Recruitment type' },
     { key: 'appointment', label: 'Appointment' },
     { key: 'sport_event', label: 'Sport event' },
     { key: 'promotion_date', label: 'Promotion date' },
@@ -381,6 +383,7 @@ export default function MembersShow({
         });
     }
     const { t } = useTranslation();
+    const { locale } = usePage().props;
 
     setLayoutProps({
         breadcrumbs: [
@@ -414,7 +417,6 @@ export default function MembersShow({
                 case 'joining_date': return member.joining_date ?? '';
                 case 'blood_group': return member.blood_group ?? '';
                 case 'caste': return member.caste ?? '';
-                case 'recruitment_type': return member.recruitment_type ? t(member.recruitment_type) : '';
                 case 'appointment': return member.appointment ?? '';
                 case 'sport_event': return member.sport_event ?? '';
                 case 'promotion_date': return member.promotion_date ?? '';
@@ -548,13 +550,19 @@ return;
                                 {detail(t('Mobile'), member.mobile)}
                                 {detail(t('Rank'), member.rank)}
                                 {detail(t('Joining date'), member.joining_date)}
-                                {detail(t('Unit'), member.current_unit?.name_hi)}
                                 {detail(t('Home district'), member.home_district?.name_hi)}
+                                {detail(t('Posting district'), member.posting_district?.name_hi)}
                                 {detail(t('Category'), member.player_category)}
                                 {detail(t('Level'), member.player_level)}
                                 {member.blood_group && detail(t('Blood group'), member.blood_group)}
                                 {member.caste && detail(t('Caste'), member.caste)}
-                                {member.recruitment_type && detail(t('Recruitment type'), t(member.recruitment_type))}
+                                {member.sport && detail(t('Primary sport'), locale === 'en' ? member.sport.name_en : member.sport.name_hi)}
+                                {member.playable_sports.length > 0 && detail(
+                                    t('Other playable sports'),
+                                    member.playable_sports
+                                        .map((sport) => locale === 'en' ? sport.name_en : sport.name_hi)
+                                        .join(', '),
+                                )}
                                 {member.appointment && detail(t('Appointment'), member.appointment)}
                                 {member.sport_event && detail(t('Sport event'), member.sport_event)}
                                 {member.promotion_date && detail(t('Promotion date'), member.promotion_date)}

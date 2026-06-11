@@ -24,7 +24,7 @@ const MEMBER_ROLES = ['PLAYER', 'CAPTAIN', 'RESERVE'] as const;
 
 const CATEGORIES = [
     { value: 'GD', label: 'GD' },
-    { value: 'SKILLED', label: 'Skilled' },
+    { value: 'SPORTS_QUOTA', label: 'Sports quota' },
 ] as const;
 
 const LEVELS = [

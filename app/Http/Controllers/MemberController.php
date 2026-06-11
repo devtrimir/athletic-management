@@ -30,12 +30,26 @@ class MemberController extends Controller
     {
         Gate::authorize('viewAny', Member::class);
 
-        $members = QueryBuilder::for(Member::class)
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+
+        $query = Member::query()
+            ->when(
+                ! array_key_exists('current_status', $filters),
+                fn ($query) => $query->where('current_status', 'ACTIVE')
+            );
+
+        $members = QueryBuilder::for($query)
             ->allowedFilters([
-                AllowedFilter::exact('player_category'),
+                AllowedFilter::callback('player_category', function ($query, string $value): void {
+                    $value === 'SPORTS_QUOTA'
+                        ? $query->whereIn('player_category', ['SPORTS_QUOTA', 'SKILLED'])
+                        : $query->where('player_category', $value);
+                }),
                 AllowedFilter::exact('player_level'),
                 AllowedFilter::exact('current_status'),
                 AllowedFilter::exact('home_district_id'),
+                AllowedFilter::exact('posting_district_id'),
                 AllowedFilter::exact('current_unit_id'),
                 AllowedFilter::exact('pno'),
                 AllowedFilter::exact('mobile'),
@@ -58,13 +72,19 @@ class MemberController extends Controller
             ])
             ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
             ->defaultSort('-created_at')
-            ->with('currentUnit:id,name_hi')
+            ->with([
+                'currentUnit:id,name_hi',
+                'homeDistrict:id,name_hi',
+                'postingDistrict:id,name_hi',
+                'sport:id,name_hi,name_en',
+                'playableSports:id,name_hi,name_en',
+            ])
             ->paginate(min((int) ($request->query('per_page', 25)), 100))
             ->withQueryString();
 
         return Inertia::render('members/index', [
             'members' => $members,
-            'filters' => $request->query('filter', []),
+            'filters' => ['current_status' => 'ACTIVE', ...$filters],
             'perPage' => min((int) ($request->query('per_page', 25)), 100),
             'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
@@ -90,11 +110,15 @@ class MemberController extends Controller
 
         $orgId = (int) $request->user()->organization_id;
         $data = $request->validated();
+        $playableSportIds = $this->playableSportIds($data);
+        unset($data['playable_sport_ids']);
 
         $member = Member::create(array_merge($data, [
             'organization_id' => $orgId,
             'member_code' => $generator->next($orgId),
         ]));
+
+        $member->playableSports()->sync($playableSportIds);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member created.')]);
 
@@ -106,7 +130,7 @@ class MemberController extends Controller
         Gate::authorize('view', $member);
 
         return Inertia::render('members/show', [
-            'member' => (new MemberResource($member->load(['homeDistrict', 'currentUnit', 'sport'])))->resolve(),
+            'member' => (new MemberResource($member->load(['homeDistrict', 'postingDistrict', 'currentUnit', 'sport', 'playableSports'])))->resolve(),
             'statusHistory' => Inertia::defer(fn () => MemberStatusHistoryResource::collection(
                 $member->statusHistory()->with('recorder')->get()
             )->resolve()),
@@ -163,7 +187,7 @@ class MemberController extends Controller
         Gate::authorize('update', $member);
 
         return Inertia::render('members/edit', [
-            'member' => $member->load('sport'),
+            'member' => $member->load(['sport', 'playableSports:id,name_hi,name_en']),
             'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
@@ -174,7 +198,16 @@ class MemberController extends Controller
     {
         Gate::authorize('update', $member);
 
-        $member->update($request->validated());
+        $data = $request->validated();
+        $playableSportIds = $this->playableSportIds($data);
+        $shouldSyncPlayableSports = array_key_exists('playable_sport_ids', $data);
+        unset($data['playable_sport_ids']);
+
+        $member->update($data);
+
+        if ($shouldSyncPlayableSports) {
+            $member->playableSports()->sync($playableSportIds);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member updated.')]);
 
@@ -190,5 +223,21 @@ class MemberController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member deleted.')]);
 
         return to_route('members.index');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<int, int>
+     */
+    private function playableSportIds(array $data): array
+    {
+        $primarySportId = isset($data['sport_id']) ? (int) $data['sport_id'] : null;
+
+        return collect($data['playable_sport_ids'] ?? [])
+            ->map(fn (mixed $sportId): int => (int) $sportId)
+            ->unique()
+            ->reject(fn (int $sportId): bool => $sportId === $primarySportId)
+            ->values()
+            ->all();
     }
 }

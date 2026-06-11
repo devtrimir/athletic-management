@@ -12,7 +12,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Assigns players to their teams by re-parsing the GD and Skilled player
+ * Assigns players to their teams by re-parsing the GD and sports quota player
  * CSVs and mapping each data row to the team header that precedes it.
  *
  * Run order: after MemberSeeder and TeamSeeder.

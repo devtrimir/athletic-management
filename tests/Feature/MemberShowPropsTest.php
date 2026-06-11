@@ -39,6 +39,7 @@ test('show returns member resource in Inertia props', function (): void {
                 ->has('player_level')
                 ->has('current_status')
                 ->has('home_district')
+                ->has('posting_district')
                 ->has('current_unit')
                 ->etc()
             )

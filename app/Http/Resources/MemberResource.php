@@ -45,15 +45,27 @@ class MemberResource extends JsonResource
             'sport_event' => $this->sport_event,
             'other_notes' => $this->other_notes,
             'team_since' => $this->team_since?->toDateString(),
-            'sport' => $this->whenLoaded('sport', fn () => [
+            'sport' => $this->whenLoaded('sport', fn () => $this->sport ? [
                 'id' => $this->sport->id,
                 'name_hi' => $this->sport->name_hi,
                 'name_en' => $this->sport->name_en ?? $this->sport->name_hi,
-            ]),
+            ] : null),
+            'playable_sports' => $this->whenLoaded('playableSports', fn () => $this->playableSports
+                ->map(fn ($sport) => [
+                    'id' => $sport->id,
+                    'name_hi' => $sport->name_hi,
+                    'name_en' => $sport->name_en ?? $sport->name_hi,
+                ])
+                ->values()
+                ->all()),
             'home_district' => $this->whenLoaded('homeDistrict', fn () => [
                 'id' => $this->homeDistrict->id,
                 'name_hi' => $this->homeDistrict->name_hi,
             ]),
+            'posting_district' => $this->whenLoaded('postingDistrict', fn () => $this->postingDistrict ? [
+                'id' => $this->postingDistrict->id,
+                'name_hi' => $this->postingDistrict->name_hi,
+            ] : null),
             'current_unit' => $this->whenLoaded('currentUnit', fn () => [
                 'id' => $this->currentUnit->id,
                 'name_hi' => $this->currentUnit->name_hi,

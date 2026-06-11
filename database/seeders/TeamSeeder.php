@@ -13,7 +13,7 @@ use Illuminate\Database\Seeder;
 
 /**
  * Seeds Team records by parsing team-group header rows from the
- * GD and Skilled player CSV exports.
+ * GD and sports quota player CSV exports.
  *
  * A "team header" row is one where every cell repeats the same text,
  * starting with "उ.प्र. पुलिस".  The format is:

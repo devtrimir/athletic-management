@@ -59,6 +59,7 @@ type MemberPreview = {
     sport_event: string | null;
     team_since: string | null;
     home_district: { name_hi: string } | null;
+    posting_district: { name_hi: string } | null;
     current_unit: { name_hi: string } | null;
     sport: { name_hi: string } | null;
     status_history: StatusHistoryItem[];
@@ -152,9 +153,9 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     <h2>${t('Service')}</h2>
     ${row(t('Rank'), data.rank ? t(data.rank) : null)}
     ${row(t('Current unit'), data.current_unit?.name_hi)}
+    ${row(t('Posting district'), data.posting_district?.name_hi)}
     ${row(t('Joining date'), data.joining_date)}
     ${row(t('Promotion date'), data.promotion_date)}
-    ${row(t('Recruitment type'), data.recruitment_type ? t(data.recruitment_type) : null)}
     ${row(t('Appointment'), data.appointment)}
     ${row(t('Sport'), data.sport?.name_hi)}
     ${row(t('Sport event'), data.sport_event)}
@@ -273,9 +274,9 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
 
                             <Section title={t('Service')}>
                                 <InfoRow label={t('Current unit')} value={data.current_unit?.name_hi} />
+                                <InfoRow label={t('Posting district')} value={data.posting_district?.name_hi} />
                                 <InfoRow label={t('Joining date')} value={data.joining_date} />
                                 <InfoRow label={t('Promotion date')} value={data.promotion_date} />
-                                <InfoRow label={t('Recruitment type')} value={data.recruitment_type ? t(data.recruitment_type) : null} />
                                 <InfoRow label={t('Appointment')} value={data.appointment} />
                                 <InfoRow label={t('Sport')} value={data.sport?.name_hi} />
                                 <InfoRow label={t('Sport event')} value={data.sport_event} />

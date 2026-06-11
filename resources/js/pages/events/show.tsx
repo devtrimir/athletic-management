@@ -88,7 +88,7 @@ type ParticipantForm = {
 
 const MEDAL_TYPES = ['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const;
 const GENDER_CLASSES = ['M', 'F', 'MIXED', 'OPEN'] as const;
-const PLAYER_CATEGORIES = ['GD', 'SKILLED'] as const;
+const PLAYER_CATEGORIES = ['GD', 'SPORTS_QUOTA'] as const;
 const PLAYER_LEVELS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'] as const;
 const PLAYER_STATUSES = ['ACTIVE', 'RESIGNED', 'DISMISSED'] as const;
 

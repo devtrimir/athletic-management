@@ -20,7 +20,7 @@ class MemberSearchController extends Controller
 
         $validated = $request->validate([
             'q' => ['required', 'string', 'min:1', 'max:100'],
-            'player_category' => ['nullable', 'string', 'in:GD,SKILLED'],
+            'player_category' => ['nullable', 'string', 'in:GD,SPORTS_QUOTA'],
             'player_level' => ['nullable', 'string', 'in:ZONAL,NATIONAL,INTERNATIONAL,AIPSC'],
             'current_status' => ['nullable', 'string', 'in:ACTIVE,RESIGNED,DISMISSED'],
         ]);

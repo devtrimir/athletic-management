@@ -31,10 +31,10 @@ class MemberExportController extends Controller
         'player_level' => 'Level',
         'unit' => 'Unit',
         'home_district' => 'Home District',
+        'posting_district' => 'Posting District',
         'joining_date' => 'Joining Date',
         'blood_group' => 'Blood Group',
         'caste' => 'Caste',
-        'recruitment_type' => 'Recruitment Type',
         'appointment' => 'Appointment',
         'sport_event' => 'Sport Event',
         'promotion_date' => 'Promotion Date',
@@ -56,36 +56,36 @@ class MemberExportController extends Controller
         if (! empty($ids)) {
             $baseQuery->whereIn('id', array_map('intval', $ids));
             $members = $baseQuery
-                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi'])
+                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi'])
                 ->orderBy('full_name_hi')
                 ->get();
         } else {
             $members = QueryBuilder::for($baseQuery)
-            ->allowedFilters([
-                AllowedFilter::exact('player_category'),
-                AllowedFilter::exact('player_level'),
-                AllowedFilter::exact('current_status'),
-                AllowedFilter::exact('home_district_id'),
-                AllowedFilter::exact('current_unit_id'),
-                AllowedFilter::exact('gender'),
-                AllowedFilter::exact('blood_group'),
-                AllowedFilter::exact('recruitment_type'),
-                AllowedFilter::callback('q', function ($query, string $value): void {
-                    $query->where(function ($q) use ($value): void {
-                        $q->where('full_name_hi', 'LIKE', "%{$value}%")
-                            ->orWhere('pno', 'LIKE', "%{$value}%");
-                    });
-                }),
-                AllowedFilter::callback('joining_year_from', function ($query, string $value): void {
-                    $query->whereYear('joining_date', '>=', (int) $value);
-                }),
-                AllowedFilter::callback('joining_year_to', function ($query, string $value): void {
-                    $query->whereYear('joining_date', '<=', (int) $value);
-                }),
-            ])
-            ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
+                ->allowedFilters([
+                    AllowedFilter::exact('player_category'),
+                    AllowedFilter::exact('player_level'),
+                    AllowedFilter::exact('current_status'),
+                    AllowedFilter::exact('home_district_id'),
+                    AllowedFilter::exact('posting_district_id'),
+                    AllowedFilter::exact('current_unit_id'),
+                    AllowedFilter::exact('gender'),
+                    AllowedFilter::exact('blood_group'),
+                    AllowedFilter::callback('q', function ($query, string $value): void {
+                        $query->where(function ($q) use ($value): void {
+                            $q->where('full_name_hi', 'LIKE', "%{$value}%")
+                                ->orWhere('pno', 'LIKE', "%{$value}%");
+                        });
+                    }),
+                    AllowedFilter::callback('joining_year_from', function ($query, string $value): void {
+                        $query->whereYear('joining_date', '>=', (int) $value);
+                    }),
+                    AllowedFilter::callback('joining_year_to', function ($query, string $value): void {
+                        $query->whereYear('joining_date', '<=', (int) $value);
+                    }),
+                ])
+                ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
                 ->defaultSort('full_name_hi')
-                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi'])
+                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi'])
                 ->get();
         }
 
@@ -98,6 +98,7 @@ class MemberExportController extends Controller
                 $row[$col] = match ($col) {
                     'unit' => $member->currentUnit?->name_hi,
                     'home_district' => $member->homeDistrict?->name_hi,
+                    'posting_district' => $member->postingDistrict?->name_hi,
                     'dob', 'joining_date', 'promotion_date', 'team_since' => $member->{$col}?->toDateString(),
                     default => $member->{$col},
                 };

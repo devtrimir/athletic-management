@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Requests\Members\UpdateMemberRequest;
+use App\Models\District;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\User;
@@ -62,6 +63,22 @@ test('player_level invalid fails', function () {
 
     expect($result->fails())->toBeTrue()
         ->and($result->errors()->has('player_level'))->toBeTrue();
+});
+
+test('posting_district_id must exist', function () {
+    $rules = updateRules($this->user, $this->member);
+    $result = Validator::make(['posting_district_id' => 99999], $rules);
+
+    expect($result->fails())->toBeTrue()
+        ->and($result->errors()->has('posting_district_id'))->toBeTrue();
+});
+
+test('posting_district_id accepts existing district', function () {
+    $district = District::factory()->create();
+    $rules = updateRules($this->user, $this->member);
+    $result = Validator::make(['posting_district_id' => $district->id], $rules);
+
+    expect($result->passes())->toBeTrue();
 });
 
 test('duplicate pno in same org fails', function () {

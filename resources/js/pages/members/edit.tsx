@@ -5,6 +5,7 @@ import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { SportsMultiSelect } from '@/components/sports-multi-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,7 @@ import { useTranslation } from '@/hooks/use-translation';
 type District = { id: number; name_hi: string; name_en: string };
 type Unit = { id: number; name_hi: string; name_en: string };
 type SportOption = { id: number; name_hi: string; name_en: string };
+type PlayableSport = { id: number; name_hi: string; name_en: string };
 
 type Member = {
     id: number;
@@ -30,6 +32,7 @@ type Member = {
     joining_date: string | null;
     mobile: string | null;
     home_district_id: number | null;
+    posting_district_id: number | null;
     current_unit_id: number | null;
     player_category: string;
     player_level: string;
@@ -41,6 +44,7 @@ type Member = {
     home_address: string | null;
     recruitment_type: string | null;
     sport_id: number | null;
+    playable_sports: PlayableSport[];
     sport_event: string | null;
     other_notes: string | null;
     team_since: string | null;
@@ -57,6 +61,7 @@ type FormData = {
     joining_date: string;
     mobile: string;
     home_district_id: string;
+    posting_district_id: string;
     current_unit_id: string;
     player_category: string;
     player_level: string;
@@ -67,6 +72,7 @@ type FormData = {
     home_address: string;
     recruitment_type: string;
     sport_id: string;
+    playable_sport_ids: string[];
     sport_event: string;
     other_notes: string;
     team_since: string;
@@ -95,6 +101,7 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
         joining_date: member.joining_date ?? '',
         mobile: member.mobile ?? '',
         home_district_id: member.home_district_id != null ? String(member.home_district_id) : '',
+        posting_district_id: member.posting_district_id != null ? String(member.posting_district_id) : '',
         current_unit_id: member.current_unit_id != null ? String(member.current_unit_id) : '',
         player_category: member.player_category,
         player_level: member.player_level,
@@ -105,6 +112,7 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
         home_address: member.home_address ?? '',
         recruitment_type: member.recruitment_type ?? '',
         sport_id: member.sport_id != null ? String(member.sport_id) : '',
+        playable_sport_ids: member.playable_sports.map((sport) => String(sport.id)),
         sport_event: member.sport_event ?? '',
         other_notes: member.other_notes ?? '',
         team_since: member.team_since ?? '',
@@ -117,11 +125,11 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
     );
     const hasServiceErrors = !!(
         errors.pno || errors.rank || errors.joining_date || errors.current_unit_id ||
-        errors.home_district_id || errors.recruitment_type || errors.appointment || errors.promotion_date
+        errors.home_district_id || errors.posting_district_id || errors.appointment || errors.promotion_date
     );
     const hasSportsErrors = !!(
         errors.player_category || errors.player_level || errors.sport_id || errors.sport_event ||
-        errors.team_since || errors.other_notes
+        errors.playable_sport_ids || errors.team_since || errors.other_notes
     );
 
     function handleSubmit(e: React.FormEvent) {
@@ -354,21 +362,6 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
                                             />
                                             <InputError message={errors.rank} />
                                         </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="recruitment_type">{t('Recruitment type')}</Label>
-                                            <Select value={data.recruitment_type} onValueChange={(v) => setData('recruitment_type', v)}>
-                                                <SelectTrigger id="recruitment_type" className="w-full">
-                                                    <SelectValue placeholder={t('Select recruitment type')} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="DIRECT">{t('DIRECT')}</SelectItem>
-                                                    <SelectItem value="SPORTS_QUOTA">{t('SPORTS_QUOTA')}</SelectItem>
-                                                    <SelectItem value="PROMOTED">{t('PROMOTED')}</SelectItem>
-                                                    <SelectItem value="OTHER">{t('OTHER')}</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError message={errors.recruitment_type} />
-                                        </div>
                                     </div>
 
                                     <div className="grid gap-5 sm:grid-cols-3">
@@ -402,7 +395,7 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
                                         </div>
                                     </div>
 
-                                    <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="grid gap-5 sm:grid-cols-3">
                                         <div className="grid gap-2">
                                             <Label htmlFor="current_unit_id">{t('Unit')}</Label>
                                             <Combobox
@@ -414,6 +407,18 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
                                                 searchPlaceholder={t('Search units…')}
                                             />
                                             <InputError message={errors.current_unit_id} />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="posting_district_id">{t('Posting district')}</Label>
+                                            <Combobox
+                                                id="posting_district_id"
+                                                value={data.posting_district_id}
+                                                onValueChange={(v) => setData('posting_district_id', v)}
+                                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name_en : d.name_hi }))}
+                                                placeholder={t('Select district')}
+                                                searchPlaceholder={t('Search districts…')}
+                                            />
+                                            <InputError message={errors.posting_district_id} />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="home_district_id">{t('Home district')}</Label>
@@ -443,7 +448,7 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="GD">{t('GD')}</SelectItem>
-                                                    <SelectItem value="SKILLED">{t('SKILLED')}</SelectItem>
+                                                    <SelectItem value="SPORTS_QUOTA">{t('SPORTS_QUOTA')}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <InputError message={errors.player_category} />
@@ -469,7 +474,7 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
 
                                     <div className="grid gap-5 sm:grid-cols-2">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="sport_id">{t('Sport')}</Label>
+                                            <Label htmlFor="sport_id">{t('Primary sport')}</Label>
                                             <Select
                                                 value={data.sport_id}
                                                 onValueChange={(v) => setData('sport_id', v === '__clear__' ? '' : v)}
@@ -498,6 +503,19 @@ export default function MembersEdit({ member, districts, units, sports }: { memb
                                             />
                                             <InputError message={errors.sport_event} />
                                         </div>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="playable_sport_ids">{t('Other playable sports')}</Label>
+                                        <SportsMultiSelect
+                                            id="playable_sport_ids"
+                                            value={data.playable_sport_ids}
+                                            onValueChange={(value) => setData('playable_sport_ids', value)}
+                                            sports={sports}
+                                            locale={locale}
+                                            placeholder={t('Select additional sports')}
+                                        />
+                                        <InputError message={errors.playable_sport_ids} />
                                     </div>
 
                                     <div className="grid gap-5 sm:grid-cols-2">

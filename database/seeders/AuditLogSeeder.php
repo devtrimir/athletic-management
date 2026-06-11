@@ -75,7 +75,7 @@ class AuditLogSeeder extends Seeder
             ->select([
                 'id', 'pno', 'full_name_hi', 'rank', 'gender',
                 'player_category', 'player_level', 'current_status',
-                'joining_date', 'current_unit_id', 'home_district_id', 'sport_id',
+                'joining_date', 'current_unit_id', 'home_district_id', 'posting_district_id', 'sport_id',
                 'created_at',
             ])
             ->get();
@@ -105,6 +105,7 @@ class AuditLogSeeder extends Seeder
                 'joining_date' => $member->joining_date,
                 'current_unit_id' => $member->current_unit_id,
                 'home_district_id' => $member->home_district_id,
+                'posting_district_id' => $member->posting_district_id,
                 'sport_id' => $member->sport_id,
             ], static fn ($v) => $v !== null);
 

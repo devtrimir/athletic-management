@@ -28,10 +28,15 @@ type Member = {
     pno: string | null;
     full_name_hi: string;
     full_name_en: string | null;
+    rank: string | null;
     player_category: string;
     player_level: string;
     current_status: string;
+    home_district: { id: number; name_hi: string } | null;
     current_unit: { id: number; name_hi: string } | null;
+    posting_district: { id: number; name_hi: string } | null;
+    sport: SportOption | null;
+    playable_sports: SportOption[];
 };
 
 type UnitOption = { id: number; name_hi: string; name_en: string };
@@ -55,9 +60,9 @@ type Filters = {
     player_level?: string;
     current_unit_id?: string;
     home_district_id?: string;
+    posting_district_id?: string;
     gender?: string;
     blood_group?: string;
-    recruitment_type?: string;
     sport_id?: string;
     joining_year_from?: string;
     joining_year_to?: string;
@@ -78,10 +83,10 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'player_level', label: 'Level' },
     { key: 'unit', label: 'Unit' },
     { key: 'home_district', label: 'Home district' },
+    { key: 'posting_district', label: 'Posting district' },
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
-    { key: 'recruitment_type', label: 'Recruitment type' },
     { key: 'appointment', label: 'Appointment' },
     { key: 'sport_event', label: 'Sport event' },
     { key: 'promotion_date', label: 'Promotion date' },
@@ -89,7 +94,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
 ];
 
 const STATUS_OPTIONS = ['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'] as const;
-const CATEGORY_OPTIONS = ['GD', 'SKILLED'] as const;
+const CATEGORY_OPTIONS = ['GD', 'SPORTS_QUOTA'] as const;
 const LEVEL_OPTIONS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'] as const;
 const GENDER_OPTIONS: { value: string; label: string }[] = [
     { value: 'M', label: 'Male' },
@@ -97,7 +102,6 @@ const GENDER_OPTIONS: { value: string; label: string }[] = [
     { value: 'O', label: 'Other gender' },
 ];
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
-const RECRUITMENT_OPTIONS = ['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER'] as const;
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
     ACTIVE: 'default',
@@ -106,6 +110,72 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
     DECEASED: 'secondary',
     RETIRED: 'secondary',
 };
+
+const CATEGORY_BADGE_CLASS: Record<string, string> = {
+    GD: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
+    SPORTS_QUOTA: 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300',
+};
+
+const LEVEL_BADGE_CLASS: Record<string, string> = {
+    ZONAL: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300',
+    AIPSC: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-300',
+    NATIONAL: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300',
+    INTERNATIONAL: 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300',
+};
+
+function displayCategory(category: string): string {
+    return category === 'SKILLED' ? 'SPORTS_QUOTA' : category;
+}
+
+function SportCell({ member }: { member: Member }) {
+    const { t } = useTranslation();
+    const playableSports = member.playable_sports.filter((sport) => sport.id !== member.sport?.id);
+
+    if (!member.sport && playableSports.length === 0) {
+        return <span className="select-none text-border">—</span>;
+    }
+
+    const primarySportName = member.sport?.name_hi ?? playableSports[0]?.name_hi;
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className="inline-flex max-w-44 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-accent"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <span className="truncate">{primarySportName}</span>
+                    {playableSports.length > 0 && (
+                        <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[10px]">
+                            +{playableSports.length}
+                        </Badge>
+                    )}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-3" onClick={(e) => e.stopPropagation()}>
+                <div className="space-y-2">
+                    {member.sport && (
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground">{t('Primary sport')}</p>
+                            <p className="text-sm font-medium">{member.sport.name_hi}</p>
+                        </div>
+                    )}
+                    {playableSports.length > 0 && (
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground">{t('Other playable sports')}</p>
+                            <ul className="mt-1 space-y-1 text-sm">
+                                {playableSports.map((sport) => (
+                                    <li key={sport.id}>{sport.name_hi}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+}
 
 // ── Filter pill ───────────────────────────────────────────────────────────────
 
@@ -276,9 +346,9 @@ export default function MembersIndex({
             player_level: filters.player_level,
             current_unit_id: filters.current_unit_id,
             home_district_id: filters.home_district_id,
+            posting_district_id: filters.posting_district_id,
             gender: filters.gender,
             blood_group: filters.blood_group,
-            recruitment_type: filters.recruitment_type,
             sport_id: filters.sport_id,
             joining_year_from: filters.joining_year_from,
             joining_year_to: filters.joining_year_to,
@@ -293,9 +363,9 @@ export default function MembersIndex({
             ['player_level', 'filter[player_level]'],
             ['current_unit_id', 'filter[current_unit_id]'],
             ['home_district_id', 'filter[home_district_id]'],
+            ['posting_district_id', 'filter[posting_district_id]'],
             ['gender', 'filter[gender]'],
             ['blood_group', 'filter[blood_group]'],
-            ['recruitment_type', 'filter[recruitment_type]'],
             ['sport_id', 'filter[sport_id]'],
             ['joining_year_from', 'filter[joining_year_from]'],
             ['joining_year_to', 'filter[joining_year_to]'],
@@ -334,8 +404,8 @@ export default function MembersIndex({
 
     const activeFilterCount = [
         filters.current_status, filters.player_category, filters.player_level,
-        filters.current_unit_id, filters.home_district_id, filters.gender,
-        filters.blood_group, filters.recruitment_type, filters.sport_id,
+        filters.current_unit_id, filters.home_district_id, filters.posting_district_id, filters.gender,
+        filters.blood_group, filters.sport_id,
         filters.joining_year_from, filters.joining_year_to,
     ].filter(Boolean).length;
     const hasAnyFilter = !!(filters.q) || activeFilterCount > 0;
@@ -364,9 +434,9 @@ export default function MembersIndex({
                 ['player_level', 'filter[player_level]'],
                 ['current_unit_id', 'filter[current_unit_id]'],
                 ['home_district_id', 'filter[home_district_id]'],
+                ['posting_district_id', 'filter[posting_district_id]'],
                 ['gender', 'filter[gender]'],
                 ['blood_group', 'filter[blood_group]'],
-                ['recruitment_type', 'filter[recruitment_type]'],
                 ['sport_id', 'filter[sport_id]'],
                 ['joining_year_from', 'filter[joining_year_from]'],
                 ['joining_year_to', 'filter[joining_year_to]'],
@@ -396,6 +466,14 @@ params.append(param, filters[k]!);
                         .map((c) => {
                             if (c.key === 'unit') {
 return `<td>${m.current_unit?.name_hi ?? '\u2014'}</td>`;
+}
+
+                            if (c.key === 'home_district') {
+return `<td>${m.home_district?.name_hi ?? '\u2014'}</td>`;
+}
+
+                            if (c.key === 'posting_district') {
+return `<td>${m.posting_district?.name_hi ?? '\u2014'}</td>`;
 }
 
                             const v = (m as Record<string, unknown>)[c.key];
@@ -543,7 +621,7 @@ next.add(id);
 
                     {/* Home district */}
                     <FilterPill
-                        label={t('District')}
+                        label={t('Home district')}
                         activeLabel={filters.home_district_id ? (districts.find((d) => String(d.id) === filters.home_district_id)?.name_hi ?? filters.home_district_id) : undefined}
                         onClear={() => applyFilters({ home_district_id: undefined })}
                     >
@@ -551,6 +629,20 @@ next.add(id);
                             options={districts.map((d) => ({ value: String(d.id), label: d.name_hi }))}
                             value={filters.home_district_id}
                             onSelect={(v) => applyFilters({ home_district_id: v })}
+                            searchPlaceholder={t('Search districts…')}
+                        />
+                    </FilterPill>
+
+                    {/* Posting district */}
+                    <FilterPill
+                        label={t('Posting district')}
+                        activeLabel={filters.posting_district_id ? (districts.find((d) => String(d.id) === filters.posting_district_id)?.name_hi ?? filters.posting_district_id) : undefined}
+                        onClear={() => applyFilters({ posting_district_id: undefined })}
+                    >
+                        <SearchableOptionList
+                            options={districts.map((d) => ({ value: String(d.id), label: d.name_hi }))}
+                            value={filters.posting_district_id}
+                            onSelect={(v) => applyFilters({ posting_district_id: v })}
                             searchPlaceholder={t('Search districts…')}
                         />
                     </FilterPill>
@@ -578,19 +670,6 @@ next.add(id);
                             options={BLOOD_GROUP_OPTIONS.map((bg) => ({ value: bg, label: bg }))}
                             value={filters.blood_group}
                             onSelect={(v) => applyFilters({ blood_group: v })}
-                        />
-                    </FilterPill>
-
-                    {/* Recruitment type */}
-                    <FilterPill
-                        label={t('Recruitment')}
-                        activeLabel={filters.recruitment_type ? t(filters.recruitment_type) : undefined}
-                        onClear={() => applyFilters({ recruitment_type: undefined })}
-                    >
-                        <OptionList
-                            options={RECRUITMENT_OPTIONS.map((r) => ({ value: r, label: t(r) }))}
-                            value={filters.recruitment_type}
-                            onSelect={(v) => applyFilters({ recruitment_type: v })}
                         />
                     </FilterPill>
 
@@ -682,12 +761,13 @@ next.add(id);
                                         aria-label={t('Select all on page')}
                                     />
                                 </TableHead>
-                                <TableHead>{t('Code')}</TableHead>
+                                <TableHead>{t('Sr no')}</TableHead>
                                 <TableHead>{t('Name (Hindi)')}</TableHead>
                                 <TableHead>{t('PNO')}</TableHead>
+                                <TableHead>{t('Sports')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
-                                <TableHead>{t('Unit')}</TableHead>
+                                <TableHead>{t('Posting district')}</TableHead>
                                 <TableHead>{t('Status')}</TableHead>
                                 <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
                             </TableRow>
@@ -695,14 +775,14 @@ next.add(id);
                         <TableBody>
                             {members.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={10} className="py-12 text-center text-muted-foreground">
                                         {hasAnyFilter
                                             ? t('No members match your filters.')
                                             : t('No members yet.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                members.data.map((member) => (
+                                members.data.map((member, index) => (
                                     <TableRow
                                         key={member.id}
                                         data-selected={selectedIds.has(member.id) || undefined}
@@ -717,20 +797,36 @@ next.add(id);
                                             />
                                         </TableCell>
                                         <TableCell className="font-mono text-xs text-muted-foreground">
-                                            {member.member_code}
+                                            {(members.from ?? 1) + index}
                                         </TableCell>
-                                        <TableCell className="font-medium">{member.full_name_hi}</TableCell>
+                                        <TableCell>
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                {member.rank && (
+                                                    <span className="shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-muted-foreground">
+                                                        {member.rank}
+                                                    </span>
+                                                )}
+                                                <span className="truncate font-medium">{member.full_name_hi}</span>
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {member.pno ?? <span className="select-none text-border">—</span>}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="secondary">{t(member.player_category)}</Badge>
+                                            <SportCell member={member} />
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline">{t(member.player_level)}</Badge>
+                                            <Badge variant="outline" className={CATEGORY_BADGE_CLASS[displayCategory(member.player_category)]}>
+                                                {t(displayCategory(member.player_category))}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className={LEVEL_BADGE_CLASS[member.player_level]}>
+                                                {t(member.player_level)}
+                                            </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {member.current_unit?.name_hi ?? <span className="select-none text-border">—</span>}
+                                            {member.posting_district?.name_hi ?? <span className="select-none text-border">—</span>}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={STATUS_VARIANT[member.current_status] ?? 'outline'}>
@@ -787,9 +883,9 @@ next.add(id);
                                         ['player_level', 'filter[player_level]'],
                                         ['current_unit_id', 'filter[current_unit_id]'],
                                         ['home_district_id', 'filter[home_district_id]'],
+                                        ['posting_district_id', 'filter[posting_district_id]'],
                                         ['gender', 'filter[gender]'],
                                         ['blood_group', 'filter[blood_group]'],
-                                        ['recruitment_type', 'filter[recruitment_type]'],
                                         ['joining_year_from', 'filter[joining_year_from]'],
                                         ['joining_year_to', 'filter[joining_year_to]'],
                                     ];
@@ -946,4 +1042,3 @@ MembersIndex.layout = {
         { title: 'Members', href: MemberController.index.url() },
     ],
 };
-

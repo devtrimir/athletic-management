@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Seeds real UP Police member data from the GD and Skilled player CSV exports.
+ * Seeds real UP Police member data from the GD and sports quota player CSV exports.
  *
  * Sources:
  *   analysis/raw_csv/UP_POLICE_TEAM_PLAYERS_DETAILS_UPDATED/GD_KHILADI.csv
@@ -85,7 +85,7 @@ class MemberSeeder extends Seeder
 
         $sources = [
             ['path' => base_path('analysis/raw_csv/UP_POLICE_TEAM_PLAYERS_DETAILS_UPDATED/GD_KHILADI.csv'), 'category' => 'GD'],
-            ['path' => base_path('analysis/raw_csv/UP_POLICE_TEAM_PLAYERS_DETAILS_UPDATED/KUSHAL_KHILADI.csv'), 'category' => 'SKILLED'],
+            ['path' => base_path('analysis/raw_csv/UP_POLICE_TEAM_PLAYERS_DETAILS_UPDATED/KUSHAL_KHILADI.csv'), 'category' => 'SPORTS_QUOTA'],
         ];
 
         /** @var list<array<string, mixed>> $pending */
@@ -261,6 +261,7 @@ class MemberSeeder extends Seeder
                 'joining_date' => $this->parseDate($joiningRaw),
                 'mobile' => $mobile,
                 'home_district_id' => $this->resolveDistrict($homeDistrict, $districtMap),
+                'posting_district_id' => $this->resolveDistrict($posting, $districtMap),
                 'current_unit_id' => $this->resolveUnit($posting, $unitMap),
                 'player_category' => $category,
                 'player_level' => $this->resolveLevel($levelRaw),

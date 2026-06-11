@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\DB;
 class UnitHeadcountReport
 {
     /**
-     * Return per-unit athlete headcount, pivoted by player_category (GD / SKILLED).
+     * Return per-unit athlete headcount, pivoted by player_category (GD / SPORTS_QUOTA).
      *
      * @param  array{session_id?: int|null, sport_id?: int|null, unit_id?: int|null, tier_id?: int|null}  $filters
-     * @return Collection<int, array{unit: array{id: int, name_hi: string, name_en: string, unit_type: string}, total: int, GD: int, SKILLED: int}>
+     * @return Collection<int, array{unit: array{id: int, name_hi: string, name_en: string, unit_type: string}, total: int, GD: int, SPORTS_QUOTA: int}>
      */
     public function run(int $orgId, array $filters): Collection
     {
@@ -33,7 +33,7 @@ class UnitHeadcountReport
                 'u.unit_type',
                 DB::raw('COUNT(m.id) as total'),
                 DB::raw("SUM(CASE WHEN m.player_category = 'GD'      THEN 1 ELSE 0 END) as GD"),
-                DB::raw("SUM(CASE WHEN m.player_category = 'SKILLED' THEN 1 ELSE 0 END) as SKILLED"),
+                DB::raw("SUM(CASE WHEN m.player_category = 'SPORTS_QUOTA' THEN 1 ELSE 0 END) as SPORTS_QUOTA"),
             ])
             ->where('u.organization_id', $orgId)
             ->when($unitId, fn ($q) => $q->where('u.id', $unitId))
@@ -51,7 +51,7 @@ class UnitHeadcountReport
             ],
             'total' => (int) $row->total,
             'GD' => (int) $row->GD,
-            'SKILLED' => (int) $row->SKILLED,
+            'SPORTS_QUOTA' => (int) $row->SPORTS_QUOTA,
         ]);
     }
 }

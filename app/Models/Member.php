@@ -10,10 +10,12 @@ use App\Observers\AuditObserver;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -33,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $joining_date
  * @property string|null $mobile
  * @property int|null $home_district_id
+ * @property int|null $posting_district_id
  * @property int|null $current_unit_id
  * @property string $player_category
  * @property string $player_level
@@ -54,8 +57,10 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  * @property-read Organization $organization
  * @property-read District|null $homeDistrict
+ * @property-read District|null $postingDistrict
  * @property-read Unit|null $currentUnit
  * @property-read Sport|null $sport
+ * @property-read Collection<int, Sport> $playableSports
  * @property-read Collection<int, MemberLegacyAchievement> $legacyAchievements
  */
 #[Fillable([
@@ -83,6 +88,7 @@ use Illuminate\Support\Carbon;
     'joining_date',
     'mobile',
     'home_district_id',
+    'posting_district_id',
     'current_unit_id',
     'player_category',
     'player_level',
@@ -110,6 +116,14 @@ class Member extends Model
         ];
     }
 
+    /** @return Attribute<string, never> */
+    protected function playerCategory(): Attribute
+    {
+        return Attribute::make(
+            get: fn (string $value): string => $value === 'SKILLED' ? 'SPORTS_QUOTA' : $value,
+        );
+    }
+
     /** @return BelongsTo<Organization, $this> */
     public function organization(): BelongsTo
     {
@@ -122,10 +136,22 @@ class Member extends Model
         return $this->belongsTo(Sport::class);
     }
 
+    /** @return BelongsToMany<Sport, $this> */
+    public function playableSports(): BelongsToMany
+    {
+        return $this->belongsToMany(Sport::class, 'member_sport')->withTimestamps();
+    }
+
     /** @return BelongsTo<District, $this> */
     public function homeDistrict(): BelongsTo
     {
         return $this->belongsTo(District::class, 'home_district_id');
+    }
+
+    /** @return BelongsTo<District, $this> */
+    public function postingDistrict(): BelongsTo
+    {
+        return $this->belongsTo(District::class, 'posting_district_id');
     }
 
     /** @return BelongsTo<Unit, $this> */

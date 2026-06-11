@@ -47,22 +47,22 @@ test('unit with no members returns zeros', function (): void {
     expect($result)->toHaveCount(1);
     expect($result[0]['total'])->toBe(0);
     expect($result[0]['GD'])->toBe(0);
-    expect($result[0]['SKILLED'])->toBe(0);
+    expect($result[0]['SPORTS_QUOTA'])->toBe(0);
 });
 
-test('counts GD and SKILLED members correctly', function (): void {
+test('counts GD and sports quota members correctly', function (): void {
     $org = hcOrg();
     $unit = hcUnit($org);
 
     hcMember($org, $unit, 'GD');
     hcMember($org, $unit, 'GD');
-    hcMember($org, $unit, 'SKILLED');
+    hcMember($org, $unit, 'SPORTS_QUOTA');
 
     $result = app(UnitHeadcountReport::class)->run($org->id, []);
 
     expect($result[0]['total'])->toBe(3);
     expect($result[0]['GD'])->toBe(2);
-    expect($result[0]['SKILLED'])->toBe(1);
+    expect($result[0]['SPORTS_QUOTA'])->toBe(1);
 });
 
 test('excludes non-ACTIVE members from count', function (): void {

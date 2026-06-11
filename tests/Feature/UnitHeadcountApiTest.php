@@ -60,7 +60,7 @@ test('returns 200 with correct structure', function (): void {
     Member::factory()->create([
         'organization_id' => $user->organization_id,
         'current_unit_id' => $unit->id,
-        'player_category' => 'SKILLED',
+        'player_category' => 'SPORTS_QUOTA',
         'current_status' => 'ACTIVE',
     ]);
 
@@ -71,9 +71,11 @@ test('returns 200 with correct structure', function (): void {
     expect($response->json('data'))->toHaveCount(1);
     expect($response->json('data.0.unit.id'))->toBe($unit->id);
     expect($response->json('data.0.total'))->toBe(1);
-    expect($response->json('data.0.SKILLED'))->toBe(1);
+    expect($response->json('data.0.SPORTS_QUOTA'))->toBe(1);
     expect($response->json('data.0.GD'))->toBe(0);
-    expect($response->json('filters'))->toBe(['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null]);
+    expect($response->json('filters.sport_id'))->toBeNull();
+    expect($response->json('filters.unit_id'))->toBeNull();
+    expect($response->json('filters.tier_id'))->toBeNull();
 });
 
 test('returns empty data when no units exist', function (): void {

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Requests\Members\StoreMemberRequest;
+use App\Models\District;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\User;
@@ -57,7 +58,7 @@ test('gender must be in M F O', function () {
         ->and($result->errors()->has('gender'))->toBeTrue();
 });
 
-test('player_category must be in GD SKILLED', function () {
+test('player_category must be in GD sports quota', function () {
     $rules = memberRules($this->user);
     $result = Validator::make([...validMemberPayload(), 'player_category' => 'INVALID'], $rules);
 
@@ -76,6 +77,22 @@ test('player_level must be in ZONAL NATIONAL INTERNATIONAL AIPSC', function () {
 test('pno null passes', function () {
     $rules = memberRules($this->user);
     $result = Validator::make([...validMemberPayload(), 'pno' => null], $rules);
+
+    expect($result->passes())->toBeTrue();
+});
+
+test('posting_district_id must exist', function () {
+    $rules = memberRules($this->user);
+    $result = Validator::make([...validMemberPayload(), 'posting_district_id' => 99999], $rules);
+
+    expect($result->fails())->toBeTrue()
+        ->and($result->errors()->has('posting_district_id'))->toBeTrue();
+});
+
+test('posting_district_id accepts existing district', function () {
+    $district = District::factory()->create();
+    $rules = memberRules($this->user);
+    $result = Validator::make([...validMemberPayload(), 'posting_district_id' => $district->id], $rules);
 
     expect($result->passes())->toBeTrue();
 });

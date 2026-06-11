@@ -145,7 +145,6 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     ${row(t('Current unit'), m.current_unit?.name_hi)}
     ${row(t('Joining date'), m.joining_date)}
     ${row(t('Promotion date'), m.promotion_date)}
-    ${row(t('Recruitment type'), m.recruitment_type ? t(m.recruitment_type) : null)}
     ${row(t('Appointment'), m.appointment)}
     ${row(t('Sport'), m.sport?.name_hi)}
     ${row(t('Sport event'), m.sport_event)}
@@ -278,7 +277,6 @@ return;
                                         <InfoRow label={t('Current unit')} value={data.member.current_unit?.name_hi} />
                                         <InfoRow label={t('Joining date')} value={data.member.joining_date} />
                                         <InfoRow label={t('Promotion date')} value={data.member.promotion_date} />
-                                        <InfoRow label={t('Recruitment type')} value={data.member.recruitment_type ? t(data.member.recruitment_type) : null} />
                                         <InfoRow label={t('Appointment')} value={data.member.appointment} />
                                         <InfoRow label={t('Sport')} value={data.member.sport?.name_hi} />
                                         <InfoRow label={t('Sport event')} value={data.member.sport_event} />

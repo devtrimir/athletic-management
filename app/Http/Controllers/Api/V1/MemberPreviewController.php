@@ -19,6 +19,7 @@ class MemberPreviewController extends Controller
 
         $member->loadMissing([
             'homeDistrict',
+            'postingDistrict',
             'currentUnit',
             'sport',
             'statusHistory',
@@ -61,6 +62,7 @@ class MemberPreviewController extends Controller
             'sport_event' => $member->sport_event,
             'team_since' => $member->team_since?->toDateString(),
             'home_district' => $member->homeDistrict ? ['name_hi' => $member->homeDistrict->name_hi] : null,
+            'posting_district' => $member->postingDistrict ? ['name_hi' => $member->postingDistrict->name_hi] : null,
             'current_unit' => $member->currentUnit ? ['name_hi' => $member->currentUnit->name_hi] : null,
             'sport' => $member->sport ? ['name_hi' => $member->sport->name_hi] : null,
             'status_history' => $member->statusHistory->map(fn ($h) => [
