@@ -1,7 +1,35 @@
 <?php
 
+use App\Models\Permission;
 use App\Models\Member;
+use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
+function dashboardUser(Organization $org): User
+{
+    $user = User::factory()->create(['organization_id' => $org->id]);
+    $role = Role::factory()->create(['organization_id' => $org->id]);
+
+    DB::table('user_role')->insert([
+        'user_id' => $user->id,
+        'role_id' => $role->id,
+        'organization_id' => $org->id,
+    ]);
+
+    $perm = Permission::firstOrCreate(
+        ['code' => 'members.view'],
+        ['group' => 'members', 'name_hi' => 'members.view', 'name_en' => 'members.view'],
+    );
+
+    DB::table('role_permission')->insert([
+        'role_id' => $role->id,
+        'permission_id' => $perm->id,
+    ]);
+
+    return $user;
+}
 
 test('guests are redirected to the login page', function () {
     $response = $this->get(route('dashboard'));
@@ -17,13 +45,14 @@ test('authenticated users can visit the dashboard', function () {
 });
 
 test('dashboard shows active member data only', function () {
-    $user = User::factory()->create();
+    $org = Organization::factory()->create();
+    $user = dashboardUser($org);
     Member::factory()->create([
-        'organization_id' => $user->organization_id,
+        'organization_id' => $org->id,
         'current_status' => 'ACTIVE',
     ]);
     Member::factory()->create([
-        'organization_id' => $user->organization_id,
+        'organization_id' => $org->id,
         'current_status' => 'RETIRED',
     ]);
 
