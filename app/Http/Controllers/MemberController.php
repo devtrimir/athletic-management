@@ -141,81 +141,14 @@ class MemberController extends Controller
     {
         Gate::authorize('view', $member);
 
-        return Inertia::render('members/show', [
-            'member' => (new MemberResource($member->load(['homeDistrict', 'postingDistrict', 'currentUnit', 'sport', 'playableSports'])))->resolve(),
-            'statusHistory' => Inertia::defer(fn () => MemberStatusHistoryResource::collection(
-                $member->statusHistory()->with('recorder')->get()
-            )->resolve()),
-            'aliases' => Inertia::defer(fn () => NameAliasResource::collection(
-                $member->aliases()->get()
-            )->resolve()),
-            'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
-                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi,name_en', 'session:id,name'])
-                ->orderByDesc('id')
-                ->get()
-                ->map(fn ($tm) => [
-                    'id' => $tm->id,
-                    'role' => $tm->role,
-                    'joined_on' => $tm->joined_on?->toDateString(),
-                    'left_on' => $tm->left_on?->toDateString(),
-                    'team' => $tm->team ? ['id' => $tm->team->id, 'name_hi' => $tm->team->name_hi] : null,
-                    'sport' => $tm->team?->sport ? ['id' => $tm->team->sport->id, 'name' => $tm->team->sport->name] : null,
-                    'session' => $tm->session ? ['id' => $tm->session->id, 'name' => $tm->session->name] : null,
-                ])),
-            'legacyAchievements' => Inertia::defer(fn () => $member->legacyAchievements()
-                ->with('benefits')
-                ->orderBy('period')
-                ->orderBy('sort_order')
-                ->orderBy('event_date')
-                ->get()
-                ->map(fn ($la) => [
-                    'id' => $la->id,
-                    'period' => $la->period,
-                    'level' => $la->level,
-                    'competition_details' => $la->competition_details,
-                    'event_date' => $la->event_date?->toDateString(),
-                    'venue' => $la->venue,
-                    'sport_discipline' => $la->sport_discipline,
-                    'event' => $la->event,
-                    'medal_type' => $la->medal_type,
-                    'sort_order' => $la->sort_order,
-                    'benefits' => $la->benefits->map(fn ($b) => [
-                        'id' => $b->id,
-                        'benefit_type' => $b->benefit_type,
-                        'promoted_from_rank' => $b->promoted_from_rank,
-                        'promoted_to_rank' => $b->promoted_to_rank,
-                        'cash_amount' => $b->cash_amount,
-                        'benefit_date' => $b->benefit_date?->toDateString(),
-                        'order_reference' => $b->order_reference,
-                        'remarks' => $b->remarks,
-                    ])->all(),
-                ])->all()),
-            'promotions' => Inertia::defer(fn () => MemberPromotion::where('member_id', $member->id)
-                ->with(['evidences', 'recorder'])
-                ->orderByDesc('promotion_date')
-                ->orderByDesc('id')
-                ->get()
-                ->map(fn ($promotion) => [
-                    'id' => $promotion->id,
-                    'promotion_date' => $promotion->promotion_date?->toDateString(),
-                    'from_rank' => $promotion->from_rank,
-                    'to_rank' => $promotion->to_rank,
-                    'cash_reward_amount' => $promotion->cash_reward_amount,
-                    'cash_reward_date' => $promotion->cash_reward_date?->toDateString(),
-                    'cash_reward_reference' => $promotion->cash_reward_reference,
-                    'cash_reward_remarks' => $promotion->cash_reward_remarks,
-                    'reason' => $promotion->reason,
-                    'remarks' => $promotion->remarks,
-                    'recorded_by_name' => $promotion->recorder?->name,
-                    'evidences' => $promotion->evidences->map(fn ($evidence) => [
-                        'id' => $evidence->id,
-                        'type' => $evidence->evidencable_type,
-                        'evidence_id' => $evidence->evidencable_id,
-                    ])->all(),
-                ])->all()),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name_hi', 'name_en', 'short_name']),
-            'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forMember($member)),
-        ]);
+        return Inertia::render('members/show', $this->memberViewProps($member, $auditLogBuilder));
+    }
+
+    public function preview(Member $member, AuditLogBuilder $auditLogBuilder): Response
+    {
+        Gate::authorize('view', $member);
+
+        return Inertia::render('members/print-preview', $this->memberViewProps($member, $auditLogBuilder));
     }
 
     public function edit(Member $member): Response
@@ -317,5 +250,87 @@ class MemberController extends Controller
                 ],
             ]);
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function memberViewProps(Member $member, AuditLogBuilder $auditLogBuilder): array
+    {
+        return [
+            'member' => (new MemberResource($member->load(['homeDistrict', 'postingDistrict', 'currentUnit', 'sport', 'playableSports'])))->resolve(),
+            'statusHistory' => Inertia::defer(fn () => MemberStatusHistoryResource::collection(
+                $member->statusHistory()->with('recorder')->get()
+            )->resolve()),
+            'aliases' => Inertia::defer(fn () => NameAliasResource::collection(
+                $member->aliases()->get()
+            )->resolve()),
+            'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
+                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi,name_en', 'session:id,name'])
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn ($tm) => [
+                    'id' => $tm->id,
+                    'role' => $tm->role,
+                    'joined_on' => $tm->joined_on?->toDateString(),
+                    'left_on' => $tm->left_on?->toDateString(),
+                    'team' => $tm->team ? ['id' => $tm->team->id, 'name_hi' => $tm->team->name_hi] : null,
+                    'sport' => $tm->team?->sport ? ['id' => $tm->team->sport->id, 'name' => $tm->team->sport->name] : null,
+                    'session' => $tm->session ? ['id' => $tm->session->id, 'name' => $tm->session->name] : null,
+                ])),
+            'legacyAchievements' => Inertia::defer(fn () => $member->legacyAchievements()
+                ->with('benefits')
+                ->orderBy('period')
+                ->orderBy('sort_order')
+                ->orderBy('event_date')
+                ->get()
+                ->map(fn ($la) => [
+                    'id' => $la->id,
+                    'period' => $la->period,
+                    'level' => $la->level,
+                    'competition_details' => $la->competition_details,
+                    'event_date' => $la->event_date?->toDateString(),
+                    'venue' => $la->venue,
+                    'sport_discipline' => $la->sport_discipline,
+                    'event' => $la->event,
+                    'medal_type' => $la->medal_type,
+                    'sort_order' => $la->sort_order,
+                    'benefits' => $la->benefits->map(fn ($b) => [
+                        'id' => $b->id,
+                        'benefit_type' => $b->benefit_type,
+                        'promoted_from_rank' => $b->promoted_from_rank,
+                        'promoted_to_rank' => $b->promoted_to_rank,
+                        'cash_amount' => $b->cash_amount,
+                        'benefit_date' => $b->benefit_date?->toDateString(),
+                        'order_reference' => $b->order_reference,
+                        'remarks' => $b->remarks,
+                    ])->all(),
+                ])->all()),
+            'promotions' => Inertia::defer(fn () => MemberPromotion::where('member_id', $member->id)
+                ->with(['evidences', 'recorder'])
+                ->orderByDesc('promotion_date')
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn ($promotion) => [
+                    'id' => $promotion->id,
+                    'promotion_date' => $promotion->promotion_date?->toDateString(),
+                    'from_rank' => $promotion->from_rank,
+                    'to_rank' => $promotion->to_rank,
+                    'cash_reward_amount' => $promotion->cash_reward_amount,
+                    'cash_reward_date' => $promotion->cash_reward_date?->toDateString(),
+                    'cash_reward_reference' => $promotion->cash_reward_reference,
+                    'cash_reward_remarks' => $promotion->cash_reward_remarks,
+                    'reason' => $promotion->reason,
+                    'remarks' => $promotion->remarks,
+                    'recorded_by_name' => $promotion->recorder?->name,
+                    'evidences' => $promotion->evidences->map(fn ($evidence) => [
+                        'id' => $evidence->id,
+                        'type' => $evidence->evidencable_type,
+                        'evidence_id' => $evidence->evidencable_id,
+                    ])->all(),
+                ])->all()),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name_hi', 'name_en', 'short_name']),
+            'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forMember($member)),
+        ];
     }
 }

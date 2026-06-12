@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Models\Achievement;
 use App\Models\AuditLog;
+use App\Models\Event;
 use App\Models\Member;
 use App\Models\MemberPromotion;
 use App\Models\Organization;
+use App\Models\Participation;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -62,6 +66,18 @@ test('member audit log endpoint includes promotion money and promotion evidence 
         'to_rank' => 'CONSTABLE',
         'cash_reward_amount' => '1000.00',
     ]);
+    $tournament = Tournament::factory()
+        ->forOrganization($member->organization)
+        ->create(['name_hi' => 'State Police Games']);
+    $event = Event::factory()
+        ->forTournament($tournament)
+        ->create(['name_hi' => '100m Sprint']);
+    $participation = Participation::factory()
+        ->forEvent($event)
+        ->create(['member_id' => $member->id, 'position' => 1]);
+    $achievement = Achievement::factory()
+        ->forParticipation($participation)
+        ->create(['medal_type' => 'GOLD']);
 
     AuditLog::create([
         'user_id' => $user->id,
@@ -83,8 +99,8 @@ test('member audit log endpoint includes promotion money and promotion evidence 
         'action' => 'created',
         'diff' => [
             'member_promotion_id' => $promotion->id,
-            'evidencable_type' => 'participation',
-            'evidencable_id' => 123,
+            'evidencable_type' => 'achievement',
+            'evidencable_id' => $achievement->id,
         ],
     ]);
 
@@ -96,4 +112,13 @@ test('member audit log endpoint includes promotion money and promotion evidence 
 
     expect($entries->contains(fn (array $entry) => $entry['subject'] === 'Promotion' && collect($entry['changes'])->contains(fn (array $change) => $change['field'] === 'Cash reward amount' && $change['new'] === '7500.00')))->toBeTrue();
     expect($entries->contains(fn (array $entry) => $entry['subject'] === 'Promotion evidence'))->toBeTrue();
+
+    $evidenceEntry = $entries->firstWhere('subject', 'Promotion evidence');
+    $evidenceChange = collect($evidenceEntry['changes'])->firstWhere('field', 'Evidence');
+
+    expect($evidenceChange['new'])
+        ->toContain('GOLD')
+        ->toContain('100m Sprint')
+        ->toContain('State Police Games')
+        ->not->toBe((string) $achievement->id);
 });

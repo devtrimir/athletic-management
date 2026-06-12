@@ -10,6 +10,7 @@ use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\District;
 use App\Models\Member;
+use App\Models\MemberLegacyAchievement;
 use App\Models\MemberPromotion;
 use App\Models\Participation;
 use App\Models\PromotionEvidence;
@@ -126,6 +127,63 @@ class AuditLogBuilder
         $participationLabelMap = $participations->mapWithKeys(fn (Participation $p) => [
             $p->id => $p->event->name_hi.' · '.$p->event->tournament?->name_hi,
         ]);
+        $achievementLabelMap = $achievementIds->isNotEmpty()
+            ? Achievement::whereIn('id', $achievementIds)
+                ->with(['participation.event.tournament'])
+                ->get()
+                ->mapWithKeys(fn (Achievement $achievement) => [
+                    $achievement->id => collect([
+                        $achievement->medal_type,
+                        $achievement->participation?->event?->name_hi,
+                        $achievement->participation?->event?->tournament?->name_hi,
+                        $achievement->position ? '#'.$achievement->position : null,
+                    ])->filter()->join(' · '),
+                ])
+            : collect();
+        $legacyAchievementLabelMap = $legacyAchIds->isNotEmpty()
+            ? MemberLegacyAchievement::whereIn('id', $legacyAchIds)
+                ->get()
+                ->mapWithKeys(fn (MemberLegacyAchievement $achievement) => [
+                    $achievement->id => collect([
+                        $achievement->period,
+                        $achievement->level,
+                        $achievement->competition_details,
+                        $achievement->event,
+                        $achievement->medal_type,
+                    ])->filter()->join(' · '),
+                ])
+            : collect();
+
+        $normaliseEvidenceType = fn (?string $type): ?string => match ($type) {
+            'participation', Participation::class => 'participation',
+            'achievement', Achievement::class => 'achievement',
+            'member_legacy_achievement', MemberLegacyAchievement::class => 'member_legacy_achievement',
+            default => $type,
+        };
+        $evidenceTypeLabel = fn (mixed $value): string => match ($normaliseEvidenceType(is_string($value) ? $value : null)) {
+            'participation' => 'Tournament participation',
+            'achievement' => 'Achievement',
+            'member_legacy_achievement' => 'Legacy achievement',
+            default => is_string($value) ? class_basename($value) : (string) $value,
+        };
+        $resolveEvidenceLabel = function (mixed $value, array $diff = []) use (
+            $normaliseEvidenceType,
+            $participationLabelMap,
+            $achievementLabelMap,
+            $legacyAchievementLabelMap,
+        ): string {
+            $type = $diff['evidencable_type']
+                ?? $diff['new']['evidencable_type']
+                ?? $diff['old']['evidencable_type']
+                ?? null;
+
+            return match ($normaliseEvidenceType(is_string($type) ? $type : null)) {
+                'participation' => $participationLabelMap->get((int) $value) ?? 'Tournament participation record',
+                'achievement' => $achievementLabelMap->get((int) $value) ?? 'Achievement record',
+                'member_legacy_achievement' => $legacyAchievementLabelMap->get((int) $value) ?? 'Legacy achievement record',
+                default => (string) $value,
+            };
+        };
 
         $subjectMap = [
             'Member' => 'Member',
@@ -245,9 +303,10 @@ class AuditLogBuilder
             'MemberSport' => ['id', 'member_id'],
         ];
 
-        $resolve = function (string $entity, string $field, mixed $value) use (
+        $resolve = function (string $entity, string $field, mixed $value, array $diff = []) use (
             $sportMap, $unitMap, $districtMap, $userMap,
-            $teamMap, $sessionMap, $eventLabelMap, $participationLabelMap
+            $teamMap, $sessionMap, $eventLabelMap, $participationLabelMap,
+            $evidenceTypeLabel, $resolveEvidenceLabel,
         ): ?string {
             if ($value === null) {
                 return null;
@@ -265,6 +324,8 @@ class AuditLogBuilder
                 $field === 'recorded_by' => $userMap->get((int) $value) ?? (string) $value,
                 $field === 'event_id' => $eventLabelMap->get((int) $value) ?? (string) $value,
                 $field === 'participation_id' => $participationLabelMap->get((int) $value) ?? (string) $value,
+                $entity === 'PromotionEvidence' && $field === 'evidencable_type' => $evidenceTypeLabel($value),
+                $entity === 'PromotionEvidence' && $field === 'evidencable_id' => $resolveEvidenceLabel($value, $diff),
                 is_array($value) || is_object($value) => json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[complex value]',
                 default => (string) $value,
             };
@@ -364,7 +425,7 @@ class AuditLogBuilder
             'CoachAssignment' => ['id', 'team_id'],
         ];
 
-        $resolve = function (string $entity, string $field, mixed $value) use (
+        $resolve = function (string $entity, string $field, mixed $value, array $diff = []) use (
             $sportMap, $unitMap, $sessionMap, $memberMap, $coachMap
         ): ?string {
             if ($value === null) {
@@ -446,7 +507,7 @@ class AuditLogBuilder
             'CoachAssignment' => ['id', 'coach_id'],
         ];
 
-        $resolve = function (string $entity, string $field, mixed $value) use (
+        $resolve = function (string $entity, string $field, mixed $value, array $diff = []) use (
             $sessionMap, $teamMap, $memberMap
         ): ?string {
             if ($value === null) {
@@ -471,7 +532,7 @@ class AuditLogBuilder
      * @param  array<string, string>  $subjectMap
      * @param  array<string, array<string, string>>  $fieldLabelMap
      * @param  array<string, list<string>>  $hiddenFields
-     * @param  callable(string, string, mixed): ?string  $resolve
+     * @param  callable(string, string, mixed, array<string, mixed>): ?string  $resolve
      * @param  Collection<int, string>  $userMap
      * @return array<int, array{id: int, action: string, subject: string, at: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
      */
@@ -498,8 +559,8 @@ class AuditLogBuilder
                     $oldVal = $diff['old'][$field] ?? null;
                     $changes[] = [
                         'field' => $labels[$field] ?? $field,
-                        'old' => $resolve($entity, $field, $oldVal),
-                        'new' => $resolve($entity, $field, $newVal),
+                        'old' => $resolve($entity, $field, $oldVal, $diff),
+                        'new' => $resolve($entity, $field, $newVal, $diff),
                     ];
                 }
             } else {
@@ -508,7 +569,7 @@ class AuditLogBuilder
                     if (in_array($field, $hidden, true) || $value === null || $value === '') {
                         continue;
                     }
-                    $resolved = $resolve($entity, $field, $value);
+                    $resolved = $resolve($entity, $field, $value, $diff);
                     $changes[] = [
                         'field' => $labels[$field] ?? $field,
                         'old' => $isDeleted ? $resolved : null,

@@ -15,6 +15,7 @@ import { show as showEvent } from '@/actions/App/Http/Controllers/EventControlle
 import {
     edit as editMember,
     index as membersIndex,
+    preview as previewMember,
 } from '@/actions/App/Http/Controllers/MemberController';
 import { show as exportMember } from '@/actions/App/Http/Controllers/MemberExportController';
 import {
@@ -749,6 +750,12 @@ export default function MembersShow({
                                 <Button variant="outline" size="sm" asChild>
                                     <Link href={editMember.url(member)}>
                                         {t('Edit')}
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={previewMember.url(member)}>
+                                        <Printer className="mr-1.5 h-4 w-4" />
+                                        {t('Print preview')}
                                     </Link>
                                 </Button>
                             </div>

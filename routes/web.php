@@ -36,6 +36,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('members/export', [MemberExportController::class, 'index'])->name('members.export');
     Route::resource('members', MemberController::class);
+    Route::get('members/{member}/preview', [MemberController::class, 'preview'])->name('members.preview');
     Route::get('members/{member}/export', [MemberExportController::class, 'show'])->name('members.export.show');
     Route::get('coaches/export', [CoachExportController::class, 'index'])->name('coaches.export');
     Route::resource('coaches', CoachController::class);

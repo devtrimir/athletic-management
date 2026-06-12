@@ -351,6 +351,37 @@ test('show returns member data', function () {
         );
 });
 
+test('preview returns member print preview page', function () {
+    $user = memberUser('members.view');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'photo_path' => 'members/test-photo.jpg',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.preview', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/print-preview')
+            ->has('member')
+            ->where('member.photo_path', 'members/test-photo.jpg')
+            ->missing('auditLog')
+        );
+});
+
+test('preview keeps timeline entries without user attribution in the preview payload', function () {
+    $user = memberUser('members.view');
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->get(route('members.preview', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/print-preview')
+            ->missing('auditLog.0.by')
+        );
+});
+
 test('show returns 404 for member in other org', function () {
     $user = memberUser('members.view');
     $otherOrg = Organization::factory()->create();
