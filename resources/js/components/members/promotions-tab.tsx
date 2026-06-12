@@ -1188,13 +1188,7 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
                 return (
                     <span className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium leading-4 ${medal.className}`}>
                         {medal.icon}
-                        <span className="truncate">
-                            {medal.label}
-                            {' '}
-                            {item.tournament.name_hi}
-                            {' · '}
-                            {item.event.name_hi}
-                        </span>
+                        <span className="truncate">{medal.label} {item.tournament.name_hi} · {item.event.name_hi}</span>
                     </span>
                 );
             }

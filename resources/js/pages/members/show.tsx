@@ -323,7 +323,7 @@ export default function MembersShow({
             });
         }
 
-        if (activeTab === 'events' && !achievementsFetched.current) {
+        if ((activeTab === 'events' || activeTab === 'promotions') && !achievementsFetched.current) {
             achievementsFetched.current = true;
             getAchievements(MemberAchievementsController.url(memberId), {
                 onSuccess: (res) => {
@@ -348,7 +348,7 @@ export default function MembersShow({
             });
         }
 
-        if (activeTab === 'events' && !promotionsFetched.current) {
+        if ((activeTab === 'events' || activeTab === 'promotions') && !promotionsFetched.current) {
             promotionsFetched.current = true;
             router.reload({
                 only: ['promotions'],
@@ -673,8 +673,8 @@ export default function MembersShow({
             <Head title={member.full_name_hi} />
 
             <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                    <div className="flex min-w-0 items-start gap-4">
+                <div className="flex flex-wrap items-start gap-4">
+                    <div className="flex min-w-0 flex-1 items-start gap-4">
                         {/* Photo */}
                         <div className="shrink-0">
                             {member.photo_path ? (

@@ -1,4 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
+import { cn } from '@/lib/utils';
 import { update } from '@/routes/locale';
 
 type Locale = 'hi' | 'en';
@@ -8,7 +9,11 @@ const LOCALES: { value: Locale; label: string }[] = [
     { value: 'en', label: 'English' },
 ];
 
-export function LocaleSwitcher() {
+type Props = {
+    className?: string;
+};
+
+export function LocaleSwitcher({ className }: Props) {
     const { locale } = usePage().props;
 
     const handleSwitch = (next: Locale) => {
@@ -20,7 +25,7 @@ export function LocaleSwitcher() {
     };
 
     return (
-        <div className="flex items-center gap-1 rounded-md border px-1 py-0.5">
+        <div className={cn('flex items-center gap-1 rounded-md border px-1 py-0.5', className)}>
             {LOCALES.map(({ value, label }) => (
                 <button
                     key={value}

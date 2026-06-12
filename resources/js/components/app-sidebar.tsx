@@ -8,6 +8,7 @@ import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavReports } from '@/components/nav-reports';
 import { NavUser } from '@/components/nav-user';
+import { LocaleSwitcher } from '@/components/locale-switcher';
 import {
     Sidebar,
     SidebarContent,
@@ -16,6 +17,7 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useTranslation } from '@/hooks/use-translation';
 import { dashboard } from '@/routes';
@@ -40,8 +42,8 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
-                <SidebarMenu>
+            <SidebarHeader className="flex-row items-center justify-between gap-2">
+                <SidebarMenu className="flex-1">
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
                             <Link href={dashboard()} prefetch>
@@ -50,6 +52,7 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
+                <SidebarTrigger className="shrink-0" />
             </SidebarHeader>
 
             <SidebarContent>
@@ -59,6 +62,15 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
+                <div
+                    className="flex items-center justify-between gap-3 px-2 pb-2"
+                    data-test="sidebar-locale-switcher"
+                >
+                    <span className="text-xs font-medium uppercase tracking-wide text-sidebar-foreground/60">
+                        Language
+                    </span>
+                    <LocaleSwitcher className="border-sidebar-border bg-sidebar-accent/30" />
+                </div>
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
