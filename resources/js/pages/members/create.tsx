@@ -5,7 +5,6 @@ import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
-import { SportsMultiSelect } from '@/components/sports-multi-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,8 +41,7 @@ type FormData = {
     home_address: string;
     recruitment_type: string;
     sport_event: string;
-    sport_id: string;
-    playable_sport_ids: string[];
+    playable_sports: { sport_id: string; role: string; sport_event: string; notes: string }[];
     other_notes: string;
     team_since: string;
 };
@@ -85,8 +83,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
         appointment: '',
         home_address: '',
         recruitment_type: '',
-        sport_id: '',
-        playable_sport_ids: [],
+        playable_sports: [{ sport_id: '', role: '', sport_event: '', notes: '' }],
         sport_event: '',
         other_notes: '',
         team_since: '',
@@ -107,8 +104,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
         errors.home_district_id || errors.posting_district_id || errors.appointment || errors.promotion_date
     );
     const hasSportsErrors = !!(
-        errors.player_category || errors.player_level || errors.sport_id || errors.sport_event ||
-        errors.playable_sport_ids || errors.team_since || errors.other_notes
+        errors.player_category || errors.player_level || errors.sport_event || errors.team_since || errors.other_notes
     );
 
     function masterLabel(item: MasterOption): string {
@@ -412,7 +408,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
                                             <InputError message={errors.current_unit_id} />
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label htmlFor="posting_district_id">{t('Posting district')}</Label>
+                                            <Label htmlFor="posting_district_id">{t('Posting unit / district')}</Label>
                                             <Combobox
                                                 id="posting_district_id"
                                                 value={data.posting_district_id}
@@ -475,50 +471,38 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
                                         </div>
                                     </div>
 
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="sport_id">{t('Primary sport')}</Label>
-                                            <Select
-                                                value={data.sport_id}
-                                                onValueChange={(v) => setData('sport_id', v === '__clear__' ? '' : v)}
-                                            >
-                                                <SelectTrigger id="sport_id" className="w-full">
-                                                    <SelectValue placeholder={t('Select sport')} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="__clear__">{t('None')}</SelectItem>
-                                                    {sports.map((s) => (
-                                                        <SelectItem key={s.id} value={String(s.id)}>
-                                                            {locale === 'en' ? s.name_en : s.name_hi}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError message={errors.sport_id} />
+                                    <div className="grid gap-3">
+                                        <div className="flex items-center justify-between">
+                                            <Label>{t('Sports')}</Label>
+                                            <Button type="button" variant="outline" size="sm" onClick={() => setData('playable_sports', [...data.playable_sports, { sport_id: '', role: '', sport_event: '', notes: '' }])}>
+                                                {t('Add sport')}
+                                            </Button>
                                         </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="sport_event">{t('Sport event')}</Label>
-                                            <Input
-                                                id="sport_event"
-                                                value={data.sport_event}
-                                                onChange={(e) => setData('sport_event', e.target.value)}
-                                                maxLength={100}
-                                            />
-                                            <InputError message={errors.sport_event} />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="playable_sport_ids">{t('Other playable sports')}</Label>
-                                        <SportsMultiSelect
-                                            id="playable_sport_ids"
-                                            value={data.playable_sport_ids}
-                                            onValueChange={(value) => setData('playable_sport_ids', value)}
-                                            sports={sports}
-                                            locale={locale}
-                                            placeholder={t('Select additional sports')}
-                                        />
-                                        <InputError message={errors.playable_sport_ids} />
+                                        {data.playable_sports.map((row, index) => (
+                                            <div key={index} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2">
+                                                <div className="grid gap-2">
+                                                    <Label>{t('Sport')}</Label>
+                                                    <Select value={row.sport_id} onValueChange={(v) => setData('playable_sports', data.playable_sports.map((item, i) => i === index ? { ...item, sport_id: v } : item))}>
+                                                        <SelectTrigger className="w-full"><SelectValue placeholder={t('Select sport')} /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {sports.map((s) => <SelectItem key={s.id} value={String(s.id)}>{locale === 'en' ? s.name_en : s.name_hi}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="grid gap-2">
+                                                    <Label>{t('Role / position')}</Label>
+                                                    <Input value={row.role} onChange={(e) => setData('playable_sports', data.playable_sports.map((item, i) => i === index ? { ...item, role: e.target.value } : item))} />
+                                                </div>
+                                                <div className="grid gap-2">
+                                                    <Label>{t('Sport event')}</Label>
+                                                    <Input value={row.sport_event} onChange={(e) => setData('playable_sports', data.playable_sports.map((item, i) => i === index ? { ...item, sport_event: e.target.value } : item))} />
+                                                </div>
+                                                <div className="grid gap-2">
+                                                    <Label>{t('Notes')}</Label>
+                                                    <Textarea rows={2} value={row.notes} onChange={(e) => setData('playable_sports', data.playable_sports.map((item, i) => i === index ? { ...item, notes: e.target.value } : item))} />
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
 
                                     <div className="grid gap-5 sm:grid-cols-2">

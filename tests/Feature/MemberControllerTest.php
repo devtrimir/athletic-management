@@ -2,13 +2,17 @@
 
 declare(strict_types=1);
 
+use App\Models\Achievement;
 use App\Models\AuditLog;
 use App\Models\District;
+use App\Models\Event;
 use App\Models\Member;
 use App\Models\Organization;
+use App\Models\Participation;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sport;
+use App\Models\Tournament;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -171,6 +175,30 @@ test('index includes posting district independently from current unit district',
         );
 });
 
+test('index exposes current unit when posting district is missing', function () {
+    $user = memberUser('members.view');
+    $unitDistrict = District::factory()->create();
+    $unit = Unit::factory()->create([
+        'organization_id' => $user->organization_id,
+        'district_id' => $unitDistrict->id,
+    ]);
+
+    Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'current_unit_id' => $unit->id,
+        'posting_district_id' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('members.data.0.current_unit.name_hi', $unit->name_hi)
+            ->where('members.data.0.posting_district', null)
+        );
+});
+
 test('index includes primary and playable sports', function () {
     $user = memberUser('members.view');
     $primarySport = Sport::factory()->create(['organization_id' => $user->organization_id]);
@@ -179,7 +207,13 @@ test('index includes primary and playable sports', function () {
         'organization_id' => $user->organization_id,
         'sport_id' => $primarySport->id,
     ]);
-    $member->playableSports()->sync([$playableSport->id]);
+    $member->playableSports()->sync([
+        $playableSport->id => [
+            'role' => 'Batsman',
+            'sport_event' => 'Cricket',
+            'notes' => 'Top order',
+        ],
+    ]);
 
     $this->actingAs($user)
         ->get(route('members.index'))
@@ -188,7 +222,32 @@ test('index includes primary and playable sports', function () {
             ->component('members/index')
             ->where('members.data.0.sport.id', $primarySport->id)
             ->where('members.data.0.playable_sports.0.id', $playableSport->id)
+            ->where('members.data.0.playable_sports.0.pivot.role', 'Batsman')
+            ->where('members.data.0.playable_sports.0.pivot.sport_event', 'Cricket')
+            ->where('members.data.0.playable_sports.0.pivot.notes', 'Top order')
         );
+});
+
+test('member export uses posting district fallback from current unit', function () {
+    $user = memberUser('members.view');
+    $unitDistrict = District::factory()->create();
+    $postingDistrict = District::factory()->create();
+    $unit = Unit::factory()->create([
+        'organization_id' => $user->organization_id,
+        'district_id' => $unitDistrict->id,
+    ]);
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'current_unit_id' => $unit->id,
+        'posting_district_id' => $postingDistrict->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.export.show', $member, [
+            'columns' => ['unit', 'posting_district', 'promotion_date'],
+        ]))
+        ->assertOk()
+        ->assertHeader('content-disposition');
 });
 
 test('index filters by rank', function () {
@@ -318,8 +377,10 @@ test('store creates member and redirects to show', function () {
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
             'posting_district_id' => $postingDistrict->id,
-            'sport_id' => $primarySport->id,
-            'playable_sport_ids' => [$primarySport->id, $otherSport->id],
+            'playable_sports' => [
+                ['sport_id' => $primarySport->id, 'role' => 'Batsman', 'position' => '3', 'sport_event' => 'Cricket', 'notes' => ''],
+                ['sport_id' => $otherSport->id, 'role' => 'Bowler', 'position' => '1', 'sport_event' => 'Baseball', 'notes' => ''],
+            ],
         ]);
 
     $member = Member::withoutGlobalScopes()->latest()->first();
@@ -330,7 +391,33 @@ test('store creates member and redirects to show', function () {
 
     $response->assertRedirect(route('members.show', $member));
 
-    expect(AuditLog::where('entity', 'MemberSport')->where('entity_id', $member->id)->where('action', 'created')->count())->toBe(1);
+    expect(AuditLog::where('entity', 'MemberSport')->where('entity_id', $member->id)->where('action', 'created')->count())->toBe(2);
+});
+
+test('store backfills sport event into playable sports when row event is empty', function () {
+    $user = memberUser('members.create');
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->post(route('members.store'), [
+            'full_name_hi' => 'राम कुमार',
+            'gender' => 'M',
+            'player_category' => 'GD',
+            'player_level' => 'ZONAL',
+            'sport_event' => 'Cricket',
+            'playable_sports' => [
+                ['sport_id' => $sport->id, 'role' => 'Batsman', 'position' => '3', 'sport_event' => '', 'notes' => ''],
+            ],
+        ])
+        ->assertRedirect();
+
+    $member = Member::withoutGlobalScopes()->latest()->first();
+    $member?->load('playableSports');
+
+    expect($member)->not->toBeNull();
+    expect($member?->playableSports)->toHaveCount(1);
+    expect($member?->playableSports->first()?->id)->toBe($sport->id);
+    expect($member?->playableSports->first()?->pivot?->sport_event)->toBe('Cricket');
 });
 
 // ---------------------------------------------------------------------------
@@ -365,7 +452,41 @@ test('preview returns member print preview page', function () {
             ->component('members/print-preview')
             ->has('member')
             ->where('member.photo_path', 'members/test-photo.jpg')
+            ->has('achievements')
             ->missing('auditLog')
+        );
+});
+
+test('preview includes achievement data for the member record', function () {
+    $user = memberUser('members.view');
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $organization = Organization::findOrFail($user->organization_id);
+    $tournament = Tournament::factory()->forOrganization($organization)->create([
+        'name_hi' => 'राष्ट्रीय खेल',
+        'date_from' => '2025-03-10',
+        'date_to' => '2025-03-12',
+    ]);
+    $event = Event::factory()->forTournament($tournament)->create([
+        'name_hi' => '100 मीटर दौड़',
+    ]);
+    $participation = Participation::factory()->forEvent($event)->create([
+        'member_id' => $member->id,
+    ]);
+    Achievement::factory()->forParticipation($participation)->create([
+        'medal_type' => 'GOLD',
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.preview', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/print-preview')
+            ->where('achievements.0.medal_type', 'GOLD')
+            ->where('achievements.0.position', 1)
+            ->where('achievements.0.participation_position', null)
+            ->where('achievements.0.tournament.name_hi', 'राष्ट्रीय खेल')
+            ->where('achievements.0.event.name_hi', '100 मीटर दौड़')
         );
 });
 
@@ -398,7 +519,15 @@ test('show returns 404 for member in other org', function () {
 
 test('edit returns member and selects', function () {
     $user = memberUser('members.update');
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $member->playableSports()->sync([
+        $sport->id => [
+            'role' => 'Batsman',
+            'sport_event' => 'Cricket',
+            'notes' => 'Top order',
+        ],
+    ]);
 
     $this->actingAs($user)
         ->get(route('members.edit', $member))
@@ -406,6 +535,10 @@ test('edit returns member and selects', function () {
         ->assertInertia(fn ($page) => $page
             ->component('members/edit')
             ->has('member')
+            ->where('member.playable_sports.0.id', $sport->id)
+            ->where('member.playable_sports.0.pivot.role', 'Batsman')
+            ->where('member.playable_sports.0.pivot.sport_event', 'Cricket')
+            ->where('member.playable_sports.0.pivot.notes', 'Top order')
             ->has('districts')
             ->has('units')
             ->has('ranks')
@@ -431,7 +564,7 @@ test('update changes member and redirects to show', function () {
     $primarySport = Sport::factory()->create(['organization_id' => $user->organization_id]);
     $removedSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
     $addedSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
-    $member = Member::factory()->create(['organization_id' => $user->organization_id, 'sport_id' => $primarySport->id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     $member->playableSports()->sync([$removedSport->id]);
     $postingDistrict = District::factory()->create();
 
@@ -439,7 +572,9 @@ test('update changes member and redirects to show', function () {
         ->put(route('members.update', $member), [
             'full_name_hi' => 'नया नाम',
             'posting_district_id' => $postingDistrict->id,
-            'playable_sport_ids' => [$addedSport->id],
+            'playable_sports' => [
+                ['sport_id' => $addedSport->id, 'role' => 'Keeper', 'position' => '1', 'sport_event' => 'Hockey', 'notes' => ''],
+            ],
         ])
         ->assertRedirect(route('members.show', $member));
 

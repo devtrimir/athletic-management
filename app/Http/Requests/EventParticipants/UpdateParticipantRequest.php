@@ -22,6 +22,7 @@ class UpdateParticipantRequest extends FormRequest
         return [
             'position' => ['nullable', 'integer', 'min:1'],
             'medal_type' => ['nullable', Rule::in(['GOLD', 'SILVER', 'BRONZE', 'MERIT'])],
+            'medal_position' => ['nullable', 'integer', 'min:1'],
             'remarks' => ['nullable', 'string', 'max:500'],
         ];
     }

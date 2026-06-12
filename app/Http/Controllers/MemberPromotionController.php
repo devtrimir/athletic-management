@@ -36,6 +36,7 @@ class MemberPromotionController extends Controller
         ));
 
         $this->syncEvidences($promotion, $member, $request->validated('evidences', []));
+        $this->syncMemberPromotionDate($member);
 
         if (! empty($promotion->to_rank)) {
             $member->update(['rank' => $promotion->to_rank]);
@@ -63,6 +64,8 @@ class MemberPromotionController extends Controller
             $this->syncEvidences($promotion, $member, $request->validated('evidences', []));
         }
 
+        $this->syncMemberPromotionDate($member);
+
         if (! empty($promotion->to_rank)) {
             $member->update(['rank' => $promotion->to_rank]);
         }
@@ -79,6 +82,7 @@ class MemberPromotionController extends Controller
         abort_if($promotion->member_id !== $member->id, 404);
 
         $promotion->delete();
+        $this->syncMemberPromotionDate($member);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion removed.')]);
 
@@ -110,5 +114,19 @@ class MemberPromotionController extends Controller
                 'evidencable_id' => $evidence['id'],
             ]);
         }
+    }
+
+    private function syncMemberPromotionDate(Member $member): void
+    {
+        $latestPromotionDate = MemberPromotion::query()
+            ->where('member_id', $member->id)
+            ->whereNotNull('promotion_date')
+            ->orderByDesc('promotion_date')
+            ->orderByDesc('id')
+            ->value('promotion_date');
+
+        $member->update([
+            'promotion_date' => $latestPromotionDate,
+        ]);
     }
 }

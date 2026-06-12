@@ -150,6 +150,7 @@ test('member promotion records evidence and appears in database', function () {
     expect($promotion?->cash_reward_amount)->toBe('5000.00');
     expect($promotion?->cash_reward_reference)->toBe('ORDER-42');
     expect($member->refresh()->rank)->toBe($toRank->code);
+    expect($member->refresh()->promotion_date?->toDateString())->toBe(now()->toDateString());
     expect($promotion?->evidences()->count())->toBe(3);
 });
 

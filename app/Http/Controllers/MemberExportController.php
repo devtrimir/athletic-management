@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\ReportExport;
 use App\Models\Member;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Maatwebsite\Excel\Facades\Excel;
@@ -17,7 +18,6 @@ class MemberExportController extends Controller
 {
     /** @var array<string, string> */
     private const COLUMN_LABELS = [
-        'member_code' => 'Member Code',
         'pno' => 'PNO',
         'full_name_hi' => 'Name (Hindi)',
         'full_name_en' => 'Name (English)',
@@ -31,15 +31,25 @@ class MemberExportController extends Controller
         'player_level' => 'Level',
         'unit' => 'Unit',
         'home_district' => 'Home District',
-        'posting_district' => 'Posting District',
+        'posting_district' => 'Posting Unit / District',
         'joining_date' => 'Joining Date',
         'blood_group' => 'Blood Group',
         'caste' => 'Caste',
+        'designation' => 'Designation',
         'appointment' => 'Appointment',
         'sport_event' => 'Sport Event',
         'promotion_date' => 'Promotion Date',
         'team_since' => 'Team Since',
     ];
+
+    private function formatDate(?CarbonInterface $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return $value->format('d M Y');
+    }
 
     public function index(Request $request): BinaryFileResponse
     {
@@ -98,8 +108,8 @@ class MemberExportController extends Controller
                 $row[$col] = match ($col) {
                     'unit' => $member->currentUnit?->name_hi,
                     'home_district' => $member->homeDistrict?->name_hi,
-                    'posting_district' => $member->postingDistrict?->name_hi,
-                    'dob', 'joining_date', 'promotion_date', 'team_since' => $member->{$col}?->toDateString(),
+                    'posting_district' => $member->postingDistrict?->name_hi ?? $member->currentUnit?->name_hi,
+                    'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
                     default => $member->{$col},
                 };
             }
@@ -117,7 +127,7 @@ class MemberExportController extends Controller
     {
         Gate::authorize('view', $member);
 
-        $member->load(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi']);
+        $member->load(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi']);
 
         /** @var array<int, string> $columns */
         $columns = $request->query('columns', array_keys(self::COLUMN_LABELS));
@@ -130,7 +140,8 @@ class MemberExportController extends Controller
                 $row[$col] = match ($col) {
                     'unit' => $member->currentUnit?->name_hi,
                     'home_district' => $member->homeDistrict?->name_hi,
-                    'dob', 'joining_date', 'promotion_date', 'team_since' => $member->{$col}?->toDateString(),
+                    'posting_district' => $member->postingDistrict?->name_hi ?? $member->currentUnit?->name_hi,
+                    'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
                     default => $member->{$col},
                 };
             }

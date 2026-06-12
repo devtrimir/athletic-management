@@ -6,6 +6,8 @@ use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Sport;
+use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +55,39 @@ test('authorized user can view member preview', function () {
     $this->actingAs($user)
         ->getJson(route('v1.members.preview', $member))
         ->assertOk()
-        ->assertJsonStructure(['id', 'full_name_hi', 'pno', 'recruitment_type']);
+        ->assertJsonStructure(['id', 'full_name_hi', 'pno', 'recruitment_type', 'playable_sports']);
+});
+
+test('member preview includes posting unit fallback and sport details', function () {
+    $user = memberPreviewUser();
+    $unit = Unit::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'current_unit_id' => $unit->id,
+        'posting_district_id' => null,
+        'designation' => 'Inspector',
+        'home_address' => 'Test address',
+    ]);
+    $member->playableSports()->sync([
+        $sport->id => [
+            'role' => 'Batsman',
+            'sport_event' => 'Cricket',
+            'notes' => 'Top order',
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('v1.members.preview', $member))
+        ->assertOk()
+        ->assertJsonPath('current_unit.name_hi', $unit->name_hi)
+        ->assertJsonPath('posting_district', null)
+        ->assertJsonPath('designation', 'Inspector')
+        ->assertJsonPath('home_address', 'Test address')
+        ->assertJsonPath('playable_sports.0.id', $sport->id)
+        ->assertJsonPath('playable_sports.0.role', 'Batsman')
+        ->assertJsonPath('playable_sports.0.sport_event', 'Cricket')
+        ->assertJsonPath('playable_sports.0.notes', 'Top order');
 });
 
 test('user cannot preview member from another organization', function () {

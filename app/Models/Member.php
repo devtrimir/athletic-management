@@ -60,7 +60,6 @@ use Illuminate\Support\Carbon;
  * @property-read District|null $homeDistrict
  * @property-read District|null $postingDistrict
  * @property-read Unit|null $currentUnit
- * @property-read Sport|null $sport
  * @property-read Collection<int, Sport> $playableSports
  * @property-read Collection<int, MemberLegacyAchievement> $legacyAchievements
  */
@@ -132,16 +131,18 @@ class Member extends Model
         return $this->belongsTo(Organization::class);
     }
 
+    /** @return BelongsToMany<Sport, $this> */
+    public function playableSports(): BelongsToMany
+    {
+        return $this->belongsToMany(Sport::class, 'member_sport')
+            ->withPivot(['role', 'position', 'sport_event', 'notes'])
+            ->withTimestamps();
+    }
+
     /** @return BelongsTo<Sport, $this> */
     public function sport(): BelongsTo
     {
         return $this->belongsTo(Sport::class);
-    }
-
-    /** @return BelongsToMany<Sport, $this> */
-    public function playableSports(): BelongsToMany
-    {
-        return $this->belongsToMany(Sport::class, 'member_sport')->withTimestamps();
     }
 
     /** @return BelongsTo<District, $this> */

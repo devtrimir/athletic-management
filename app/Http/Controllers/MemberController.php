@@ -9,6 +9,7 @@ use App\Http\Requests\Members\UpdateMemberRequest;
 use App\Http\Resources\MemberResource;
 use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
+use App\Models\Achievement;
 use App\Models\AuditLog;
 use App\Models\Designation;
 use App\Models\District;
@@ -83,7 +84,7 @@ class MemberController extends Controller
                 'homeDistrict:id,name_hi,name_en',
                 'postingDistrict:id,name_hi,name_en',
                 'sport:id,name_hi,name_en',
-                'playableSports:id,name_hi,name_en',
+                'playableSports',
             ])
             ->paginate(min((int) ($request->query('per_page', 25)), 100))
             ->withQueryString();
@@ -120,17 +121,16 @@ class MemberController extends Controller
 
         $orgId = (int) $request->user()->organization_id;
         $data = $request->validated();
-        $beforePlayableSportIds = [];
-        $playableSportIds = $this->playableSportIds($data);
-        unset($data['playable_sport_ids']);
+        $playableSports = $this->playableSportsPayload($data);
+        $playableSports = $this->applySportEventFallback($data, $playableSports);
+        unset($data['playable_sports']);
 
         $member = Member::create(array_merge($data, [
             'organization_id' => $orgId,
             'member_code' => $generator->next($orgId),
         ]));
 
-        $member->playableSports()->sync($playableSportIds);
-        $this->logPlayableSportChanges($member, $beforePlayableSportIds, $playableSportIds);
+        $this->syncPlayableSports($member, [], $playableSports);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member created.')]);
 
@@ -156,7 +156,7 @@ class MemberController extends Controller
         Gate::authorize('update', $member);
 
         return Inertia::render('members/edit', [
-            'member' => $member->load(['sport', 'playableSports:id,name_hi,name_en']),
+            'member' => $member->load(['playableSports']),
             'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
             'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
@@ -170,16 +170,16 @@ class MemberController extends Controller
         Gate::authorize('update', $member);
 
         $data = $request->validated();
-        $beforePlayableSportIds = $member->playableSports()->pluck('sports.id')->all();
-        $playableSportIds = $this->playableSportIds($data);
-        $shouldSyncPlayableSports = array_key_exists('playable_sport_ids', $data);
-        unset($data['playable_sport_ids']);
+        $beforePlayableSports = $member->playableSports()->withPivot(['role', 'position', 'sport_event', 'notes'])->get();
+        $playableSports = $this->playableSportsPayload($data);
+        $playableSports = $this->applySportEventFallback($data, $playableSports);
+        $shouldSyncPlayableSports = array_key_exists('playable_sports', $data);
+        unset($data['playable_sports']);
 
         $member->update($data);
 
         if ($shouldSyncPlayableSports) {
-            $member->playableSports()->sync($playableSportIds);
-            $this->logPlayableSportChanges($member, $beforePlayableSportIds, $playableSportIds);
+            $this->syncPlayableSports($member, $beforePlayableSports, $playableSports);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member updated.')]);
@@ -200,18 +200,73 @@ class MemberController extends Controller
 
     /**
      * @param  array<string, mixed>  $data
-     * @return array<int, int>
+     * @return array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, notes: string|null}>
      */
-    private function playableSportIds(array $data): array
+    private function playableSportsPayload(array $data): array
     {
-        $primarySportId = isset($data['sport_id']) ? (int) $data['sport_id'] : null;
-
-        return collect($data['playable_sport_ids'] ?? [])
-            ->map(fn (mixed $sportId): int => (int) $sportId)
-            ->unique()
-            ->reject(fn (int $sportId): bool => $sportId === $primarySportId)
+        return collect($data['playable_sports'] ?? [])
+            ->filter(fn (mixed $item): bool => is_array($item) && ! empty($item['sport_id']))
+            ->map(fn (array $item): array => [
+                'sport_id' => (int) $item['sport_id'],
+                'role' => filled($item['role'] ?? null) ? (string) $item['role'] : null,
+                'position' => filled($item['position'] ?? null) ? (string) $item['position'] : null,
+                'sport_event' => filled($item['sport_event'] ?? null) ? (string) $item['sport_event'] : null,
+                'notes' => filled($item['notes'] ?? null) ? (string) $item['notes'] : null,
+            ])
+            ->unique(fn (array $item): int => $item['sport_id'])
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, notes: string|null}>  $playableSports
+     * @return array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, notes: string|null}>
+     */
+    private function applySportEventFallback(array $data, array $playableSports): array
+    {
+        if (empty($playableSports)) {
+            return $playableSports;
+        }
+
+        $memberSportEvent = filled($data['sport_event'] ?? null) ? (string) $data['sport_event'] : null;
+
+        if ($memberSportEvent === null) {
+            return $playableSports;
+        }
+
+        foreach ($playableSports as $index => $item) {
+            if (! filled($item['sport_event'] ?? null)) {
+                $playableSports[$index]['sport_event'] = $memberSportEvent;
+
+                break;
+            }
+        }
+
+        return $playableSports;
+    }
+
+    /**
+     * @param  array<int, Sport>|array<int, array<string, mixed>>  $beforeSports
+     * @param  array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, notes: string|null}>  $afterSports
+     */
+    private function syncPlayableSports(Member $member, mixed $beforeSports, array $afterSports): void
+    {
+        $beforeIds = collect($beforeSports)->pluck('id')->all();
+        $afterIds = array_map(fn (array $item): int => $item['sport_id'], $afterSports);
+
+        $pivot = [];
+        foreach ($afterSports as $item) {
+            $pivot[$item['sport_id']] = [
+                'role' => $item['role'],
+                'position' => $item['position'],
+                'sport_event' => $item['sport_event'],
+                'notes' => $item['notes'],
+            ];
+        }
+
+        $member->playableSports()->sync($pivot);
+        $this->logPlayableSportChanges($member, $beforeIds, $afterIds);
     }
 
     /**
@@ -257,14 +312,21 @@ class MemberController extends Controller
      */
     private function memberViewProps(Member $member, AuditLogBuilder $auditLogBuilder): array
     {
+        $member = $member->load(['homeDistrict', 'postingDistrict', 'currentUnit', 'sport', 'playableSports']);
+
         return [
-            'member' => (new MemberResource($member->load(['homeDistrict', 'postingDistrict', 'currentUnit', 'sport', 'playableSports'])))->resolve(),
+            'member' => (new MemberResource($member))->resolve(),
             'statusHistory' => Inertia::defer(fn () => MemberStatusHistoryResource::collection(
                 $member->statusHistory()->with('recorder')->get()
             )->resolve()),
             'aliases' => Inertia::defer(fn () => NameAliasResource::collection(
                 $member->aliases()->get()
             )->resolve()),
+            'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name_hi', 'name_en', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name_hi,name_en,short_name')->get(['code', 'name_hi', 'name_en', 'short_name', 'mapped_rank_code']),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
                 ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi,name_en', 'session:id,name'])
                 ->orderByDesc('id')
@@ -306,6 +368,54 @@ class MemberController extends Controller
                         'remarks' => $b->remarks,
                     ])->all(),
                 ])->all()),
+            'achievements' => Achievement::whereHas(
+                'participation',
+                fn ($query) => $query->where('member_id', $member->id),
+            )
+                ->with([
+                    'participation.session:id,name',
+                    'participation.event:id,tournament_id,name_hi',
+                    'participation.event.tournament:id,name_hi,tier_id,date_from,date_to,venue',
+                    'participation.event.tournament.tier:id,code,weight',
+                    'benefits',
+                ])
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn (Achievement $achievement) => [
+                    'id' => $achievement->id,
+                    'medal_type' => $achievement->medal_type,
+                    'position' => $achievement->position,
+                    'participation_position' => $achievement->participation->position,
+                    'remarks' => $achievement->remarks,
+                    'session' => [
+                        'id' => $achievement->participation->session->id,
+                        'name' => $achievement->participation->session->name,
+                    ],
+                    'tournament' => [
+                        'id' => $achievement->participation->event->tournament->id,
+                        'name_hi' => $achievement->participation->event->tournament->name_hi,
+                        'tier_code' => $achievement->participation->event->tournament->tier->code ?? null,
+                        'tier_weight' => $achievement->participation->event->tournament->tier->weight ?? null,
+                        'date_from' => $achievement->participation->event->tournament->date_from?->toDateString(),
+                        'date_to' => $achievement->participation->event->tournament->date_to?->toDateString(),
+                        'venue' => $achievement->participation->event->tournament->venue,
+                    ],
+                    'event' => [
+                        'id' => $achievement->participation->event->id,
+                        'name_hi' => $achievement->participation->event->name_hi,
+                    ],
+                    'benefits' => $achievement->benefits->map(fn ($benefit) => [
+                        'id' => $benefit->id,
+                        'benefit_type' => $benefit->benefit_type,
+                        'promoted_from_rank' => $benefit->promoted_from_rank,
+                        'promoted_to_rank' => $benefit->promoted_to_rank,
+                        'cash_amount' => $benefit->cash_amount,
+                        'benefit_date' => $benefit->benefit_date?->toDateString(),
+                        'order_reference' => $benefit->order_reference,
+                        'remarks' => $benefit->remarks,
+                    ])->all(),
+                ])
+                ->all(),
             'promotions' => Inertia::defer(fn () => MemberPromotion::where('member_id', $member->id)
                 ->with(['evidences', 'recorder'])
                 ->orderByDesc('promotion_date')
@@ -329,7 +439,6 @@ class MemberController extends Controller
                         'evidence_id' => $evidence->evidencable_id,
                     ])->all(),
                 ])->all()),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name_hi', 'name_en', 'short_name']),
             'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forMember($member)),
         ];
     }

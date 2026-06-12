@@ -38,12 +38,12 @@ type AchievementItem = {
 
 type MemberPreview = {
     id: number;
-    member_code: string;
     pno: string | null;
     full_name_hi: string;
     full_name_en: string | null;
     father_name_hi: string | null;
     rank: string | null;
+    designation: string | null;
     gender: string;
     dob: string | null;
     joining_date: string | null;
@@ -57,11 +57,21 @@ type MemberPreview = {
     appointment: string | null;
     recruitment_type: string | null;
     sport_event: string | null;
+    home_address: string | null;
+    other_notes: string | null;
     team_since: string | null;
     home_district: { name_hi: string } | null;
     posting_district: { name_hi: string } | null;
     current_unit: { name_hi: string } | null;
     sport: { name_hi: string } | null;
+    playable_sports: Array<{
+        id: number;
+        name_hi: string;
+        name_en: string;
+        role: string | null;
+        sport_event: string | null;
+        notes: string | null;
+    }>;
     status_history: StatusHistoryItem[];
     team_history: TeamHistoryItem[];
     achievements: AchievementItem[];
@@ -103,48 +113,89 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
     );
 }
 
+function parseDateValue(value: string): Date | null {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDisplayDate(value: string | null | undefined, locale: string): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const date = parseDateValue(value);
+
+    if (!date) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+        dateStyle: 'medium',
+    }).format(date);
+}
+
+function localizedText(hi: string | null | undefined, en: string | null | undefined, locale: string): string | null {
+    if (locale === 'en') {
+        return en ?? hi ?? null;
+    }
+
+    return hi ?? en ?? null;
+}
+
+function postingLocation(data: MemberPreview): string | null {
+    return data.posting_district?.name_hi ?? data.current_unit?.name_hi ?? null;
+}
+
 function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     const row = (label: string, value: string | null | undefined) =>
         value ? `<div class="row"><span class="label">${label}</span><span class="val">${value}</span></div>` : '';
 
     const statusRows = data.status_history.map(
         (h) =>
-            `<tr><td>${h.effective_on}</td><td>${t(h.status)}</td><td>${h.reason_hi ?? '—'}</td></tr>`,
+            `<tr><td>${formatDisplayDate(h.effective_on, 'hi') ?? '—'}</td><td>${t(h.status)}</td><td>${h.reason_hi ?? '—'}</td></tr>`,
     ).join('');
 
     const teamRows = data.team_history.map(
         (th) =>
-            `<tr><td>${th.team_name_hi ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${th.joined_on ?? '—'}</td><td>${th.left_on ?? t('Present')}</td></tr>`,
+            `<tr><td>${th.team_name_hi ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${formatDisplayDate(th.joined_on, 'hi') ?? '—'}</td><td>${formatDisplayDate(th.left_on, 'hi') ?? t('Present')}</td></tr>`,
     ).join('');
 
     const achievementRows = data.achievements.map(
         (a) =>
-            `<tr><td>${t(a.level)}</td><td>${a.competition_details}</td><td>${a.event ?? '—'}</td><td>${a.medal_type ? t(a.medal_type) : '—'}</td><td>${a.event_date ?? '—'}</td></tr>`,
+            `<tr><td>${t(a.level)}</td><td>${a.competition_details}</td><td>${a.event ?? '—'}</td><td>${a.medal_type ? t(a.medal_type) : '—'}</td><td>${formatDisplayDate(a.event_date, 'hi') ?? '—'}</td></tr>`,
     ).join('');
 
     return `<!DOCTYPE html><html><head>
     <meta charset="utf-8"><title>${data.full_name_hi}</title>
     <style>
-        body{font-family:Arial,sans-serif;padding:20px;font-size:13px;color:#111}
-        h1{font-size:18px;margin:0 0 2px}
-        h2{font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;color:#555;margin:14px 0 4px;border-bottom:1px solid #ddd;padding-bottom:2px}
-        .header{border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:4px}
-        .meta{font-size:12px;color:#555;font-family:monospace}
-        .row{display:grid;grid-template-columns:150px 1fr;gap:4px;padding:1px 0}
+        body{font-family:Arial,sans-serif;padding:16px;font-size:11px;line-height:1.35;color:#111}
+        h1{font-size:15px;margin:0 0 2px}
+        h2{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;color:#555;margin:10px 0 4px;border-bottom:1px solid #ddd;padding-bottom:2px}
+        .header{border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:4px}
+        .meta{font-size:10px;color:#555;font-family:monospace}
+        .row{display:grid;grid-template-columns:132px 1fr;gap:4px;padding:1px 0}
         .label{color:#555}.val{font-weight:500}
         table{width:100%;border-collapse:collapse;margin-top:4px}
-        th{background:#f0f0f0;text-align:left;padding:4px 8px;font-size:12px;border:1px solid #ccc}
-        td{padding:4px 8px;border:1px solid #ccc;font-size:12px}
+        th{background:#f0f0f0;text-align:left;padding:3px 6px;font-size:10px;border:1px solid #ccc}
+        td{padding:3px 6px;border:1px solid #ccc;font-size:10px;vertical-align:top}
         @media print{@page{margin:1cm}}
     </style>
     </head><body>
     <div class="header">
-        <h1>${data.full_name_hi}${data.full_name_en ? ` <small>(${data.full_name_en})</small>` : ''}</h1>
-        <span class="meta">${data.member_code}${data.pno ? ' · ' + data.pno : ''} · ${t(data.current_status)}</span>
+        <h1>${localizedText(data.full_name_hi, data.full_name_en, 'hi') ?? data.full_name_hi}</h1>
+        <span class="meta">${data.pno ? data.pno + ' · ' : ''}${t(data.current_status)}</span>
     </div>
     <h2>${t('Personal')}</h2>
     ${row(t("Father's name"), data.father_name_hi)}
-    ${row(t('Date of birth'), data.dob)}
+    ${row(t('Date of birth'), formatDisplayDate(data.dob, 'hi'))}
     ${row(t('Gender'), data.gender ? t(data.gender) : null)}
     ${row(t('Blood group'), data.blood_group)}
     ${row(t('Caste'), data.caste)}
@@ -152,13 +203,17 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     ${row(t('Home district'), data.home_district?.name_hi)}
     <h2>${t('Service')}</h2>
     ${row(t('Rank'), data.rank ? t(data.rank) : null)}
+    ${row(t('Designation'), data.designation ? t(data.designation) : null)}
     ${row(t('Current unit'), data.current_unit?.name_hi)}
-    ${row(t('Posting district'), data.posting_district?.name_hi)}
-    ${row(t('Joining date'), data.joining_date)}
-    ${row(t('Promotion date'), data.promotion_date)}
+    ${row(t('Posting unit / district'), postingLocation(data))}
+    ${row(t('Joining date'), formatDisplayDate(data.joining_date, 'hi'))}
+    ${row(t('Promotion date'), formatDisplayDate(data.promotion_date, 'hi'))}
     ${row(t('Appointment'), data.appointment)}
     ${row(t('Sport'), data.sport?.name_hi)}
+    ${data.playable_sports.length ? `<div class="section"><h2>${t('Sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name_hi}</span><span class="val">${[sport.role, sport.sport_event, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
     ${row(t('Sport event'), data.sport_event)}
+    ${row(t('Home address'), data.home_address)}
+    ${row(t('Other notes'), data.other_notes)}
     ${row(t('Player level'), data.player_level ? t(data.player_level) : null)}
     ${row(t('Player category'), data.player_category ? t(data.player_category) : null)}
     ${row(t('Team since'), data.team_since)}
@@ -233,13 +288,14 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                         </div>
                     ) : (
                         <>
-                            <SheetTitle className="text-lg">{data.full_name_hi}</SheetTitle>
-                            {data.full_name_en && (
-                                <p className="text-sm text-muted-foreground">{data.full_name_en}</p>
+                            <SheetTitle className="text-lg">{localizedText(data.full_name_hi, data.full_name_en, 'hi') ?? data.full_name_hi}</SheetTitle>
+                            {localizedText(data.full_name_hi, data.full_name_en, 'en') && (
+                                <p className="text-sm text-muted-foreground">
+                                    {localizedText(data.full_name_hi, data.full_name_en, 'en')}
+                                </p>
                             )}
                             <div className="flex flex-wrap items-center gap-2 pt-1">
-                                <span className="font-mono text-xs text-muted-foreground">{data.member_code}</span>
-                                {data.pno && <span className="font-mono text-xs text-muted-foreground">· {data.pno}</span>}
+                                {data.pno && <span className="font-mono text-xs text-muted-foreground">{data.pno}</span>}
                                 {data.rank && <span className="text-xs font-medium">{t(data.rank)}</span>}
                                 <Badge variant={STATUS_VARIANT[data.current_status] ?? 'outline'} className="ml-auto">
                                     {t(data.current_status)}
@@ -264,7 +320,7 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                         <div className="py-2">
                             <Section title={t('Personal')}>
                                 <InfoRow label={t("Father's name")} value={data.father_name_hi} />
-                                <InfoRow label={t('Date of birth')} value={data.dob} />
+                                <InfoRow label={t('Date of birth')} value={formatDisplayDate(data.dob, 'hi')} />
                                 <InfoRow label={t('Gender')} value={data.gender ? t(data.gender) : null} />
                                 <InfoRow label={t('Blood group')} value={data.blood_group} />
                                 <InfoRow label={t('Caste')} value={data.caste} />
@@ -274,15 +330,32 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
 
                             <Section title={t('Service')}>
                                 <InfoRow label={t('Current unit')} value={data.current_unit?.name_hi} />
-                                <InfoRow label={t('Posting district')} value={data.posting_district?.name_hi} />
-                                <InfoRow label={t('Joining date')} value={data.joining_date} />
-                                <InfoRow label={t('Promotion date')} value={data.promotion_date} />
+                                <InfoRow label={t('Posting unit / district')} value={postingLocation(data)} />
+                                <InfoRow label={t('Joining date')} value={formatDisplayDate(data.joining_date, 'hi')} />
+                                <InfoRow label={t('Promotion date')} value={formatDisplayDate(data.promotion_date, 'hi')} />
                                 <InfoRow label={t('Appointment')} value={data.appointment} />
+                                <InfoRow label={t('Designation')} value={data.designation ? t(data.designation) : null} />
                                 <InfoRow label={t('Sport')} value={data.sport?.name_hi} />
                                 <InfoRow label={t('Sport event')} value={data.sport_event} />
+                                <InfoRow label={t('Home address')} value={data.home_address} />
+                                <InfoRow label={t('Other notes')} value={data.other_notes} />
                                 <InfoRow label={t('Player level')} value={data.player_level ? t(data.player_level) : null} />
                                 <InfoRow label={t('Player category')} value={data.player_category ? t(data.player_category) : null} />
                                 <InfoRow label={t('Team since')} value={data.team_since} />
+
+                                {data.playable_sports.length > 0 && (
+                                    <div className="mt-2 space-y-2">
+                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('Sports')}</p>
+                                        {data.playable_sports.map((sport) => (
+                                            <div key={sport.id} className="rounded-md border p-2 text-sm">
+                                                <p className="font-medium">{sport.name_hi}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {[sport.role, sport.sport_event, sport.notes].filter(Boolean).join(' · ') || '—'}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </Section>
 
                             {data.status_history.length > 0 && (
@@ -297,7 +370,7 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                                     )}
                                                 </div>
                                                 <div className="pb-3">
-                                                    <span className="font-mono text-xs text-muted-foreground">{h.effective_on}</span>
+                                                    <span className="font-mono text-xs text-muted-foreground">{formatDisplayDate(h.effective_on, 'hi')}</span>
                                                     <p className="font-semibold">{t(h.status)}</p>
                                                     {h.reason_hi && <p className="text-muted-foreground">{h.reason_hi}</p>}
                                                 </div>
@@ -325,8 +398,8 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                                     <TableCell className="font-medium">{th.team_name_hi ?? '—'}</TableCell>
                                                     <TableCell>{th.session_name ?? '—'}</TableCell>
                                                     <TableCell>{t(th.role)}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{th.joined_on ?? '—'}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{th.left_on ?? t('Present')}</TableCell>
+                                                    <TableCell className="font-mono text-xs">{formatDisplayDate(th.joined_on, 'hi') ?? '—'}</TableCell>
+                                                    <TableCell className="font-mono text-xs">{formatDisplayDate(th.left_on, 'hi') ?? t('Present')}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -355,7 +428,7 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                                     <TableCell className={`text-xs font-semibold ${MEDAL_COLOR[a.medal_type ?? ''] ?? ''}`}>
                                                         {a.medal_type ? t(a.medal_type) : '—'}
                                                     </TableCell>
-                                                    <TableCell className="font-mono text-xs">{a.event_date ?? '—'}</TableCell>
+                                                    <TableCell className="font-mono text-xs">{formatDisplayDate(a.event_date, 'hi') ?? '—'}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>

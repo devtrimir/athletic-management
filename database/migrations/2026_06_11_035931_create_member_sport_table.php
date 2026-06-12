@@ -15,6 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('member_id')->constrained()->cascadeOnDelete();
             $table->foreignId('sport_id')->constrained()->cascadeOnDelete();
+            $table->string('role')->nullable();
+            $table->string('position')->nullable();
+            $table->text('notes')->nullable();
             $table->timestamps();
 
             $table->unique(['member_id', 'sport_id']);

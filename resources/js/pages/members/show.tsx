@@ -7,8 +7,16 @@ import {
     useHttp,
     usePage,
 } from '@inertiajs/react';
-import { Award, Camera, Download, Images, Medal, Minus, Trophy, Printer } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    ArrowLeft,
+    Award,
+    Download,
+    Medal,
+    Minus,
+    Trophy,
+    Printer,
+} from 'lucide-react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
@@ -34,10 +42,22 @@ import { ChangeLog } from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Table,
@@ -78,7 +98,7 @@ type Member = {
     home_address: string | null;
     recruitment_type: string | null;
     sport: { id: number; name_hi: string; name_en: string } | null;
-    playable_sports: { id: number; name_hi: string; name_en: string }[];
+    playable_sports: { id: number; name_hi: string; name_en: string; role?: string | null; sport_event?: string | null; notes?: string | null }[];
     sport_event: string | null;
     other_notes: string | null;
     team_since: string | null;
@@ -102,6 +122,47 @@ type MemberTeamRow = {
     session: { id: number; name: string } | null;
 };
 
+function displayPostingLocation(member: Member): string | null {
+    return member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null;
+}
+
+function localizedText(hi: string | null | undefined, en: string | null | undefined, locale: string): string | null {
+    if (locale === 'en') {
+        return en ?? hi ?? null;
+    }
+
+    return hi ?? en ?? null;
+}
+
+function parseDateValue(value: string): Date | null {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDisplayDate(value: string | null | undefined, locale: string): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const date = parseDateValue(value);
+
+    if (!date) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+        dateStyle: 'medium',
+    }).format(date);
+}
+
 type ParticipationEntry = {
     id: number;
     position: number | null;
@@ -110,6 +171,7 @@ type ParticipationEntry = {
         id: number;
         name_hi: string;
         tier_code: string | null;
+        tier_weight: number | null;
         date_from: string | null;
         date_to: string | null;
         venue: string | null;
@@ -165,7 +227,12 @@ type PromotionRow = {
     evidences: { id: number; type: string; evidence_id: number }[];
 };
 
-type RankOption = { code: string; name_hi: string; name_en: string; short_name: string | null };
+type RankOption = {
+    code: string;
+    name_hi: string;
+    name_en: string;
+    short_name: string | null;
+};
 
 type AchievementsData = {
     summary: { GOLD: number; SILVER: number; BRONZE: number; MERIT: number };
@@ -175,7 +242,16 @@ type AchievementsData = {
         position: number | null;
         remarks: string | null;
         session: { id: number; name: string };
-        tournament: { id: number; name_hi: string; tier_code: string | null; venue: string | null; date_from: string | null; date_to: string | null; sport: { id: number; name_hi: string; name_en: string } | null };
+        tournament: {
+            id: number;
+            name_hi: string;
+            tier_code: string | null;
+            tier_weight: number | null;
+            venue: string | null;
+            date_from: string | null;
+            date_to: string | null;
+            sport: { id: number; name_hi: string; name_en: string } | null;
+        };
         event: { id: number; name_hi: string };
         benefits: AchievementBenefitRow[];
     }>;
@@ -262,71 +338,53 @@ export default function MembersShow({
     const promotionsFetched = useRef(false);
     const memberId = member.id;
     const permissions = usePage().props.auth.permissions;
+    const { t } = useTranslation();
+    const { locale: pageLocale } = usePage().props;
     const canDeleteMedia = permissions.includes('media.delete');
     const canUploadMedia = permissions.includes('media.upload');
     const [mediaParticipationId, setMediaParticipationId] = useState<{
         id: number;
         eventName: string;
     } | null>(null);
-    const refreshMemberHistory = useCallback(() => {
-        participationsFetched.current = false;
-        achievementsFetched.current = false;
-        promotionsFetched.current = false;
-        setParticipations(null);
-        setAchievementsData(null);
+    const [dateFromFilter, setDateFromFilter] = useState('');
+    const [dateToFilter, setDateToFilter] = useState('');
+    const eventQueryParams = useMemo(() => {
+        const params = new URLSearchParams();
 
-        router.reload({
-            only: ['member', 'promotions', 'auditLog'],
-            preserveScroll: true,
-            preserveState: true,
-        });
+        if (dateFromFilter) {
+            params.set('from_date', dateFromFilter);
+        }
 
-        getParticipations(MemberParticipationsController.url(memberId), {
-            onSuccess: (res) => {
-                const r = res as unknown as { data: ParticipationGroup[] };
-                setParticipations(r?.data ?? []);
-            },
-            onError: () => setParticipations([]),
-        });
+        if (dateToFilter) {
+            params.set('to_date', dateToFilter);
+        }
 
-        getAchievements(MemberAchievementsController.url(memberId), {
-            onSuccess: (res) => {
-                const r = res as unknown as { data: AchievementsData };
-                setAchievementsData(
-                    r?.data ?? {
-                        summary: {
-                            GOLD: 0,
-                            SILVER: 0,
-                            BRONZE: 0,
-                            MERIT: 0,
-                        },
-                        achievements: [],
-                    },
-                );
-            },
-            onError: () =>
-                setAchievementsData({
-                    summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 },
-                    achievements: [],
-                }),
-        });
-    }, [getAchievements, getParticipations, memberId]);
+        const query = params.toString();
 
-    useEffect(() => {
-        if ((activeTab === 'events' || activeTab === 'promotions') && !participationsFetched.current) {
-            participationsFetched.current = true;
-            getParticipations(MemberParticipationsController.url(memberId), {
+        return query ? `?${query}` : '';
+    }, [dateFromFilter, dateToFilter]);
+    const displayName = localizedText(member.full_name_hi, member.full_name_en, pageLocale);
+    const sportName = (sport: { name_hi: string; name_en: string }): string =>
+        localizedText(sport.name_hi, sport.name_en, pageLocale) ?? '';
+
+    const fetchEventData = useCallback((): void => {
+        participationsFetched.current = true;
+        achievementsFetched.current = true;
+
+        getParticipations(
+            `${MemberParticipationsController.url(memberId)}${eventQueryParams}`,
+            {
                 onSuccess: (res) => {
                     const r = res as unknown as { data: ParticipationGroup[] };
                     setParticipations(r?.data ?? []);
                 },
                 onError: () => setParticipations([]),
-            });
-        }
+            },
+        );
 
-        if ((activeTab === 'events' || activeTab === 'promotions') && !achievementsFetched.current) {
-            achievementsFetched.current = true;
-            getAchievements(MemberAchievementsController.url(memberId), {
+        getAchievements(
+            `${MemberAchievementsController.url(memberId)}${eventQueryParams}`,
+            {
                 onSuccess: (res) => {
                     const r = res as unknown as { data: AchievementsData };
                     setAchievementsData(
@@ -346,10 +404,38 @@ export default function MembersShow({
                         summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 },
                         achievements: [],
                     }),
-            });
+            },
+        );
+    }, [eventQueryParams, getAchievements, getParticipations, memberId]);
+
+    const refreshMemberHistory = useCallback(() => {
+        participationsFetched.current = false;
+        achievementsFetched.current = false;
+        promotionsFetched.current = false;
+        setParticipations(null);
+        setAchievementsData(null);
+
+        router.reload({
+            only: ['member', 'promotions', 'auditLog'],
+            preserveScroll: true,
+            preserveState: true,
+        });
+
+        fetchEventData();
+    }, [fetchEventData]);
+
+    useEffect(() => {
+        if (
+            (activeTab === 'events' || activeTab === 'promotions') &&
+            !participationsFetched.current
+        ) {
+            fetchEventData();
         }
 
-        if ((activeTab === 'events' || activeTab === 'promotions') && !promotionsFetched.current) {
+        if (
+            (activeTab === 'events' || activeTab === 'promotions') &&
+            !promotionsFetched.current
+        ) {
             promotionsFetched.current = true;
             router.reload({
                 only: ['promotions'],
@@ -357,15 +443,13 @@ export default function MembersShow({
                 preserveState: true,
             });
         }
-    }, [activeTab, memberId, getParticipations, getAchievements]);
+    }, [activeTab, fetchEventData]);
     const [mediaKey] = useState(0);
-    const { t } = useTranslation();
-    const { locale } = usePage().props;
 
     setLayoutProps({
         breadcrumbs: [
             { title: t('Members'), href: membersIndex.url() },
-            { title: member.full_name_hi },
+            { title: displayName ?? member.full_name_hi },
         ],
     });
 
@@ -375,11 +459,17 @@ export default function MembersShow({
         ALL_COLUMNS.map((c) => c.key),
     );
     const [eventSearch, setEventSearch] = useState('');
-    const [sessionFilter, setSessionFilter] = useState<'all' | 'current' | string>('current');
-    const [medalFilter, setMedalFilter] = useState<'all' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'none'>('all');
+    const [sessionFilter, setSessionFilter] = useState<
+        'all' | 'current' | string
+    >('current');
+    const [medalFilter, setMedalFilter] = useState<
+        'all' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'none'
+    >('all');
     const [tierFilter, setTierFilter] = useState<string>('all');
     const [classFilter, setClassFilter] = useState<string>('all');
-    const [benefitFilter, setBenefitFilter] = useState<'all' | 'benefit' | 'promotion' | 'cash' | 'both'>('all');
+    const [benefitFilter, setBenefitFilter] = useState<
+        'all' | 'benefit' | 'promotion' | 'cash' | 'both'
+    >('all');
     const promotionLookup = useMemo(() => {
         const map = new Map<string, PromotionRow[]>();
 
@@ -396,66 +486,96 @@ export default function MembersShow({
         return map;
     }, [promotions]);
 
-    const promotionSummary = useCallback((promotion: PromotionRow): string => {
-        const parts: string[] = [];
+    const promotionSummary = useCallback(
+        (promotion: PromotionRow): string => {
+            const parts: string[] = [];
 
-        if (promotion.from_rank || promotion.to_rank) {
-            const fromRank = promotion.from_rank ?? t('Unknown');
-            const toRank = promotion.to_rank ?? t('Unknown');
+            if (promotion.from_rank || promotion.to_rank) {
+                const fromRank = promotion.from_rank ?? t('Unknown');
+                const toRank = promotion.to_rank ?? t('Unknown');
 
-            parts.push(`${fromRank} → ${toRank}`);
-        }
+                parts.push(`${fromRank} → ${toRank}`);
+            }
 
-        return parts.join(' · ');
-    }, [t]);
+            return parts.join(' · ');
+        },
+        [t],
+    );
 
-    const promotionRewardMeta = useCallback((promotion: PromotionRow): string[] => {
-        const parts: string[] = [];
+    const promotionRewardMeta = useCallback(
+        (promotion: PromotionRow): string[] => {
+            const parts: string[] = [];
 
-        if (promotion.cash_reward_amount) {
-            parts.push(`₹${promotion.cash_reward_amount}`);
-        }
+            if (promotion.cash_reward_amount) {
+                parts.push(`₹${promotion.cash_reward_amount}`);
+            }
 
-        if (promotion.cash_reward_date) {
-            parts.push(promotion.cash_reward_date);
-        }
+            if (promotion.cash_reward_date) {
+                parts.push(promotion.cash_reward_date);
+            }
 
-        if (promotion.cash_reward_reference) {
-            parts.push(promotion.cash_reward_reference);
-        }
+            if (promotion.cash_reward_reference) {
+                parts.push(promotion.cash_reward_reference);
+            }
 
-        return parts;
-    }, []);
+            return parts;
+        },
+        [],
+    );
 
     const filteredSessionGroups = useMemo(() => {
-        const isCurrentSession = (value: unknown): boolean => value === true || value === 1 || value === '1';
+        const isCurrentSession = (value: unknown): boolean =>
+            value === true || value === 1 || value === '1';
 
         const matchesFilters = (item: ParticipationEntry): boolean => {
             const search = eventSearch.trim().toLowerCase();
             const promotionMatches =
                 (promotionLookup.get(`participation:${item.id}`)?.length ?? 0) +
-                (item.achievement?.id ? promotionLookup.get(`achievement:${item.achievement.id}`)?.length ?? 0 : 0);
+                (item.achievement?.id
+                    ? (promotionLookup.get(`achievement:${item.achievement.id}`)
+                          ?.length ?? 0)
+                    : 0);
             const hasBenefit = !!item.achievement?.benefits?.length;
             const hasPromotion = promotionMatches > 0;
             const hasCashReward =
-                (promotionLookup.get(`participation:${item.id}`)?.some((promotion) => Boolean(promotion.cash_reward_amount)) ?? false) ||
-                (item.achievement?.id ? promotionLookup.get(`achievement:${item.achievement.id}`)?.some((promotion) => Boolean(promotion.cash_reward_amount)) ?? false : false);
+                (promotionLookup
+                    .get(`participation:${item.id}`)
+                    ?.some((promotion) =>
+                        Boolean(promotion.cash_reward_amount),
+                    ) ??
+                    false) ||
+                (item.achievement?.id
+                    ? (promotionLookup
+                          .get(`achievement:${item.achievement.id}`)
+                          ?.some((promotion) =>
+                              Boolean(promotion.cash_reward_amount),
+                          ) ?? false)
+                    : false);
 
             if (medalFilter !== 'all') {
                 if (medalFilter === 'none' && item.achievement?.medal_type) {
                     return false;
                 }
 
-                if (medalFilter !== 'none' && item.achievement?.medal_type !== medalFilter) {
+                if (
+                    medalFilter !== 'none' &&
+                    item.achievement?.medal_type !== medalFilter
+                ) {
                     return false;
                 }
             }
 
-            if (tierFilter !== 'all' && item.tournament.tier_code !== tierFilter) {
+            if (
+                tierFilter !== 'all' &&
+                item.tournament.tier_code !== tierFilter
+            ) {
                 return false;
             }
 
-            if (classFilter !== 'all' && item.event.gender_class !== classFilter) {
+            if (
+                classFilter !== 'all' &&
+                item.event.gender_class !== classFilter
+            ) {
                 return false;
             }
 
@@ -485,9 +605,19 @@ export default function MembersShow({
                 item.tournament.tier_code ?? '',
                 item.event.gender_class ?? '',
                 item.achievement?.medal_type ?? '',
-                item.achievement?.benefits?.map((benefit) => benefit.benefit_type).join(' ') ?? '',
-                promotionLookup.get(`participation:${item.id}`)?.map((promotion) => promotionSummary(promotion)).join(' ') ?? '',
-                item.achievement?.id ? promotionLookup.get(`achievement:${item.achievement.id}`)?.map((promotion) => promotionSummary(promotion)).join(' ') ?? '' : '',
+                item.achievement?.benefits
+                    ?.map((benefit) => benefit.benefit_type)
+                    .join(' ') ?? '',
+                promotionLookup
+                    .get(`participation:${item.id}`)
+                    ?.map((promotion) => promotionSummary(promotion))
+                    .join(' ') ?? '',
+                item.achievement?.id
+                    ? (promotionLookup
+                          .get(`achievement:${item.achievement.id}`)
+                          ?.map((promotion) => promotionSummary(promotion))
+                          .join(' ') ?? '')
+                    : '',
             ]
                 .join(' ')
                 .toLowerCase();
@@ -512,27 +642,58 @@ export default function MembersShow({
                 participations: group.participations.filter(matchesFilters),
             }))
             .filter((group) => group.participations.length > 0)
-            .sort((a, b) => Number(isCurrentSession(b.session.is_current)) - Number(isCurrentSession(a.session.is_current)));
-    }, [benefitFilter, classFilter, eventSearch, medalFilter, participations, promotionLookup, promotionSummary, sessionFilter, tierFilter]);
+            .sort(
+                (a, b) =>
+                    Number(isCurrentSession(b.session.is_current)) -
+                    Number(isCurrentSession(a.session.is_current)),
+            );
+    }, [
+        benefitFilter,
+        classFilter,
+        eventSearch,
+        medalFilter,
+        participations,
+        promotionLookup,
+        promotionSummary,
+        sessionFilter,
+        tierFilter,
+    ]);
 
-    const eventPromotionRows = useCallback((participation: ParticipationEntry): PromotionRow[] => {
-        const seen = new Map<number, PromotionRow>();
+    const eventPromotionRows = useCallback(
+        (participation: ParticipationEntry): PromotionRow[] => {
+            const seen = new Map<number, PromotionRow>();
 
-        for (const promotion of promotionLookup.get(`participation:${participation.id}`) ?? []) {
-            seen.set(promotion.id, promotion);
-        }
-
-        if (participation.achievement?.id) {
-            for (const promotion of promotionLookup.get(`achievement:${participation.achievement.id}`) ?? []) {
+            for (const promotion of promotionLookup.get(
+                `participation:${participation.id}`,
+            ) ?? []) {
                 seen.set(promotion.id, promotion);
             }
-        }
 
-        return Array.from(seen.values());
-    }, [promotionLookup]);
+            if (participation.achievement?.id) {
+                for (const promotion of promotionLookup.get(
+                    `achievement:${participation.achievement.id}`,
+                ) ?? []) {
+                    seen.set(promotion.id, promotion);
+                }
+            }
 
-    function eventBadgeClass(kind: 'session' | 'tier' | 'class' | 'medal' | 'promotion' | 'benefit' | 'cash'): string {
-        const base = 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium';
+            return Array.from(seen.values());
+        },
+        [promotionLookup],
+    );
+
+    function eventBadgeClass(
+        kind:
+            | 'session'
+            | 'tier'
+            | 'class'
+            | 'medal'
+            | 'promotion'
+            | 'benefit'
+            | 'cash',
+    ): string {
+        const base =
+            'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium';
 
         switch (kind) {
             case 'session':
@@ -552,18 +713,44 @@ export default function MembersShow({
         }
     }
 
-    function medalBadgeContent(medalType: string): { icon: JSX.Element; label: string; className: string } {
+    function medalBadgeContent(medalType: string): {
+        icon: JSX.Element;
+        label: string;
+        className: string;
+    } {
         switch (medalType) {
             case 'GOLD':
-                return { icon: <Trophy className="h-3.5 w-3.5" />, label: t('Gold'), className: 'border-amber-200 bg-amber-50 text-amber-700' };
+                return {
+                    icon: <Trophy className="h-3.5 w-3.5" />,
+                    label: t('Gold'),
+                    className:
+                        'border-amber-300 bg-gradient-to-r from-amber-100 via-amber-50 to-yellow-50 text-amber-900 shadow-sm',
+                };
             case 'SILVER':
-                return { icon: <Award className="h-3.5 w-3.5" />, label: t('Silver'), className: 'border-slate-200 bg-slate-50 text-slate-700' };
+                return {
+                    icon: <Award className="h-3.5 w-3.5" />,
+                    label: t('Silver'),
+                    className: 'border-slate-200 bg-slate-50 text-slate-700',
+                };
             case 'BRONZE':
-                return { icon: <Medal className="h-3.5 w-3.5" />, label: t('Bronze'), className: 'border-orange-200 bg-orange-50 text-orange-700' };
+                return {
+                    icon: <Medal className="h-3.5 w-3.5" />,
+                    label: t('Bronze'),
+                    className: 'border-orange-200 bg-orange-50 text-orange-700',
+                };
             case 'MERIT':
-                return { icon: <Minus className="h-3.5 w-3.5" />, label: t('MERIT'), className: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+                return {
+                    icon: <Minus className="h-3.5 w-3.5" />,
+                    label: t('MERIT'),
+                    className:
+                        'border-emerald-200 bg-emerald-50 text-emerald-700',
+                };
             default:
-                return { icon: <Medal className="h-3.5 w-3.5" />, label: t(medalType), className: 'border-slate-200 bg-slate-50 text-slate-700' };
+                return {
+                    icon: <Medal className="h-3.5 w-3.5" />,
+                    label: t(medalType),
+                    className: 'border-slate-200 bg-slate-50 text-slate-700',
+                };
         }
     }
 
@@ -571,14 +758,12 @@ export default function MembersShow({
         const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
         const getValue = (key: string): string => {
             switch (key) {
-                case 'member_code':
-                    return member.member_code ?? '';
                 case 'pno':
                     return member.pno ?? '';
                 case 'full_name_hi':
-                    return member.full_name_hi ?? '';
+                    return displayName ?? '';
                 case 'full_name_en':
-                    return member.full_name_en ?? '';
+                    return displayName ?? '';
                 case 'father_name_hi':
                     return member.father_name_hi ?? '';
                 case 'gender':
@@ -588,7 +773,7 @@ export default function MembersShow({
                           ? t('Female')
                           : t('Other gender');
                 case 'dob':
-                    return member.dob ?? '';
+                    return formatDisplayDate(member.dob, pageLocale) ?? '';
                 case 'rank':
                     return member.rank ?? '';
                 case 'mobile':
@@ -604,7 +789,7 @@ export default function MembersShow({
                 case 'home_district':
                     return member.home_district?.name_hi ?? '';
                 case 'joining_date':
-                    return member.joining_date ?? '';
+                    return formatDisplayDate(member.joining_date, pageLocale) ?? '';
                 case 'blood_group':
                     return member.blood_group ?? '';
                 case 'caste':
@@ -614,9 +799,9 @@ export default function MembersShow({
                 case 'sport_event':
                     return member.sport_event ?? '';
                 case 'promotion_date':
-                    return member.promotion_date ?? '';
+                    return formatDisplayDate(member.promotion_date, pageLocale) ?? '';
                 case 'team_since':
-                    return member.team_since ?? '';
+                    return formatDisplayDate(member.team_since, pageLocale) ?? '';
                 default:
                     return '';
             }
@@ -739,6 +924,12 @@ export default function MembersShow({
                                         {member.pno}
                                     </span>
                                 )}
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={membersIndex()}>
+                                        <ArrowLeft className="mr-1.5 h-4 w-4" />
+                                        {t('Back')}
+                                    </Link>
+                                </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -772,122 +963,123 @@ export default function MembersShow({
                             {t('Status history')}
                         </TabsTrigger>
                         <TabsTrigger value="teams">{t('Teams')}</TabsTrigger>
-                        <TabsTrigger value="events">{t('Events')}</TabsTrigger>
+                        <TabsTrigger value="events">
+                            {t('Achievements')}
+                        </TabsTrigger>
                         <TabsTrigger value="legacy">
                             {t('Legacy achievements')}
                         </TabsTrigger>
                         <TabsTrigger value="promotions">
                             {t('Promotions & rewards')}
                         </TabsTrigger>
-                        <TabsTrigger value="changelog">
-                            {t('Change log')}
-                        </TabsTrigger>
+                    <TabsTrigger value="changelog">
+                        {t('Change log')}
+                    </TabsTrigger>
                         <TabsTrigger value="media">{t('Media')}</TabsTrigger>
                     </TabsList>
 
                     {/* Overview */}
                     <TabsContent value="overview">
                         <div className="rounded-xl border bg-card p-6">
-                            <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3">
-                                {detail(
-                                    t('PNO'),
-                                    <span className="font-mono">
-                                        {member.pno}
-                                    </span>,
+                            <div className="space-y-6">
+                                <section className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-foreground">{t('Identity')}</h3>
+                                    <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
+                                        {detail(t('Name'), displayName)}
+                                        {detail(t('Name (Hindi)'), localizedText(member.full_name_hi, member.full_name_en, 'hi'))}
+                                        {detail(t('Name (English)'), localizedText(member.full_name_hi, member.full_name_en, 'en'))}
+                                        {detail(
+                                            t("Father's name"),
+                                            member.father_name_hi,
+                                        )}
+                                        {detail(
+                                            t('Gender'),
+                                            t(
+                                                member.gender === 'M'
+                                                    ? 'Male'
+                                                    : member.gender === 'F'
+                                                      ? 'Female'
+                                                      : 'Other gender',
+                                            ),
+                                        )}
+                                        {detail(t('Date of birth'), formatDisplayDate(member.dob, pageLocale))}
+                                        {detail(t('Mobile'), member.mobile)}
+                                        {member.blood_group && detail(t('Blood group'), member.blood_group)}
+                                        {member.caste && detail(t('Caste'), member.caste)}
+                                    </dl>
+                                </section>
+
+                                <section className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-foreground">{t('Service')}</h3>
+                                    <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
+                                        {detail(
+                                            t('PNO'),
+                                            <span className="font-mono">{member.pno}</span>,
+                                        )}
+                                        {detail(
+                                            t('Current status'),
+                                            <Badge variant="outline">{t(member.current_status)}</Badge>,
+                                        )}
+                                        {detail(t('Rank'), member.rank)}
+                                        {detail(t('Designation'), member.designation)}
+                                        {detail(t('Joining date'), formatDisplayDate(member.joining_date, pageLocale))}
+                                        {detail(
+                                            t('Home district'),
+                                            member.home_district?.name_hi,
+                                        )}
+                                        {detail(t('Posting unit / district'), displayPostingLocation(member))}
+                                        {detail(t('Category'), t(member.player_category))}
+                                        {detail(t('Level'), t(member.player_level))}
+                                        {member.appointment && detail(t('Appointment'), member.appointment)}
+                                        {member.promotion_date && detail(t('Promotion date'), formatDisplayDate(member.promotion_date, pageLocale))}
+                                        {member.team_since && detail(t('Team since'), formatDisplayDate(member.team_since, pageLocale))}
+                                        {member.home_address && detail(t('Home address'), member.home_address)}
+                                        {member.other_notes && detail(t('Other notes'), member.other_notes)}
+                                    </dl>
+                                </section>
+
+                                {member.playable_sports.length > 0 && (
+                                    <section className="space-y-3">
+                                        <h3 className="text-sm font-semibold text-foreground">{t('Sports')}</h3>
+                                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                            {member.playable_sports.map((sport) => (
+                                                <div key={sport.id} className="rounded-md border p-3">
+                                                    <div className="font-medium">{sportName(sport)}</div>
+                                                    <div className="mt-2 space-y-2 text-sm">
+                                                        {sport.role && (
+                                                            <div className="space-y-0.5">
+                                                                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                                                    {t('Role / position')}
+                                                                </div>
+                                                                <div>{sport.role}</div>
+                                                            </div>
+                                                        )}
+                                                        {sport.sport_event && (
+                                                            <div className="space-y-0.5">
+                                                                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                                                    {t('Sport event')}
+                                                                </div>
+                                                                <div>{sport.sport_event}</div>
+                                                            </div>
+                                                        )}
+                                                        {sport.notes && (
+                                                            <div className="space-y-0.5">
+                                                                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                                                    {t('Notes')}
+                                                                </div>
+                                                                <div className="text-muted-foreground">{sport.notes}</div>
+                                                            </div>
+                                                        )}
+                                                        {!sport.role && !sport.sport_event && !sport.notes && (
+                                                            <div className="text-sm text-muted-foreground">—</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
                                 )}
-                                {detail(
-                                    t('Current status'),
-                                    <Badge variant="outline">
-                                        {t(member.current_status)}
-                                    </Badge>,
-                                )}
-                                {detail(t('Name (Hindi)'), member.full_name_hi)}
-                                {detail(
-                                    t('Name (English)'),
-                                    member.full_name_en,
-                                )}
-                                {detail(
-                                    t("Father's name"),
-                                    member.father_name_hi,
-                                )}
-                                {detail(
-                                    t('Gender'),
-                                    t(
-                                        member.gender === 'M'
-                                            ? 'Male'
-                                            : member.gender === 'F'
-                                              ? 'Female'
-                                              : 'Other gender',
-                                    ),
-                                )}
-                                {detail(t('Date of birth'), member.dob)}
-                                {detail(t('Mobile'), member.mobile)}
-                                {detail(t('Rank'), member.rank)}
-                                {detail(t('Designation'), member.designation)}
-                                {detail(t('Joining date'), member.joining_date)}
-                                {detail(
-                                    t('Home district'),
-                                    member.home_district?.name_hi,
-                                )}
-                                {detail(
-                                    t('Posting district'),
-                                    member.posting_district?.name_hi,
-                                )}
-                                {detail(t('Category'), member.player_category)}
-                                {detail(t('Level'), member.player_level)}
-                                {member.blood_group &&
-                                    detail(
-                                        t('Blood group'),
-                                        member.blood_group,
-                                    )}
-                                {member.caste &&
-                                    detail(t('Caste'), member.caste)}
-                                {member.sport &&
-                                    detail(
-                                        t('Primary sport'),
-                                        locale === 'en'
-                                            ? member.sport.name_en
-                                            : member.sport.name_hi,
-                                    )}
-                                {member.playable_sports.length > 0 &&
-                                    detail(
-                                        t('Other playable sports'),
-                                        member.playable_sports
-                                            .map((sport) =>
-                                                locale === 'en'
-                                                    ? sport.name_en
-                                                    : sport.name_hi,
-                                            )
-                                            .join(', '),
-                                    )}
-                                {member.appointment &&
-                                    detail(
-                                        t('Appointment'),
-                                        member.appointment,
-                                    )}
-                                {member.sport_event &&
-                                    detail(
-                                        t('Sport event'),
-                                        member.sport_event,
-                                    )}
-                                {member.promotion_date &&
-                                    detail(
-                                        t('Promotion date'),
-                                        member.promotion_date,
-                                    )}
-                                {member.team_since &&
-                                    detail(t('Team since'), member.team_since)}
-                                {member.home_address &&
-                                    detail(
-                                        t('Home address'),
-                                        member.home_address,
-                                    )}
-                                {member.other_notes &&
-                                    detail(
-                                        t('Other notes'),
-                                        member.other_notes,
-                                    )}
-                            </dl>
+                            </div>
                         </div>
                     </TabsContent>
 
@@ -946,7 +1138,7 @@ export default function MembersShow({
                                                     )}
                                                 </div>
                                                 <div className="text-right text-xs text-muted-foreground">
-                                                    <p>{row.effective_on}</p>
+                                                    <p>{formatDisplayDate(row.effective_on, pageLocale)}</p>
                                                     {row.recorded_by_name && (
                                                         <p>
                                                             {
@@ -1058,7 +1250,7 @@ export default function MembersShow({
                                                             : '—'}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {row.joined_on ?? '—'}
+                                                        {formatDisplayDate(row.joined_on, pageLocale) ?? '—'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))
@@ -1094,109 +1286,397 @@ export default function MembersShow({
                                 <div className="space-y-4">
                                     <div className="flex flex-wrap gap-3">
                                         {(
-                                            ['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const
-                                        ).map((m) => (
-                                            <div key={m} className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3">
-                                                {(() => {
-                                                    const medal = medalBadgeContent(m);
+                                            [
+                                                'GOLD',
+                                                'SILVER',
+                                                'BRONZE',
+                                                'MERIT',
+                                            ] as const
+                                        ).map((m) => {
+                                            const medal = medalBadgeContent(m);
 
-                                                    return (
-                                                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}>
-                                                            {medal.icon}
-                                                            {medal.label}
-                                                        </span>
-                                                    );
-                                                })()}
-                                                <span className="text-xl font-bold">{achievementsData.summary[m]}</span>
-                                            </div>
-                                        ))}
+                                            return (
+                                                <div
+                                                    key={m}
+                                                    className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3"
+                                                >
+                                                    <span
+                                                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
+                                                    >
+                                                        {medal.icon}
+                                                        {medal.label}
+                                                    </span>
+                                                    <span className="text-xl font-bold">
+                                                        {
+                                                            achievementsData
+                                                                .summary[m]
+                                                        }
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
 
-                                    <div className="rounded-xl border bg-card p-4">
-                                        <div className="mb-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                            <span className="rounded-md border bg-white px-2 py-1">{t('Current')} {sessionFilter === 'current' ? 'on' : 'off'}</span>
-                                            {medalFilter !== 'all' && <span className="rounded-md border bg-white px-2 py-1">{t('Medal')}: {t(medalFilter)}</span>}
-                                            {tierFilter !== 'all' && <span className="rounded-md border bg-white px-2 py-1">{t('Tier')}: {tierFilter}</span>}
-                                            {classFilter !== 'all' && <span className="rounded-md border bg-white px-2 py-1">{t('Class')}: {classFilter}</span>}
-                                            {benefitFilter !== 'all' && <span className="rounded-md border bg-white px-2 py-1">{t('Benefits')}: {t(benefitFilter)}</span>}
-                                            {eventSearch && <span className="rounded-md border bg-white px-2 py-1">{t('Search')}: {eventSearch}</span>}
+                                    <div className="rounded-xl border bg-card p-3">
+                                        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                                            <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto text-xs text-muted-foreground">
+                                                <span className="rounded-md border bg-white px-2 py-1">
+                                                    {t('Date from')}:{' '}
+                                                    {dateFromFilter || t('Any')}
+                                                </span>
+                                                <span className="rounded-md border bg-white px-2 py-1">
+                                                    {t('Date to')}:{' '}
+                                                    {dateToFilter || t('Any')}
+                                                </span>
+                                                <span className="rounded-md border bg-white px-2 py-1">
+                                                    {t('Current')}{' '}
+                                                    {sessionFilter === 'current'
+                                                        ? 'on'
+                                                        : 'off'}
+                                                </span>
+                                                {medalFilter !== 'all' && (
+                                                    <span className="rounded-md border bg-white px-2 py-1">
+                                                        {t('Medal')}:{' '}
+                                                        {t(medalFilter)}
+                                                    </span>
+                                                )}
+                                                {tierFilter !== 'all' && (
+                                                    <span className="rounded-md border bg-white px-2 py-1">
+                                                        {t('Tier')}:{' '}
+                                                        {tierFilter}
+                                                    </span>
+                                                )}
+                                                {classFilter !== 'all' && (
+                                                    <span className="rounded-md border bg-white px-2 py-1">
+                                                        {t('Class')}:{' '}
+                                                        {classFilter}
+                                                    </span>
+                                                )}
+                                                {benefitFilter !== 'all' && (
+                                                    <span className="rounded-md border bg-white px-2 py-1">
+                                                        {t('Benefits')}:{' '}
+                                                        {t(benefitFilter)}
+                                                    </span>
+                                                )}
+                                                {eventSearch && (
+                                                    <span className="rounded-md border bg-white px-2 py-1">
+                                                        {t('Search')}:{' '}
+                                                        {eventSearch}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setDateFromFilter('');
+                                                    setDateToFilter('');
+                                                    setEventSearch('');
+                                                    setSessionFilter('current');
+                                                    setMedalFilter('all');
+                                                    setTierFilter('all');
+                                                    setClassFilter('all');
+                                                    setBenefitFilter('all');
+                                                }}
+                                            >
+                                                {t('Clear filters')}
+                                            </Button>
                                         </div>
-                                        <div className="flex flex-wrap gap-3">
-                                            <div className="min-w-[240px] flex-1 basis-[280px] space-y-1.5">
-                                                <Label htmlFor="event-search" className="text-xs font-medium text-muted-foreground">{t('Search…')}</Label>
-                                                <Input id="event-search" className="h-10 border-slate-200 bg-white shadow-sm" value={eventSearch} onChange={(e) => setEventSearch(e.target.value)} placeholder={t('Search events, medals, benefits…')} />
+                                        <div className="flex flex-wrap items-end gap-2">
+                                            <div className="space-y-1">
+                                                <Label
+                                                    htmlFor="date-from"
+                                                    className="text-xs font-medium text-muted-foreground"
+                                                >
+                                                    {t('Date from')}
+                                                </Label>
+                                                <Input
+                                                    id="date-from"
+                                                    type="date"
+                                                    className="h-8 border-slate-200 bg-white shadow-sm"
+                                                    value={dateFromFilter}
+                                                    onChange={(e) =>
+                                                        setDateFromFilter(
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
                                             </div>
-                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
-                                                <Label className="text-xs font-medium text-muted-foreground">{t('Session')}</Label>
-                                                <Select value={sessionFilter} onValueChange={(v) => setSessionFilter(v as 'all' | 'current' | string)}>
-                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue placeholder={t('All sessions')} />
+                                            <div className="space-y-1">
+                                                <Label
+                                                    htmlFor="date-to"
+                                                    className="text-xs font-medium text-muted-foreground"
+                                                >
+                                                    {t('Date to')}
+                                                </Label>
+                                                <Input
+                                                    id="date-to"
+                                                    type="date"
+                                                    className="h-8 border-slate-200 bg-white shadow-sm"
+                                                    value={dateToFilter}
+                                                    onChange={(e) =>
+                                                        setDateToFilter(
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label
+                                                    htmlFor="event-search"
+                                                    className="text-xs font-medium text-muted-foreground"
+                                                >
+                                                    {t('Search…')}
+                                                </Label>
+                                                <Input
+                                                    id="event-search"
+                                                    className="h-8 border-slate-200 bg-white shadow-sm"
+                                                    value={eventSearch}
+                                                    onChange={(e) =>
+                                                        setEventSearch(
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    placeholder={t(
+                                                        'Search events, medals, benefits…',
+                                                    )}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs font-medium text-muted-foreground">
+                                                    {t('Session')}
+                                                </Label>
+                                                <Select
+                                                    value={sessionFilter}
+                                                    onValueChange={(v) =>
+                                                        setSessionFilter(
+                                                            v as
+                                                                | 'all'
+                                                                | 'current'
+                                                                | string,
+                                                        )
+                                                    }
+                                                >
+                                                    <SelectTrigger className="h-8 border-slate-200 bg-white shadow-sm">
+                                                        <SelectValue
+                                                            placeholder={t(
+                                                                'All sessions',
+                                                            )}
+                                                        />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="current">{t('Current')}</SelectItem>
-                                                        <SelectItem value="all">{t('All sessions')}</SelectItem>
-                                                        {(participations ?? []).map((group) => (
-                                                            <SelectItem key={group.session.id} value={String(group.session.id)}>{group.session.name}</SelectItem>
+                                                        <SelectItem value="current">
+                                                            {t('Current')}
+                                                        </SelectItem>
+                                                        <SelectItem value="all">
+                                                            {t('All sessions')}
+                                                        </SelectItem>
+                                                        {(
+                                                            participations ?? []
+                                                        ).map((group) => (
+                                                            <SelectItem
+                                                                key={
+                                                                    group
+                                                                        .session
+                                                                        .id
+                                                                }
+                                                                value={String(
+                                                                    group
+                                                                        .session
+                                                                        .id,
+                                                                )}
+                                                            >
+                                                                {
+                                                                    group
+                                                                        .session
+                                                                        .name
+                                                                }
+                                                            </SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
-                                                <Label className="text-xs font-medium text-muted-foreground">{t('Medal')}</Label>
-                                                <Select value={medalFilter} onValueChange={(v) => setMedalFilter(v as typeof medalFilter)}>
-                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue placeholder={t('All medals')} />
+                                            <div className="space-y-1">
+                                                <Label className="text-xs font-medium text-muted-foreground">
+                                                    {t('Medal')}
+                                                </Label>
+                                                <Select
+                                                    value={medalFilter}
+                                                    onValueChange={(v) =>
+                                                        setMedalFilter(
+                                                            v as typeof medalFilter,
+                                                        )
+                                                    }
+                                                >
+                                                    <SelectTrigger className="h-8 border-slate-200 bg-white shadow-sm">
+                                                        <SelectValue
+                                                            placeholder={t(
+                                                                'All medals',
+                                                            )}
+                                                        />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="all">{t('All medals')}</SelectItem>
-                                                        <SelectItem value="GOLD">{t('Gold')}</SelectItem>
-                                                        <SelectItem value="SILVER">{t('Silver')}</SelectItem>
-                                                        <SelectItem value="BRONZE">{t('Bronze')}</SelectItem>
-                                                        <SelectItem value="MERIT">{t('MERIT')}</SelectItem>
-                                                        <SelectItem value="none">{t('No medal')}</SelectItem>
+                                                        <SelectItem value="all">
+                                                            {t('All medals')}
+                                                        </SelectItem>
+                                                        <SelectItem value="GOLD">
+                                                            {t('Gold')}
+                                                        </SelectItem>
+                                                        <SelectItem value="SILVER">
+                                                            {t('Silver')}
+                                                        </SelectItem>
+                                                        <SelectItem value="BRONZE">
+                                                            {t('Bronze')}
+                                                        </SelectItem>
+                                                        <SelectItem value="MERIT">
+                                                            {t('MERIT')}
+                                                        </SelectItem>
+                                                        <SelectItem value="none">
+                                                            {t('No medal')}
+                                                        </SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
-                                                <Label className="text-xs font-medium text-muted-foreground">{t('Tier')}</Label>
-                                                <Select value={tierFilter} onValueChange={setTierFilter}>
-                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue placeholder={t('All tiers')} />
+                                            <div className="space-y-1">
+                                                <Label className="text-xs font-medium text-muted-foreground">
+                                                    {t('Tier')}
+                                                </Label>
+                                                <Select
+                                                    value={tierFilter}
+                                                    onValueChange={
+                                                        setTierFilter
+                                                    }
+                                                >
+                                                    <SelectTrigger className="h-8 border-slate-200 bg-white shadow-sm">
+                                                        <SelectValue
+                                                            placeholder={t(
+                                                                'All tiers',
+                                                            )}
+                                                        />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="all">{t('All tiers')}</SelectItem>
-                                                        {Array.from(new Set((participations ?? []).flatMap((group) => group.participations.map((p) => p.tournament.tier_code).filter(Boolean) as string[]))).map((tier) => (
-                                                            <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+                                                        <SelectItem value="all">
+                                                            {t('All tiers')}
+                                                        </SelectItem>
+                                                        {Array.from(
+                                                            new Set(
+                                                                (
+                                                                    participations ??
+                                                                    []
+                                                                ).flatMap(
+                                                                    (group) =>
+                                                                        group.participations
+                                                                            .map(
+                                                                                (
+                                                                                    p,
+                                                                                ) =>
+                                                                                    p
+                                                                                        .tournament
+                                                                                        .tier_code,
+                                                                            )
+                                                                            .filter(
+                                                                                Boolean,
+                                                                            ) as string[],
+                                                                ),
+                                                            ),
+                                                        ).map((tier) => (
+                                                            <SelectItem
+                                                                key={tier}
+                                                                value={tier}
+                                                            >
+                                                                {tier}
+                                                            </SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
-                                                <Label className="text-xs font-medium text-muted-foreground">{t('Class')}</Label>
-                                                <Select value={classFilter} onValueChange={setClassFilter}>
-                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue placeholder={t('All types')} />
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs font-medium text-muted-foreground">
+                                                    {t('Class')}
+                                                </Label>
+                                                <Select
+                                                    value={classFilter}
+                                                    onValueChange={
+                                                        setClassFilter
+                                                    }
+                                                >
+                                                    <SelectTrigger className="h-8 border-slate-200 bg-white shadow-sm">
+                                                        <SelectValue
+                                                            placeholder={t(
+                                                                'All types',
+                                                            )}
+                                                        />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="all">{t('All types')}</SelectItem>
-                                                        {Array.from(new Set((participations ?? []).flatMap((group) => group.participations.map((p) => p.event.gender_class)))).map((item) => (
-                                                            <SelectItem key={item} value={item}>{item}</SelectItem>
+                                                        <SelectItem value="all">
+                                                            {t('All types')}
+                                                        </SelectItem>
+                                                        {Array.from(
+                                                            new Set(
+                                                                (
+                                                                    participations ??
+                                                                    []
+                                                                ).flatMap(
+                                                                    (group) =>
+                                                                        group.participations.map(
+                                                                            (
+                                                                                p,
+                                                                            ) =>
+                                                                                p
+                                                                                    .event
+                                                                                    .gender_class,
+                                                                        ),
+                                                                ),
+                                                            ),
+                                                        ).map((item) => (
+                                                            <SelectItem
+                                                                key={item}
+                                                                value={item}
+                                                            >
+                                                                {item}
+                                                            </SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div className="min-w-[180px] flex-1 basis-[180px] space-y-1.5">
-                                                <Label className="text-xs font-medium text-muted-foreground">{t('Benefits')}</Label>
-                                                <Select value={benefitFilter} onValueChange={(v) => setBenefitFilter(v as typeof benefitFilter)}>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs font-medium text-muted-foreground">
+                                                    {t('Benefits')}
+                                                </Label>
+                                                <Select
+                                                    value={benefitFilter}
+                                                    onValueChange={(v) =>
+                                                        setBenefitFilter(
+                                                            v as typeof benefitFilter,
+                                                        )
+                                                    }
+                                                >
                                                     <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue placeholder={t('All types')} />
+                                                        <SelectValue
+                                                            placeholder={t(
+                                                                'All types',
+                                                            )}
+                                                        />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="all">{t('All types')}</SelectItem>
-                                                        <SelectItem value="benefit">{t('Benefit recorded')}</SelectItem>
-                                                        <SelectItem value="promotion">{t('Promotion')}</SelectItem>
-                                                        <SelectItem value="cash">{t('Cash reward')}</SelectItem>
-                                                        <SelectItem value="both">{t('Promotion')} + {t('Cash reward')}</SelectItem>
+                                                        <SelectItem value="all">
+                                                            {t('All types')}
+                                                        </SelectItem>
+                                                        <SelectItem value="benefit">
+                                                            {t(
+                                                                'Benefit recorded',
+                                                            )}
+                                                        </SelectItem>
+                                                        <SelectItem value="promotion">
+                                                            {t('Promotion')}
+                                                        </SelectItem>
+                                                        <SelectItem value="cash">
+                                                            {t('Cash reward')}
+                                                        </SelectItem>
+                                                        <SelectItem value="both">
+                                                            {t('Promotion')} +{' '}
+                                                            {t('Cash reward')}
+                                                        </SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -1205,146 +1685,459 @@ export default function MembersShow({
 
                                     {filteredSessionGroups.length === 0 ? (
                                         <div className="rounded-xl border bg-card p-6">
-                                            <p className="text-sm text-muted-foreground">{t('No results')}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {t('No results')}
+                                            </p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-4">
-                                            {filteredSessionGroups.map((group) => (
-                                                <div key={group.session.id} className="rounded-xl border bg-card">
-                                                    <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-                                                        <div>
-                                                            <h4 className="text-sm font-medium">
-                                                                {group.session.name}
-                                                                {group.session.is_current ? <Badge className="ml-2" variant="secondary">{t('Current')}</Badge> : null}
-                                                            </h4>
-                                                            <p className="text-xs text-muted-foreground">{t('Events')}</p>
-                                                        </div>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {group.participations.length} {t('records')}
-                                                        </p>
-                                                    </div>
-                                                    <div className="space-y-3 p-4">
-                                                        {group.participations
-                                                            .reduce<Array<{ key: string; eventName: string; rows: ParticipationEntry[] }>>((acc, item) => {
-                                                                const key = `${item.tournament.id}:${item.event.id}`;
-                                                                const existing = acc.find((entry) => entry.key === key);
+                                        <div className="rounded-xl border bg-card">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>
+                                                            {t('Tier')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Tournament')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Event')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Class')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Medal')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Position')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Benefits')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Promotion')}
+                                                        </TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {Object.entries(
+                                                        filteredSessionGroups
+                                                            .flatMap((group) =>
+                                                                group.participations.map(
+                                                                    (
+                                                                        participation,
+                                                                    ) => ({
+                                                                        group,
+                                                                        participation,
+                                                                    }),
+                                                                ),
+                                                            )
+                                                            .reduce<
+                                                                Record<
+                                                                    string,
+                                                                    Array<{
+                                                                        group: (typeof filteredSessionGroups)[number];
+                                                                        participation: ParticipationEntry;
+                                                                    }>
+                                                                >
+                                                            >((acc, item) => {
+                                                                const tierKey =
+                                                                    item
+                                                                        .participation
+                                                                        .tournament
+                                                                        .tier_code ??
+                                                                    t(
+                                                                        'Unknown',
+                                                                    );
 
-                                                                if (existing) {
-                                                                    existing.rows.push(item);
-                                                                } else {
-                                                                    acc.push({ key, eventName: item.event.name_hi, rows: [item] });
+                                                                if (
+                                                                    !acc[
+                                                                        tierKey
+                                                                    ]
+                                                                ) {
+                                                                    acc[
+                                                                        tierKey
+                                                                    ] = [];
                                                                 }
 
+                                                                acc[
+                                                                    tierKey
+                                                                ].push(item);
+
                                                                 return acc;
-                                                            }, [])
-                                                            .map((eventGroup) => (
-                                                            <div key={eventGroup.key} className="rounded-lg border bg-white shadow-sm">
-                                                                <div className="border-b bg-slate-50 px-4 py-3">
-                                                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                                                        <div className="min-w-0 space-y-1">
-                                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                                <Link href={showTournament.url(eventGroup.rows[0].tournament.id)} className="truncate font-medium hover:underline">
-                                                                                    {eventGroup.rows[0].tournament.name_hi}
-                                                                                </Link>
-                                                                                <span className={eventBadgeClass('tier')}>{eventGroup.rows[0].tournament.tier_code ?? t('Unknown')}</span>
-                                                                                <span className={eventBadgeClass('class')}>{eventGroup.rows[0].event.gender_class || t('Unknown')}</span>
-                                                                            </div>
-                                                                            <Link href={showEvent.url({ tournament: eventGroup.rows[0].tournament.id, event: eventGroup.rows[0].event.id })} className="block truncate text-sm text-muted-foreground hover:underline">
-                                                                                {eventGroup.eventName}
-                                                                            </Link>
-                                                                            <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
-                                                                                {eventGroup.rows[0].tournament.sport && <span className="rounded-md border bg-white px-2 py-0.5">{t('Sport')}: {eventGroup.rows[0].tournament.sport.name_hi}</span>}
-                                                                                {eventGroup.rows[0].tournament.venue && <span className="rounded-md border bg-white px-2 py-0.5">{t('Venue')}: {eventGroup.rows[0].tournament.venue}</span>}
-                                                                                {eventGroup.rows[0].tournament.date_from && <span className="rounded-md border bg-white px-2 py-0.5">{t('Date')}: {eventGroup.rows[0].tournament.date_to ? `${eventGroup.rows[0].tournament.date_from} - ${eventGroup.rows[0].tournament.date_to}` : eventGroup.rows[0].tournament.date_from}</span>}
-                                                                                {eventGroup.rows[0].team && <span className="rounded-md border bg-white px-2 py-0.5">{t('Team')}: {eventGroup.rows[0].team.name_hi}</span>}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="shrink-0 text-xs text-muted-foreground">
-                                                                            {eventGroup.rows.length} {t('records')}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="space-y-3 p-4">
-                                                                        {eventGroup.rows.map((p) => (
-                                                                            <div key={p.id} className="flex w-full items-start gap-3 rounded-md border bg-white p-3 shadow-sm">
-                                                                                <div className="min-w-0 flex-1 space-y-2">
-                                                                                        <div className="flex flex-wrap items-center gap-2">
-                                                                                            {p.achievement?.medal_type ? (() => {
-                                                                                                const medal = medalBadgeContent(p.achievement.medal_type);
+                                                            }, {}),
+                                                    )
+                                                        .sort((a, b) => {
+                                                            const aWeight =
+                                                                a[1][0]
+                                                                    ?.participation
+                                                                    .tournament
+                                                                    .tier_weight ??
+                                                                0;
+                                                            const bWeight =
+                                                                b[1][0]
+                                                                    ?.participation
+                                                                    .tournament
+                                                                    .tier_weight ??
+                                                                0;
 
-                                                                                                return (
-                                                                                                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}>
-                                                                                                        {medal.icon}
-                                                                                                        {medal.label}
-                                                                                                    </span>
-                                                                                                );
-                                                                                            })() : <span className={eventBadgeClass('medal')}>{t('No medal')}</span>}
-                                                                                            <span className="text-xs text-muted-foreground">
-                                                                                                #{p.achievement?.position ?? p.position ?? '—'}
-                                                                                            </span>
-                                                                                        </div>
-                                                                                        <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
-                                                                                            {p.event.sport && <span className="rounded-md border bg-muted/30 px-2 py-0.5">{t('Sport')}: {p.event.sport.name_hi}</span>}
-                                                                                            {p.tournament.venue && <span className="rounded-md border bg-muted/30 px-2 py-0.5">{t('Venue')}: {p.tournament.venue}</span>}
-                                                                                            {p.event.discipline && <span className="rounded-md border bg-muted/30 px-2 py-0.5">{t('Discipline')}: {p.event.discipline}</span>}
-                                                                                            {p.event.weight_category && <span className="rounded-md border bg-muted/30 px-2 py-0.5">{t('Weight category')}: {p.event.weight_category}</span>}
-                                                                                        </div>
-                                                                                        <div className="grid gap-3 md:grid-cols-2">
-                                                                                            <div className="space-y-1">
-                                                                                                <p className="text-xs font-medium text-muted-foreground">{t('Benefits')}</p>
-                                                                                                <div className="flex flex-wrap gap-1.5">
-                                                                                                    {p.achievement?.benefits?.length ? p.achievement.benefits.map((benefit) => (
-                                                                                                        <span key={benefit.id} className={eventBadgeClass('benefit')}>
-                                                                                                            {t(benefit.benefit_type)}
-                                                                                                            {benefit.cash_amount ? ` ₹${benefit.cash_amount}` : ''}
-                                                                                                        </span>
-                                                                                                    )) : <span className="text-xs text-muted-foreground">—</span>}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                            <div className="space-y-1">
-                                                                                                <p className="text-xs font-medium text-muted-foreground">{t('Promotion')}</p>
-                                                                                                {eventPromotionRows(p).length > 0 ? (
-                                                                                                    <div className="flex flex-wrap gap-1.5">
-                                                                                                        {eventPromotionRows(p).map((promotion) => {
-                                                                                                            const rewardMeta = promotionRewardMeta(promotion);
+                                                            if (
+                                                                aWeight !==
+                                                                bWeight
+                                                            ) {
+                                                                return (
+                                                                    bWeight -
+                                                                    aWeight
+                                                                );
+                                                            }
 
-                                                                                                            return (
-                                                                                                                <span key={promotion.id} className="inline-flex max-w-full items-start gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium leading-4 text-blue-700">
-                                                                                                                    <span className="shrink-0">{t('Promotion')}</span>
-                                                                                                                    <span className="truncate">
-                                                                                                                        {promotionSummary(promotion)}
-                                                                                                                        {rewardMeta.length > 0 ? ` · ${rewardMeta.join(' · ')}` : ''}
-                                                                                                                    </span>
-                                                                                                                </span>
-                                                                                                            );
-                                                                                                        })}
-                                                                                                    </div>
-                                                                                                ) : (
-                                                                                                    <span className="text-xs text-muted-foreground">—</span>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </div>
+                                                            return a[0].localeCompare(
+                                                                b[0],
+                                                            );
+                                                        })
+                                                        .map(([tier, rows]) => {
+                                                            const medalCounts =
+                                                                rows.reduce(
+                                                                    (
+                                                                        acc,
+                                                                        {
+                                                                            participation,
+                                                                        },
+                                                                    ) => {
+                                                                        const medal =
+                                                                            participation
+                                                                                .achievement
+                                                                                ?.medal_type;
+
+                                                                        if (
+                                                                            medal &&
+                                                                            medal in
+                                                                                acc
+                                                                        ) {
+                                                                            acc[
+                                                                                medal as keyof typeof acc
+                                                                            ] +=
+                                                                                1;
+                                                                        }
+
+                                                                        return acc;
+                                                                    },
+                                                                    {
+                                                                        GOLD: 0,
+                                                                        SILVER: 0,
+                                                                        BRONZE: 0,
+                                                                        MERIT: 0,
+                                                                    },
+                                                                );
+
+                                                            return (
+                                                                <Fragment key={`tier-${tier}`}>
+                                                                    <TableRow
+                                                                        className="bg-primary/5 hover:bg-primary/5"
+                                                                    >
+                                                                        <TableCell
+                                                                            colSpan={
+                                                                                8
+                                                                            }
+                                                                            className="border-l-4 border-primary py-3 font-medium"
+                                                                        >
+                                                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                                    <span
+                                                                                        className={eventBadgeClass(
+                                                                                            'tier',
+                                                                                        )}
+                                                                                    >
+                                                                                        {
+                                                                                            tier
+                                                                                        }
+                                                                                    </span>
+                                                                                    <span className="text-xs text-muted-foreground">
+                                                                                        {
+                                                                                            rows.length
+                                                                                        }{' '}
+                                                                                        {t(
+                                                                                            'records',
+                                                                                        )}
+                                                                                    </span>
                                                                                 </div>
-                                                                                <Button variant="ghost" size="icon" className="relative h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground" title={t('Photos')} onClick={() => setMediaParticipationId({ id: p.id, eventName: p.event?.name_hi ?? '' })}>
-                                                                                        {canUploadMedia || canDeleteMedia ? <Camera className="h-3.5 w-3.5" /> : <Images className="h-3.5 w-3.5" />}
-                                                                                        {p.media_files_count > 0 && (
-                                                                                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
-                                                                                                {p.media_files_count > 9 ? '9+' : p.media_files_count}
+                                                                                <span className="flex flex-wrap gap-1.5">
+                                                                                    {(
+                                                                                        [
+                                                                                            'GOLD',
+                                                                                            'SILVER',
+                                                                                            'BRONZE',
+                                                                                            'MERIT',
+                                                                                        ] as const
+                                                                                    ).map(
+                                                                                        (
+                                                                                            medal,
+                                                                                        ) =>
+                                                                                            medalCounts[
+                                                                                                medal
+                                                                                            ] >
+                                                                                            0 ? (
+                                                                                                <span
+                                                                                                    key={
+                                                                                                        medal
+                                                                                                    }
+                                                                                                    className={eventBadgeClass(
+                                                                                                        'medal',
+                                                                                                    )}
+                                                                                                >
+                                                                                                    {t(
+                                                                                                        medal,
+                                                                                                    )}
+
+                                                                                                    :{' '}
+                                                                                                    {
+                                                                                                        medalCounts[
+                                                                                                            medal
+                                                                                                        ]
+                                                                                                    }
+                                                                                                </span>
+                                                                                            ) : null,
+                                                                                    )}
+                                                                                </span>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                    {rows.map(
+                                                                        ({
+                                                                            group,
+                                                                            participation,
+                                                                        }) => {
+                                                                            const promotionsForRow =
+                                                                                eventPromotionRows(
+                                                                                    participation,
+                                                                                );
+
+                                                                            return (
+                                                                                <TableRow
+                                                                                    key={
+                                                                                        participation.id
+                                                                                    }
+                                                                                >
+                                                                                    <TableCell>
+                                                                                        {group
+                                                                                            .session
+                                                                                            .is_current ? (
+                                                                                            <span
+                                                                                                className={eventBadgeClass(
+                                                                                                    'session',
+                                                                                                )}
+                                                                                            >
+                                                                                                {t(
+                                                                                                    'Current',
+                                                                                                )}
+                                                                                            </span>
+                                                                                        ) : (
+                                                                                            <span className="text-xs text-muted-foreground">
+                                                                                                —
                                                                                             </span>
                                                                                         )}
-                                                                                        <span className="sr-only">{t('Photos')}</span>
-                                                                                    </Button>
-                                                                                <div className="mt-2 text-[11px] text-muted-foreground">
-                                                                                    {p.tournament.date_from ?? t('No date')}
-                                                                                </div>
-                                                                            </div>
-                                                                        ))}
-                                                                </div>
-                                                            </div>
-                                                            ))}
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1">
+                                                                                            <Link
+                                                                                                href={showTournament.url(
+                                                                                                    participation
+                                                                                                        .tournament
+                                                                                                        .id,
+                                                                                                )}
+                                                                                                className="block font-medium hover:underline"
+                                                                                            >
+                                                                                                {
+                                                                                                    participation
+                                                                                                        .tournament
+                                                                                                        .name_hi
+                                                                                                }
+                                                                                            </Link>
+                                                                                            <p className="text-xs text-muted-foreground">
+                                                                                                {
+                                                                                                    group
+                                                                                                        .session
+                                                                                                        .name
+                                                                                                }
+                                                                                            </p>
+                                                                                            <p className="text-xs text-muted-foreground">
+                                                                                                {participation
+                                                                                                    .tournament
+                                                                                                    .venue ??
+                                                                                                    '—'}
+                                                                                            </p>
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <Link
+                                                                                            href={showEvent.url(
+                                                                                                {
+                                                                                                    tournament:
+                                                                                                        participation
+                                                                                                            .tournament
+                                                                                                            .id,
+                                                                                                    event: participation
+                                                                                                        .event
+                                                                                                        .id,
+                                                                                                },
+                                                                                            )}
+                                                                                            className="font-medium hover:underline"
+                                                                                        >
+                                                                                            {
+                                                                                                participation
+                                                                                                    .event
+                                                                                                    .name_hi
+                                                                                            }
+                                                                                        </Link>
+                                                                                        <p className="mt-1 text-xs text-muted-foreground">
+                                                                                            {participation
+                                                                                                .tournament
+                                                                                                .date_from ??
+                                                                                                t(
+                                                                                                    'No date',
+                                                                                                )}
+                                                                                        </p>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {participation
+                                                                                            .event
+                                                                                            .gender_class ||
+                                                                                            '—'}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {participation
+                                                                                            .achievement
+                                                                                            ?.medal_type ? (
+                                                                                            (() => {
+                                                                                                const medal =
+                                                                                                    medalBadgeContent(
+                                                                                                        participation
+                                                                                                            .achievement
+                                                                                                            .medal_type,
+                                                                                                    );
+
+                                                                                                return (
+                                                                                                    <span
+                                                                                                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
+                                                                                                    >
+                                                                                                        {
+                                                                                                            medal.icon
+                                                                                                        }
+                                                                                                        {
+                                                                                                            medal.label
+                                                                                                        }
+                                                                                                    </span>
+                                                                                                );
+                                                                                            })()
+                                                                                        ) : (
+                                                                                            <span
+                                                                                                className={eventBadgeClass(
+                                                                                                    'medal',
+                                                                                                )}
+                                                                                            >
+                                                                                                {t(
+                                                                                                    'No medal',
+                                                                                                )}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        #
+                                                                                        {participation
+                                                                                            .achievement
+                                                                                            ?.position ??
+                                                                                            participation.position ??
+                                                                                            '—'}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                                            {participation
+                                                                                                .achievement
+                                                                                                ?.benefits
+                                                                                                ?.length ? (
+                                                                                                participation.achievement.benefits.map(
+                                                                                                    (
+                                                                                                        benefit,
+                                                                                                    ) => (
+                                                                                                        <span
+                                                                                                            key={
+                                                                                                                benefit.id
+                                                                                                            }
+                                                                                                            className={eventBadgeClass(
+                                                                                                                'benefit',
+                                                                                                            )}
+                                                                                                        >
+                                                                                                            {t(
+                                                                                                                benefit.benefit_type,
+                                                                                                            )}
+                                                                                                            {benefit.cash_amount
+                                                                                                                ? ` ₹${benefit.cash_amount}`
+                                                                                                                : ''}
+                                                                                                        </span>
+                                                                                                    ),
+                                                                                                )
+                                                                                            ) : (
+                                                                                                <span className="text-xs text-muted-foreground">
+                                                                                                    —
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1.5">
+                                                                                            {promotionsForRow.length >
+                                                                                            0 ? (
+                                                                                                promotionsForRow.map(
+                                                                                                    (
+                                                                                                        promotion,
+                                                                                                    ) => {
+                                                                                                        const rewardMeta =
+                                                                                                            promotionRewardMeta(
+                                                                                                                promotion,
+                                                                                                            );
+
+                                                                                                        return (
+                                                                                                            <div
+                                                                                                                key={
+                                                                                                                    promotion.id
+                                                                                                                }
+                                                                                                                className="text-xs text-muted-foreground"
+                                                                                                            >
+                                                                                                                <span className="font-medium text-foreground">
+                                                                                                                    {t(
+                                                                                                                        'Promotion',
+                                                                                                                    )}
+                                                                                                                </span>{' '}
+                                                                                                                <span>
+                                                                                                                    {promotionSummary(
+                                                                                                                        promotion,
+                                                                                                                    )}
+                                                                                                                    {rewardMeta.length >
+                                                                                                                    0
+                                                                                                                        ? ` · ${rewardMeta.join(' · ')}`
+                                                                                                                        : ''}
+                                                                                                                </span>
+                                                                                                            </div>
+                                                                                                        );
+                                                                                                    },
+                                                                                                )
+                                                                                            ) : (
+                                                                                                <span className="text-xs text-muted-foreground">
+                                                                                                    —
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                </TableRow>
+                                                                            );
+                                                                        },
+                                                                    )}
+                                                                </Fragment>
+                                                            );
+                                                        })}
+                                                </TableBody>
+                                            </Table>
                                         </div>
                                     )}
                                 </div>
@@ -1394,19 +2187,21 @@ export default function MembersShow({
                                 promotions={promotions}
                                 participations={participations ?? []}
                                 legacyAchievements={legacyAchievements}
-                                achievements={achievementsData?.achievements ?? []}
+                                achievements={
+                                    achievementsData?.achievements ?? []
+                                }
                                 onSaved={refreshMemberHistory}
                             />
                         </Deferred>
                     </TabsContent>
                     {/* Change log */}
                     <TabsContent value="changelog">
-                            <ChangeLog
-                                entries={[]}
-                                primaryEntity="Member"
-                                storageKey="member-changelog-view"
-                                endpoint={memberAuditLog.index.url(member)}
-                            />
+                        <ChangeLog
+                            entries={[]}
+                            primaryEntity="Member"
+                            storageKey="member-changelog-view"
+                            endpoint={memberAuditLog.index.url(member)}
+                        />
                     </TabsContent>
 
                     {/* Media tab */}

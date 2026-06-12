@@ -35,8 +35,16 @@ type Member = {
     home_district: { id: number; name_hi: string; name_en: string } | null;
     current_unit: { id: number; name_hi: string; name_en: string } | null;
     posting_district: { id: number; name_hi: string; name_en: string } | null;
-    sport: SportOption | null;
-    playable_sports: SportOption[];
+    playable_sports: Array<SportOption & {
+        pivot?: {
+            role?: string | null;
+            sport_event?: string | null;
+            notes?: string | null;
+        };
+        role?: string | null;
+        sport_event?: string | null;
+        notes?: string | null;
+    }>;
 };
 
 type UnitOption = { id: number; name_hi: string; name_en: string };
@@ -72,7 +80,6 @@ type Filters = {
 };
 
 const ALL_COLUMNS: { key: string; label: string }[] = [
-    { key: 'member_code', label: 'Member code' },
     { key: 'pno', label: 'PNO' },
     { key: 'full_name_hi', label: 'Name (Hindi)' },
     { key: 'full_name_en', label: 'Name (English)' },
@@ -80,17 +87,17 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'gender', label: 'Gender' },
     { key: 'dob', label: 'Date of birth' },
     { key: 'rank', label: 'Rank' },
-    { key: 'designation', label: 'Designation' },
     { key: 'mobile', label: 'Mobile' },
     { key: 'current_status', label: 'Status' },
     { key: 'player_category', label: 'Category' },
     { key: 'player_level', label: 'Level' },
     { key: 'unit', label: 'Unit' },
     { key: 'home_district', label: 'Home district' },
-    { key: 'posting_district', label: 'Posting district' },
+    { key: 'posting_district', label: 'Posting unit / district' },
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
+    { key: 'designation', label: 'Designation' },
     { key: 'appointment', label: 'Appointment' },
     { key: 'sport_event', label: 'Sport event' },
     { key: 'promotion_date', label: 'Promotion date' },
@@ -135,15 +142,56 @@ function localeName(entity: { name_hi: string; name_en: string }, locale: string
     return locale === 'en' ? entity.name_en : (entity.name_hi ?? entity.name_en);
 }
 
+function localizedText(hi: string | null | undefined, en: string | null | undefined, locale: string): string | null {
+    if (locale === 'en') {
+        return en ?? hi ?? null;
+    }
+
+    return hi ?? en ?? null;
+}
+
+function postingLocation(member: Member): string | null {
+    return member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null;
+}
+
+function parseDateValue(value: string): Date | null {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDisplayDate(value: string | null | undefined, locale: string): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const date = parseDateValue(value);
+
+    if (!date) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+        dateStyle: 'medium',
+    }).format(date);
+}
+
 function SportCell({ member }: { member: Member }) {
     const { t } = useTranslation();
-    const playableSports = member.playable_sports.filter((sport) => sport.id !== member.sport?.id);
+    const playableSports = member.playable_sports;
 
-    if (!member.sport && playableSports.length === 0) {
+    if (playableSports.length === 0) {
         return <span className="select-none text-border">—</span>;
     }
 
-    const primarySportName = member.sport?.name_hi ?? playableSports[0]?.name_hi;
+    const primarySportName = playableSports[0]?.name_hi;
 
     return (
         <Popover>
@@ -154,31 +202,46 @@ function SportCell({ member }: { member: Member }) {
                     onClick={(e) => e.stopPropagation()}
                 >
                     <span className="truncate">{primarySportName}</span>
-                    {playableSports.length > 0 && (
+                    {playableSports.length > 1 && (
                         <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[10px]">
-                            +{playableSports.length}
+                            +{playableSports.length - 1}
                         </Badge>
                     )}
                 </button>
             </PopoverTrigger>
             <PopoverContent className="w-56 p-3" onClick={(e) => e.stopPropagation()}>
                 <div className="space-y-2">
-                    {member.sport && (
-                        <div>
-                            <p className="text-xs font-medium text-muted-foreground">{t('Primary sport')}</p>
-                            <p className="text-sm font-medium">{member.sport.name_hi}</p>
-                        </div>
-                    )}
-                    {playableSports.length > 0 && (
-                        <div>
-                            <p className="text-xs font-medium text-muted-foreground">{t('Other playable sports')}</p>
-                            <ul className="mt-1 space-y-1 text-sm">
-                                {playableSports.map((sport) => (
-                                    <li key={sport.id}>{sport.name_hi}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
+                    <div>
+                        <p className="text-xs font-medium text-muted-foreground">{t('Sports')}</p>
+                        <ul className="mt-1 space-y-2 text-sm">
+                            {playableSports.map((sport) => (
+                                <li key={sport.id} className="space-y-0.5">
+                                    <p className="font-medium">{sport.name_hi}</p>
+                                    <div className="space-y-0.5 text-xs text-muted-foreground">
+                                        {(sport.role ?? sport.pivot?.role) && (
+                                            <p>
+                                                <span className="font-medium text-foreground">{t('Role / position')}:</span>{' '}
+                                                {sport.role ?? sport.pivot?.role}
+                                            </p>
+                                        )}
+                                        {(sport.sport_event ?? sport.pivot?.sport_event) && (
+                                            <p>
+                                                <span className="font-medium text-foreground">{t('Sport event')}:</span>{' '}
+                                                {sport.sport_event ?? sport.pivot?.sport_event}
+                                            </p>
+                                        )}
+                                        {(sport.notes ?? sport.pivot?.notes) && (
+                                            <p>
+                                                <span className="font-medium text-foreground">{t('Notes')}:</span>{' '}
+                                                {sport.notes ?? sport.pivot?.notes}
+                                            </p>
+                                        )}
+                                        {!sport.role && !sport.pivot?.role && !sport.sport_event && !sport.pivot?.sport_event && !sport.notes && !sport.pivot?.notes && <p>—</p>}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 </div>
             </PopoverContent>
         </Popover>
@@ -492,8 +555,14 @@ return `<td>${m.home_district?.name_hi ?? '\u2014'}</td>`;
 }
 
                             if (c.key === 'posting_district') {
-return `<td>${m.posting_district?.name_hi ?? '\u2014'}</td>`;
-}
+return `<td>${m.posting_district?.name_hi ?? m.current_unit?.name_hi ?? '\u2014'}</td>`;
+                            }
+
+                            if (['dob', 'joining_date', 'promotion_date', 'team_since'].includes(c.key)) {
+                                const value = (m as Record<string, unknown>)[c.key];
+
+                                return `<td>${typeof value === 'string' ? (formatDisplayDate(value, locale) ?? '\u2014') : '\u2014'}</td>`;
+                            }
 
                             const v = (m as Record<string, unknown>)[c.key];
 
@@ -502,7 +571,7 @@ return `<td>${m.posting_district?.name_hi ?? '\u2014'}</td>`;
                         .join('')}</tr>`,
             )
             .join('');
-        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Members')}</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Members')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Members')}</title><style>body{font-family:sans-serif;font-size:10px;line-height:1.3;padding:12px}h2{font-size:13px;margin:0 0 8px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:3px 6px;text-align:left;vertical-align:top}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Members')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
         const win = window.open('', '_blank', 'width=900,height=700');
 
         if (!win) {
@@ -818,7 +887,7 @@ next.add(id);
                                 <TableHead>{t('Sports')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
-                                <TableHead>{t('Posting district')}</TableHead>
+                                <TableHead>{t('Posting unit / district')}</TableHead>
                                 <TableHead>{t('Status')}</TableHead>
                                 <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
                             </TableRow>
@@ -857,7 +926,9 @@ next.add(id);
                                                         {member.rank}
                                                     </span>
                                                 )}
-                                                <span className="truncate font-medium">{member.full_name_hi}</span>
+                                                <span className="truncate font-medium">
+                                                    {localizedText(member.full_name_hi, member.full_name_en, locale) ?? '—'}
+                                                </span>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
@@ -877,7 +948,7 @@ next.add(id);
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {member.posting_district ? localeName(member.posting_district, locale) : <span className="select-none text-border">—</span>}
+                                            {postingLocation(member) ?? <span className="select-none text-border">—</span>}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={STATUS_VARIANT[member.current_status] ?? 'outline'}>

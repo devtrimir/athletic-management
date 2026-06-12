@@ -123,6 +123,7 @@ test('participations API returns data grouped by session', function () {
     expect($data[0]['participations'][0]['id'])->toBe($setup['participation']->id);
     expect($data[0]['participations'][0]['tournament']['id'])->toBe($setup['tournament']->id);
     expect($data[0]['participations'][0]['tournament']['tier_code'])->toBe('NATIONAL');
+    expect($data[0]['participations'][0]['tournament']['tier_weight'])->toBe(80);
     expect($data[0]['participations'][0]['event']['id'])->toBe($setup['event']->id);
     expect($data[0]['participations'][0]['achievement'])->toBeNull();
 });
@@ -171,6 +172,63 @@ test('participations API marks achievements that already have a benefit', functi
         ->assertOk();
 
     expect($response->json('data.0.participations.0.achievement.benefits.0.benefit_type'))->toBe('CASH_AWARD');
+});
+
+test('participations API filters by tournament date range and rejects large windows', function () {
+    $user = paApiUser('members.view');
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => 'NATIONAL'],
+        ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+    );
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $inRangeTournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+        'date_from' => '2025-01-10',
+    ]);
+    $outRangeTournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+        'date_from' => '2025-04-10',
+    ]);
+
+    $inRangeEvent = Event::factory()->create([
+        'tournament_id' => $inRangeTournament->id,
+        'sport_id' => $sport->id,
+    ]);
+    $outRangeEvent = Event::factory()->create([
+        'tournament_id' => $outRangeTournament->id,
+        'sport_id' => $sport->id,
+    ]);
+
+    Participation::factory()->create([
+        'member_id' => $member->id,
+        'event_id' => $inRangeEvent->id,
+        'session_id' => $session->id,
+    ]);
+    Participation::factory()->create([
+        'member_id' => $member->id,
+        'event_id' => $outRangeEvent->id,
+        'session_id' => $session->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.members.participations.index', $member).'?from_date=2025-01-01&to_date=2025-02-01')
+        ->assertOk();
+
+    expect($response->json('data.0.participations'))->toHaveCount(1);
+    expect($response->json('data.0.participations.0.tournament.date_from'))->toBe('2025-01-10');
+
+    $this->actingAs($user)
+        ->getJson(route('v1.members.participations.index', $member).'?from_date=2024-01-01&to_date=2025-12-31')
+        ->assertStatus(422);
 });
 
 test('participations API returns 404 for member from another org', function () {
@@ -232,7 +290,75 @@ test('achievements API returns correct summary counts and list', function () {
     expect($response->json('data.achievements'))->toHaveCount(1);
     expect($response->json('data.achievements.0.medal_type'))->toBe('GOLD');
     expect($response->json('data.achievements.0.tournament.tier_code'))->toBe('NATIONAL');
+    expect($response->json('data.achievements.0.tournament.tier_weight'))->toBe(80);
     expect($response->json('data.achievements.0.session.id'))->toBe($setup['session']->id);
+});
+
+test('achievements API filters by tournament date range and rejects large windows', function () {
+    $user = paApiUser('members.view');
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => 'NATIONAL'],
+        ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+    );
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $inRangeTournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+        'date_from' => '2025-01-10',
+    ]);
+    $outRangeTournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+        'date_from' => '2025-04-10',
+    ]);
+
+    $inRangeEvent = Event::factory()->create([
+        'tournament_id' => $inRangeTournament->id,
+        'sport_id' => $sport->id,
+    ]);
+    $outRangeEvent = Event::factory()->create([
+        'tournament_id' => $outRangeTournament->id,
+        'sport_id' => $sport->id,
+    ]);
+
+    $inRangeParticipation = Participation::factory()->create([
+        'member_id' => $member->id,
+        'event_id' => $inRangeEvent->id,
+        'session_id' => $session->id,
+    ]);
+    $outRangeParticipation = Participation::factory()->create([
+        'member_id' => $member->id,
+        'event_id' => $outRangeEvent->id,
+        'session_id' => $session->id,
+    ]);
+
+    Achievement::factory()->create([
+        'participation_id' => $inRangeParticipation->id,
+        'medal_type' => 'GOLD',
+    ]);
+    Achievement::factory()->create([
+        'participation_id' => $outRangeParticipation->id,
+        'medal_type' => 'SILVER',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.members.achievements.index', $member).'?from_date=2025-01-01&to_date=2025-02-01')
+        ->assertOk();
+
+    expect($response->json('data.summary'))->toBe(['GOLD' => 1, 'SILVER' => 0, 'BRONZE' => 0, 'MERIT' => 0]);
+    expect($response->json('data.achievements'))->toHaveCount(1);
+    expect($response->json('data.achievements.0.tournament.id'))->toBe($inRangeTournament->id);
+
+    $this->actingAs($user)
+        ->getJson(route('v1.members.achievements.index', $member).'?from_date=2024-01-01&to_date=2025-12-31')
+        ->assertStatus(422);
 });
 
 test('achievements API returns 404 for member from another org', function () {

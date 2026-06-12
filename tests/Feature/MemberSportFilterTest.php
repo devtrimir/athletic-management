@@ -70,7 +70,7 @@ test('filter by sport_id returns only members of that sport', function () {
         );
 });
 
-test('sport_id is nullable on store — member created without sport', function () {
+test('member can be created without sport entries', function () {
     $org = Organization::factory()->create();
     $user = User::factory()->create(['organization_id' => $org->id]);
 
@@ -94,10 +94,10 @@ test('sport_id is nullable on store — member created without sport', function 
         ])
         ->assertRedirect();
 
-    expect(Member::where('organization_id', $org->id)->first()->sport_id)->toBeNull();
+    expect(Member::where('organization_id', $org->id)->first()->playableSports()->count())->toBe(0);
 });
 
-test('sport_id must exist in sports table when provided', function () {
+test('playable sports entries must exist in sports table', function () {
     $org = Organization::factory()->create();
     $user = User::factory()->create(['organization_id' => $org->id]);
 
@@ -118,14 +118,20 @@ test('sport_id must exist in sports table when provided', function () {
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
-            'sport_id' => 99999,
+            'playable_sports' => [[
+                'sport_id' => 99999,
+                'role' => '',
+                'position' => '',
+                'sport_event' => '',
+                'notes' => '',
+            ]],
         ])
-        ->assertSessionHasErrors('sport_id');
+        ->assertSessionHasErrors('playable_sports.0.sport_id');
 });
 
-test('store saves additional playable sports and excludes primary sport', function () {
+test('store saves playable sports with metadata', function () {
     $user = sportMemberUser('members.view', 'members.create');
-    $primarySport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $sportA = Sport::factory()->create(['organization_id' => $user->organization_id]);
     $additionalSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
 
     $this->actingAs($user)
@@ -134,18 +140,19 @@ test('store saves additional playable sports and excludes primary sport', functi
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
-            'sport_id' => $primarySport->id,
-            'playable_sport_ids' => [$primarySport->id, $additionalSport->id],
+            'playable_sports' => [
+                ['sport_id' => $sportA->id, 'role' => 'Batsman', 'position' => '3', 'sport_event' => 'Cricket', 'notes' => 'Top order'],
+                ['sport_id' => $additionalSport->id, 'role' => 'Wing', 'position' => 'Left', 'sport_event' => 'Football', 'notes' => 'Fast runner'],
+            ],
         ])
         ->assertRedirect();
 
     $member = Member::where('organization_id', $user->organization_id)->firstOrFail();
 
-    expect($member->sport_id)->toBe($primarySport->id)
-        ->and($member->playableSports()->pluck('sports.id')->all())->toBe([$additionalSport->id]);
+    expect($member->playableSports()->pluck('sports.id')->sort()->values()->all())->toBe(collect([$sportA->id, $additionalSport->id])->sort()->values()->all());
 });
 
-test('update replaces additional playable sports', function () {
+test('update replaces playable sports', function () {
     $user = sportMemberUser('members.update');
     $oldSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
     $newSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
@@ -154,7 +161,9 @@ test('update replaces additional playable sports', function () {
 
     $this->actingAs($user)
         ->put(route('members.update', $member), [
-            'playable_sport_ids' => [$newSport->id],
+            'playable_sports' => [
+                ['sport_id' => $newSport->id, 'role' => 'Keeper', 'position' => '1', 'sport_event' => 'Hockey', 'notes' => ''],
+            ],
         ])
         ->assertRedirect(route('members.show', $member));
 

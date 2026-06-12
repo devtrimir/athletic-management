@@ -8,12 +8,22 @@ import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
-import { store as storeBenefit, update as updateBenefit } from '@/routes/achievement-benefits';
+import {
+    store as storeBenefit,
+    update as updateBenefit,
+} from '@/routes/achievement-benefits';
 
 type LegacyAchievement = {
     id: number;
@@ -42,13 +52,24 @@ type LiveAchievement = {
 type ParticipationItem = {
     id: number;
     position: number | null;
-    tournament: { id: number; name_hi: string; tier_code: string | null; date_from: string | null };
+    tournament: {
+        id: number;
+        name_hi: string;
+        tier_code: string | null;
+        date_from: string | null;
+    };
     event: { id: number; name_hi: string; gender_class: string };
     achievement: {
         medal_type: string;
         position: number | null;
         remarks: string | null;
-        benefits?: { id: number; benefit_type: string; cash_amount: string | null; benefit_date: string | null; order_reference: string | null }[];
+        benefits?: {
+            id: number;
+            benefit_type: string;
+            cash_amount: string | null;
+            benefit_date: string | null;
+            order_reference: string | null;
+        }[];
     } | null;
 };
 
@@ -57,9 +78,17 @@ type ParticipationGroup = {
     participations: ParticipationItem[];
 };
 
-type PromotionEvidence = { id: number; type: 'member_legacy_achievement' | 'achievement' | 'participation'; evidence_id: number };
+type PromotionEvidence = {
+    id: number;
+    type: 'member_legacy_achievement' | 'achievement' | 'participation';
+    evidence_id: number;
+};
 type PromotionEvidenceRef = { type: PromotionEvidence['type']; id: number };
-type RewardOption = { key: string; label: string; target: { type: 'participation'; id: number } | null };
+type RewardOption = {
+    key: string;
+    label: string;
+    target: { type: 'participation'; id: number } | null;
+};
 type PromotionBenefit = {
     id: number;
     benefit_type: string;
@@ -132,7 +161,14 @@ function rankDisplay(rank: RankOption, locale: string): string {
     return `${rank.code} · ${label}${rank.short_name ? ` · ${rank.short_name}` : ''}`;
 }
 
-function summarizeBenefits(benefits: { benefit_type: string; cash_amount: string | null; order_reference: string | null }[], t: (key: string) => string): string {
+function summarizeBenefits(
+    benefits: {
+        benefit_type: string;
+        cash_amount: string | null;
+        order_reference: string | null;
+    }[],
+    t: (key: string) => string,
+): string {
     if (benefits.length === 0) {
         return '';
     }
@@ -154,7 +190,10 @@ function summarizeBenefits(benefits: { benefit_type: string; cash_amount: string
         .join(' | ');
 }
 
-function benefitBadgeText(benefit: PromotionBenefit, t: (key: string) => string): string {
+function benefitBadgeText(
+    benefit: PromotionBenefit,
+    t: (key: string) => string,
+): string {
     const parts = [t(benefit.benefit_type)];
 
     if (benefit.cash_amount) {
@@ -168,33 +207,71 @@ function benefitBadgeText(benefit: PromotionBenefit, t: (key: string) => string)
     return parts.join(' · ');
 }
 
-function medalBadgeContent(medalType: string): { icon: JSX.Element; label: string; className: string } {
+function medalBadgeContent(medalType: string): {
+    icon: JSX.Element;
+    label: string;
+    className: string;
+} {
     switch (medalType) {
         case 'GOLD':
-            return { icon: <span aria-hidden="true">🏆</span>, label: 'Gold', className: 'border-amber-200 bg-amber-50 text-amber-700' };
+            return {
+                icon: <span aria-hidden="true">🏆</span>,
+                label: 'Gold',
+                className:
+                    'border-amber-300 bg-gradient-to-r from-amber-100 via-amber-50 to-yellow-50 text-amber-900 shadow-sm',
+            };
         case 'SILVER':
-            return { icon: <span aria-hidden="true">🏅</span>, label: 'Silver', className: 'border-slate-200 bg-slate-50 text-slate-700' };
+            return {
+                icon: <span aria-hidden="true">🏅</span>,
+                label: 'Silver',
+                className: 'border-slate-200 bg-slate-50 text-slate-700',
+            };
         case 'BRONZE':
-            return { icon: <span aria-hidden="true">🥉</span>, label: 'Bronze', className: 'border-orange-200 bg-orange-50 text-orange-700' };
+            return {
+                icon: <span aria-hidden="true">🥉</span>,
+                label: 'Bronze',
+                className: 'border-orange-200 bg-orange-50 text-orange-700',
+            };
         case 'MERIT':
-            return { icon: <span aria-hidden="true">•</span>, label: 'MERIT', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+            return {
+                icon: <span aria-hidden="true">•</span>,
+                label: 'MERIT',
+                className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+            };
         default:
-            return { icon: <span aria-hidden="true">🏅</span>, label: medalType, className: 'border-slate-200 bg-slate-50 text-slate-700' };
+            return {
+                icon: <span aria-hidden="true">🏅</span>,
+                label: medalType,
+                className: 'border-slate-200 bg-slate-50 text-slate-700',
+            };
     }
 }
 
-function resolveRankLabel(value: string | null, ranks: RankOption[], locale: string): string {
+function resolveRankLabel(
+    value: string | null,
+    ranks: RankOption[],
+    locale: string,
+): string {
     if (!value) {
         return '';
     }
 
-    const rank = ranks.find((item) => item.code === value || item.name_en === value || item.name_hi === value || item.short_name === value);
+    const rank = ranks.find(
+        (item) =>
+            item.code === value ||
+            item.name_en === value ||
+            item.name_hi === value ||
+            item.short_name === value,
+    );
 
     return rank ? rankDisplay(rank, locale) : value;
 }
 
 function getCsrfToken(): string {
-    return (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '';
+    return (
+        (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)
+            ?.content ?? ''
+    );
 }
 
 function PromotionDocuments({
@@ -214,16 +291,21 @@ function PromotionDocuments({
 
         (async () => {
             try {
-                const response = await fetch(`/members/${memberId}/promotions/${promotionId}/media`, {
-                    headers: { Accept: 'application/json' },
-                });
+                const response = await fetch(
+                    `/members/${memberId}/promotions/${promotionId}/media`,
+                    {
+                        headers: { Accept: 'application/json' },
+                    },
+                );
 
                 if (!active) {
                     return;
                 }
 
                 if (response.ok) {
-                    const json = (await response.json()) as PromotionMediaFile[] | { data: PromotionMediaFile[] };
+                    const json = (await response.json()) as
+                        | PromotionMediaFile[]
+                        | { data: PromotionMediaFile[] };
                     setFiles(Array.isArray(json) ? json : json.data);
                 }
             } finally {
@@ -245,19 +327,29 @@ function PromotionDocuments({
             const formData = new FormData();
             formData.append('file', file);
 
-            const response = await fetch(`/members/${memberId}/promotions/${promotionId}/media`, {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'X-CSRF-TOKEN': getCsrfToken(),
+            const response = await fetch(
+                `/members/${memberId}/promotions/${promotionId}/media`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': getCsrfToken(),
+                    },
+                    body: formData,
                 },
-                body: formData,
-            });
+            );
 
             if (response.ok) {
-                const json = (await (await fetch(`/members/${memberId}/promotions/${promotionId}/media`, {
-                    headers: { Accept: 'application/json' },
-                })).json()) as PromotionMediaFile[] | { data: PromotionMediaFile[] };
+                const json = (await (
+                    await fetch(
+                        `/members/${memberId}/promotions/${promotionId}/media`,
+                        {
+                            headers: { Accept: 'application/json' },
+                        },
+                    )
+                ).json()) as
+                    | PromotionMediaFile[]
+                    | { data: PromotionMediaFile[] };
                 setFiles(Array.isArray(json) ? json : json.data);
             }
         } finally {
@@ -268,7 +360,9 @@ function PromotionDocuments({
     return (
         <div className="space-y-2 rounded-lg border border-dashed p-3">
             <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-medium">{t('Promotion documents')}</p>
+                <p className="text-xs font-medium">
+                    {t('Promotion documents')}
+                </p>
                 <label className="cursor-pointer text-xs text-primary">
                     {uploading ? t('Uploading…') : t('Upload file')}
                     <input
@@ -290,11 +384,19 @@ function PromotionDocuments({
             {loading ? (
                 <p className="text-xs text-muted-foreground">{t('Loading…')}</p>
             ) : files.length === 0 ? (
-                <p className="text-xs text-muted-foreground">{t('No documents uploaded.')}</p>
+                <p className="text-xs text-muted-foreground">
+                    {t('No documents uploaded.')}
+                </p>
             ) : (
                 <div className="space-y-1">
                     {files.map((file) => (
-                        <a key={file.id} href={file.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-primary hover:underline">
+                        <a
+                            key={file.id}
+                            href={file.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block truncate text-xs text-primary hover:underline"
+                        >
                             {file.original_name}
                         </a>
                     ))}
@@ -322,7 +424,10 @@ function InlineRankDialog({
         is_active: true,
     });
 
-    function setField<K extends keyof InlineRankPayload>(field: K, value: InlineRankPayload[K]) {
+    function setField<K extends keyof InlineRankPayload>(
+        field: K,
+        value: InlineRankPayload[K],
+    ) {
         setData((prev) => ({ ...prev, [field]: value }));
     }
 
@@ -350,12 +455,17 @@ function InlineRankDialog({
             });
 
             if (response.status === 422) {
-                const json = (await response.json()) as { errors?: Record<string, string[]> };
+                const json = (await response.json()) as {
+                    errors?: Record<string, string[]>;
+                };
                 const nextErrors: Record<string, string> = {};
 
-                Object.entries(json.errors ?? {}).forEach(([field, messages]) => {
-                    nextErrors[field] = messages[0] ?? t('The field is invalid.');
-                });
+                Object.entries(json.errors ?? {}).forEach(
+                    ([field, messages]) => {
+                        nextErrors[field] =
+                            messages[0] ?? t('The field is invalid.');
+                    },
+                );
 
                 setErrors(nextErrors);
 
@@ -394,7 +504,12 @@ function InlineRankDialog({
             }}
         >
             <DialogTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" className="px-0 text-xs">
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="px-0 text-xs"
+                >
                     <Plus className="mr-1.5 size-3.5" />
                     {t('Create new rank')}
                 </Button>
@@ -406,37 +521,91 @@ function InlineRankDialog({
                 <form className="space-y-4" onSubmit={handleSubmit}>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="inline-rank-code">{t('Code')}</Label>
-                            <Input id="inline-rank-code" value={data.code} onChange={(e) => setField('code', e.target.value)} />
+                            <Label htmlFor="inline-rank-code">
+                                {t('Code')}
+                            </Label>
+                            <Input
+                                id="inline-rank-code"
+                                value={data.code}
+                                onChange={(e) =>
+                                    setField('code', e.target.value)
+                                }
+                            />
                             <InputError message={errors.code} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="inline-rank-order">{t('Order')}</Label>
-                            <Input id="inline-rank-order" type="number" min={1} value={data.rank_order} onChange={(e) => setField('rank_order', e.target.value)} />
+                            <Label htmlFor="inline-rank-order">
+                                {t('Order')}
+                            </Label>
+                            <Input
+                                id="inline-rank-order"
+                                type="number"
+                                min={1}
+                                value={data.rank_order}
+                                onChange={(e) =>
+                                    setField('rank_order', e.target.value)
+                                }
+                            />
                             <InputError message={errors.rank_order} />
                         </div>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="inline-rank-name-en">{t('Name (English)')}</Label>
-                            <Input id="inline-rank-name-en" value={data.name_en} onChange={(e) => setField('name_en', e.target.value)} />
+                            <Label htmlFor="inline-rank-name-en">
+                                {t('Name (English)')}
+                            </Label>
+                            <Input
+                                id="inline-rank-name-en"
+                                value={data.name_en}
+                                onChange={(e) =>
+                                    setField('name_en', e.target.value)
+                                }
+                            />
                             <InputError message={errors.name_en} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="inline-rank-short-name">{t('Short name')}</Label>
-                            <Input id="inline-rank-short-name" value={data.short_name} onChange={(e) => setField('short_name', e.target.value)} />
+                            <Label htmlFor="inline-rank-short-name">
+                                {t('Short name')}
+                            </Label>
+                            <Input
+                                id="inline-rank-short-name"
+                                value={data.short_name}
+                                onChange={(e) =>
+                                    setField('short_name', e.target.value)
+                                }
+                            />
                             <InputError message={errors.short_name} />
                         </div>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="inline-rank-name-hi">{t('Name (Hindi)')}</Label>
-                            <Input id="inline-rank-name-hi" value={data.name_hi} onChange={(e) => setField('name_hi', e.target.value)} />
+                            <Label htmlFor="inline-rank-name-hi">
+                                {t('Name (Hindi)')}
+                            </Label>
+                            <Input
+                                id="inline-rank-name-hi"
+                                value={data.name_hi}
+                                onChange={(e) =>
+                                    setField('name_hi', e.target.value)
+                                }
+                            />
                             <InputError message={errors.name_hi} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="inline-rank-active">{t('Active')}</Label>
-                            <select id="inline-rank-active" className="border-input h-9 rounded-md border bg-transparent px-3 text-sm" value={data.is_active ? '1' : '0'} onChange={(e) => setField('is_active', e.target.value === '1')}>
+                            <Label htmlFor="inline-rank-active">
+                                {t('Active')}
+                            </Label>
+                            <select
+                                id="inline-rank-active"
+                                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                                value={data.is_active ? '1' : '0'}
+                                onChange={(e) =>
+                                    setField(
+                                        'is_active',
+                                        e.target.value === '1',
+                                    )
+                                }
+                            >
                                 <option value="1">{t('Yes')}</option>
                                 <option value="0">{t('No')}</option>
                             </select>
@@ -444,9 +613,17 @@ function InlineRankDialog({
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('Cancel')}</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            {t('Cancel')}
+                        </Button>
                         <Button type="submit" disabled={saving}>
-                            {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+                            {saving && (
+                                <Loader2 className="mr-1.5 size-4 animate-spin" />
+                            )}
                             {t('Create rank')}
                         </Button>
                     </DialogFooter>
@@ -493,7 +670,13 @@ function PromotionDialog({
         remarks: string;
         evidences: PromotionEvidenceRef[];
     } | null>(null);
-    const selectedDefaults = useMemo(() => promotion?.evidences.map((e) => evidenceKey(e.type, e.evidence_id)) ?? [], [promotion]);
+    const selectedDefaults = useMemo(
+        () =>
+            promotion?.evidences.map((e) =>
+                evidenceKey(e.type, e.evidence_id),
+            ) ?? [],
+        [promotion],
+    );
     const [selected, setSelected] = useState<string[]>(selectedDefaults);
     const rankItems: ComboboxItem[] = useMemo(() => {
         const items = availableRanks.map((rank) => ({
@@ -554,22 +737,39 @@ function PromotionDialog({
                 return prev;
             }
 
-            return [...prev, rank].sort((left, right) => (left.name_en ?? left.code).localeCompare(right.name_en ?? right.code));
+            return [...prev, rank].sort((left, right) =>
+                (left.name_en ?? left.code).localeCompare(
+                    right.name_en ?? right.code,
+                ),
+            );
         });
 
         form.setData('to_rank', rank.code);
     }
 
     const options = useMemo(() => {
-        const deduped = new Map<string, { key: string; label: string; evidences: PromotionEvidenceRef[]; priority: number }>();
+        const deduped = new Map<
+            string,
+            {
+                key: string;
+                label: string;
+                evidences: PromotionEvidenceRef[];
+                priority: number;
+            }
+        >();
 
         for (const group of participations) {
             for (const item of group.participations) {
                 const key = `event:${item.tournament.id}:${item.event.id}`;
-                const evidences: PromotionEvidenceRef[] = [{ type: 'participation', id: item.id }];
+                const evidences: PromotionEvidenceRef[] = [
+                    { type: 'participation', id: item.id },
+                ];
 
                 if (item.achievement?.id) {
-                    evidences.push({ type: 'achievement', id: item.achievement.id });
+                    evidences.push({
+                        type: 'achievement',
+                        id: item.achievement.id,
+                    });
                 }
 
                 const label = `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}${item.achievement?.benefits && item.achievement.benefits.length > 0 ? ` · ${summarizeBenefits(item.achievement.benefits, t)}` : ''}`;
@@ -601,13 +801,17 @@ function PromotionDialog({
                 deduped.set(key, {
                     key,
                     label: `${t(item.period)} · ${t(item.level)} · ${item.competition_details}`,
-                    evidences: [{ type: 'member_legacy_achievement', id: item.id }],
+                    evidences: [
+                        { type: 'member_legacy_achievement', id: item.id },
+                    ],
                     priority: 0,
                 });
             }
         }
 
-        return Array.from(deduped.values()).map(({ key, label, evidences }) => ({ key, label, evidences }));
+        return Array.from(deduped.values()).map(
+            ({ key, label, evidences }) => ({ key, label, evidences }),
+        );
     }, [achievements, legacyAchievements, participations, t]);
 
     function buildPayload() {
@@ -621,20 +825,27 @@ function PromotionDialog({
             cash_reward_remarks: form.data.cash_reward_remarks,
             reason: form.data.reason,
             remarks: form.data.remarks,
-            evidences: selected.flatMap((key) => options.find((item) => item.key === key)?.evidences ?? []),
+            evidences: selected.flatMap(
+                (key) =>
+                    options.find((item) => item.key === key)?.evidences ?? [],
+            ),
         };
     }
 
     function submitPromotion(payload: ReturnType<typeof buildPayload>) {
         if (promotion) {
-            router.patch(`/members/${memberId}/promotions/${promotion.id}`, payload, {
-                onSuccess: () => {
-                    setOpen(false);
-                    setConfirmOpen(false);
-                    setPendingPayload(null);
-                    onSaved();
+            router.patch(
+                `/members/${memberId}/promotions/${promotion.id}`,
+                payload,
+                {
+                    onSuccess: () => {
+                        setOpen(false);
+                        setConfirmOpen(false);
+                        setPendingPayload(null);
+                        onSaved();
+                    },
                 },
-            });
+            );
 
             return;
         }
@@ -692,41 +903,57 @@ function PromotionDialog({
             </DialogTrigger>
             <DialogContent className="max-w-2xl" aria-describedby={undefined}>
                 <DialogHeader>
-                    <DialogTitle>{promotion ? t('Edit promotion') : t('Add promotion')}</DialogTitle>
+                    <DialogTitle>
+                        {promotion ? t('Edit promotion') : t('Add promotion')}
+                    </DialogTitle>
                 </DialogHeader>
                 <form className="space-y-4" onSubmit={handleSubmit}>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label>{t('Promotion date')}</Label>
-                            <DatePicker value={form.data.promotion_date} onChange={(v) => form.setData('promotion_date', v)} />
+                            <DatePicker
+                                value={form.data.promotion_date}
+                                onChange={(v) =>
+                                    form.setData('promotion_date', v)
+                                }
+                            />
                             <InputError message={form.errors.promotion_date} />
                         </div>
                         <div className="grid gap-2">
                             <Label>{t('From rank')}</Label>
                             <Combobox
                                 value={form.data.from_rank}
-                                onValueChange={(v) => form.setData('from_rank', v)}
+                                onValueChange={(v) =>
+                                    form.setData('from_rank', v)
+                                }
                                 items={rankItems}
                                 placeholder={t('Search and select rank')}
-                                searchPlaceholder={t('Search ranks by code or name…')}
+                                searchPlaceholder={t(
+                                    'Search ranks by code or name…',
+                                )}
                                 emptyMessage={t('No ranks found.')}
                             />
                             <InputError message={form.errors.from_rank} />
                         </div>
                     </div>
-                        <div className="grid gap-2">
-                            <Label>{t('To rank')} <span className="text-destructive">*</span></Label>
-                            <Combobox
-                                value={form.data.to_rank}
-                                onValueChange={(v) => form.setData('to_rank', v)}
+                    <div className="grid gap-2">
+                        <Label>
+                            {t('To rank')}{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Combobox
+                            value={form.data.to_rank}
+                            onValueChange={(v) => form.setData('to_rank', v)}
                             items={rankItems}
                             placeholder={t('Search and select rank')}
-                                searchPlaceholder={t('Search ranks by code or name…')}
-                                emptyMessage={t('No ranks found.')}
-                            />
-                            <InlineRankDialog onCreated={handleRankCreated} />
-                            <InputError message={form.errors.to_rank} />
-                        </div>
+                            searchPlaceholder={t(
+                                'Search ranks by code or name…',
+                            )}
+                            emptyMessage={t('No ranks found.')}
+                        />
+                        <InlineRankDialog onCreated={handleRankCreated} />
+                        <InputError message={form.errors.to_rank} />
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label>{t('Cash reward amount')}</Label>
@@ -735,48 +962,107 @@ function PromotionDialog({
                                 min="0"
                                 step="0.01"
                                 value={form.data.cash_reward_amount}
-                                onChange={(e) => form.setData('cash_reward_amount', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'cash_reward_amount',
+                                        e.target.value,
+                                    )
+                                }
                             />
-                            <InputError message={form.errors.cash_reward_amount} />
+                            <InputError
+                                message={form.errors.cash_reward_amount}
+                            />
                         </div>
                         <div className="grid gap-2">
                             <Label>{t('Cash reward date')}</Label>
-                            <DatePicker value={form.data.cash_reward_date} onChange={(v) => form.setData('cash_reward_date', v)} />
-                            <InputError message={form.errors.cash_reward_date} />
+                            <DatePicker
+                                value={form.data.cash_reward_date}
+                                onChange={(v) =>
+                                    form.setData('cash_reward_date', v)
+                                }
+                            />
+                            <InputError
+                                message={form.errors.cash_reward_date}
+                            />
                         </div>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label>{t('Cash reward reference')}</Label>
-                            <Input value={form.data.cash_reward_reference} onChange={(e) => form.setData('cash_reward_reference', e.target.value)} />
-                            <InputError message={form.errors.cash_reward_reference} />
+                            <Input
+                                value={form.data.cash_reward_reference}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'cash_reward_reference',
+                                        e.target.value,
+                                    )
+                                }
+                            />
+                            <InputError
+                                message={form.errors.cash_reward_reference}
+                            />
                         </div>
                         <div className="grid gap-2">
                             <Label>{t('Cash reward remarks')}</Label>
-                            <Input value={form.data.cash_reward_remarks} onChange={(e) => form.setData('cash_reward_remarks', e.target.value)} />
-                            <InputError message={form.errors.cash_reward_remarks} />
+                            <Input
+                                value={form.data.cash_reward_remarks}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'cash_reward_remarks',
+                                        e.target.value,
+                                    )
+                                }
+                            />
+                            <InputError
+                                message={form.errors.cash_reward_remarks}
+                            />
                         </div>
                     </div>
                     <div className="grid gap-2">
                         <Label>{t('Reason')}</Label>
-                        <Textarea value={form.data.reason} onChange={(e) => form.setData('reason', e.target.value)} rows={3} />
+                        <Textarea
+                            value={form.data.reason}
+                            onChange={(e) =>
+                                form.setData('reason', e.target.value)
+                            }
+                            rows={3}
+                        />
                         <InputError message={form.errors.reason} />
                     </div>
                     <div className="grid gap-2">
                         <Label>{t('Remarks')}</Label>
-                        <Textarea value={form.data.remarks} onChange={(e) => form.setData('remarks', e.target.value)} rows={3} />
+                        <Textarea
+                            value={form.data.remarks}
+                            onChange={(e) =>
+                                form.setData('remarks', e.target.value)
+                            }
+                            rows={3}
+                        />
                         <InputError message={form.errors.remarks} />
                     </div>
                     <div className="grid gap-2">
-                        <Label>{t('Supporting evidence')} <span className="text-destructive">*</span></Label>
+                        <Label>
+                            {t('Supporting evidence')}{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
                         <div className="max-h-56 overflow-y-auto rounded-md border p-3">
                             <div className="space-y-2">
                                 {options.map((opt) => (
-                                    <label key={opt.key} className="flex items-start gap-2 text-sm">
+                                    <label
+                                        key={opt.key}
+                                        className="flex items-start gap-2 text-sm"
+                                    >
                                         <Checkbox
                                             checked={selected.includes(opt.key)}
                                             onCheckedChange={(checked) => {
-                                                setSelected((prev) => checked ? [...prev, opt.key] : prev.filter((k) => k !== opt.key));
+                                                setSelected((prev) =>
+                                                    checked
+                                                        ? [...prev, opt.key]
+                                                        : prev.filter(
+                                                              (k) =>
+                                                                  k !== opt.key,
+                                                          ),
+                                                );
                                             }}
                                         />
                                         <span>{opt.label}</span>
@@ -784,39 +1070,94 @@ function PromotionDialog({
                                 ))}
                             </div>
                         </div>
-                        {selected.length === 0 && <p className="text-xs text-destructive">{t('Select at least one evidence item.')}</p>}
+                        {selected.length === 0 && (
+                            <p className="text-xs text-destructive">
+                                {t('Select at least one evidence item.')}
+                            </p>
+                        )}
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('Cancel')}</Button>
-                        <Button type="submit" disabled={selected.length === 0}>{promotion ? t('Save changes') : t('Save promotion')}</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            {t('Cancel')}
+                        </Button>
+                        <Button type="submit" disabled={selected.length === 0}>
+                            {promotion
+                                ? t('Save changes')
+                                : t('Save promotion')}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
             <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-                <DialogContent className="max-w-lg" aria-describedby={undefined}>
+                <DialogContent
+                    className="max-w-lg"
+                    aria-describedby={undefined}
+                >
                     <DialogHeader>
                         <DialogTitle>{t('Confirm promotion')}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-3 text-sm">
-                        <p className="text-muted-foreground">{t('Please review the promotion details before saving.')}</p>
+                        <p className="text-muted-foreground">
+                            {t(
+                                'Please review the promotion details before saving.',
+                            )}
+                        </p>
                         <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
                             <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="outline">{resolveRankLabel(form.data.from_rank, ranks, resolvedLocale) || t('Unknown')}</Badge>
+                                <Badge variant="outline">
+                                    {resolveRankLabel(
+                                        form.data.from_rank,
+                                        ranks,
+                                        resolvedLocale,
+                                    ) || t('Unknown')}
+                                </Badge>
                                 <span className="text-muted-foreground">→</span>
-                                <Badge>{resolveRankLabel(form.data.to_rank, ranks, resolvedLocale) || t('Unknown')}</Badge>
+                                <Badge>
+                                    {resolveRankLabel(
+                                        form.data.to_rank,
+                                        ranks,
+                                        resolvedLocale,
+                                    ) || t('Unknown')}
+                                </Badge>
                             </div>
-                            <p><span className="font-medium">{t('Promotion date')}:</span> {form.data.promotion_date || '—'}</p>
-                            <p><span className="font-medium">{t('Cash reward')}:</span> {form.data.cash_reward_amount ? `₹${form.data.cash_reward_amount}` : '—'}</p>
-                            <p><span className="font-medium">{t('Supporting evidence')}:</span> {selected.length}</p>
+                            <p>
+                                <span className="font-medium">
+                                    {t('Promotion date')}:
+                                </span>{' '}
+                                {form.data.promotion_date || '—'}
+                            </p>
+                            <p>
+                                <span className="font-medium">
+                                    {t('Cash reward')}:
+                                </span>{' '}
+                                {form.data.cash_reward_amount
+                                    ? `₹${form.data.cash_reward_amount}`
+                                    : '—'}
+                            </p>
+                            <p>
+                                <span className="font-medium">
+                                    {t('Supporting evidence')}:
+                                </span>{' '}
+                                {selected.length}
+                            </p>
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>{t('Back')}</Button>
                         <Button
                             type="button"
-                            onClick={handleConfirmSave}
+                            variant="outline"
+                            onClick={() => setConfirmOpen(false)}
                         >
-                            {promotion ? t('Confirm update') : t('Confirm save')}
+                            {t('Back')}
+                        </Button>
+                        <Button type="button" onClick={handleConfirmSave}>
+                            {promotion
+                                ? t('Confirm update')
+                                : t('Confirm save')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -905,12 +1246,17 @@ function CashRewardDialog({
                 });
 
                 if (response.status === 422) {
-                    const json = (await response.json()) as { errors?: Record<string, string[]> };
+                    const json = (await response.json()) as {
+                        errors?: Record<string, string[]>;
+                    };
                     const nextErrors: Record<string, string> = {};
 
-                    Object.entries(json.errors ?? {}).forEach(([field, messages]) => {
-                        nextErrors[field] = messages[0] ?? t('The field is invalid.');
-                    });
+                    Object.entries(json.errors ?? {}).forEach(
+                        ([field, messages]) => {
+                            nextErrors[field] =
+                                messages[0] ?? t('The field is invalid.');
+                        },
+                    );
 
                     setErrors(nextErrors);
 
@@ -954,56 +1300,111 @@ function CashRewardDialog({
                         <Label>{t('Events')}</Label>
                         <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
                             {rewardOptions.map((item) => (
-                                <label key={item.key} className="flex items-start gap-2 text-sm">
+                                <label
+                                    key={item.key}
+                                    className="flex items-start gap-2 text-sm"
+                                >
                                     <Checkbox
                                         checked={selected.includes(item.key)}
                                         onCheckedChange={(checked) => {
                                             setSelected((prev) =>
                                                 checked
                                                     ? [...prev, item.key]
-                                                    : prev.filter((value) => value !== item.key),
+                                                    : prev.filter(
+                                                          (value) =>
+                                                              value !==
+                                                              item.key,
+                                                      ),
                                             );
                                         }}
                                     />
-                                    <span className="min-w-0 flex-1">{item.label}</span>
+                                    <span className="min-w-0 flex-1">
+                                        {item.label}
+                                    </span>
                                 </label>
                             ))}
                         </div>
                         <InputError message={errors.benefitable_id} />
                         <p className="text-xs text-muted-foreground">
                             {selected.length > 0
-                                ? t('{{count}} events selected').replace('{{count}}', String(selected.length))
+                                ? t('{{count}} events selected').replace(
+                                      '{{count}}',
+                                      String(selected.length),
+                                  )
                                 : t('Select one or more events.')}
                         </p>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label>{t('Cash amount')}</Label>
-                            <Input type="number" min="0" step="0.01" value={data.cash_amount} onChange={(e) => setData((prev) => ({ ...prev, cash_amount: e.target.value }))} />
+                            <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={data.cash_amount}
+                                onChange={(e) =>
+                                    setData((prev) => ({
+                                        ...prev,
+                                        cash_amount: e.target.value,
+                                    }))
+                                }
+                            />
                             <InputError message={errors.cash_amount} />
                         </div>
                         <div className="grid gap-2">
                             <Label>{t('Benefit date')}</Label>
-                            <DatePicker value={data.benefit_date} onChange={(v) => setData((prev) => ({ ...prev, benefit_date: v }))} />
+                            <DatePicker
+                                value={data.benefit_date}
+                                onChange={(v) =>
+                                    setData((prev) => ({
+                                        ...prev,
+                                        benefit_date: v,
+                                    }))
+                                }
+                            />
                             <InputError message={errors.benefit_date} />
                         </div>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label>{t('Order reference')}</Label>
-                            <Input value={data.order_reference} onChange={(e) => setData((prev) => ({ ...prev, order_reference: e.target.value }))} />
+                            <Input
+                                value={data.order_reference}
+                                onChange={(e) =>
+                                    setData((prev) => ({
+                                        ...prev,
+                                        order_reference: e.target.value,
+                                    }))
+                                }
+                            />
                             <InputError message={errors.order_reference} />
                         </div>
                         <div className="grid gap-2">
                             <Label>{t('Remarks')}</Label>
-                            <Input value={data.remarks} onChange={(e) => setData((prev) => ({ ...prev, remarks: e.target.value }))} />
+                            <Input
+                                value={data.remarks}
+                                onChange={(e) =>
+                                    setData((prev) => ({
+                                        ...prev,
+                                        remarks: e.target.value,
+                                    }))
+                                }
+                            />
                             <InputError message={errors.remarks} />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('Cancel')}</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            {t('Cancel')}
+                        </Button>
                         <Button type="submit" disabled={saving}>
-                            {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+                            {saving && (
+                                <Loader2 className="mr-1.5 size-4 animate-spin" />
+                            )}
                             {t('Save cash reward')}
                         </Button>
                     </DialogFooter>
@@ -1065,7 +1466,9 @@ function CashRewardEditDialog({
                     const mappedErrors: Record<string, string> = {};
 
                     Object.entries(nextErrors).forEach(([field, message]) => {
-                        mappedErrors[field] = Array.isArray(message) ? message[0] ?? t('The field is invalid.') : message;
+                        mappedErrors[field] = Array.isArray(message)
+                            ? (message[0] ?? t('The field is invalid.'))
+                            : message;
                     });
 
                     setErrors(mappedErrors);
@@ -1089,7 +1492,12 @@ function CashRewardEditDialog({
             }}
         >
             <DialogTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                >
                     {t('Edit')}
                 </Button>
             </DialogTrigger>
@@ -1105,31 +1513,68 @@ function CashRewardEditDialog({
                             min="0"
                             step="0.01"
                             value={data.cash_amount}
-                            onChange={(e) => setData((prev) => ({ ...prev, cash_amount: e.target.value }))}
+                            onChange={(e) =>
+                                setData((prev) => ({
+                                    ...prev,
+                                    cash_amount: e.target.value,
+                                }))
+                            }
                         />
                         <InputError message={errors.cash_amount} />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label>{t('Benefit date')}</Label>
-                            <DatePicker value={data.benefit_date} onChange={(v) => setData((prev) => ({ ...prev, benefit_date: v }))} />
+                            <DatePicker
+                                value={data.benefit_date}
+                                onChange={(v) =>
+                                    setData((prev) => ({
+                                        ...prev,
+                                        benefit_date: v,
+                                    }))
+                                }
+                            />
                             <InputError message={errors.benefit_date} />
                         </div>
                         <div className="grid gap-2">
                             <Label>{t('Order reference')}</Label>
-                            <Input value={data.order_reference} onChange={(e) => setData((prev) => ({ ...prev, order_reference: e.target.value }))} />
+                            <Input
+                                value={data.order_reference}
+                                onChange={(e) =>
+                                    setData((prev) => ({
+                                        ...prev,
+                                        order_reference: e.target.value,
+                                    }))
+                                }
+                            />
                             <InputError message={errors.order_reference} />
                         </div>
                     </div>
                     <div className="grid gap-2">
                         <Label>{t('Remarks')}</Label>
-                        <Input value={data.remarks} onChange={(e) => setData((prev) => ({ ...prev, remarks: e.target.value }))} />
+                        <Input
+                            value={data.remarks}
+                            onChange={(e) =>
+                                setData((prev) => ({
+                                    ...prev,
+                                    remarks: e.target.value,
+                                }))
+                            }
+                        />
                         <InputError message={errors.remarks} />
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('Cancel')}</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            {t('Cancel')}
+                        </Button>
                         <Button type="submit" disabled={saving}>
-                            {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+                            {saving && (
+                                <Loader2 className="mr-1.5 size-4 animate-spin" />
+                            )}
                             {t('Save changes')}
                         </Button>
                     </DialogFooter>
@@ -1139,7 +1584,16 @@ function CashRewardEditDialog({
     );
 }
 
-export function PromotionsTab({ memberId, memberRank, ranks, promotions, participations = [], legacyAchievements = [], achievements, onSaved }: Props) {
+export function PromotionsTab({
+    memberId,
+    memberRank,
+    ranks,
+    promotions,
+    participations = [],
+    legacyAchievements = [],
+    achievements,
+    onSaved,
+}: Props) {
     const { t } = useTranslation();
     const { locale } = usePage().props as { locale?: string };
     const resolvedLocale = locale ?? 'en';
@@ -1147,14 +1601,20 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
     function evidenceSummary(evidence: PromotionEvidence): string {
         if (evidence.type === 'participation') {
             for (const group of participations) {
-                const item = group.participations.find((p) => p.id === evidence.evidence_id);
+                const item = group.participations.find(
+                    (p) => p.id === evidence.evidence_id,
+                );
 
                 if (item) {
                     const benefitSummary = item.achievement?.benefits?.length
                         ? ` · ${summarizeBenefits(item.achievement.benefits, t)}`
                         : '';
-                    const medalSummary = item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : '';
-                    const positionSummary = item.position ? ` · #${item.position}` : '';
+                    const medalSummary = item.achievement?.medal_type
+                        ? ` · ${t(item.achievement.medal_type)}`
+                        : '';
+                    const positionSummary = item.position
+                        ? ` · #${item.position}`
+                        : '';
 
                     return `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi} · ${item.tournament.date_from ?? t('No date')}${item.event.gender_class ? ` · ${item.event.gender_class}` : ''}${medalSummary}${positionSummary}${benefitSummary}`;
                 }
@@ -1164,7 +1624,9 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
         }
 
         if (evidence.type === 'member_legacy_achievement') {
-            const item = legacyAchievements.find((a) => a.id === evidence.evidence_id);
+            const item = legacyAchievements.find(
+                (a) => a.id === evidence.evidence_id,
+            );
 
             return item
                 ? `${t(item.period)} · ${t(item.level)} · ${item.competition_details}${item.event_date ? ` · ${item.event_date}` : ''}${item.venue ? ` · ${item.venue}` : ''}${item.medal_type ? ` · ${t(item.medal_type)}` : ''}`
@@ -1180,15 +1642,22 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
 
     function labelForEvidence(evidence: PromotionEvidence): JSX.Element {
         if (evidence.type === 'achievement') {
-            const item = achievements.find((a) => a.id === evidence.evidence_id);
+            const item = achievements.find(
+                (a) => a.id === evidence.evidence_id,
+            );
 
             if (item) {
                 const medal = medalBadgeContent(item.medal_type);
 
                 return (
-                    <span className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium leading-4 ${medal.className}`}>
+                    <span
+                        className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] leading-4 font-medium ${medal.className}`}
+                    >
                         {medal.icon}
-                        <span className="truncate">{medal.label} {item.tournament.name_hi} · {item.event.name_hi}</span>
+                        <span className="truncate">
+                            {medal.label} {item.tournament.name_hi} ·{' '}
+                            {item.event.name_hi}
+                        </span>
                     </span>
                 );
             }
@@ -1202,7 +1671,9 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
 
         for (const evidence of promotion.evidences) {
             if (evidence.type === 'achievement') {
-                const item = achievements.find((achievement) => achievement.id === evidence.evidence_id);
+                const item = achievements.find(
+                    (achievement) => achievement.id === evidence.evidence_id,
+                );
 
                 if (item) {
                     for (const benefit of item.benefits) {
@@ -1221,18 +1692,21 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
 
             if (evidence.type === 'participation') {
                 for (const group of participations) {
-                    const item = group.participations.find((participation) => participation.id === evidence.evidence_id);
+                    const item = group.participations.find(
+                        (participation) =>
+                            participation.id === evidence.evidence_id,
+                    );
 
                     if (item?.achievement?.benefits?.length) {
                         for (const benefit of item.achievement.benefits) {
                             benefits.set(benefit.id, {
-                                    id: benefit.id,
-                                    benefit_type: benefit.benefit_type,
-                                    cash_amount: benefit.cash_amount,
-                                    benefit_date: benefit.benefit_date,
-                                    order_reference: benefit.order_reference,
-                                    remarks: benefit.remarks,
-                                    source_label: `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}`,
+                                id: benefit.id,
+                                benefit_type: benefit.benefit_type,
+                                cash_amount: benefit.cash_amount,
+                                benefit_date: benefit.benefit_date,
+                                order_reference: benefit.order_reference,
+                                remarks: benefit.remarks,
+                                source_label: `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}`,
                             });
                         }
                     }
@@ -1264,7 +1738,10 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
                         continue;
                     }
 
-                    if (!seen.has(benefit.id) && benefit.benefit_type === 'CASH_AWARD') {
+                    if (
+                        !seen.has(benefit.id) &&
+                        benefit.benefit_type === 'CASH_AWARD'
+                    ) {
                         seen.set(benefit.id, {
                             id: benefit.id,
                             benefit_type: benefit.benefit_type,
@@ -1292,75 +1769,190 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
         <div className="space-y-4 rounded-xl border bg-card p-6">
             <div className="flex items-center justify-between gap-3">
                 <div>
-                    <h3 className="text-sm font-medium">{t('Promotions & rewards')}</h3>
+                    <h3 className="text-sm font-medium">
+                        {t('Promotions & rewards')}
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                        {t('Current rank')}: {memberRank ? resolveRankLabel(memberRank, ranks, resolvedLocale) : t('Unknown')}
+                        {t('Current rank')}:{' '}
+                        {memberRank
+                            ? resolveRankLabel(
+                                  memberRank,
+                                  ranks,
+                                  resolvedLocale,
+                              )
+                            : t('Unknown')}
                     </p>
-                    <p className="text-xs text-muted-foreground">{t('Promotion decisions based on multiple achievements and performance evidence.')}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {t(
+                            'Promotion decisions based on multiple achievements and performance evidence.',
+                        )}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <CashRewardDialog participations={participations} onSaved={onSaved} />
-                    <PromotionDialog memberId={memberId} memberRank={memberRank} ranks={ranks} participations={participations} legacyAchievements={legacyAchievements} achievements={achievements} onSaved={onSaved} />
+                    <CashRewardDialog
+                        participations={participations}
+                        onSaved={onSaved}
+                    />
+                    <PromotionDialog
+                        memberId={memberId}
+                        memberRank={memberRank}
+                        ranks={ranks}
+                        participations={participations}
+                        legacyAchievements={legacyAchievements}
+                        achievements={achievements}
+                        onSaved={onSaved}
+                    />
                 </div>
             </div>
 
             {(promotions ?? []).length === 0 ? (
-                <p className="py-4 text-sm text-muted-foreground">{t('No promotions yet.')}</p>
+                <p className="py-4 text-sm text-muted-foreground">
+                    {t('No promotions yet.')}
+                </p>
             ) : (
                 <div className="space-y-3">
                     {(promotions ?? []).map((promotion) => (
-                        <div key={promotion.id} className="rounded-lg border p-4">
+                        <div
+                            key={promotion.id}
+                            className="rounded-lg border p-4"
+                        >
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="space-y-2">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <Badge variant="outline">{resolveRankLabel(promotion.from_rank, ranks, resolvedLocale) || t('Unknown')}</Badge>
-                                        <span className="text-muted-foreground">→</span>
-                                        <Badge>{resolveRankLabel(promotion.to_rank, ranks, resolvedLocale)}</Badge>
-                                        {promotion.promotion_date && <span className="text-xs text-muted-foreground">{promotion.promotion_date}</span>}
+                                        <Badge variant="outline">
+                                            {resolveRankLabel(
+                                                promotion.from_rank,
+                                                ranks,
+                                                resolvedLocale,
+                                            ) || t('Unknown')}
+                                        </Badge>
+                                        <span className="text-muted-foreground">
+                                            →
+                                        </span>
+                                        <Badge>
+                                            {resolveRankLabel(
+                                                promotion.to_rank,
+                                                ranks,
+                                                resolvedLocale,
+                                            )}
+                                        </Badge>
+                                        {promotion.promotion_date && (
+                                            <span className="text-xs text-muted-foreground">
+                                                {promotion.promotion_date}
+                                            </span>
+                                        )}
                                     </div>
-                                    {(promotion.cash_reward_amount || promotion.cash_reward_date) && (
+                                    {(promotion.cash_reward_amount ||
+                                        promotion.cash_reward_date) && (
                                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                            {promotion.cash_reward_amount && <Badge variant="secondary">{t('Cash reward')} {promotion.cash_reward_amount}</Badge>}
-                                            {promotion.cash_reward_date && <span>{promotion.cash_reward_date}</span>}
-                                            {promotion.cash_reward_reference && <span>{promotion.cash_reward_reference}</span>}
+                                            {promotion.cash_reward_amount && (
+                                                <Badge variant="secondary">
+                                                    {t('Cash reward')}{' '}
+                                                    {
+                                                        promotion.cash_reward_amount
+                                                    }
+                                                </Badge>
+                                            )}
+                                            {promotion.cash_reward_date && (
+                                                <span>
+                                                    {promotion.cash_reward_date}
+                                                </span>
+                                            )}
+                                            {promotion.cash_reward_reference && (
+                                                <span>
+                                                    {
+                                                        promotion.cash_reward_reference
+                                                    }
+                                                </span>
+                                            )}
                                         </div>
                                     )}
-                                    {promotion.reason && <p className="text-sm">{promotion.reason}</p>}
-                                    {promotion.remarks && <p className="text-xs text-muted-foreground">{promotion.remarks}</p>}
-                                    {promotion.cash_reward_remarks && <p className="text-xs text-muted-foreground">{promotion.cash_reward_remarks}</p>}
+                                    {promotion.reason && (
+                                        <p className="text-sm">
+                                            {promotion.reason}
+                                        </p>
+                                    )}
+                                    {promotion.remarks && (
+                                        <p className="text-xs text-muted-foreground">
+                                            {promotion.remarks}
+                                        </p>
+                                    )}
+                                    {promotion.cash_reward_remarks && (
+                                        <p className="text-xs text-muted-foreground">
+                                            {promotion.cash_reward_remarks}
+                                        </p>
+                                    )}
                                     <div className="flex flex-wrap gap-1.5">
                                         {promotion.evidences.map((evidence) => (
-                                            <Badge key={evidence.id} variant="secondary" className="text-xs">
+                                            <Badge
+                                                key={evidence.id}
+                                                variant="secondary"
+                                                className="text-xs"
+                                            >
                                                 {labelForEvidence(evidence)}
                                             </Badge>
                                         ))}
                                     </div>
                                     {(() => {
-                                        const promotionBenefits = benefitsForPromotion(promotion);
+                                        const promotionBenefits =
+                                            benefitsForPromotion(promotion);
 
                                         return promotionBenefits.length > 0 ? (
                                             <div className="space-y-1">
-                                                <p className="text-xs font-medium text-muted-foreground">{t('Benefits')}</p>
+                                                <p className="text-xs font-medium text-muted-foreground">
+                                                    {t('Benefits')}
+                                                </p>
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {promotionBenefits.map((benefit) => (
-                                                        <Badge key={benefit.id} variant="outline" className="text-xs">
-                                                            {benefitBadgeText(benefit, t)}
-                                                        </Badge>
-                                                    ))}
+                                                    {promotionBenefits.map(
+                                                        (benefit) => (
+                                                            <Badge
+                                                                key={benefit.id}
+                                                                variant="outline"
+                                                                className="text-xs"
+                                                            >
+                                                                {benefitBadgeText(
+                                                                    benefit,
+                                                                    t,
+                                                                )}
+                                                            </Badge>
+                                                        ),
+                                                    )}
                                                 </div>
                                             </div>
                                         ) : null;
                                     })()}
-                                    <PromotionDocuments memberId={memberId} promotionId={promotion.id} />
+                                    <PromotionDocuments
+                                        memberId={memberId}
+                                        promotionId={promotion.id}
+                                    />
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <PromotionDialog memberId={memberId} memberRank={memberRank} ranks={ranks} participations={participations} legacyAchievements={legacyAchievements} achievements={achievements} promotion={promotion} onSaved={onSaved} />
-                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(promotion.id)}>
+                                    <PromotionDialog
+                                        memberId={memberId}
+                                        memberRank={memberRank}
+                                        ranks={ranks}
+                                        participations={participations}
+                                        legacyAchievements={legacyAchievements}
+                                        achievements={achievements}
+                                        promotion={promotion}
+                                        onSaved={onSaved}
+                                    />
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() =>
+                                            handleDelete(promotion.id)
+                                        }
+                                    >
                                         <Trash2 className="size-4" />
                                     </Button>
                                 </div>
                             </div>
-                            {promotion.recorded_by_name && <p className="mt-2 text-xs text-muted-foreground">{promotion.recorded_by_name}</p>}
+                            {promotion.recorded_by_name && (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    {promotion.recorded_by_name}
+                                </p>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -1369,28 +1961,59 @@ export function PromotionsTab({ memberId, memberRank, ranks, promotions, partici
             <div className="space-y-3 rounded-lg border p-4">
                 <div className="flex items-center justify-between gap-3">
                     <h4 className="text-sm font-medium">{t('Cash rewards')}</h4>
-                    <p className="text-xs text-muted-foreground">{t('Cash rewards recorded against events.')}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {t('Cash rewards recorded against events.')}
+                    </p>
                 </div>
                 {cashRewardsForEvents().length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t('No cash rewards yet.')}</p>
+                    <p className="text-sm text-muted-foreground">
+                        {t('No cash rewards yet.')}
+                    </p>
                 ) : (
                     <div className="space-y-2">
-                                {cashRewardsForEvents().map((reward) => (
-                                    <div key={reward.id} className="flex items-start justify-between gap-3 rounded-md border bg-muted/20 p-3">
-                                        <div className="min-w-0 space-y-1">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <Badge variant="secondary">{t('Cash reward')} {reward.cash_amount ? `₹${reward.cash_amount}` : ''}</Badge>
-                                                {reward.benefit_date && <span className="text-xs text-muted-foreground">{reward.benefit_date}</span>}
+                        {cashRewardsForEvents().map((reward) => (
+                            <div
+                                key={reward.id}
+                                className="flex items-start justify-between gap-3 rounded-md border bg-muted/20 p-3"
+                            >
+                                <div className="min-w-0 space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Badge variant="secondary">
+                                            {t('Cash reward')}{' '}
+                                            {reward.cash_amount
+                                                ? `₹${reward.cash_amount}`
+                                                : ''}
+                                        </Badge>
+                                        {reward.benefit_date && (
+                                            <span className="text-xs text-muted-foreground">
+                                                {reward.benefit_date}
+                                            </span>
+                                        )}
                                     </div>
-                                    {reward.source_label && <p className="text-xs text-muted-foreground">{reward.source_label}</p>}
+                                    {reward.source_label && (
+                                        <p className="text-xs text-muted-foreground">
+                                            {reward.source_label}
+                                        </p>
+                                    )}
                                     <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
-                                        {reward.order_reference && <span>{reward.order_reference}</span>}
-                                        {reward.remarks && <span>{reward.remarks}</span>}
+                                        {reward.order_reference && (
+                                            <span>
+                                                {reward.order_reference}
+                                            </span>
+                                        )}
+                                        {reward.remarks && (
+                                            <span>{reward.remarks}</span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <CashRewardEditDialog reward={reward} onSaved={onSaved} />
-                                    <p className="text-xs text-muted-foreground">{t('Edit from the Events tab')}</p>
+                                    <CashRewardEditDialog
+                                        reward={reward}
+                                        onSaved={onSaved}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('Edit from the Events tab')}
+                                    </p>
                                 </div>
                             </div>
                         ))}

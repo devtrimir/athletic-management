@@ -187,6 +187,39 @@ test('re-submitting same member updates participation and achievement', function
     expect(Achievement::where('participation_id', $participation->id)->value('medal_type'))->toBe('GOLD');
 });
 
+test('update stores medal position on existing achievement', function () {
+    $user = epUser('tournaments.update');
+    $tournament = epTournament($user);
+    $event = epEvent($tournament, $user);
+    $member = epMember($user);
+
+    $participation = Participation::create([
+        'event_id' => $event->id,
+        'member_id' => $member->id,
+        'session_id' => $tournament->session_id,
+        'position' => 2,
+    ]);
+
+    Achievement::create([
+        'participation_id' => $participation->id,
+        'medal_type' => 'SILVER',
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('tournaments.events.participants.update', [$tournament, $event, $participation]), [
+            'position' => 1,
+            'medal_type' => 'GOLD',
+            'medal_position' => 1,
+            'remarks' => 'Updated',
+        ])
+        ->assertRedirect();
+
+    expect($participation->refresh()->position)->toBe(1);
+    expect($participation->achievement?->refresh()->position)->toBe(1);
+    expect($participation->achievement?->medal_type)->toBe('GOLD');
+});
+
 test('store requires participants array', function () {
     $user = epUser('tournaments.update');
     $tournament = epTournament($user);

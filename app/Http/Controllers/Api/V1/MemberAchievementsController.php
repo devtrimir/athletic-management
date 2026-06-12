@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Achievement;
 use App\Models\Member;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -17,15 +18,29 @@ class MemberAchievementsController extends Controller
     {
         Gate::authorize('view', $member);
 
+        $data = $request->validate([
+            'from_date' => ['nullable', 'date'],
+            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+        ]);
+
+        $fromDate = isset($data['from_date']) ? Carbon::parse($data['from_date'])->startOfDay() : null;
+        $toDate = isset($data['to_date']) ? Carbon::parse($data['to_date'])->endOfDay() : null;
+
+        if ($fromDate !== null && $toDate !== null && $fromDate->diffInDays($toDate) > 365) {
+            abort(422, 'Date range must not exceed 365 days.');
+        }
+
         $achievements = Achievement::whereHas(
             'participation',
-            fn ($q) => $q->where('member_id', $member->id),
+            fn ($q) => $q->where('member_id', $member->id)
+                ->when($fromDate !== null, fn ($query) => $query->whereHas('event.tournament', fn ($tournament) => $tournament->whereDate('date_from', '>=', $fromDate)))
+                ->when($toDate !== null, fn ($query) => $query->whereHas('event.tournament', fn ($tournament) => $tournament->whereDate('date_from', '<=', $toDate))),
         )
             ->with([
                 'participation.session:id,name',
                 'participation.event:id,tournament_id,name_hi',
                 'participation.event.tournament:id,name_hi,tier_id',
-                'participation.event.tournament.tier:id,code',
+                'participation.event.tournament.tier:id,code,weight',
                 'benefits',
             ])
             ->orderByDesc('id')
@@ -50,6 +65,10 @@ class MemberAchievementsController extends Controller
                 'id' => $a->participation->event->tournament->id,
                 'name_hi' => $a->participation->event->tournament->name_hi,
                 'tier_code' => $a->participation->event->tournament->tier->code ?? null,
+                'tier_weight' => $a->participation->event->tournament->tier->weight ?? null,
+                'date_from' => $a->participation->event->tournament->date_from?->toDateString(),
+                'date_to' => $a->participation->event->tournament->date_to?->toDateString(),
+                'venue' => $a->participation->event->tournament->venue,
             ],
             'event' => [
                 'id' => $a->participation->event->id,

@@ -70,6 +70,7 @@ class EventParticipantController extends Controller
                 ['participation_id' => $participation->id],
                 [
                     'medal_type' => $validated['medal_type'],
+                    'position' => $validated['medal_position'] ?? null,
                     'remarks' => $validated['remarks'] ?? null,
                 ],
             );
