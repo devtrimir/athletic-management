@@ -210,7 +210,7 @@ test('index includes primary and playable sports', function () {
     $member->playableSports()->sync([
         $playableSport->id => [
             'role' => 'Batsman',
-            'sport_event' => 'Cricket',
+            'position' => '3',
             'notes' => 'Top order',
         ],
     ]);
@@ -223,7 +223,7 @@ test('index includes primary and playable sports', function () {
             ->where('members.data.0.sport.id', $primarySport->id)
             ->where('members.data.0.playable_sports.0.id', $playableSport->id)
             ->where('members.data.0.playable_sports.0.pivot.role', 'Batsman')
-            ->where('members.data.0.playable_sports.0.pivot.sport_event', 'Cricket')
+            ->where('members.data.0.playable_sports.0.pivot.position', '3')
             ->where('members.data.0.playable_sports.0.pivot.notes', 'Top order')
         );
 });
@@ -406,7 +406,7 @@ test('store backfills sport event into playable sports when row event is empty',
             'player_level' => 'ZONAL',
             'sport_event' => 'Cricket',
             'playable_sports' => [
-                ['sport_id' => $sport->id, 'role' => 'Batsman', 'position' => '3', 'sport_event' => '', 'notes' => ''],
+                ['sport_id' => $sport->id, 'role' => 'Batsman', 'position' => '3', 'position' => '', 'notes' => ''],
             ],
         ])
         ->assertRedirect();
@@ -524,7 +524,7 @@ test('edit returns member and selects', function () {
     $member->playableSports()->sync([
         $sport->id => [
             'role' => 'Batsman',
-            'sport_event' => 'Cricket',
+            'position' => '3',
             'notes' => 'Top order',
         ],
     ]);
@@ -537,7 +537,7 @@ test('edit returns member and selects', function () {
             ->has('member')
             ->where('member.playable_sports.0.id', $sport->id)
             ->where('member.playable_sports.0.pivot.role', 'Batsman')
-            ->where('member.playable_sports.0.pivot.sport_event', 'Cricket')
+            ->where('member.playable_sports.0.pivot.position', '3')
             ->where('member.playable_sports.0.pivot.notes', 'Top order')
             ->has('districts')
             ->has('units')

@@ -72,7 +72,7 @@ test('member preview includes posting unit fallback and sport details', function
     $member->playableSports()->sync([
         $sport->id => [
             'role' => 'Batsman',
-            'sport_event' => 'Cricket',
+            'position' => '3',
             'notes' => 'Top order',
         ],
     ]);
@@ -86,7 +86,7 @@ test('member preview includes posting unit fallback and sport details', function
         ->assertJsonPath('home_address', 'Test address')
         ->assertJsonPath('playable_sports.0.id', $sport->id)
         ->assertJsonPath('playable_sports.0.role', 'Batsman')
-        ->assertJsonPath('playable_sports.0.sport_event', 'Cricket')
+        ->assertJsonPath('playable_sports.0.position', '3')
         ->assertJsonPath('playable_sports.0.notes', 'Top order');
 });
 

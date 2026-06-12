@@ -21,7 +21,45 @@ class ReportExport implements FromCollection, WithHeadings, WithStyles, WithTitl
 
     public function collection(): Collection
     {
-        return $this->rows->map(static fn (mixed $row): array => array_values((array) $row));
+        return $this->rows->map(function (mixed $row): array {
+            return array_values(array_map([$this, 'flattenCell'], (array) $row));
+        });
+    }
+
+    private function flattenCell(mixed $value): string|null|int|float|bool
+    {
+        if (is_null($value) || is_scalar($value)) {
+            return $value;
+        }
+
+        if ($value instanceof \Stringable) {
+            return (string) $value;
+        }
+
+        if (is_array($value)) {
+            $parts = array_filter(array_map(function (mixed $item): string {
+                if (is_scalar($item) || $item === null) {
+                    return trim((string) $item);
+                }
+
+                if ($item instanceof \Stringable) {
+                    return trim((string) $item);
+                }
+
+                if (is_array($item)) {
+                    return trim(implode(' · ', array_filter(array_map(
+                        static fn (mixed $nested): string => is_scalar($nested) || $nested === null ? trim((string) $nested) : '',
+                        array_values($item),
+                    ))));
+                }
+
+                return trim((string) $item);
+            }, array_values($value)));
+
+            return implode(' | ', $parts);
+        }
+
+        return trim(json_encode($value, JSON_UNESCAPED_UNICODE) ?: '');
     }
 
     /** @return array<int, string> */

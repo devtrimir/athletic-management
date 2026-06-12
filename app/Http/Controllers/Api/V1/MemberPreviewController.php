@@ -61,7 +61,6 @@ class MemberPreviewController extends Controller
             'promotion_date' => $member->promotion_date?->toDateString(),
             'appointment' => $member->appointment,
             'recruitment_type' => $member->recruitment_type,
-            'sport_event' => $member->sport_event,
             'home_address' => $member->home_address,
             'other_notes' => $member->other_notes,
             'team_since' => $member->team_since?->toDateString(),
@@ -74,7 +73,7 @@ class MemberPreviewController extends Controller
                 'name_hi' => $sport->name_hi,
                 'name_en' => $sport->name_en,
                 'role' => $sport->pivot?->role,
-                'sport_event' => $sport->pivot?->sport_event,
+                'position' => $sport->pivot?->position,
                 'notes' => $sport->pivot?->notes,
             ])->values(),
             'status_history' => $member->statusHistory->map(fn ($h) => [
