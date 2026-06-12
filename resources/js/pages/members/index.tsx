@@ -38,11 +38,11 @@ type Member = {
     playable_sports: Array<SportOption & {
         pivot?: {
             role?: string | null;
-            sport_event?: string | null;
+            position?: string | null;
             notes?: string | null;
         };
         role?: string | null;
-        sport_event?: string | null;
+        position?: string | null;
         notes?: string | null;
     }>;
 };
@@ -99,7 +99,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'caste', label: 'Caste' },
     { key: 'designation', label: 'Designation' },
     { key: 'appointment', label: 'Appointment' },
-    { key: 'sport_event', label: 'Sport event' },
+    { key: 'playable_sports', label: 'Playable sports' },
     { key: 'promotion_date', label: 'Promotion date' },
     { key: 'team_since', label: 'Team since' },
 ];
@@ -154,6 +154,12 @@ function postingLocation(member: Member): string | null {
     return member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null;
 }
 
+function sportSummary(sport: Member['playable_sports'][number]): string {
+    return [sport.name_hi, sport.role ?? sport.pivot?.role, sport.position ?? sport.pivot?.position, sport.notes ?? sport.pivot?.notes]
+        .filter(Boolean)
+        .join(' · ');
+}
+
 function parseDateValue(value: string): Date | null {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         const [year, month, day] = value.split('-').map(Number);
@@ -191,8 +197,6 @@ function SportCell({ member }: { member: Member }) {
         return <span className="select-none text-border">—</span>;
     }
 
-    const primarySportName = playableSports[0]?.name_hi;
-
     return (
         <Popover>
             <PopoverTrigger asChild>
@@ -201,7 +205,7 @@ function SportCell({ member }: { member: Member }) {
                     className="inline-flex max-w-44 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-accent"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <span className="truncate">{primarySportName}</span>
+                    <span className="truncate">{sportSummary(playableSports[0])}</span>
                     {playableSports.length > 1 && (
                         <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[10px]">
                             +{playableSports.length - 1}
@@ -224,19 +228,13 @@ function SportCell({ member }: { member: Member }) {
                                                 {sport.role ?? sport.pivot?.role}
                                             </p>
                                         )}
-                                        {(sport.sport_event ?? sport.pivot?.sport_event) && (
-                                            <p>
-                                                <span className="font-medium text-foreground">{t('Sport event')}:</span>{' '}
-                                                {sport.sport_event ?? sport.pivot?.sport_event}
-                                            </p>
-                                        )}
                                         {(sport.notes ?? sport.pivot?.notes) && (
                                             <p>
                                                 <span className="font-medium text-foreground">{t('Notes')}:</span>{' '}
                                                 {sport.notes ?? sport.pivot?.notes}
                                             </p>
                                         )}
-                                        {!sport.role && !sport.pivot?.role && !sport.sport_event && !sport.pivot?.sport_event && !sport.notes && !sport.pivot?.notes && <p>—</p>}
+                                        {!sport.role && !sport.pivot?.role && !sport.position && !sport.pivot?.position && !sport.notes && !sport.pivot?.notes && <p>—</p>}
                                     </div>
                                 </li>
                             ))}
@@ -884,7 +882,7 @@ next.add(id);
                                 <TableHead>{t('Sr no')}</TableHead>
                                 <TableHead>{t('Name (Hindi)')}</TableHead>
                                 <TableHead>{t('PNO')}</TableHead>
-                                <TableHead>{t('Sports')}</TableHead>
+                                <TableHead>{t('Playable sports')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
                                 <TableHead>{t('Posting unit / district')}</TableHead>

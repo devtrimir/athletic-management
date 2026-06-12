@@ -37,8 +37,7 @@ type Member = {
     home_address: string | null;
     recruitment_type: string | null;
     sport: { id: number; name_hi: string; name_en: string } | null;
-    playable_sports: { id: number; name_hi: string; name_en: string; role?: string | null; sport_event?: string | null; notes?: string | null }[];
-    sport_event: string | null;
+    playable_sports: { id: number; name_hi: string; name_en: string; role?: string | null; position?: string | null; notes?: string | null }[];
     other_notes: string | null;
     team_since: string | null;
 };
@@ -215,11 +214,7 @@ const UI_LABELS: Record<
     Appointment: { en: 'Appointment', hi: 'नियुक्ति' },
     Category: { en: 'Category', hi: 'श्रेणी' },
     Level: { en: 'Level', hi: 'स्तर' },
-    'Primary sport': { en: 'Primary sport', hi: 'मुख्य खेल' },
-    'Other playable sports': {
-        en: 'Other playable sports',
-        hi: 'अन्य खेलने योग्य खेल',
-    },
+    'Playable sports': { en: 'Playable sports', hi: 'खेल' },
     'Role / position': {
         en: 'Role / position',
         hi: 'भूमिका / स्थान',
@@ -1398,7 +1393,7 @@ export default function PrintPreview({
                                 />
                                 <div className="sm:col-span-2 lg:col-span-3">
                                     <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                        {uiText('Sports', locale)}
+                                        {uiText('Playable sports', locale)}
                                     </div>
                                     <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2 print:gap-1.5">
                                         {member.playable_sports.length > 0 ? (
@@ -1417,10 +1412,10 @@ export default function PrintPreview({
                                                                     <span>{sport.role}</span>
                                                                 </div>
                                                             )}
-                                                            {sport.sport_event && (
+                                                            {sport.position && (
                                                                 <div>
-                                                                    <span className="font-medium text-muted-foreground">{uiText('Sport event', locale)}:</span>{' '}
-                                                                    <span>{sport.sport_event}</span>
+                                                                    <span className="font-medium text-muted-foreground">{uiText('Position', locale)}:</span>{' '}
+                                                                    <span>{sport.position}</span>
                                                                 </div>
                                                             )}
                                                             {sport.notes && (
@@ -1429,7 +1424,7 @@ export default function PrintPreview({
                                                                     <span>{sport.notes}</span>
                                                                 </div>
                                                             )}
-                                                            {!sport.role && !sport.sport_event && !sport.notes && (
+                                                            {!sport.role && !sport.position && !sport.notes && (
                                                                 <div>—</div>
                                                             )}
                                                         </div>

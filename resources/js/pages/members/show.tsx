@@ -98,8 +98,7 @@ type Member = {
     home_address: string | null;
     recruitment_type: string | null;
     sport: { id: number; name_hi: string; name_en: string } | null;
-    playable_sports: { id: number; name_hi: string; name_en: string; role?: string | null; sport_event?: string | null; notes?: string | null }[];
-    sport_event: string | null;
+    playable_sports: { id: number; name_hi: string; name_en: string; role?: string | null; position?: string | null; notes?: string | null }[];
     other_notes: string | null;
     team_since: string | null;
 };
@@ -299,7 +298,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
     { key: 'appointment', label: 'Appointment' },
-    { key: 'sport_event', label: 'Sport event' },
+    { key: 'playable_sports', label: 'Playable sports' },
     { key: 'promotion_date', label: 'Promotion date' },
     { key: 'team_since', label: 'Team since' },
 ];
@@ -796,8 +795,10 @@ export default function MembersShow({
                     return member.caste ?? '';
                 case 'appointment':
                     return member.appointment ?? '';
-                case 'sport_event':
-                    return member.sport_event ?? '';
+                case 'playable_sports':
+                    return member.playable_sports
+                        .map((sport) => [sportName(sport), sport.role, sport.position, sport.notes].filter(Boolean).join(' · '))
+                        .join(' | ');
                 case 'promotion_date':
                     return formatDisplayDate(member.promotion_date, pageLocale) ?? '';
                 case 'team_since':
@@ -1040,7 +1041,7 @@ export default function MembersShow({
 
                                 {member.playable_sports.length > 0 && (
                                     <section className="space-y-3">
-                                        <h3 className="text-sm font-semibold text-foreground">{t('Sports')}</h3>
+                                        <h3 className="text-sm font-semibold text-foreground">{t('Playable sports')}</h3>
                                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                             {member.playable_sports.map((sport) => (
                                                 <div key={sport.id} className="rounded-md border p-3">
@@ -1054,12 +1055,12 @@ export default function MembersShow({
                                                                 <div>{sport.role}</div>
                                                             </div>
                                                         )}
-                                                        {sport.sport_event && (
+                                                        {sport.position && (
                                                             <div className="space-y-0.5">
                                                                 <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                                                    {t('Sport event')}
+                                                                    {t('Position')}
                                                                 </div>
-                                                                <div>{sport.sport_event}</div>
+                                                                <div>{sport.position}</div>
                                                             </div>
                                                         )}
                                                         {sport.notes && (
@@ -1070,7 +1071,7 @@ export default function MembersShow({
                                                                 <div className="text-muted-foreground">{sport.notes}</div>
                                                             </div>
                                                         )}
-                                                        {!sport.role && !sport.sport_event && !sport.notes && (
+                                                        {!sport.role && !sport.position && !sport.notes && (
                                                             <div className="text-sm text-muted-foreground">—</div>
                                                         )}
                                                     </div>

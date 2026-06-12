@@ -56,7 +56,6 @@ type MemberPreview = {
     promotion_date: string | null;
     appointment: string | null;
     recruitment_type: string | null;
-    sport_event: string | null;
     home_address: string | null;
     other_notes: string | null;
     team_since: string | null;
@@ -69,7 +68,7 @@ type MemberPreview = {
         name_hi: string;
         name_en: string;
         role: string | null;
-        sport_event: string | null;
+        position: string | null;
         notes: string | null;
     }>;
     status_history: StatusHistoryItem[];
@@ -210,8 +209,7 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     ${row(t('Promotion date'), formatDisplayDate(data.promotion_date, 'hi'))}
     ${row(t('Appointment'), data.appointment)}
     ${row(t('Sport'), data.sport?.name_hi)}
-    ${data.playable_sports.length ? `<div class="section"><h2>${t('Sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name_hi}</span><span class="val">${[sport.role, sport.sport_event, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
-    ${row(t('Sport event'), data.sport_event)}
+    ${data.playable_sports.length ? `<div class="section"><h2>${t('Playable sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name_hi}</span><span class="val">${[sport.role, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
     ${row(t('Home address'), data.home_address)}
     ${row(t('Other notes'), data.other_notes)}
     ${row(t('Player level'), data.player_level ? t(data.player_level) : null)}
@@ -336,7 +334,6 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                 <InfoRow label={t('Appointment')} value={data.appointment} />
                                 <InfoRow label={t('Designation')} value={data.designation ? t(data.designation) : null} />
                                 <InfoRow label={t('Sport')} value={data.sport?.name_hi} />
-                                <InfoRow label={t('Sport event')} value={data.sport_event} />
                                 <InfoRow label={t('Home address')} value={data.home_address} />
                                 <InfoRow label={t('Other notes')} value={data.other_notes} />
                                 <InfoRow label={t('Player level')} value={data.player_level ? t(data.player_level) : null} />
@@ -345,12 +342,12 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
 
                                 {data.playable_sports.length > 0 && (
                                     <div className="mt-2 space-y-2">
-                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('Sports')}</p>
+                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('Playable sports')}</p>
                                         {data.playable_sports.map((sport) => (
                                             <div key={sport.id} className="rounded-md border p-2 text-sm">
                                                 <p className="font-medium">{sport.name_hi}</p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {[sport.role, sport.sport_event, sport.notes].filter(Boolean).join(' · ') || '—'}
+                                                    {[sport.role, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}
                                                 </p>
                                             </div>
                                         ))}

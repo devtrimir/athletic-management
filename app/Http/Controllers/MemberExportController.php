@@ -37,10 +37,31 @@ class MemberExportController extends Controller
         'caste' => 'Caste',
         'designation' => 'Designation',
         'appointment' => 'Appointment',
-        'sport_event' => 'Sport Event',
+        'playable_sports' => 'Playable Sports',
         'promotion_date' => 'Promotion Date',
         'team_since' => 'Team Since',
     ];
+
+    private function playableSportsSummary(Member $member): ?string
+    {
+        $sports = $member->relationLoaded('playableSports') ? $member->playableSports : collect();
+
+        if ($sports->isEmpty()) {
+            return null;
+        }
+
+        return $sports->map(static function ($sport): string {
+            $parts = array_filter([
+                $sport->name_hi,
+                $sport->pivot?->role,
+                $sport->pivot?->position,
+                $sport->pivot?->sport_event,
+                $sport->pivot?->notes,
+            ]);
+
+            return implode(' · ', $parts);
+        })->implode(' | ');
+    }
 
     private function formatDate(?CarbonInterface $value): ?string
     {
@@ -66,7 +87,7 @@ class MemberExportController extends Controller
         if (! empty($ids)) {
             $baseQuery->whereIn('id', array_map('intval', $ids));
             $members = $baseQuery
-                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi'])
+                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi', 'playableSports'])
                 ->orderBy('full_name_hi')
                 ->get();
         } else {
@@ -95,7 +116,7 @@ class MemberExportController extends Controller
                 ])
                 ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
                 ->defaultSort('full_name_hi')
-                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi'])
+                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi', 'playableSports'])
                 ->get();
         }
 
@@ -110,6 +131,7 @@ class MemberExportController extends Controller
                     'home_district' => $member->homeDistrict?->name_hi,
                     'posting_district' => $member->postingDistrict?->name_hi ?? $member->currentUnit?->name_hi,
                     'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
+                    'playable_sports' => $this->playableSportsSummary($member),
                     default => $member->{$col},
                 };
             }
@@ -127,7 +149,7 @@ class MemberExportController extends Controller
     {
         Gate::authorize('view', $member);
 
-        $member->load(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi']);
+        $member->load(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi', 'playableSports']);
 
         /** @var array<int, string> $columns */
         $columns = $request->query('columns', array_keys(self::COLUMN_LABELS));
@@ -142,6 +164,7 @@ class MemberExportController extends Controller
                     'home_district' => $member->homeDistrict?->name_hi,
                     'posting_district' => $member->postingDistrict?->name_hi ?? $member->currentUnit?->name_hi,
                     'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
+                    'playable_sports' => $this->playableSportsSummary($member),
                     default => $member->{$col},
                 };
             }
