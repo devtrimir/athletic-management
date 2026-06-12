@@ -17,7 +17,8 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-    SidebarTrigger,
+    SidebarRail,
+    useSidebar,
 } from '@/components/ui/sidebar';
 import { useTranslation } from '@/hooks/use-translation';
 import { dashboard } from '@/routes';
@@ -26,6 +27,7 @@ import type { NavItem } from '@/types';
 
 export function AppSidebar() {
     const { t } = useTranslation();
+    const { state } = useSidebar();
 
     const mainNavItems: NavItem[] = [
         { title: t('Dashboard'), href: dashboard(), icon: LayoutGrid },
@@ -42,7 +44,7 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader className="flex-row items-center justify-between gap-2">
+            <SidebarHeader className="flex-row items-center gap-2">
                 <SidebarMenu className="flex-1">
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
@@ -52,8 +54,8 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
-                <SidebarTrigger className="shrink-0" />
             </SidebarHeader>
+            <SidebarRail />
 
             <SidebarContent>
                 <NavMain items={mainNavItems} groupLabel={t('Main')} />
@@ -66,10 +68,16 @@ export function AppSidebar() {
                     className="flex items-center justify-between gap-3 px-2 pb-2"
                     data-test="sidebar-locale-switcher"
                 >
-                    <span className="text-xs font-medium uppercase tracking-wide text-sidebar-foreground/60">
-                        Language
-                    </span>
-                    <LocaleSwitcher className="border-sidebar-border bg-sidebar-accent/30" />
+                    {state === 'expanded' ? (
+                        <>
+                            <span className="text-xs font-medium uppercase tracking-wide text-sidebar-foreground/60">
+                                Language
+                            </span>
+                            <LocaleSwitcher className="border-sidebar-border bg-sidebar-accent/30" />
+                        </>
+                    ) : (
+                        <LocaleSwitcher collapsed />
+                    )}
                 </div>
                 <NavUser />
             </SidebarFooter>
