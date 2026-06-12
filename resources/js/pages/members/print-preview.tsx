@@ -1023,6 +1023,18 @@ function Timeline({
     );
 }
 
+const AVAILABLE_SECTIONS: SectionKey[] = [
+    'identity',
+    'contact',
+    'service',
+    'sports',
+    'teams',
+    'legacy',
+    'promotions',
+    'status',
+    'timeline',
+];
+
 const DEFAULT_SECTIONS: SectionKey[] = [
     'identity',
     'contact',
@@ -1221,7 +1233,7 @@ export default function PrintPreview({
                         </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {DEFAULT_SECTIONS.map((section) => (
+                        {AVAILABLE_SECTIONS.map((section) => (
                             <label
                                 key={section}
                                 className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-sm"
