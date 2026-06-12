@@ -62,12 +62,25 @@ class AuditLogBuilder
         ];
 
         foreach ($directEntities as ['entity' => $entity, 'ids' => $ids]) {
-            $logs = $logs->merge(
-                AuditLog::where('entity', $entity)
-                    ->whereIn('action', ['created', 'deleted'])
-                    ->whereRaw("JSON_EXTRACT(diff, '$.member_id') = ?", [$member->id])
-                    ->get()
-            );
+            $createdDeletedQuery = AuditLog::where('entity', $entity)
+                ->whereIn('action', ['created', 'deleted']);
+
+            if ($entity === 'PromotionEvidence') {
+                if ($promotionIds->isNotEmpty()) {
+                    $holders = implode(',', array_fill(0, $promotionIds->count(), '?'));
+
+                    $createdDeletedQuery->whereRaw(
+                        "JSON_EXTRACT(diff, '$.member_promotion_id') IN ({$holders})",
+                        $promotionIds->all(),
+                    );
+                } else {
+                    $createdDeletedQuery->whereRaw('0 = 1');
+                }
+            } else {
+                $createdDeletedQuery->whereRaw("JSON_EXTRACT(diff, '$.member_id') = ?", [$member->id]);
+            }
+
+            $logs = $logs->merge($createdDeletedQuery->get());
             if ($ids->isNotEmpty()) {
                 $logs = $logs->merge(
                     AuditLog::where('entity', $entity)

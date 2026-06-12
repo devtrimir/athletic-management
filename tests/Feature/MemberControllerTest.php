@@ -347,6 +347,7 @@ test('show returns member data', function () {
         ->assertInertia(fn ($page) => $page
             ->component('members/show')
             ->has('member')
+            ->missing('auditLog')
         );
 });
 
