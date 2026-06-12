@@ -208,8 +208,8 @@ export default function Dashboard({ stats, permissions, currentSession }: Props)
                     {permissions.viewMembers && stats.members && (
                         <>
                             <StatCard
-                                title={t('Total Members')}
-                                value={stats.members.total.toLocaleString('hi-IN')}
+                                title={t('Active Members')}
+                                value={stats.members.active.toLocaleString('hi-IN')}
                                 sub={`${stats.members.active.toLocaleString('hi-IN')} ${t('Active')}`}
                                 icon={Users}
                                 href={MemberController.index.url()}
@@ -515,4 +515,3 @@ Dashboard.layout = {
         },
     ],
 };
-

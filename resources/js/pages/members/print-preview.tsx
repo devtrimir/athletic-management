@@ -237,8 +237,8 @@ function Section({
     children: React.ReactNode;
 }) {
     return (
-        <section className="break-inside-avoid rounded-lg border bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
-            <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase print:text-black">
+        <section className="break-inside-avoid rounded-lg border bg-white p-3 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
+            <h2 className="mb-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase print:mb-1 print:text-[10px] print:text-black">
                 {title}
             </h2>
             {children}
@@ -249,10 +249,10 @@ function Section({
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
     return (
         <div className="grid gap-1">
-            <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase print:text-neutral-600">
+            <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase print:text-[9px] print:text-neutral-600">
                 {label}
             </div>
-            <div className="text-sm text-foreground">
+            <div className="text-sm text-foreground print:text-[11px] print:leading-4">
                 {value ?? <span className="text-muted-foreground">—</span>}
             </div>
         </div>
@@ -1010,7 +1010,7 @@ export default function PrintPreview({
                     <meta name="viewport" content="width=device-width, initial-scale=1">
                     ${styles}
                     <style>
-                        @page { margin: 1cm; }
+                        @page { margin: 0.6cm; }
                         body { margin: 0; background: white; }
                     </style>
                 </head>
@@ -1034,11 +1034,11 @@ export default function PrintPreview({
             <div
                 ref={printTargetRef}
                 id="quick-view-print-target"
-                className="relative mx-auto max-w-5xl space-y-6 overflow-hidden rounded-2xl border border-neutral-300 bg-white p-4 text-black shadow-sm print:max-w-none print:rounded-none print:border-0 print:p-0 print:shadow-none"
+                className="relative mx-auto max-w-5xl space-y-4 overflow-hidden rounded-2xl border border-neutral-300 bg-white p-4 text-black shadow-sm print:max-w-none print:space-y-2 print:rounded-none print:border-0 print:p-0 print:text-[11px] print:shadow-none"
             >
                 <div className="pointer-events-none absolute inset-0 hidden print:block">
                     <div className="absolute inset-0 border border-neutral-300/70" />
-                    <div className="absolute inset-6 border border-dashed border-neutral-300/60" />
+                    <div className="absolute inset-3 border border-dashed border-neutral-300/60" />
                 </div>
 
                 <div className="flex items-start justify-between gap-4 print:hidden">
@@ -1135,7 +1135,7 @@ export default function PrintPreview({
                     </div>
                 </div>
 
-                <div className="grid gap-4">
+                <div className="grid gap-3 print:gap-2">
                     {sectionEnabled('identity') && (
                         <Section
                             title={uiText(
@@ -1143,7 +1143,7 @@ export default function PrintPreview({
                                 locale,
                             )}
                         >
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:gap-2">
                                 <Field
                                     label={uiText('PNO', locale)}
                                     value={
@@ -1198,7 +1198,7 @@ export default function PrintPreview({
 
                     {sectionEnabled('contact') && (
                         <Section title={uiText('Contact and address', locale)}>
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:gap-2">
                                 <Field
                                     label={uiText('Mobile', locale)}
                                     value={member.mobile}
@@ -1229,7 +1229,7 @@ export default function PrintPreview({
 
                     {sectionEnabled('service') && (
                         <Section title={uiText('Service and posting', locale)}>
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:gap-2">
                                 <Field
                                     label={uiText('Joining date', locale)}
                                     value={formatDateValue(
@@ -1283,7 +1283,7 @@ export default function PrintPreview({
                         <Section
                             title={uiText('Sports and eligibility', locale)}
                         >
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:gap-2">
                                 <Field
                                     label={uiText('Category', locale)}
                                     value={member.player_category}
@@ -1342,7 +1342,7 @@ export default function PrintPreview({
                                     </div>
                                 }
                             >
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                     {(statusHistory ?? []).length === 0 ? (
                                         <p className="text-sm text-muted-foreground">
                                             {uiText(
@@ -1354,7 +1354,7 @@ export default function PrintPreview({
                                         (statusHistory ?? []).map((row) => (
                                             <div
                                                 key={row.id}
-                                                className="flex items-center justify-between border-b py-2 text-sm last:border-b-0"
+                                                className="flex items-center justify-between border-b py-1.5 text-sm last:border-b-0 print:py-1"
                                             >
                                                 <div>
                                                     <div className="font-medium">
@@ -1401,9 +1401,9 @@ export default function PrintPreview({
                                         {uiText('No team memberships.', locale)}
                                     </p>
                                 ) : (
-                                    <div className="overflow-hidden rounded-md border">
+                                    <div className="overflow-hidden rounded-md border print:rounded-sm">
                                         <table className="w-full text-sm">
-                                            <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+                                            <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                 <tr>
                                                     <th className="p-2">
                                                         {uiText('Team', locale)}
@@ -1437,19 +1437,19 @@ export default function PrintPreview({
                                                     </th>
                                                 </tr>
                                             </thead>
-                                            <tbody>
+                                            <tbody className="print:text-[10px]">
                                                 {(memberTeams ?? []).map(
                                                     (row) => (
                                                         <tr
                                                             key={row.id}
-                                                            className="border-t"
+                                                            className="border-t print:align-top"
                                                         >
-                                                            <td className="p-2">
+                                                            <td className="p-2 print:py-1">
                                                                 {row.team
                                                                     ?.name_hi ??
                                                                     '—'}
                                                             </td>
-                                                            <td className="p-2">
+                                                            <td className="p-2 print:py-1">
                                                                 {row.sport
                                                                     ?.name ??
                                                                     '—'}
@@ -1500,25 +1500,25 @@ export default function PrintPreview({
                                         )}
                                     </p>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {(legacyAchievements ?? []).map(
                                             (row) => (
                                                 <div
                                                     key={row.id}
-                                                    className="rounded-md border p-3"
+                                                    className="rounded-md border p-2"
                                                 >
-                                                    <div className="font-medium">
+                                                    <div className="text-sm font-medium print:text-[11px]">
                                                         {row.period}{' '}
                                                         {row.level
                                                             ? `· ${row.level}`
                                                             : ''}
                                                     </div>
-                                                    <div className="text-sm text-muted-foreground">
+                                                    <div className="text-sm text-muted-foreground print:text-[10px]">
                                                         {
                                                             row.competition_details
                                                         }
                                                     </div>
-                                                    <div className="mt-2 text-xs text-muted-foreground">
+                                                    <div className="mt-1 text-xs text-muted-foreground print:text-[9px]">
                                                         {[
                                                             formatDateValue(
                                                                 row.event_date,
@@ -1557,18 +1557,18 @@ export default function PrintPreview({
                                         {uiText('No promotions yet.', locale)}
                                     </p>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {(promotions ?? []).map((row) => (
                                             <div
                                                 key={row.id}
-                                                className="rounded-md border p-3"
+                                                className="rounded-md border p-2"
                                             >
-                                                <div className="font-medium">
+                                                <div className="text-sm font-medium print:text-[11px]">
                                                     {row.from_rank ??
                                                         t('Unknown')}{' '}
                                                     → {row.to_rank}
                                                 </div>
-                                                <div className="text-sm text-muted-foreground">
+                                                <div className="text-sm text-muted-foreground print:text-[10px]">
                                                     {[
                                                         row.promotion_date
                                                             ? `${t('Promotion date')}: ${formatDateValue(row.promotion_date, locale)}`

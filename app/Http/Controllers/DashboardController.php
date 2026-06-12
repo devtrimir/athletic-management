@@ -29,17 +29,22 @@ class DashboardController extends Controller
         $stats = [];
 
         if ($canViewMembers) {
-            $memberStatusCounts = Member::selectRaw('current_status, count(*) as cnt')
+            $activeMemberQuery = Member::where('current_status', 'ACTIVE');
+
+            $memberStatusCounts = (clone $activeMemberQuery)
+                ->selectRaw('current_status, count(*) as cnt')
                 ->groupBy('current_status')
                 ->pluck('cnt', 'current_status')
                 ->toArray();
 
-            $memberLevelCounts = Member::selectRaw('player_level, count(*) as cnt')
+            $memberLevelCounts = (clone $activeMemberQuery)
+                ->selectRaw('player_level, count(*) as cnt')
                 ->groupBy('player_level')
                 ->pluck('cnt', 'player_level')
                 ->toArray();
 
-            $memberGenderCounts = Member::selectRaw('gender, count(*) as cnt')
+            $memberGenderCounts = (clone $activeMemberQuery)
+                ->selectRaw('gender, count(*) as cnt')
                 ->groupBy('gender')
                 ->pluck('cnt', 'gender')
                 ->toArray();
