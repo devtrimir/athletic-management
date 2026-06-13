@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Teams\StoreTeamMemberRequest;
+use App\Http\Requests\Teams\UpdateTeamMemberRequest;
 use App\Models\Member;
 use App\Models\Team;
 use App\Models\TeamMember;
@@ -21,7 +22,8 @@ class TeamMemberController extends Controller
 
         $data = $request->validated();
         $memberIds = $data['member_ids'];
-        $sessionId = $data['session_id'];
+        $sessionId = $team->session_id;
+        $sportId = $team->sport_id;
 
         // Check: already on THIS team.
         $onThisTeam = TeamMember::where('team_id', $team->id)
@@ -29,11 +31,18 @@ class TeamMemberController extends Controller
             ->pluck('member_id')
             ->all();
 
-        // Check: already on ANY team for this session (cross-team uniqueness).
-        $crossTeamConflicts = TeamMember::with(['team:id,name_hi', 'member:id,full_name_hi'])
+        // Check: already on a team for this sport in this session.
+        $sameSportConflicts = TeamMember::with(['team:id,name_hi,sport_id', 'member:id,full_name_hi'])
             ->where('session_id', $sessionId)
             ->whereIn('member_id', $memberIds)
+            ->whereHas('team', fn ($query) => $query->where('sport_id', $sportId))
             ->get(['member_id', 'team_id']);
+
+        $eligibleMembers = Member::whereIn('id', $memberIds)
+            ->where('current_status', 'ACTIVE')
+            ->whereHas('playableSports', fn ($query) => $query->where('sports.id', $sportId))
+            ->pluck('id')
+            ->all();
 
         $errors = [];
 
@@ -42,7 +51,7 @@ class TeamMemberController extends Controller
             $errors["member_ids.{$index}"] = __('This member is already on the team.');
         }
 
-        foreach ($crossTeamConflicts as $conflict) {
+        foreach ($sameSportConflicts as $conflict) {
             if (in_array($conflict->member_id, $onThisTeam, true)) {
                 continue; // already reported above
             }
@@ -55,12 +64,22 @@ class TeamMemberController extends Controller
             ]);
         }
 
+        foreach (array_diff($memberIds, $eligibleMembers) as $id) {
+            if (in_array($id, $onThisTeam, true)) {
+                continue;
+            }
+
+            $index = array_search($id, $memberIds);
+            $errors["member_ids.{$index}"] = __('This member is not active or is not eligible for this team sport.');
+        }
+
         if (! empty($errors)) {
             return back()->withErrors($errors)->withInput();
         }
 
         $role = $data['role'] ?? 'PLAYER';
         $joinedOn = $data['joined_on'] ?? null;
+        $leftOn = $data['left_on'] ?? null;
 
         foreach ($memberIds as $memberId) {
             TeamMember::create([
@@ -69,11 +88,24 @@ class TeamMemberController extends Controller
                 'session_id' => $sessionId,
                 'role' => $role,
                 'joined_on' => $joinedOn,
-                'left_on' => null,
+                'left_on' => $leftOn,
             ]);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Members added to team.')]);
+
+        return to_route('teams.show', $team);
+    }
+
+    public function update(UpdateTeamMemberRequest $request, Team $team, TeamMember $teamMember): RedirectResponse
+    {
+        Gate::authorize('update', $team);
+
+        abort_unless($teamMember->team_id === $team->id, 404);
+
+        $teamMember->update($request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Team member updated.')]);
 
         return to_route('teams.show', $team);
     }

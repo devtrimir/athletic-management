@@ -1,9 +1,10 @@
 import { Deferred, Head, Link, router, setLayoutProps } from '@inertiajs/react';
-import { Copy, Info, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { Copy, Info, Pencil, Search, Trash2, UserPlus, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { destroy as destroyTeamCoach, bulkDestroy as bulkDestroyCoaches } from '@/actions/App/Http/Controllers/TeamCoachController';
 import { destroy as destroyTeam, edit as editTeam, index as teamsIndex } from '@/actions/App/Http/Controllers/TeamController';
-import { destroy as destroyTeamMember, bulkDestroy as bulkDestroyMembers } from '@/actions/App/Http/Controllers/TeamMemberController';
+import { destroy as destroyTeamMember, bulkDestroy as bulkDestroyMembers, store as storeTeamMember, update as updateTeamMember } from '@/actions/App/Http/Controllers/TeamMemberController';
 import { MemberQuickView } from '@/components/members/member-quick-view';
 import { ChangeLog  } from '@/components/shared/change-log';
 import type {AuditEntry} from '@/components/shared/change-log';
@@ -14,7 +15,9 @@ import { CoachQuickView } from '@/components/teams/coach-quick-view';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -74,6 +77,8 @@ export default function TeamsShow({
     const [cloneOpen, setCloneOpen] = useState(false);
     const [memberQuickViewId, setMemberQuickViewId] = useState<number | null>(null);
     const [coachQuickViewId, setCoachQuickViewId] = useState<number | null>(null);
+    const [editingMember, setEditingMember] = useState<TeamMemberRow | null>(null);
+    const [editMemberData, setEditMemberData] = useState({ role: 'PLAYER', joined_on: '', left_on: '' });
 
     // Selection state for bulk remove
     const [selectedMemberIds, setSelectedMemberIds] = useState<Set<number>>(new Set());
@@ -131,13 +136,53 @@ return;
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
 
+    function restoreMembers(rows: TeamMemberRow[]) {
+        rows.forEach((row) => {
+            if (!row.member) {
+                return;
+            }
+
+            router.post(storeTeamMember.url(team), {
+                member_ids: [String(row.member.id)],
+                role: row.role ?? 'PLAYER',
+                joined_on: row.joined_on ?? '',
+                left_on: row.left_on ?? '',
+            }, { preserveScroll: true });
+        });
+    }
+
+    function showUndoToast(rows: TeamMemberRow[]) {
+        toast.success(t('Members removed from team.'), {
+            action: {
+                label: t('Undo'),
+                onClick: () => restoreMembers(rows),
+            },
+        });
+    }
+
     function removeMember(memberId: number, memberName?: string) {
+        const row = (members ?? []).find((item) => item.member?.id === memberId);
+
         openConfirm(
             t('Remove member'),
             memberName
                 ? t('Remove :name from the team?').replace(':name', memberName)
                 : t('Remove this member from the team?'),
-            () => router.delete(destroyTeamMember.url([team, memberId]), { preserveScroll: true }),
+            () => router.delete(destroyTeamMember.url([team, memberId]), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setSelectedMemberIds((prev) => {
+                        const next = new Set(prev);
+                        next.delete(memberId);
+
+                        return next;
+                    });
+
+                    if (row) {
+                        showUndoToast([row]);
+                    }
+                },
+            }),
         );
     }
 
@@ -173,15 +218,41 @@ return;
     function handleBulkRemoveMembers() {
         const count = selectedMemberIds.size;
         const ids = Array.from(selectedMemberIds);
+        const removedRows = (members ?? []).filter((row) => row.member && selectedMemberIds.has(row.member.id));
         openConfirm(
             t('Remove selected (:count)').replace(':count', String(count)),
-            t('Remove :count selected members?').replace(':count', String(count)),
+            t('Remove :count selected members from this team?').replace(':count', String(count)),
             () => router.delete(bulkDestroyMembers.url(team), {
                 data: { member_ids: ids },
                 preserveScroll: true,
-                onSuccess: () => setSelectedMemberIds(new Set()),
+                onSuccess: () => {
+                    setSelectedMemberIds(new Set());
+                    showUndoToast(removedRows);
+                },
             }),
         );
+    }
+
+    function openMemberEdit(row: TeamMemberRow) {
+        setEditingMember(row);
+        setEditMemberData({
+            role: row.role ?? 'PLAYER',
+            joined_on: row.joined_on ?? '',
+            left_on: row.left_on ?? '',
+        });
+    }
+
+    function submitMemberEdit(e: React.FormEvent) {
+        e.preventDefault();
+
+        if (!editingMember) {
+            return;
+        }
+
+        router.patch(updateTeamMember.url([team, editingMember]), editMemberData, {
+            preserveScroll: true,
+            onSuccess: () => setEditingMember(null),
+        });
     }
 
     function toggleCoach(id: number) {
@@ -326,6 +397,53 @@ return false;
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <Dialog open={editingMember !== null} onOpenChange={(open) => !open && setEditingMember(null)}>
+                <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+                    <DialogHeader>
+                        <DialogTitle>{t('Edit membership')}</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={submitMemberEdit} className="space-y-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-member-role">{t('Role')}</Label>
+                            <Select value={editMemberData.role} onValueChange={(value) => setEditMemberData((data) => ({ ...data, role: value }))}>
+                                <SelectTrigger id="edit-member-role" className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {MEMBER_ROLES.map((role) => (
+                                        <SelectItem key={role} value={role}>{t(role)}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-member-joined">{t('Joined on')}</Label>
+                                <Input
+                                    id="edit-member-joined"
+                                    type="date"
+                                    value={editMemberData.joined_on}
+                                    onChange={(event) => setEditMemberData((data) => ({ ...data, joined_on: event.target.value }))}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-member-left">{t('Left on')}</Label>
+                                <Input
+                                    id="edit-member-left"
+                                    type="date"
+                                    value={editMemberData.left_on}
+                                    onChange={(event) => setEditMemberData((data) => ({ ...data, left_on: event.target.value }))}
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setEditingMember(null)}>{t('Cancel')}</Button>
+                            <Button type="submit">{t('Save')}</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             <AddMemberDialog open={addMemberOpen} onOpenChange={setAddMemberOpen} team={team} sessions={sessions} />
             <AddCoachDialog open={addCoachOpen} onOpenChange={setAddCoachOpen} team={team} sessions={sessions} />
@@ -486,13 +604,15 @@ return false;
                                                 <TableHead>{t('PNO')}</TableHead>
                                                 <TableHead>{t('Role')}</TableHead>
                                                 <TableHead>{t('Session')}</TableHead>
+                                                <TableHead>{t('Joined on')}</TableHead>
+                                                <TableHead>{t('Left on')}</TableHead>
                                                 <TableHead />
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {filteredMembers.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                                                         {t('No members in this team.')}
                                                     </TableCell>
                                                 </TableRow>
@@ -515,6 +635,8 @@ return false;
                                                         </TableCell>
                                                         <TableCell>{row.role ? t(row.role) : '—'}</TableCell>
                                                         <TableCell>{row.session?.name ?? '—'}</TableCell>
+                                                        <TableCell>{row.joined_on ?? '—'}</TableCell>
+                                                        <TableCell>{row.left_on ?? '—'}</TableCell>
                                                         <TableCell className="text-right">
                                                             <div className="flex items-center justify-end gap-1">
                                                                 <Button
@@ -528,8 +650,17 @@ return false;
                                                                 </Button>
                                                                 <Button
                                                                     variant="ghost"
+                                                                    size="icon"
+                                                                    title={t('Edit membership')}
+                                                                    onClick={() => openMemberEdit(row)}
+                                                                    disabled={!row.member}
+                                                                >
+                                                                    <Pencil className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
                                                                     size="sm"
-                                                                    onClick={() => row.member && removeMember(row.member.id)}
+                                                                    onClick={() => row.member && removeMember(row.member.id, row.member.full_name_hi)}
                                                                     disabled={!row.member}
                                                                 >
                                                                     {t('Remove')}
@@ -724,4 +855,3 @@ return false;
         </>
     );
 }
-
