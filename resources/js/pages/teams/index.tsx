@@ -1,18 +1,38 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState   } from 'react';
-import type {Dispatch, SetStateAction} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import Heading from '@/components/heading';
 import { TeamQuickView } from '@/components/teams/team-quick-view';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
@@ -22,6 +42,8 @@ const ALL_COLUMNS = [
     { key: 'unit', label: 'Unit' },
     { key: 'in_charge_hi', label: 'In-Charge' },
     { key: 'players_count', label: 'Players' },
+    { key: 'captains_count', label: 'Captains' },
+    { key: 'reserves_count', label: 'Reserves' },
     { key: 'coaches_count', label: 'Coaches' },
 ] as const;
 
@@ -36,6 +58,8 @@ type Team = {
     name_hi: string;
     in_charge_hi: string | null;
     players_count: number;
+    captains_count: number;
+    reserves_count: number;
     coaches_count: number;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
@@ -81,7 +105,9 @@ export default function TeamsIndex({
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [exportOpen, setExportOpen] = useState(false);
     const [quickViewId, setQuickViewId] = useState<number | null>(null);
-    const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+    const [selectedColumns, setSelectedColumns] = useState<string[]>(
+        ALL_COLUMNS.map((c) => c.key),
+    );
 
     const [query, setQuery] = useState(filters.q ?? '');
     const [pnoQuery, setPnoQuery] = useState(filters.pno ?? '');
@@ -126,7 +152,13 @@ export default function TeamsIndex({
                 replace: true,
             });
         },
-        [query, pnoQuery, filters.session_id, filters.sport_id, filters.unit_id],
+        [
+            query,
+            pnoQuery,
+            filters.session_id,
+            filters.sport_id,
+            filters.unit_id,
+        ],
     );
 
     useEffect(() => {
@@ -168,10 +200,10 @@ export default function TeamsIndex({
             const next = new Set(prev);
 
             if (next.has(id)) {
- next.delete(id);
-} else {
- next.add(id);
-}
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
 
             return next;
         });
@@ -185,10 +217,10 @@ export default function TeamsIndex({
 
             for (const id of pageIds) {
                 if (allSelected) {
- next.delete(id);
-} else {
- next.add(id);
-}
+                    next.delete(id);
+                } else {
+                    next.add(id);
+                }
             }
 
             return next;
@@ -200,33 +232,33 @@ export default function TeamsIndex({
 
         if (selectedIds.size > 0) {
             for (const id of selectedIds) {
- params.append('ids[]', String(id));
-}
+                params.append('ids[]', String(id));
+            }
         } else {
             if (filters.q) {
-params.append('filter[q]', filters.q);
-}
+                params.append('filter[q]', filters.q);
+            }
 
             if (filters.pno) {
-params.append('filter[pno]', filters.pno);
-}
+                params.append('filter[pno]', filters.pno);
+            }
 
             if (filters.session_id) {
-params.append('filter[session_id]', filters.session_id);
-}
+                params.append('filter[session_id]', filters.session_id);
+            }
 
             if (filters.sport_id) {
-params.append('filter[sport_id]', filters.sport_id);
-}
+                params.append('filter[sport_id]', filters.sport_id);
+            }
 
             if (filters.unit_id) {
-params.append('filter[unit_id]', filters.unit_id);
-}
+                params.append('filter[unit_id]', filters.unit_id);
+            }
         }
 
         for (const col of selectedColumns) {
- params.append('columns[]', col);
-}
+            params.append('columns[]', col);
+        }
 
         return exportTeamsUrl.url() + '?' + params.toString();
     }
@@ -242,14 +274,19 @@ params.append('filter[unit_id]', filters.unit_id);
                             let v: string;
 
                             if (c.key === 'session') {
-v = team.session?.name ?? '\u2014';
-} else if (c.key === 'sport') {
-v = team.sport?.name ?? '\u2014';
-} else if (c.key === 'unit') {
-v = team.unit?.name_hi ?? '\u2014';
-} else {
-                                const raw = (team as Record<string, unknown>)[c.key];
-                                v = raw != null && raw !== '' ? String(raw) : '\u2014';
+                                v = team.session?.name ?? '\u2014';
+                            } else if (c.key === 'sport') {
+                                v = team.sport?.name ?? '\u2014';
+                            } else if (c.key === 'unit') {
+                                v = team.unit?.name_hi ?? '\u2014';
+                            } else {
+                                const raw = (team as Record<string, unknown>)[
+                                    c.key
+                                ];
+                                v =
+                                    raw != null && raw !== ''
+                                        ? String(raw)
+                                        : '\u2014';
                             }
 
                             return `<td>${v}</td>`;
@@ -261,8 +298,8 @@ v = team.unit?.name_hi ?? '\u2014';
         const win = window.open('', '_blank', 'width=900,height=700');
 
         if (!win) {
-return;
-}
+            return;
+        }
 
         win.document.write(html);
         win.document.close();
@@ -288,10 +325,17 @@ return;
                         description={t('Manage teams')}
                     />
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExportOpen(true)}
+                        >
                             <Download className="mr-1.5 h-4 w-4" />
                             {selectedIds.size > 0
-                                ? t('Export :n selected').replace(':n', String(selectedIds.size))
+                                ? t('Export :n selected').replace(
+                                      ':n',
+                                      String(selectedIds.size),
+                                  )
                                 : t('Export teams')}
                         </Button>
                         <Button asChild size="sm">
@@ -306,7 +350,7 @@ return;
                 {/* Filter bar */}
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="relative w-52">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t('Search team or in-charge…')}
                             value={query}
@@ -316,7 +360,7 @@ return;
                     </div>
 
                     <div className="relative w-40">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t('Search by PNO…')}
                             value={pnoQuery}
@@ -328,14 +372,18 @@ return;
                     <Select
                         value={filters.session_id ?? 'all'}
                         onValueChange={(v) =>
-                            applyFilters({ session_id: v === 'all' ? undefined : v })
+                            applyFilters({
+                                session_id: v === 'all' ? undefined : v,
+                            })
                         }
                     >
                         <SelectTrigger className="w-44">
                             <SelectValue placeholder={t('All sessions')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{t('All sessions')}</SelectItem>
+                            <SelectItem value="all">
+                                {t('All sessions')}
+                            </SelectItem>
                             {sessions.map((s) => (
                                 <SelectItem key={s.id} value={String(s.id)}>
                                     {s.name}
@@ -347,14 +395,18 @@ return;
                     <Select
                         value={filters.sport_id ?? 'all'}
                         onValueChange={(v) =>
-                            applyFilters({ sport_id: v === 'all' ? undefined : v })
+                            applyFilters({
+                                sport_id: v === 'all' ? undefined : v,
+                            })
                         }
                     >
                         <SelectTrigger className="w-44">
                             <SelectValue placeholder={t('All sports')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{t('All sports')}</SelectItem>
+                            <SelectItem value="all">
+                                {t('All sports')}
+                            </SelectItem>
                             {sports.map((s) => (
                                 <SelectItem key={s.id} value={String(s.id)}>
                                     {s.name}
@@ -366,14 +418,18 @@ return;
                     <Select
                         value={filters.unit_id ?? 'all'}
                         onValueChange={(v) =>
-                            applyFilters({ unit_id: v === 'all' ? undefined : v })
+                            applyFilters({
+                                unit_id: v === 'all' ? undefined : v,
+                            })
                         }
                     >
                         <SelectTrigger className="w-44">
                             <SelectValue placeholder={t('All units')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{t('All units')}</SelectItem>
+                            <SelectItem value="all">
+                                {t('All units')}
+                            </SelectItem>
                             {units.map((u) => (
                                 <SelectItem key={u.id} value={String(u.id)}>
                                     {u.name_hi}
@@ -389,10 +445,14 @@ return;
                             onClick={() => {
                                 setQuery('');
                                 setPnoQuery('');
-                                router.get(TeamController.index.url(), {}, {
-                                    preserveState: false,
-                                    replace: true,
-                                });
+                                router.get(
+                                    TeamController.index.url(),
+                                    {},
+                                    {
+                                        preserveState: false,
+                                        replace: true,
+                                    },
+                                );
                             }}
                         >
                             <X className="mr-1.5 h-4 w-4" />
@@ -409,9 +469,14 @@ return;
                                 <TableHead className="w-0">
                                     <Checkbox
                                         checked={
-                                            teams.data.length > 0 && teams.data.every((t) => selectedIds.has(t.id))
+                                            teams.data.length > 0 &&
+                                            teams.data.every((t) =>
+                                                selectedIds.has(t.id),
+                                            )
                                                 ? true
-                                                : teams.data.some((t) => selectedIds.has(t.id))
+                                                : teams.data.some((t) =>
+                                                        selectedIds.has(t.id),
+                                                    )
                                                   ? 'indeterminate'
                                                   : false
                                         }
@@ -424,16 +489,17 @@ return;
                                 <TableHead>{t('Session')}</TableHead>
                                 <TableHead>{t('Unit')}</TableHead>
                                 <TableHead>{t('In-charge')}</TableHead>
-                                <TableHead className="text-right">{t('Players')}</TableHead>
-                                <TableHead className="text-right">{t('Coaches')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead>{t('Roster')}</TableHead>
+                                <TableHead className="w-0 text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {teams.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={9}
+                                        colSpan={8}
                                         className="py-12 text-center text-muted-foreground"
                                     >
                                         {hasActiveFilters
@@ -446,8 +512,12 @@ return;
                                     <TableRow key={team.id}>
                                         <TableCell className="w-0">
                                             <Checkbox
-                                                checked={selectedIds.has(team.id)}
-                                                onCheckedChange={() => toggleRow(team.id)}
+                                                checked={selectedIds.has(
+                                                    team.id,
+                                                )}
+                                                onCheckedChange={() =>
+                                                    toggleRow(team.id)
+                                                }
                                                 aria-label={t('Select row')}
                                             />
                                         </TableCell>
@@ -456,29 +526,51 @@ return;
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {team.sport?.name ?? (
-                                                <span className="select-none text-border">—</span>
+                                                <span className="text-border select-none">
+                                                    —
+                                                </span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {team.session?.name ?? (
-                                                <span className="select-none text-border">—</span>
+                                                <span className="text-border select-none">
+                                                    —
+                                                </span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {team.unit?.name_hi ?? (
-                                                <span className="select-none text-border">—</span>
+                                                <span className="text-border select-none">
+                                                    —
+                                                </span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {team.in_charge_hi ?? (
-                                                <span className="select-none text-border">—</span>
+                                                <span className="text-border select-none">
+                                                    —
+                                                </span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {team.players_count}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {team.coaches_count}
+                                        <TableCell>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium tabular-nums">
+                                                    {t('Players')}:{' '}
+                                                    {team.players_count}
+                                                </span>
+                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium tabular-nums">
+                                                    {t('Captains')}:{' '}
+                                                    {team.captains_count}
+                                                </span>
+                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium tabular-nums">
+                                                    {t('Reserves')}:{' '}
+                                                    {team.reserves_count}
+                                                </span>
+                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium tabular-nums">
+                                                    {t('Coaches')}:{' '}
+                                                    {team.coaches_count}
+                                                </span>
+                                            </div>
                                         </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center">
@@ -487,8 +579,9 @@ return;
                                                     size="icon"
                                                     title={t('Quick info')}
                                                     onClick={(e) => {
- e.stopPropagation(); setQuickViewId(team.id);
-}}
+                                                        e.stopPropagation();
+                                                        setQuickViewId(team.id);
+                                                    }}
                                                 >
                                                     <Info className="h-4 w-4" />
                                                 </Button>
@@ -498,7 +591,11 @@ return;
                                                     title={t('View')}
                                                     asChild
                                                 >
-                                                    <Link href={TeamController.show.url(team.id)}>
+                                                    <Link
+                                                        href={TeamController.show.url(
+                                                            team.id,
+                                                        )}
+                                                    >
                                                         <Eye className="h-4 w-4" />
                                                     </Link>
                                                 </Button>
@@ -517,9 +614,9 @@ return;
                         <span>
                             {teams.from !== null
                                 ? t('Showing :from–:to of :total')
-                                    .replace(':from', String(teams.from))
-                                    .replace(':to', String(teams.to ?? ''))
-                                    .replace(':total', String(teams.total))
+                                      .replace(':from', String(teams.from))
+                                      .replace(':to', String(teams.to ?? ''))
+                                      .replace(':total', String(teams.total))
                                 : ''}
                         </span>
                         <div className="flex items-center gap-1">
@@ -527,13 +624,21 @@ return;
                                 link.url ? (
                                     <Button
                                         key={i}
-                                        variant={link.active ? 'default' : 'outline'}
+                                        variant={
+                                            link.active ? 'default' : 'outline'
+                                        }
                                         size="sm"
                                         className="h-8 min-w-8 px-2"
                                         onClick={() =>
-                                            router.get(link.url!, {}, { preserveState: true })
+                                            router.get(
+                                                link.url!,
+                                                {},
+                                                { preserveState: true },
+                                            )
                                         }
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                        dangerouslySetInnerHTML={{
+                                            __html: link.label,
+                                        }}
                                     />
                                 ) : (
                                     <Button
@@ -542,7 +647,9 @@ return;
                                         size="sm"
                                         className="h-8 min-w-8 px-2"
                                         disabled
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                        dangerouslySetInnerHTML={{
+                                            __html: link.label,
+                                        }}
                                     />
                                 ),
                             )}
@@ -603,15 +710,26 @@ function ExportDialog({
                     <DialogTitle>{t('Export teams')}</DialogTitle>
                     <DialogDescription>
                         {selectedIds.size > 0
-                            ? t('Exporting :n selected teams.').replace(':n', String(selectedIds.size))
-                            : t('Exporting all :count teams.').replace(':count', String(teams.total))}
+                            ? t('Exporting :n selected teams.').replace(
+                                  ':n',
+                                  String(selectedIds.size),
+                              )
+                            : t('Exporting all :count teams.').replace(
+                                  ':count',
+                                  String(teams.total),
+                              )}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="min-h-0 flex-1 overflow-y-auto py-2">
-                    <p className="mb-3 text-sm font-medium">{t('Select columns to export')}</p>
+                    <p className="mb-3 text-sm font-medium">
+                        {t('Select columns to export')}
+                    </p>
                     <div className="grid grid-cols-2 gap-2">
                         {ALL_COLUMNS.map((col) => (
-                            <div key={col.key} className="flex items-center gap-2">
+                            <div
+                                key={col.key}
+                                className="flex items-center gap-2"
+                            >
                                 <Checkbox
                                     id={`col-${col.key}`}
                                     checked={selectedColumns.includes(col.key)}
@@ -619,17 +737,24 @@ function ExportDialog({
                                         setSelectedColumns((prev) =>
                                             checked
                                                 ? [...prev, col.key]
-                                                : prev.filter((k) => k !== col.key),
+                                                : prev.filter(
+                                                      (k) => k !== col.key,
+                                                  ),
                                         )
                                     }
                                 />
-                                <Label htmlFor={`col-${col.key}`}>{t(col.label)}</Label>
+                                <Label htmlFor={`col-${col.key}`}>
+                                    {t(col.label)}
+                                </Label>
                             </div>
                         ))}
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                    >
                         {t('Cancel')}
                     </Button>
                     <Button
