@@ -17,13 +17,10 @@ class MemberSearchService
     private const COLUMNS = ['id', 'member_code', 'pno', 'full_name_hi', 'full_name_en', 'player_category', 'player_level', 'current_status'];
 
     /**
-     * Search members for the given org and query string.
-     * Returns at most 50 results.
+     * Search members for the given org and query string. Returns at most 50 results.
      *
+     * @param  array<string, string|int>  $filters  Optional filters.
      * @return Collection<int, mixed>
-     */
-    /**
-     * @param  array<string, string>  $filters  Optional column filters (player_category, player_level, current_status).
      */
     public function search(int $orgId, string $q, array $filters = []): Collection
     {
@@ -60,7 +57,7 @@ class MemberSearchService
     /**
      * MySQL path: PNO exact short-circuit, then FULLTEXT ngram BOOLEAN MODE.
      *
-     * @param  array<string, string>  $filters
+     * @param  array<string, string|int>  $filters
      */
     private function searchMysql(int $orgId, string $q, array $filters = []): Collection
     {
@@ -108,7 +105,7 @@ class MemberSearchService
      * SQLite path (test environment): PNO exact + LIKE on full_name_hi OR alias_hi.
      * Mirrors the MySQL path which also searches name_aliases via FULLTEXT.
      *
-     * @param  array<string, string>  $filters
+     * @param  array<string, string|int>  $filters
      */
     private function searchSqlite(int $orgId, string $q, array $filters = []): Collection
     {
@@ -118,7 +115,29 @@ class MemberSearchService
             ->select(self::COLUMNS);
 
         foreach ($filters as $column => $value) {
+            if ($column === 'sport_id') {
+                $base->whereHas('playableSports', fn ($query) => $query->where('sports.id', $value));
+
+                continue;
+            }
+
+            if ($column === 'available_session_id' || $column === 'available_sport_id') {
+                continue;
+            }
+
             $base->where($column, $value);
+        }
+
+        if (! empty($filters['available_session_id']) && ! empty($filters['available_sport_id'])) {
+            $base->whereNotExists(function ($query) use ($filters): void {
+                $query->selectRaw('1')
+                    ->from('team_members as tm')
+                    ->join('teams as t', 't.id', '=', 'tm.team_id')
+                    ->whereColumn('tm.member_id', 'members.id')
+                    ->where('tm.session_id', $filters['available_session_id'])
+                    ->where('t.sport_id', $filters['available_sport_id'])
+                    ->whereNull('t.deleted_at');
+            });
         }
 
         // PNO short-circuit
@@ -140,9 +159,8 @@ class MemberSearchService
      * Build filter SQL clauses for raw queries.
      * Returns [$whereSql, $params] where $whereSql starts with AND.
      *
-     * @param  array<string, string>  $filters
-     * @param  string  $alias  Table alias (default 'm')
-     * @return array{string, list<string>}
+     * @param  array<string, string|int>  $filters
+     * @return array{string, list<string|int>}
      */
     private function buildFilterSql(array $filters, string $alias = 'm'): array
     {
@@ -156,6 +174,28 @@ class MemberSearchService
                 $sql .= " AND {$alias}.{$col} = ?";
                 $params[] = $filters[$col];
             }
+        }
+
+        if (! empty($filters['sport_id'])) {
+            $sql .= " AND EXISTS (
+                SELECT 1 FROM member_sport ms
+                WHERE ms.member_id = {$alias}.id AND ms.sport_id = ?
+            )";
+            $params[] = $filters['sport_id'];
+        }
+
+        if (! empty($filters['available_session_id']) && ! empty($filters['available_sport_id'])) {
+            $sql .= " AND NOT EXISTS (
+                SELECT 1
+                FROM team_members tm
+                INNER JOIN teams t ON t.id = tm.team_id
+                WHERE tm.member_id = {$alias}.id
+                  AND tm.session_id = ?
+                  AND t.sport_id = ?
+                  AND t.deleted_at IS NULL
+            )";
+            $params[] = $filters['available_session_id'];
+            $params[] = $filters['available_sport_id'];
         }
 
         return [$sql, $params];

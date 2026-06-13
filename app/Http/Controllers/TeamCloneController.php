@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Teams\CloneTeamRequest;
 use App\Models\CoachAssignment;
+use App\Models\Member;
 use App\Models\Team;
 use App\Models\TeamMember;
 use Illuminate\Http\RedirectResponse;
@@ -46,12 +47,19 @@ class TeamCloneController extends Controller
 
                 $conflictMemberIds = TeamMember::where('session_id', $targetSessionId)
                     ->whereIn('member_id', $rows->pluck('member_id'))
+                    ->whereHas('team', fn ($query) => $query->where('sport_id', $team->sport_id))
                     ->pluck('member_id')
+                    ->flip();
+
+                $eligibleMemberIds = Member::whereIn('id', $rows->pluck('member_id'))
+                    ->where('current_status', 'ACTIVE')
+                    ->whereHas('playableSports', fn ($query) => $query->where('sports.id', $team->sport_id))
+                    ->pluck('id')
                     ->flip();
 
                 $insertRows = [];
                 foreach ($rows as $row) {
-                    if ($conflictMemberIds->has($row->member_id)) {
+                    if ($conflictMemberIds->has($row->member_id) || ! $eligibleMemberIds->has($row->member_id)) {
                         $skippedMembers++;
 
                         continue;

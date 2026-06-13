@@ -56,6 +56,14 @@ function anotherSession(Organization $org): SportSession
     return SportSession::factory()->create(['organization_id' => $org->id]);
 }
 
+function clonePlayableMember(Organization $org, Team $team, array $attributes = []): Member
+{
+    $member = Member::factory()->create(array_merge(['organization_id' => $org->id], $attributes));
+    $member->playableSports()->sync([$team->sport_id]);
+
+    return $member;
+}
+
 // ---------------------------------------------------------------------------
 // auth / authz
 // ---------------------------------------------------------------------------
@@ -146,7 +154,7 @@ test('selected members are copied to the new team with the target session', func
     $team = cloneTeamWithOrg($org);
     $targetSession = anotherSession($org);
 
-    $member = Member::factory()->create(['organization_id' => $org->id]);
+    $member = clonePlayableMember($org, $team);
     $row = TeamMember::factory()->create([
         'team_id' => $team->id,
         'member_id' => $member->id,
@@ -206,10 +214,13 @@ test('conflicting members are skipped and non-conflicting are copied', function 
     $org = Organization::find($user->organization_id);
     $team = cloneTeamWithOrg($org);
     $targetSession = anotherSession($org);
-    $anotherTeam = cloneTeamWithOrg($org);
+    $anotherTeam = Team::factory()->forOrganization($org)->create([
+        'session_id' => $targetSession->id,
+        'sport_id' => $team->sport_id,
+    ]);
 
-    $conflicting = Member::factory()->create(['organization_id' => $org->id]);
-    $safe = Member::factory()->create(['organization_id' => $org->id]);
+    $conflicting = clonePlayableMember($org, $team);
+    $safe = clonePlayableMember($org, $team);
 
     $conflictRow = TeamMember::factory()->create([
         'team_id' => $team->id, 'member_id' => $conflicting->id, 'session_id' => $team->session_id,
@@ -237,4 +248,40 @@ test('conflicting members are skipped and non-conflicting are copied', function 
     // Safe member was copied; conflicting was skipped.
     $this->assertDatabaseHas('team_members', ['team_id' => $newTeam->id, 'member_id' => $safe->id]);
     $this->assertDatabaseMissing('team_members', ['team_id' => $newTeam->id, 'member_id' => $conflicting->id]);
+});
+
+test('inactive and non-playable members are skipped during clone', function (): void {
+    $user = cloneUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = cloneTeamWithOrg($org);
+    $targetSession = anotherSession($org);
+
+    $inactive = clonePlayableMember($org, $team, ['current_status' => 'RETIRED']);
+    $nonPlayable = Member::factory()->create(['organization_id' => $org->id]);
+    $safe = clonePlayableMember($org, $team);
+
+    $inactiveRow = TeamMember::factory()->create([
+        'team_id' => $team->id, 'member_id' => $inactive->id, 'session_id' => $team->session_id,
+    ]);
+    $nonPlayableRow = TeamMember::factory()->create([
+        'team_id' => $team->id, 'member_id' => $nonPlayable->id, 'session_id' => $team->session_id,
+    ]);
+    $safeRow = TeamMember::factory()->create([
+        'team_id' => $team->id, 'member_id' => $safe->id, 'session_id' => $team->session_id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('teams.clone', $team), [
+            'session_id' => $targetSession->id,
+            'member_ids' => [$inactiveRow->id, $nonPlayableRow->id, $safeRow->id],
+            'coach_ids' => [],
+        ]);
+
+    $newTeam = Team::where('session_id', $targetSession->id)
+        ->where('sport_id', $team->sport_id)
+        ->first();
+
+    $this->assertDatabaseHas('team_members', ['team_id' => $newTeam->id, 'member_id' => $safe->id]);
+    $this->assertDatabaseMissing('team_members', ['team_id' => $newTeam->id, 'member_id' => $inactive->id]);
+    $this->assertDatabaseMissing('team_members', ['team_id' => $newTeam->id, 'member_id' => $nonPlayable->id]);
 });

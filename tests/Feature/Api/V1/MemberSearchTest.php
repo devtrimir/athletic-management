@@ -6,6 +6,8 @@ use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\User;
 use App\Services\MemberSearchService;
 use Illuminate\Support\Facades\DB;
@@ -123,6 +125,54 @@ test('cross-org members are not returned', function () {
         ->assertOk();
 
     expect($response->json('meta.count'))->toBe(0);
+});
+
+test('team availability search returns only active playable available members', function () {
+    $user = searchUser('members.view');
+    $org = Organization::find($user->organization_id);
+    $team = Team::factory()->forOrganization($org)->create();
+
+    $available = Member::factory()->create([
+        'organization_id' => $org->id,
+        'full_name_hi' => 'राम उपलब्ध',
+        'current_status' => 'ACTIVE',
+    ]);
+    $available->playableSports()->sync([$team->sport_id]);
+
+    $inactive = Member::factory()->create([
+        'organization_id' => $org->id,
+        'full_name_hi' => 'राम निष्क्रिय',
+        'current_status' => 'RETIRED',
+    ]);
+    $inactive->playableSports()->sync([$team->sport_id]);
+
+    Member::factory()->create([
+        'organization_id' => $org->id,
+        'full_name_hi' => 'राम अयोग्य',
+        'current_status' => 'ACTIVE',
+    ]);
+
+    $assigned = Member::factory()->create([
+        'organization_id' => $org->id,
+        'full_name_hi' => 'राम नियुक्त',
+        'current_status' => 'ACTIVE',
+    ]);
+    $assigned->playableSports()->sync([$team->sport_id]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $assigned->id,
+        'session_id' => $team->session_id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.search.members', [
+            'q' => 'राम',
+            'available_for_team_id' => $team->id,
+        ]))
+        ->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1)
+        ->and($response->json('data.0.id'))->toBe($available->id);
 });
 
 // ---------------------------------------------------------------------------
