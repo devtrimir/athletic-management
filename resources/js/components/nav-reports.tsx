@@ -17,6 +17,8 @@ import { useTranslation } from '@/hooks/use-translation';
 const REPORT_PATHS = {
     medals: ReportsMedalsController.definition.url,
     medalsByMember: ReportController.show('medals-by-member').url,
+    playerPerformanceRanking:
+        ReportController.show('player-performance-ranking').url,
     achievementHistory: ReportController.show('achievement-history').url,
     teamRoster: ReportController.show('team-roster').url,
     resignationDismissal: ReportController.show('resignation-dismissal-log').url,
@@ -32,6 +34,12 @@ export function NavReports() {
     const items = [
         { key: 'medals', title: t('Medal Tally'), href: REPORT_PATHS.medals, icon: Medal },
         { key: 'medals-by-member', title: t('Medals by Member'), href: REPORT_PATHS.medalsByMember, icon: Award },
+        {
+            key: 'player-performance-ranking',
+            title: t('Player Performance Ranking'),
+            href: REPORT_PATHS.playerPerformanceRanking,
+            icon: TrendingUp,
+        },
         { key: 'achievement-history', title: t('Achievement History'), href: REPORT_PATHS.achievementHistory, icon: Star },
         { key: 'team-roster', title: t('Team Roster'), href: REPORT_PATHS.teamRoster, icon: ClipboardList },
         {

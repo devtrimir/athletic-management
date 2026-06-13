@@ -28,7 +28,7 @@ test('authenticated user with reports.view sees reports gallery', function (): v
     $response->assertOk()->assertInertia(
         fn ($page) => $page
             ->component('reports/index')
-            ->has('reports', 8)
+            ->has('reports', 9)
             ->where('reports.0.key', 'medal-tally'),
     );
 });
@@ -92,6 +92,7 @@ test('each valid report key returns 200', function (string $key): void {
     'resignation-dismissal-log',
     'unit-headcount',
     'player-level-summary',
+    'player-performance-ranking',
     'new-joiners',
     'achievement-history',
 ]);

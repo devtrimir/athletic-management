@@ -31,6 +31,17 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - eslint (ESLINT) - v9
 - prettier (PRETTIER) - v3
 
+## Project-Specific Context
+
+This repository also uses [`.github/copilot-instructions.md`](.github/copilot-instructions.md). For Codex work, follow the same project-specific guidance there so both assistants stay aligned.
+
+- This project is a Laravel 13 + Inertia 3 + React 19 monolith for the UP Police Sports Unit.
+- Read [`analysis/report/MIGRATION_ANALYSIS.md`](analysis/report/MIGRATION_ANALYSIS.md) and [`analysis/report/PHASED_REQUIREMENTS.md`](analysis/report/PHASED_REQUIREMENTS.md) before answering domain questions.
+- Check [`docs/README.md`](docs/README.md), [`docs/TASK_LIFECYCLE.md`](docs/TASK_LIFECYCLE.md), [`docs/WORKFLOW.md`](docs/WORKFLOW.md), and [`docs/TASKS.md`](docs/TASKS.md) in that order when starting task work.
+- Use Laravel Boost MCP tools first: `search-docs`, `database-schema`, `database-query`, `get-absolute-url`, and `browser-logs` where relevant.
+- Follow the repo task protocol: one task, one branch, one PR, one journal file.
+- Tests are mandatory, and changed PHP or JS/TS files must be formatted or linted before finishing.
+
 ## Skills Activation
 
 This project has domain-specific skills available in `**/skills/**`. You MUST activate the relevant skill whenever you work in that domain—don't wait until you're stuck.

@@ -332,6 +332,15 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [ ] **P7-T18** Tournament show page UX — remove inline `AddEventPanel`; add `AddEventDialog` / `EditEventDialog` / `ConfirmDeleteDialog` modals; per-row edit+delete on events table; confirm modal on tournament delete; backend: `PATCH` + `DELETE` for `EventController`
 - [ ] **P7-T19** Event show page UX — replace inline-edit participant grid with individual add/edit/delete per participant; `AddParticipantDialog`, `EditParticipantDialog`, confirm-remove; backend: `PATCH` + `DELETE` for `EventParticipantController`
 
+### Phase 7P — Player Performance Points System
+
+- [ ] **P7P-T01** Foundation: add `participation_awards` migration + `ParticipationAward` model + factory; add `participationAwards()` relation on `Participation`; register scoring rules in `config/player_points.php`
+- [ ] **P7P-T02** Service: `PlayerPointsService` returns audited line-item scoring breakdown plus totals by member/session/sport/tier using achievements + awards + config rules
+- [ ] **P7P-T03** Report: `PlayerPerformanceReport` + `ReportController` + reports nav entry for `player-performance-ranking` with filters (`session_id`, `sport_id`, `unit_id`, `tier_id`, `limit`)
+- [ ] **P7P-T04** Frontend: `Reports/Show` support for player performance ranking table and chart; expose rank, total points, participation count, medal summary, award summary
+- [ ] **P7P-T05** Member profile: add `Performance` tab on `Members/Show.tsx` with overall points, current-session points, season breakdown, and event-wise scoring ledger
+- [ ] **P7P-T06** Pest coverage: schema/model tests, scoring service unit tests, report feature tests, and member-performance tab data tests
+
 ---
 
 ## Phase 8 — Search Backend Upgrade (Meilisearch)

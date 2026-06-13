@@ -10,9 +10,11 @@ use App\Observers\AuditObserver;
 use Database\Factories\ParticipationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
@@ -30,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property-read Team|null $team
  * @property-read SportSession $session
  * @property-read Achievement|null $achievement
+ * @property-read Collection<int, ParticipationAward> $participationAwards
  */
 #[Fillable([
     'event_id',
@@ -72,5 +75,11 @@ class Participation extends Model
     public function achievement(): HasOne
     {
         return $this->hasOne(Achievement::class);
+    }
+
+    /** @return HasMany<ParticipationAward, $this> */
+    public function participationAwards(): HasMany
+    {
+        return $this->hasMany(ParticipationAward::class);
     }
 }

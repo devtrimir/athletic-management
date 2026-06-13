@@ -48,6 +48,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/medals', ReportsMedalsController::class)->name('reports.medals');
     Route::get('reports/medals/export', MedalsExportController::class)->name('reports.medals.export');
+    Route::get('reports/{key}/members/{member}/performance', [ReportController::class, 'memberPerformanceDetail'])->name('reports.member-performance-detail');
+    Route::get('reports/{key}/drilldown', [ReportController::class, 'playerPerformanceDrilldown'])->name('reports.player-performance-drilldown');
     Route::get('reports/{key}/export', [ReportController::class, 'export'])->name('reports.export');
     Route::get('reports/{key}', [ReportController::class, 'show'])->name('reports.show');
     Route::post('tournaments/{tournament}/events', [EventController::class, 'store'])

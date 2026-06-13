@@ -227,6 +227,10 @@ export default function TeamsIndex({
         });
     }
 
+    function openQuickView(teamId: number) {
+        setQuickViewId(teamId);
+    }
+
     function buildExportUrl(): string {
         const params = new URLSearchParams();
 
@@ -490,6 +494,9 @@ export default function TeamsIndex({
                                 <TableHead>{t('Unit')}</TableHead>
                                 <TableHead>{t('In-charge')}</TableHead>
                                 <TableHead>{t('Roster')}</TableHead>
+                                <TableHead className="text-right">
+                                    {t('Coaches')}
+                                </TableHead>
                                 <TableHead className="w-0 text-right">
                                     {t('Actions')}
                                 </TableHead>
@@ -499,7 +506,7 @@ export default function TeamsIndex({
                             {teams.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={8}
+                                        colSpan={9}
                                         className="py-12 text-center text-muted-foreground"
                                     >
                                         {hasActiveFilters
@@ -509,7 +516,11 @@ export default function TeamsIndex({
                                 </TableRow>
                             ) : (
                                 teams.data.map((team) => (
-                                    <TableRow key={team.id}>
+                                    <TableRow
+                                        key={team.id}
+                                        className="cursor-pointer hover:bg-muted/40"
+                                        onClick={() => openQuickView(team.id)}
+                                    >
                                         <TableCell className="w-0">
                                             <Checkbox
                                                 checked={selectedIds.has(
@@ -517,6 +528,9 @@ export default function TeamsIndex({
                                                 )}
                                                 onCheckedChange={() =>
                                                     toggleRow(team.id)
+                                                }
+                                                onClick={(event) =>
+                                                    event.stopPropagation()
                                                 }
                                                 aria-label={t('Select row')}
                                             />
@@ -566,11 +580,10 @@ export default function TeamsIndex({
                                                     {t('Reserves')}:{' '}
                                                     {team.reserves_count}
                                                 </span>
-                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium tabular-nums">
-                                                    {t('Coaches')}:{' '}
-                                                    {team.coaches_count}
-                                                </span>
                                             </div>
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium tabular-nums">
+                                            {team.coaches_count}
                                         </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center">
@@ -580,7 +593,7 @@ export default function TeamsIndex({
                                                     title={t('Quick info')}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setQuickViewId(team.id);
+                                                        openQuickView(team.id);
                                                     }}
                                                 >
                                                     <Info className="h-4 w-4" />

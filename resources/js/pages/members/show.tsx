@@ -16,7 +16,14 @@ import {
     Trophy,
     Printer,
 } from 'lucide-react';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Fragment,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
@@ -30,11 +37,14 @@ import {
     store as storeMemberPhoto,
     destroy as destroyMemberPhoto,
 } from '@/actions/App/Http/Controllers/MemberPhotoController';
-import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
+import { MemberPerformanceTab } from '@/components/members/member-performance-tab';
+import type { MemberPerformanceData } from '@/components/members/member-performance-tab';
+import { MemberTeamsTab } from '@/components/members/member-teams-tab';
+import type { MemberTeamRow } from '@/components/members/member-teams-tab';
 import { ParticipationMediaSheet } from '@/components/members/participation-media-sheet';
 import { PromotionsTab } from '@/components/members/promotions-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
@@ -98,7 +108,14 @@ type Member = {
     home_address: string | null;
     recruitment_type: string | null;
     sport: { id: number; name_hi: string; name_en: string } | null;
-    playable_sports: { id: number; name_hi: string; name_en: string; role?: string | null; position?: string | null; notes?: string | null }[];
+    playable_sports: {
+        id: number;
+        name_hi: string;
+        name_en: string;
+        role?: string | null;
+        position?: string | null;
+        notes?: string | null;
+    }[];
     other_notes: string | null;
     team_since: string | null;
 };
@@ -111,21 +128,18 @@ type StatusEntry = {
     recorded_by_name: string | null;
 };
 type Alias = { id: number; alias_hi: string; source: string };
-type MemberTeamRow = {
-    id: number;
-    role: string | null;
-    joined_on: string | null;
-    left_on: string | null;
-    team: { id: number; name_hi: string } | null;
-    sport: { id: number; name: string } | null;
-    session: { id: number; name: string } | null;
-};
 
 function displayPostingLocation(member: Member): string | null {
-    return member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null;
+    return (
+        member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null
+    );
 }
 
-function localizedText(hi: string | null | undefined, en: string | null | undefined, locale: string): string | null {
+function localizedText(
+    hi: string | null | undefined,
+    en: string | null | undefined,
+    locale: string,
+): string | null {
     if (locale === 'en') {
         return en ?? hi ?? null;
     }
@@ -146,7 +160,10 @@ function parseDateValue(value: string): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatDisplayDate(value: string | null | undefined, locale: string): string | null {
+function formatDisplayDate(
+    value: string | null | undefined,
+    locale: string,
+): string | null {
     if (!value) {
         return null;
     }
@@ -310,6 +327,7 @@ export default function MembersShow({
     memberTeams,
     legacyAchievements,
     promotions,
+    performance,
     ranks,
 }: {
     member: Member;
@@ -318,6 +336,7 @@ export default function MembersShow({
     memberTeams?: MemberTeamRow[];
     legacyAchievements?: LegacyAchievement[];
     promotions?: PromotionRow[];
+    performance?: MemberPerformanceData;
     ranks?: RankOption[];
 }) {
     const [activeTab, setActiveTab] = useState('overview');
@@ -362,7 +381,11 @@ export default function MembersShow({
 
         return query ? `?${query}` : '';
     }, [dateFromFilter, dateToFilter]);
-    const displayName = localizedText(member.full_name_hi, member.full_name_en, pageLocale);
+    const displayName = localizedText(
+        member.full_name_hi,
+        member.full_name_en,
+        pageLocale,
+    );
     const sportName = (sport: { name_hi: string; name_en: string }): string =>
         localizedText(sport.name_hi, sport.name_en, pageLocale) ?? '';
 
@@ -788,7 +811,9 @@ export default function MembersShow({
                 case 'home_district':
                     return member.home_district?.name_hi ?? '';
                 case 'joining_date':
-                    return formatDisplayDate(member.joining_date, pageLocale) ?? '';
+                    return (
+                        formatDisplayDate(member.joining_date, pageLocale) ?? ''
+                    );
                 case 'blood_group':
                     return member.blood_group ?? '';
                 case 'caste':
@@ -797,12 +822,26 @@ export default function MembersShow({
                     return member.appointment ?? '';
                 case 'playable_sports':
                     return member.playable_sports
-                        .map((sport) => [sportName(sport), sport.role, sport.position, sport.notes].filter(Boolean).join(' · '))
+                        .map((sport) =>
+                            [
+                                sportName(sport),
+                                sport.role,
+                                sport.position,
+                                sport.notes,
+                            ]
+                                .filter(Boolean)
+                                .join(' · '),
+                        )
                         .join(' | ');
                 case 'promotion_date':
-                    return formatDisplayDate(member.promotion_date, pageLocale) ?? '';
+                    return (
+                        formatDisplayDate(member.promotion_date, pageLocale) ??
+                        ''
+                    );
                 case 'team_since':
-                    return formatDisplayDate(member.team_since, pageLocale) ?? '';
+                    return (
+                        formatDisplayDate(member.team_since, pageLocale) ?? ''
+                    );
                 default:
                     return '';
             }
@@ -967,15 +1006,18 @@ export default function MembersShow({
                         <TabsTrigger value="events">
                             {t('Achievements')}
                         </TabsTrigger>
+                        <TabsTrigger value="performance">
+                            {t('Performance')}
+                        </TabsTrigger>
                         <TabsTrigger value="legacy">
                             {t('Legacy achievements')}
                         </TabsTrigger>
                         <TabsTrigger value="promotions">
                             {t('Promotions & rewards')}
                         </TabsTrigger>
-                    <TabsTrigger value="changelog">
-                        {t('Change log')}
-                    </TabsTrigger>
+                        <TabsTrigger value="changelog">
+                            {t('Change log')}
+                        </TabsTrigger>
                         <TabsTrigger value="media">{t('Media')}</TabsTrigger>
                     </TabsList>
 
@@ -984,11 +1026,27 @@ export default function MembersShow({
                         <div className="rounded-xl border bg-card p-6">
                             <div className="space-y-6">
                                 <section className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-foreground">{t('Identity')}</h3>
+                                    <h3 className="text-sm font-semibold text-foreground">
+                                        {t('Identity')}
+                                    </h3>
                                     <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
                                         {detail(t('Name'), displayName)}
-                                        {detail(t('Name (Hindi)'), localizedText(member.full_name_hi, member.full_name_en, 'hi'))}
-                                        {detail(t('Name (English)'), localizedText(member.full_name_hi, member.full_name_en, 'en'))}
+                                        {detail(
+                                            t('Name (Hindi)'),
+                                            localizedText(
+                                                member.full_name_hi,
+                                                member.full_name_en,
+                                                'hi',
+                                            ),
+                                        )}
+                                        {detail(
+                                            t('Name (English)'),
+                                            localizedText(
+                                                member.full_name_hi,
+                                                member.full_name_en,
+                                                'en',
+                                            ),
+                                        )}
                                         {detail(
                                             t("Father's name"),
                                             member.father_name_hi,
@@ -1003,80 +1061,172 @@ export default function MembersShow({
                                                       : 'Other gender',
                                             ),
                                         )}
-                                        {detail(t('Date of birth'), formatDisplayDate(member.dob, pageLocale))}
+                                        {detail(
+                                            t('Date of birth'),
+                                            formatDisplayDate(
+                                                member.dob,
+                                                pageLocale,
+                                            ),
+                                        )}
                                         {detail(t('Mobile'), member.mobile)}
-                                        {member.blood_group && detail(t('Blood group'), member.blood_group)}
-                                        {member.caste && detail(t('Caste'), member.caste)}
+                                        {member.blood_group &&
+                                            detail(
+                                                t('Blood group'),
+                                                member.blood_group,
+                                            )}
+                                        {member.caste &&
+                                            detail(t('Caste'), member.caste)}
                                     </dl>
                                 </section>
 
                                 <section className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-foreground">{t('Service')}</h3>
+                                    <h3 className="text-sm font-semibold text-foreground">
+                                        {t('Service')}
+                                    </h3>
                                     <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
                                         {detail(
                                             t('PNO'),
-                                            <span className="font-mono">{member.pno}</span>,
+                                            <span className="font-mono">
+                                                {member.pno}
+                                            </span>,
                                         )}
                                         {detail(
                                             t('Current status'),
-                                            <Badge variant="outline">{t(member.current_status)}</Badge>,
+                                            <Badge variant="outline">
+                                                {t(member.current_status)}
+                                            </Badge>,
                                         )}
                                         {detail(t('Rank'), member.rank)}
-                                        {detail(t('Designation'), member.designation)}
-                                        {detail(t('Joining date'), formatDisplayDate(member.joining_date, pageLocale))}
+                                        {detail(
+                                            t('Designation'),
+                                            member.designation,
+                                        )}
+                                        {detail(
+                                            t('Joining date'),
+                                            formatDisplayDate(
+                                                member.joining_date,
+                                                pageLocale,
+                                            ),
+                                        )}
                                         {detail(
                                             t('Home district'),
                                             member.home_district?.name_hi,
                                         )}
-                                        {detail(t('Posting unit / district'), displayPostingLocation(member))}
-                                        {detail(t('Category'), t(member.player_category))}
-                                        {detail(t('Level'), t(member.player_level))}
-                                        {member.appointment && detail(t('Appointment'), member.appointment)}
-                                        {member.promotion_date && detail(t('Promotion date'), formatDisplayDate(member.promotion_date, pageLocale))}
-                                        {member.team_since && detail(t('Team since'), formatDisplayDate(member.team_since, pageLocale))}
-                                        {member.home_address && detail(t('Home address'), member.home_address)}
-                                        {member.other_notes && detail(t('Other notes'), member.other_notes)}
+                                        {detail(
+                                            t('Posting unit / district'),
+                                            displayPostingLocation(member),
+                                        )}
+                                        {detail(
+                                            t('Category'),
+                                            t(member.player_category),
+                                        )}
+                                        {detail(
+                                            t('Level'),
+                                            t(member.player_level),
+                                        )}
+                                        {member.appointment &&
+                                            detail(
+                                                t('Appointment'),
+                                                member.appointment,
+                                            )}
+                                        {member.promotion_date &&
+                                            detail(
+                                                t('Promotion date'),
+                                                formatDisplayDate(
+                                                    member.promotion_date,
+                                                    pageLocale,
+                                                ),
+                                            )}
+                                        {member.team_since &&
+                                            detail(
+                                                t('Team since'),
+                                                formatDisplayDate(
+                                                    member.team_since,
+                                                    pageLocale,
+                                                ),
+                                            )}
+                                        {member.home_address &&
+                                            detail(
+                                                t('Home address'),
+                                                member.home_address,
+                                            )}
+                                        {member.other_notes &&
+                                            detail(
+                                                t('Other notes'),
+                                                member.other_notes,
+                                            )}
                                     </dl>
                                 </section>
 
                                 {member.playable_sports.length > 0 && (
                                     <section className="space-y-3">
-                                        <h3 className="text-sm font-semibold text-foreground">{t('Playable sports')}</h3>
+                                        <h3 className="text-sm font-semibold text-foreground">
+                                            {t('Playable sports')}
+                                        </h3>
                                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                            {member.playable_sports.map((sport) => (
-                                                <div key={sport.id} className="rounded-md border p-3">
-                                                    <div className="font-medium">{sportName(sport)}</div>
-                                                    <div className="mt-2 space-y-2 text-sm">
-                                                        {sport.role && (
-                                                            <div className="space-y-0.5">
-                                                                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                                                    {t('Role / position')}
+                                            {member.playable_sports.map(
+                                                (sport) => (
+                                                    <div
+                                                        key={sport.id}
+                                                        className="rounded-md border p-3"
+                                                    >
+                                                        <div className="font-medium">
+                                                            {sportName(sport)}
+                                                        </div>
+                                                        <div className="mt-2 space-y-2 text-sm">
+                                                            {sport.role && (
+                                                                <div className="space-y-0.5">
+                                                                    <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                                        {t(
+                                                                            'Role / position',
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        {
+                                                                            sport.role
+                                                                        }
+                                                                    </div>
                                                                 </div>
-                                                                <div>{sport.role}</div>
-                                                            </div>
-                                                        )}
-                                                        {sport.position && (
-                                                            <div className="space-y-0.5">
-                                                                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                                                    {t('Position')}
+                                                            )}
+                                                            {sport.position && (
+                                                                <div className="space-y-0.5">
+                                                                    <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                                        {t(
+                                                                            'Position',
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        {
+                                                                            sport.position
+                                                                        }
+                                                                    </div>
                                                                 </div>
-                                                                <div>{sport.position}</div>
-                                                            </div>
-                                                        )}
-                                                        {sport.notes && (
-                                                            <div className="space-y-0.5">
-                                                                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                                                    {t('Notes')}
+                                                            )}
+                                                            {sport.notes && (
+                                                                <div className="space-y-0.5">
+                                                                    <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                                        {t(
+                                                                            'Notes',
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-muted-foreground">
+                                                                        {
+                                                                            sport.notes
+                                                                        }
+                                                                    </div>
                                                                 </div>
-                                                                <div className="text-muted-foreground">{sport.notes}</div>
-                                                            </div>
-                                                        )}
-                                                        {!sport.role && !sport.position && !sport.notes && (
-                                                            <div className="text-sm text-muted-foreground">—</div>
-                                                        )}
+                                                            )}
+                                                            {!sport.role &&
+                                                                !sport.position &&
+                                                                !sport.notes && (
+                                                                    <div className="text-sm text-muted-foreground">
+                                                                        —
+                                                                    </div>
+                                                                )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                ),
+                                            )}
                                         </div>
                                     </section>
                                 )}
@@ -1139,7 +1289,12 @@ export default function MembersShow({
                                                     )}
                                                 </div>
                                                 <div className="text-right text-xs text-muted-foreground">
-                                                    <p>{formatDisplayDate(row.effective_on, pageLocale)}</p>
+                                                    <p>
+                                                        {formatDisplayDate(
+                                                            row.effective_on,
+                                                            pageLocale,
+                                                        )}
+                                                    </p>
                                                     {row.recorded_by_name && (
                                                         <p>
                                                             {
@@ -1182,84 +1337,24 @@ export default function MembersShow({
 
                     {/* Teams */}
                     <TabsContent value="teams">
-                        <div className="rounded-xl border bg-card">
-                            <Deferred
-                                data="memberTeams"
-                                fallback={
-                                    <div className="space-y-2 p-4">
-                                        {[1, 2, 3].map((n) => (
-                                            <Skeleton
-                                                key={n}
-                                                className="h-10 w-full"
-                                            />
-                                        ))}
-                                    </div>
-                                }
-                            >
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>{t('Team')}</TableHead>
-                                            <TableHead>{t('Sport')}</TableHead>
-                                            <TableHead>
-                                                {t('Session')}
-                                            </TableHead>
-                                            <TableHead>{t('Role')}</TableHead>
-                                            <TableHead>{t('Joined')}</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(memberTeams ?? []).length === 0 ? (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={5}
-                                                    className="text-center text-muted-foreground"
-                                                >
-                                                    {t('No team memberships.')}
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            (memberTeams ?? []).map((row) => (
-                                                <TableRow key={row.id}>
-                                                    <TableCell className="font-medium">
-                                                        {row.team ? (
-                                                            <Link
-                                                                href={showTeam.url(
-                                                                    row.team,
-                                                                )}
-                                                                className="hover:underline"
-                                                            >
-                                                                {
-                                                                    row.team
-                                                                        .name_hi
-                                                                }
-                                                            </Link>
-                                                        ) : (
-                                                            '—'
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {row.sport?.name ?? '—'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {row.session?.name ??
-                                                            '—'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {row.role
-                                                            ? t(row.role)
-                                                            : '—'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {formatDisplayDate(row.joined_on, pageLocale) ?? '—'}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </Deferred>
-                        </div>
+                        <Deferred
+                            data="memberTeams"
+                            fallback={
+                                <div className="space-y-2 rounded-xl border bg-card p-4">
+                                    {[1, 2].map((n) => (
+                                        <Skeleton
+                                            key={n}
+                                            className="h-10 w-full"
+                                        />
+                                    ))}
+                                </div>
+                            }
+                        >
+                            <MemberTeamsTab
+                                teams={memberTeams}
+                                locale={pageLocale}
+                            />
+                        </Deferred>
                     </TabsContent>
 
                     {/* Events */}
@@ -1833,10 +1928,10 @@ export default function MembersShow({
                                                                 );
 
                                                             return (
-                                                                <Fragment key={`tier-${tier}`}>
-                                                                    <TableRow
-                                                                        className="bg-primary/5 hover:bg-primary/5"
-                                                                    >
+                                                                <Fragment
+                                                                    key={`tier-${tier}`}
+                                                                >
+                                                                    <TableRow className="bg-primary/5 hover:bg-primary/5">
                                                                         <TableCell
                                                                             colSpan={
                                                                                 8
@@ -2144,6 +2239,27 @@ export default function MembersShow({
                                 </div>
                             )}
                         </div>
+                    </TabsContent>
+                    <TabsContent value="performance">
+                        {activeTab === 'performance' && (
+                            <Deferred
+                                data="performance"
+                                fallback={
+                                    <div className="space-y-2">
+                                        {[1, 2, 3].map((n) => (
+                                            <Skeleton
+                                                key={n}
+                                                className="h-12 w-full"
+                                            />
+                                        ))}
+                                    </div>
+                                }
+                            >
+                                <MemberPerformanceTab
+                                    performance={performance}
+                                />
+                            </Deferred>
+                        )}
                     </TabsContent>
                     {/* Legacy achievements */}
                     <TabsContent value="legacy">
