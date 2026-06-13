@@ -63,7 +63,12 @@ class TeamController extends Controller
             ])
             ->allowedSorts(['name_hi', 'created_at'])
             ->defaultSort('name_hi')
-            ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
+            ->withCount([
+                'teamMembers as players_count',
+                'teamMembers as captains_count' => fn ($query) => $query->where('role', 'CAPTAIN'),
+                'teamMembers as reserves_count' => fn ($query) => $query->where('role', 'RESERVE'),
+                'coachAssignments as coaches_count',
+            ])
             ->with(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
