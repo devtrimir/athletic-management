@@ -49,15 +49,19 @@ function sportMemberUser(string ...$permissions): User
     return $user;
 }
 
-test('filter by sport_id returns only members of that sport', function () {
+test('filter by sport_id uses playable sports instead of legacy direct sport column', function () {
     $user = sportFilterUser();
     $org = $user->organization;
 
     $sportA = Sport::factory()->create(['organization_id' => $org->id]);
     $sportB = Sport::factory()->create(['organization_id' => $org->id]);
 
-    $inSport = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportA->id]);
-    Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportB->id]);
+    $inSport = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportB->id]);
+    $inSport->playableSports()->sync([$sportA->id]);
+
+    $legacyDirectSportOnly = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportA->id]);
+    $legacyDirectSportOnly->playableSports()->sync([$sportB->id]);
+
     Member::factory()->create(['organization_id' => $org->id, 'sport_id' => null]);
 
     $this->actingAs($user)

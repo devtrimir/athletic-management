@@ -67,7 +67,9 @@ class MemberController extends Controller
                 AllowedFilter::exact('gender'),
                 AllowedFilter::exact('blood_group'),
                 AllowedFilter::exact('recruitment_type'),
-                AllowedFilter::exact('sport_id'),
+                AllowedFilter::callback('sport_id', function ($query, string $value): void {
+                    $query->whereHas('playableSports', fn ($query) => $query->where('sports.id', (int) $value));
+                }),
                 AllowedFilter::callback('q', function ($query, string $value): void {
                     $query->where(function ($q) use ($value): void {
                         $q->where('full_name', 'LIKE', "%{$value}%")

@@ -781,9 +781,9 @@ next.add(id);
                         />
                     </FilterPill>
 
-                    {/* Sport */}
+                    {/* Playable sport */}
                     <FilterPill
-                        label={t('Sport')}
+                        label={t('Playable sport')}
                         activeLabel={filters.sport_id ? (sports.find((s) => String(s.id) === filters.sport_id)?.name ?? filters.sport_id) : undefined}
                         onClear={() => applyFilters({ sport_id: undefined })}
                     >
@@ -994,6 +994,7 @@ next.add(id);
                                         ['posting_district_id', 'filter[posting_district_id]'],
                                         ['gender', 'filter[gender]'],
                                         ['blood_group', 'filter[blood_group]'],
+                                        ['sport_id', 'filter[sport_id]'],
                                         ['joining_year_from', 'filter[joining_year_from]'],
                                         ['joining_year_to', 'filter[joining_year_to]'],
                                     ];

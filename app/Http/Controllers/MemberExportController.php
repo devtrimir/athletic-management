@@ -100,6 +100,9 @@ class MemberExportController extends Controller
                     AllowedFilter::exact('current_unit_id'),
                     AllowedFilter::exact('gender'),
                     AllowedFilter::exact('blood_group'),
+                    AllowedFilter::callback('sport_id', function ($query, string $value): void {
+                        $query->whereHas('playableSports', fn ($query) => $query->where('sports.id', (int) $value));
+                    }),
                     AllowedFilter::callback('q', function ($query, string $value): void {
                         $query->where(function ($q) use ($value): void {
                             $q->where('full_name', 'LIKE', "%{$value}%")
