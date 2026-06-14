@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
+use App\Support\Reports\MedalsFilters;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -19,11 +20,6 @@ class MedalsByMemberReport
      */
     public function run(int $orgId, array $filters, int $limit = 50): Collection
     {
-        $sessionId = $filters['session_id'] ?? null;
-        $sportId = $filters['sport_id'] ?? null;
-        $unitId = $filters['unit_id'] ?? null;
-        $tierId = $filters['tier_id'] ?? null;
-
         $selects = [
             'm.id',
             'm.member_code',
@@ -35,19 +31,27 @@ class MedalsByMemberReport
             DB::raw('COUNT(*) as total'),
         ];
 
-        $rows = DB::table('achievements as a')
+        $benefitSub = DB::table('achievement_benefits')
+            ->where('benefitable_type', 'App\\Models\\Achievement')
+            ->select([
+                'benefitable_id',
+                'benefit_type',
+                'benefit_date',
+                'order_reference',
+            ]);
+
+        $query = DB::table('achievements as a')
             ->join('participations as p', 'p.id', '=', 'a.participation_id')
             ->join('members as m', 'm.id', '=', 'p.member_id')
             ->join('events as e', 'e.id', '=', 'p.event_id')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
+            ->leftJoinSub($benefitSub, 'ab', 'ab.benefitable_id', '=', 'a.id')
             ->select($selects)
             ->where('t.organization_id', $orgId)
             ->whereNull('t.deleted_at')
-            ->whereNull('m.deleted_at')
-            ->when($sessionId, fn ($q) => $q->where('t.session_id', $sessionId))
-            ->when($sportId, fn ($q) => $q->where('e.sport_id', $sportId))
-            ->when($tierId, fn ($q) => $q->where('t.tier_id', $tierId))
-            ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))
+            ->whereNull('m.deleted_at');
+
+        $rows = MedalsFilters::apply($query, $filters)
             ->groupBy('m.id', 'm.member_code', 'm.full_name', 'm.full_name')
             ->orderByDesc('total')
             ->orderByDesc('GOLD')

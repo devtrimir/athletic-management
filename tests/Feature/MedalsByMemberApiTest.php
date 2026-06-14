@@ -101,7 +101,10 @@ test('returns 200 with correct structure when authorised', function (): void {
     expect($response->json('data.0.member.id'))->toBe($member->id);
     expect($response->json('data.0.GOLD'))->toBe(1);
     expect($response->json('data.0.total'))->toBe(1);
-    expect($response->json('filters'))->toBe(['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null]);
+    expect($response->json('filters.session_ids'))->toBe([])
+        ->and($response->json('filters.sport_ids'))->toBe([])
+        ->and($response->json('filters.unit_ids'))->toBe([])
+        ->and($response->json('filters.tier_ids'))->toBe([]);
     expect($response->json('limit'))->toBe(50);
 });
 

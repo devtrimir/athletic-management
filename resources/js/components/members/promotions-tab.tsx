@@ -135,6 +135,7 @@ type InlineRankPayload = {
     name: string;
     rank_order: string;
     short_name: string;
+    is_gazetted: boolean;
     is_active: boolean;
 };
 
@@ -416,6 +417,7 @@ function InlineRankDialog({
         name: '',
         rank_order: '',
         short_name: '',
+        is_gazetted: false,
         is_active: true,
     });
 
@@ -444,6 +446,7 @@ function InlineRankDialog({
                     name: data.name,
                     rank_order: Number(data.rank_order),
                     short_name: data.short_name || null,
+                    is_gazetted: data.is_gazetted,
                     is_active: data.is_active,
                 }),
             });
@@ -477,6 +480,7 @@ function InlineRankDialog({
                 name: '',
                 rank_order: '',
                 short_name: '',
+                is_gazetted: false,
                 is_active: true,
             });
             setOpen(false);
@@ -572,17 +576,24 @@ function InlineRankDialog({
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="inline-rank-name-hi">
-                                {t('Name')}
+                            <Label htmlFor="inline-rank-gazetted">
+                                {t('Gazetted')}
                             </Label>
-                            <Input
-                                id="inline-rank-name-hi"
-                                value={data.name}
+                            <select
+                                id="inline-rank-gazetted"
+                                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                                value={data.is_gazetted ? '1' : '0'}
                                 onChange={(e) =>
-                                    setField('name', e.target.value)
+                                    setField(
+                                        'is_gazetted',
+                                        e.target.value === '1',
+                                    )
                                 }
-                            />
-                            <InputError message={errors.name} />
+                            >
+                                <option value="1">{t('Yes')}</option>
+                                <option value="0">{t('No')}</option>
+                            </select>
+                            <InputError message={errors.is_gazetted} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="inline-rank-active">

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Concerns;
 
+use App\Support\Reports\MedalsFilters;
 use Illuminate\Http\Request;
 
 trait HasReportFilters
@@ -15,19 +16,7 @@ trait HasReportFilters
      */
     protected function reportFilterRules(): array
     {
-        return [
-            'year_from' => ['nullable', 'integer', 'min:1900', 'max:2099'],
-            'year_to' => ['nullable', 'integer', 'min:1900', 'max:2099'],
-            'sport_id' => ['nullable', 'integer', 'exists:sports,id'],
-            'unit_id' => ['nullable', 'integer', 'exists:units,id'],
-            'tier_id' => ['nullable', 'integer', 'exists:tournament_tiers,id'],
-            'member_name' => ['nullable', 'string', 'max:100'],
-            'pno' => ['nullable', 'string', 'max:20'],
-            'tournament_id' => ['nullable', 'integer'],
-            'event_name' => ['nullable', 'string', 'max:100'],
-            'medal_type' => ['nullable', 'string', 'in:GOLD,SILVER,BRONZE,MERIT'],
-            'gender' => ['nullable', 'string', 'in:M,F,O'],
-        ];
+        return MedalsFilters::rules();
     }
 
     /**
@@ -37,18 +26,6 @@ trait HasReportFilters
      */
     protected function resolvedFilters(Request $request): array
     {
-        return [
-            'year_from' => $request->integer('year_from') ?: null,
-            'year_to' => $request->integer('year_to') ?: null,
-            'sport_id' => $request->integer('sport_id') ?: null,
-            'unit_id' => $request->integer('unit_id') ?: null,
-            'tier_id' => $request->integer('tier_id') ?: null,
-            'member_name' => $request->input('member_name') ?: null,
-            'pno' => $request->input('pno') ?: null,
-            'tournament_id' => $request->integer('tournament_id') ?: null,
-            'event_name' => $request->input('event_name') ?: null,
-            'medal_type' => $request->input('medal_type') ?: null,
-            'gender' => $request->input('gender') ?: null,
-        ];
+        return MedalsFilters::fromRequest($request);
     }
 }

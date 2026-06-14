@@ -45,14 +45,21 @@ test('store inline creates rank and returns created data', function (): void {
             'name' => 'इनलाइन रैंक',
             'short_name' => 'IR',
             'rank_order' => 998,
+            'is_gazetted' => true,
             'is_active' => true,
         ]);
 
     $response->assertOk()
         ->assertJsonPath('rank.code', 'INLINE_RANK')
-        ->assertJsonPath('rank.name', 'इनलाइन रैंक');
+        ->assertJsonPath('rank.name', 'इनलाइन रैंक')
+        ->assertJsonPath('rank.is_gazetted', true)
+        ->assertJsonPath('rank.is_active', true);
 
-    expect(Rank::where('code', 'INLINE_RANK')->exists())->toBeTrue();
+    $rank = Rank::query()->where('code', 'INLINE_RANK')->first();
+
+    expect($rank)->not->toBeNull();
+    expect($rank?->is_gazetted)->toBeTrue();
+    expect($rank?->is_active)->toBeTrue();
 });
 
 test('store is forbidden without permission', function (): void {

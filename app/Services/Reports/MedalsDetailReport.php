@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
+use App\Support\Reports\MedalsFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -34,39 +35,28 @@ class MedalsDetailReport
      */
     public function countByType(int $orgId, array $filters): array
     {
-        $yearFrom = $filters['year_from'] ?? null;
-        $yearTo = $filters['year_to'] ?? null;
-        $sportId = $filters['sport_id'] ?? null;
-        $unitId = $filters['unit_id'] ?? null;
-        $tierId = $filters['tier_id'] ?? null;
-        $medalType = $filters['medal_type'] ?? null;
-        $gender = $filters['gender'] ?? null;
-        $memberName = $filters['member_name'] ?? null;
-        $pno = $filters['pno'] ?? null;
-        $tournamentId = $filters['tournament_id'] ?? null;
-        $eventName = $filters['event_name'] ?? null;
+        $benefitSub = DB::table('achievement_benefits')
+            ->where('benefitable_type', 'App\\Models\\Achievement')
+            ->select([
+                'benefitable_id',
+                'benefit_type',
+                'benefit_date',
+                'order_reference',
+            ]);
 
-        $rows = DB::table('achievements as a')
+        $query = DB::table('achievements as a')
             ->join('participations as p', 'p.id', '=', 'a.participation_id')
             ->join('members as m', 'm.id', '=', 'p.member_id')
             ->join('events as e', 'e.id', '=', 'p.event_id')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
             ->leftJoin('tournament_tiers as tt', 'tt.id', '=', 't.tier_id')
+            ->leftJoinSub($benefitSub, 'ab', 'ab.benefitable_id', '=', 'a.id')
             ->select(['a.medal_type', DB::raw('COUNT(*) as cnt')])
             ->where('t.organization_id', $orgId)
             ->whereNull('t.deleted_at')
-            ->whereNull('m.deleted_at')
-            ->when($yearFrom, fn ($q) => $q->whereYear('t.date_from', '>=', $yearFrom))
-            ->when($yearTo, fn ($q) => $q->whereYear('t.date_from', '<=', $yearTo))
-            ->when($sportId, fn ($q) => $q->where('e.sport_id', $sportId))
-            ->when($tierId, fn ($q) => $q->where('t.tier_id', $tierId))
-            ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))
-            ->when($medalType, fn ($q) => $q->where('a.medal_type', $medalType))
-            ->when($gender, fn ($q) => $q->where('m.gender', $gender))
-            ->when($memberName, fn ($q) => $q->where('m.full_name', 'like', "%{$memberName}%"))
-            ->when($pno, fn ($q) => $q->where('m.pno', 'like', "%{$pno}%"))
-            ->when($tournamentId, fn ($q) => $q->where('t.id', $tournamentId))
-            ->when($eventName, fn ($q) => $q->where('e.name', 'like', "%{$eventName}%"))
+            ->whereNull('m.deleted_at');
+
+        $rows = MedalsFilters::apply($query, $filters)
             ->groupBy('a.medal_type')
             ->get();
 
@@ -83,18 +73,6 @@ class MedalsDetailReport
 
     public function run(int $orgId, array $filters, int $perPage = 25): LengthAwarePaginator
     {
-        $yearFrom = $filters['year_from'] ?? null;
-        $yearTo = $filters['year_to'] ?? null;
-        $sportId = $filters['sport_id'] ?? null;
-        $unitId = $filters['unit_id'] ?? null;
-        $tierId = $filters['tier_id'] ?? null;
-        $medalType = $filters['medal_type'] ?? null;
-        $gender = $filters['gender'] ?? null;
-        $memberName = $filters['member_name'] ?? null;
-        $pno = $filters['pno'] ?? null;
-        $tournamentId = $filters['tournament_id'] ?? null;
-        $eventName = $filters['event_name'] ?? null;
-
         $benefitSub = DB::table('achievement_benefits')
             ->where('benefitable_type', 'App\\Models\\Achievement')
             ->select([
@@ -108,7 +86,7 @@ class MedalsDetailReport
                 DB::raw('remarks as benefit_remarks'),
             ]);
 
-        $paginator = DB::table('achievements as a')
+        $query = DB::table('achievements as a')
             ->join('participations as p', 'p.id', '=', 'a.participation_id')
             ->join('members as m', 'm.id', '=', 'p.member_id')
             ->leftJoin('units as u', 'u.id', '=', 'm.current_unit_id')
@@ -156,18 +134,9 @@ class MedalsDetailReport
             ])
             ->where('t.organization_id', $orgId)
             ->whereNull('t.deleted_at')
-            ->whereNull('m.deleted_at')
-            ->when($yearFrom, fn ($q) => $q->whereYear('t.date_from', '>=', $yearFrom))
-            ->when($yearTo, fn ($q) => $q->whereYear('t.date_from', '<=', $yearTo))
-            ->when($sportId, fn ($q) => $q->where('e.sport_id', $sportId))
-            ->when($tierId, fn ($q) => $q->where('t.tier_id', $tierId))
-            ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))
-            ->when($medalType, fn ($q) => $q->where('a.medal_type', $medalType))
-            ->when($gender, fn ($q) => $q->where('m.gender', $gender))
-            ->when($memberName, fn ($q) => $q->where('m.full_name', 'like', "%{$memberName}%"))
-            ->when($pno, fn ($q) => $q->where('m.pno', 'like', "%{$pno}%"))
-            ->when($tournamentId, fn ($q) => $q->where('t.id', $tournamentId))
-            ->when($eventName, fn ($q) => $q->where('e.name', 'like', "%{$eventName}%"))
+            ->whereNull('m.deleted_at');
+
+        $paginator = MedalsFilters::apply($query, $filters)
             ->orderByRaw("FIELD(a.medal_type, 'GOLD', 'SILVER', 'BRONZE', 'MERIT')")
             ->orderByDesc('t.date_from')
             ->orderBy('m.full_name')

@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Models\Event;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sport;
 use App\Models\SportSession;
+use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -66,15 +68,22 @@ test('user with reports.view gets 200 with correct Inertia component', function 
         ->assertInertia(fn ($page) => $page->component('reports/medals'));
 });
 
-test('page props include sessions, sports, and tiers', function (): void {
+test('page props include sessions, sports, tiers, tournaments, and events', function (): void {
     $user = medalsPageUser('reports.view');
 
-    SportSession::factory()->create(['organization_id' => $user->organization_id, 'name' => '2024-25']);
-    Sport::factory()->create(['organization_id' => $user->organization_id]);
-    TournamentTier::firstOrCreate(
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'name' => '2024-25']);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $tier = TournamentTier::firstOrCreate(
         ['code' => 'NATIONAL'],
         ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
     );
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'tier_id' => $tier->id,
+    ]);
+    Event::factory()->create(['tournament_id' => $tournament->id, 'sport_id' => $sport->id]);
 
     $response = $this->actingAs($user)->get(route('reports.medals'));
 
@@ -83,6 +92,8 @@ test('page props include sessions, sports, and tiers', function (): void {
         ->has('sessions', 1)
         ->has('sports', 1)
         ->has('tiers')
+        ->has('tournaments', 1)
+        ->has('events', 1)
     );
 });
 
