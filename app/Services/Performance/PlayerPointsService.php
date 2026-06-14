@@ -108,29 +108,28 @@ class PlayerPointsService
                         'organization_id',
                         'member_code',
                         'pno',
-                        'full_name_hi',
-                        'full_name_en',
+                        'full_name',
                         'rank',
                         'posting_district_id',
                         'current_unit_id',
                     ]),
                 'member.postingDistrict' => fn ($query) => $query
                     ->withoutGlobalScopes()
-                    ->select(['id', 'name_hi', 'name_en']),
+                    ->select(['id', 'name']),
                 'member.currentUnit' => fn ($query) => $query
                     ->withoutGlobalScopes()
-                    ->select(['id', 'organization_id', 'name_hi', 'name_en', 'district_id']),
+                    ->select(['id', 'organization_id', 'name', 'name', 'district_id']),
                 'member.currentUnit.district' => fn ($query) => $query
                     ->withoutGlobalScopes()
-                    ->select(['id', 'name_hi', 'name_en']),
+                    ->select(['id', 'name']),
                 'session' => fn ($query) => $query
                     ->withoutGlobalScopes()
                     ->select(['id', 'organization_id', 'name']),
                 'event' => fn ($query) => $query
-                    ->select(['id', 'tournament_id', 'sport_id', 'name_hi']),
+                    ->select(['id', 'tournament_id', 'sport_id', 'name']),
                 'event.sport' => fn ($query) => $query
                     ->withoutGlobalScopes()
-                    ->select(['id', 'organization_id', 'name_hi', 'name_en']),
+                    ->select(['id', 'organization_id', 'name', 'name']),
                 'event.tournament' => fn ($query) => $query
                     ->withoutGlobalScopes()
                     ->select([
@@ -139,7 +138,7 @@ class PlayerPointsService
                         'session_id',
                         'tier_id',
                         'sport_id',
-                        'name_hi',
+                        'name',
                         'date_from',
                         'deleted_at',
                     ]),
@@ -206,8 +205,8 @@ class PlayerPointsService
                 ->whereNull('deleted_at')
                 ->where(function ($nameQuery) use ($memberName): void {
                     $nameQuery
-                        ->where('full_name_hi', 'like', "%{$memberName}%")
-                        ->orWhere('full_name_en', 'like', "%{$memberName}%");
+                        ->where('full_name', 'like', "%{$memberName}%")
+                        ->orWhere('full_name', 'like', "%{$memberName}%");
                 })))
             ->when(is_string($pno) && $pno !== '', fn (Builder $query) => $query->whereHas('member', fn ($memberQuery) => $memberQuery
                 ->withoutGlobalScopes()
@@ -277,18 +276,15 @@ class PlayerPointsService
                 'id' => $member?->id,
                 'member_code' => $member?->member_code,
                 'pno' => $member?->pno,
-                'full_name_hi' => $member?->full_name_hi,
-                'full_name_en' => $member?->full_name_en,
+                'full_name' => $member?->full_name,
                 'rank' => $member?->rank,
                 'district' => $district ? [
                     'id' => $district->id,
-                    'name_hi' => $district->name_hi,
-                    'name_en' => $district->name_en,
+                    'name' => $district->name,
                 ] : null,
                 'unit' => $member?->currentUnit ? [
                     'id' => $member->currentUnit->id,
-                    'name_hi' => $member->currentUnit->name_hi,
-                    'name_en' => $member->currentUnit->name_en,
+                    'name' => $member->currentUnit->name,
                 ] : null,
             ],
             'session' => [
@@ -297,12 +293,11 @@ class PlayerPointsService
             ],
             'sport' => $sport ? [
                 'id' => $sport->id,
-                'name_hi' => $sport->name_hi,
-                'name_en' => $sport->name_en,
+                'name' => $sport->name,
             ] : null,
             'tournament' => $tournament ? [
                 'id' => $tournament->id,
-                'name_hi' => $tournament->name_hi,
+                'name' => $tournament->name,
                 'date_from' => $tournament->date_from?->toDateString(),
                 'tier' => $tier ? [
                     'id' => $tier->id,
@@ -314,7 +309,7 @@ class PlayerPointsService
             ] : null,
             'event' => $event ? [
                 'id' => $event->id,
-                'name_hi' => $event->name_hi,
+                'name' => $event->name,
             ] : null,
             'achievement' => $achievement ? [
                 'id' => $achievement->id,
@@ -373,7 +368,7 @@ class PlayerPointsService
                 ['medals.GOLD', 'desc'],
                 ['medals.SILVER', 'desc'],
                 ['medals.BRONZE', 'desc'],
-                ['member.full_name_hi', 'asc'],
+                ['member.full_name', 'asc'],
             ])
             ->values();
     }

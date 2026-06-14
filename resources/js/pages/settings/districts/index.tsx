@@ -12,8 +12,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type District = {
     id: number;
-    name_hi: string;
-    name_en: string;
+    name: string;
     state: string;
     code: string;
 };
@@ -34,8 +33,8 @@ export default function Index({ districts }: { districts: District[] }) {
         return districts.filter((d) => {
             const matchesQuery =
                 !q ||
-                d.name_hi.toLowerCase().includes(q) ||
-                d.name_en.toLowerCase().includes(q) ||
+                d.name.toLowerCase().includes(q) ||
+                d.name.toLowerCase().includes(q) ||
                 d.code.toLowerCase().includes(q);
             const matchesState = stateFilter === 'all' || d.state === stateFilter;
 
@@ -93,8 +92,8 @@ export default function Index({ districts }: { districts: District[] }) {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
-                                <TableHead>{t('Name (English)')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('State')}</TableHead>
                                 <TableHead>{t('Code')}</TableHead>
                                 <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
@@ -110,8 +109,8 @@ export default function Index({ districts }: { districts: District[] }) {
                             ) : (
                                 filtered.map((district) => (
                                     <TableRow key={district.id}>
-                                        <TableCell className="font-medium">{district.name_hi}</TableCell>
-                                        <TableCell>{district.name_en}</TableCell>
+                                        <TableCell className="font-medium">{district.name}</TableCell>
+                                        <TableCell>{district.name}</TableCell>
                                         <TableCell className="text-muted-foreground">{district.state}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className="font-mono">{district.code}</Badge>

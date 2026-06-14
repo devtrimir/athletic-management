@@ -85,9 +85,8 @@ type Member = {
     id: number;
     member_code: string;
     pno: string | null;
-    full_name_hi: string;
-    full_name_en: string | null;
-    father_name_hi: string | null;
+    full_name: string;
+    father_name: string | null;
     rank: string | null;
     designation: string | null;
     gender: string;
@@ -97,9 +96,9 @@ type Member = {
     player_category: string;
     player_level: string;
     current_status: string;
-    home_district: { id: number; name_hi: string } | null;
-    posting_district: { id: number; name_hi: string } | null;
-    current_unit: { id: number; name_hi: string } | null;
+    home_district: { id: number; name: string } | null;
+    posting_district: { id: number; name: string } | null;
+    current_unit: { id: number; name: string } | null;
     photo_path: string | null;
     blood_group: string | null;
     caste: string | null;
@@ -107,11 +106,10 @@ type Member = {
     appointment: string | null;
     home_address: string | null;
     recruitment_type: string | null;
-    sport: { id: number; name_hi: string; name_en: string } | null;
+    sport: { id: number; name: string } | null;
     playable_sports: {
         id: number;
-        name_hi: string;
-        name_en: string;
+        name: string;
         role?: string | null;
         position?: string | null;
         notes?: string | null;
@@ -124,27 +122,15 @@ type StatusEntry = {
     id: number;
     status: string;
     effective_on: string;
-    reason_hi: string | null;
+    reason: string | null;
     recorded_by_name: string | null;
 };
-type Alias = { id: number; alias_hi: string; source: string };
+type Alias = { id: number; alias: string; source: string };
 
 function displayPostingLocation(member: Member): string | null {
     return (
-        member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null
+        member.posting_district?.name ?? member.current_unit?.name ?? null
     );
-}
-
-function localizedText(
-    hi: string | null | undefined,
-    en: string | null | undefined,
-    locale: string,
-): string | null {
-    if (locale === 'en') {
-        return en ?? hi ?? null;
-    }
-
-    return hi ?? en ?? null;
 }
 
 function parseDateValue(value: string): Date | null {
@@ -185,24 +171,24 @@ type ParticipationEntry = {
     media_files_count: number;
     tournament: {
         id: number;
-        name_hi: string;
+        name: string;
         tier_code: string | null;
         tier_weight: number | null;
         date_from: string | null;
         date_to: string | null;
         venue: string | null;
         session_id: number | null;
-        sport: { id: number; name_hi: string; name_en: string } | null;
+        sport: { id: number; name: string } | null;
     };
     event: {
         id: number;
-        name_hi: string;
+        name: string;
         gender_class: string;
         discipline: string | null;
         weight_category: string | null;
-        sport: { id: number; name_hi: string; name_en: string } | null;
+        sport: { id: number; name: string } | null;
     };
-    team: { id: number; name_hi: string } | null;
+    team: { id: number; name: string } | null;
     achievement: {
         id: number;
         medal_type: string;
@@ -245,8 +231,7 @@ type PromotionRow = {
 
 type RankOption = {
     code: string;
-    name_hi: string;
-    name_en: string;
+    name: string;
     short_name: string | null;
 };
 
@@ -260,15 +245,15 @@ type AchievementsData = {
         session: { id: number; name: string };
         tournament: {
             id: number;
-            name_hi: string;
+            name: string;
             tier_code: string | null;
             tier_weight: number | null;
             venue: string | null;
             date_from: string | null;
             date_to: string | null;
-            sport: { id: number; name_hi: string; name_en: string } | null;
+            sport: { id: number; name: string } | null;
         };
-        event: { id: number; name_hi: string };
+        event: { id: number; name: string };
         benefits: AchievementBenefitRow[];
     }>;
 };
@@ -299,9 +284,8 @@ type LegacyAchievement = {
 const ALL_COLUMNS: { key: string; label: string }[] = [
     // { key: 'member_code', label: 'Member code' },
     { key: 'pno', label: 'PNO' },
-    { key: 'full_name_hi', label: 'Name (Hindi)' },
-    { key: 'full_name_en', label: 'Name (English)' },
-    { key: 'father_name_hi', label: "Father's name" },
+    { key: 'full_name', label: 'Name' },
+    { key: 'father_name', label: "Father's name" },
     { key: 'gender', label: 'Gender' },
     { key: 'dob', label: 'Date of birth' },
     { key: 'rank', label: 'Rank' },
@@ -381,13 +365,8 @@ export default function MembersShow({
 
         return query ? `?${query}` : '';
     }, [dateFromFilter, dateToFilter]);
-    const displayName = localizedText(
-        member.full_name_hi,
-        member.full_name_en,
-        pageLocale,
-    );
-    const sportName = (sport: { name_hi: string; name_en: string }): string =>
-        localizedText(sport.name_hi, sport.name_en, pageLocale) ?? '';
+    const displayName = member.full_name;
+    const sportName = (sport: { name: string }): string => sport.name;
 
     const fetchEventData = useCallback((): void => {
         participationsFetched.current = true;
@@ -471,7 +450,7 @@ export default function MembersShow({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Members'), href: membersIndex.url() },
-            { title: displayName ?? member.full_name_hi },
+            { title: displayName ?? member.full_name },
         ],
     });
 
@@ -622,8 +601,8 @@ export default function MembersShow({
             }
 
             const haystack = [
-                item.tournament.name_hi,
-                item.event.name_hi,
+                item.tournament.name,
+                item.event.name,
                 item.tournament.tier_code ?? '',
                 item.event.gender_class ?? '',
                 item.achievement?.medal_type ?? '',
@@ -782,12 +761,10 @@ export default function MembersShow({
             switch (key) {
                 case 'pno':
                     return member.pno ?? '';
-                case 'full_name_hi':
+                case 'full_name':
                     return displayName ?? '';
-                case 'full_name_en':
-                    return displayName ?? '';
-                case 'father_name_hi':
-                    return member.father_name_hi ?? '';
+                case 'father_name':
+                    return member.father_name ?? '';
                 case 'gender':
                     return member.gender === 'M'
                         ? t('Male')
@@ -807,9 +784,9 @@ export default function MembersShow({
                 case 'player_level':
                     return member.player_level ?? '';
                 case 'unit':
-                    return member.current_unit?.name_hi ?? '';
+                    return member.current_unit?.name ?? '';
                 case 'home_district':
-                    return member.home_district?.name_hi ?? '';
+                    return member.home_district?.name ?? '';
                 case 'joining_date':
                     return (
                         formatDisplayDate(member.joining_date, pageLocale) ?? ''
@@ -858,7 +835,7 @@ export default function MembersShow({
                     `<td style="border:1px solid #ccc;padding:6px 10px">${getValue(c.key)}</td>`,
             )
             .join('');
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${member.full_name_hi}</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}@media print{@page{size:landscape}}</style></head><body><h2 style="margin-bottom:12px">${member.full_name_hi}</h2><table><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table></body></html>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${member.full_name}</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}@media print{@page{size:landscape}}</style></head><body><h2 style="margin-bottom:12px">${member.full_name}</h2><table><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table></body></html>`;
         const win = window.open('', '_blank', 'width=900,height=600');
 
         if (!win) {
@@ -896,7 +873,7 @@ export default function MembersShow({
 
     return (
         <>
-            <Head title={member.full_name_hi} />
+            <Head title={member.full_name} />
 
             <div className="space-y-6">
                 <div className="flex flex-wrap items-start gap-4">
@@ -907,7 +884,7 @@ export default function MembersShow({
                                 <div className="group relative size-20 overflow-hidden rounded-xl border bg-muted">
                                     <img
                                         src={`/storage/${member.photo_path}`}
-                                        alt={member.full_name_hi}
+                                        alt={member.full_name}
                                         className="size-full object-cover"
                                     />
                                     <button
@@ -951,11 +928,11 @@ export default function MembersShow({
 
                         <div className="min-w-0">
                             <h1 className="text-2xl font-bold">
-                                {member.full_name_hi}
+                                {member.full_name}
                             </h1>
-                            {member.full_name_en && (
+                            {member.full_name && (
                                 <p className="text-muted-foreground">
-                                    {member.full_name_en}
+                                    {member.full_name}
                                 </p>
                             )}
                             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1032,24 +1009,8 @@ export default function MembersShow({
                                     <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
                                         {detail(t('Name'), displayName)}
                                         {detail(
-                                            t('Name (Hindi)'),
-                                            localizedText(
-                                                member.full_name_hi,
-                                                member.full_name_en,
-                                                'hi',
-                                            ),
-                                        )}
-                                        {detail(
-                                            t('Name (English)'),
-                                            localizedText(
-                                                member.full_name_hi,
-                                                member.full_name_en,
-                                                'en',
-                                            ),
-                                        )}
-                                        {detail(
                                             t("Father's name"),
-                                            member.father_name_hi,
+                                            member.father_name,
                                         )}
                                         {detail(
                                             t('Gender'),
@@ -1110,7 +1071,7 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Home district'),
-                                            member.home_district?.name_hi,
+                                            member.home_district?.name,
                                         )}
                                         {detail(
                                             t('Posting unit / district'),
@@ -1282,9 +1243,9 @@ export default function MembersShow({
                                                     <Badge variant="outline">
                                                         {t(row.status)}
                                                     </Badge>
-                                                    {row.reason_hi && (
+                                                    {row.reason && (
                                                         <p className="text-xs text-muted-foreground">
-                                                            {row.reason_hi}
+                                                            {row.reason}
                                                         </p>
                                                     )}
                                                 </div>
@@ -2047,7 +2008,7 @@ export default function MembersShow({
                                                                                                 {
                                                                                                     participation
                                                                                                         .tournament
-                                                                                                        .name_hi
+                                                                                                        .name
                                                                                                 }
                                                                                             </Link>
                                                                                             <p className="text-xs text-muted-foreground">
@@ -2083,7 +2044,7 @@ export default function MembersShow({
                                                                                             {
                                                                                                 participation
                                                                                                     .event
-                                                                                                    .name_hi
+                                                                                                    .name
                                                                                             }
                                                                                         </Link>
                                                                                         <p className="mt-1 text-xs text-muted-foreground">
@@ -2337,7 +2298,7 @@ export default function MembersShow({
             {mediaParticipationId !== null && (
                 <ParticipationMediaSheet
                     participationId={mediaParticipationId.id}
-                    memberName={member.full_name_hi}
+                    memberName={member.full_name}
                     open={mediaParticipationId !== null}
                     onOpenChange={(o) => {
                         if (!o) {
@@ -2361,7 +2322,7 @@ export default function MembersShow({
 
                     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                         <p className="text-sm text-muted-foreground">
-                            {member.full_name_hi}
+                            {member.full_name}
                         </p>
 
                         <div className="space-y-2">

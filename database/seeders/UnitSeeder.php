@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 class UnitSeeder extends Seeder
 {
     /**
-     * City keyword → district name_hi overrides for cases where the keyword
+     * City keyword → district name overrides for cases where the keyword
      * extracted from the unit name does not exactly match a district row.
      *
      * @var array<string, string>
@@ -50,9 +50,9 @@ class UnitSeeder extends Seeder
     {
         $org = Organization::firstOrFail();
 
-        /** @var array<string, int> $districtMap name_hi → id */
+        /** @var array<string, int> $districtMap name → id */
         $districtMap = District::query()
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         $csvPath = database_path('data/pac_units.csv');
@@ -71,25 +71,23 @@ class UnitSeeder extends Seeder
         $rows = [];
 
         while (($line = fgetcsv($handle)) !== false) {
-            if (count($line) < 3) {
+            if (count($line) < 2) {
                 continue;
             }
 
-            [$nameHi, $nameEn, $unitType] = $line;
-            $nameHi = trim($nameHi);
-            $nameEn = trim($nameEn);
+            [$name, $unitType] = $line;
+            $name = trim($name);
             $unitType = trim($unitType);
 
-            if (empty($nameHi)) {
+            if (empty($name)) {
                 continue;
             }
 
-            $districtId = $this->resolveDistrict($nameHi, $districtMap);
+            $districtId = $this->resolveDistrict($name, $districtMap);
 
             $rows[] = [
                 'organization_id' => $org->id,
-                'name_hi' => $nameHi,
-                'name_en' => $nameEn,
+                'name' => $name,
                 'unit_type' => $unitType,
                 'commandant' => null,
                 'district_id' => $districtId,
@@ -104,11 +102,11 @@ class UnitSeeder extends Seeder
             return;
         }
 
-        // Upsert by (organization_id, name_hi) — no unique index, so we do
+        // Upsert by (organization_id, name) — no unique index, so we do
         // an updateOrInsert per row to stay idempotent.
         foreach ($rows as $row) {
             DB::table('units')->updateOrInsert(
-                ['organization_id' => $row['organization_id'], 'name_hi' => $row['name_hi']],
+                ['organization_id' => $row['organization_id'], 'name' => $row['name']],
                 $row,
             );
         }

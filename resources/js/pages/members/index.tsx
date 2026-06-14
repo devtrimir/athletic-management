@@ -26,15 +26,14 @@ type Member = {
     id: number;
     member_code: string;
     pno: string | null;
-    full_name_hi: string;
-    full_name_en: string | null;
+    full_name: string;
     rank: string | null;
     player_category: string;
     player_level: string;
     current_status: string;
-    home_district: { id: number; name_hi: string; name_en: string } | null;
-    current_unit: { id: number; name_hi: string; name_en: string } | null;
-    posting_district: { id: number; name_hi: string; name_en: string } | null;
+    home_district: { id: number; name: string } | null;
+    current_unit: { id: number; name: string } | null;
+    posting_district: { id: number; name: string } | null;
     playable_sports: Array<SportOption & {
         pivot?: {
             role?: string | null;
@@ -47,10 +46,10 @@ type Member = {
     }>;
 };
 
-type UnitOption = { id: number; name_hi: string; name_en: string };
-type DistrictOption = { id: number; name_hi: string; name_en: string };
-type SportOption = { id: number; name_hi: string; name_en: string };
-type MasterOption = { code: string; name_hi: string | null; name_en: string; short_name: string | null };
+type UnitOption = { id: number; name: string };
+type DistrictOption = { id: number; name: string };
+type SportOption = { id: number; name: string };
+type MasterOption = { code: string; name: string; short_name: string | null };
 
 type PaginatedMembers = {
     data: Member[];
@@ -81,9 +80,8 @@ type Filters = {
 
 const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'pno', label: 'PNO' },
-    { key: 'full_name_hi', label: 'Name (Hindi)' },
-    { key: 'full_name_en', label: 'Name (English)' },
-    { key: 'father_name_hi', label: "Father's name" },
+    { key: 'full_name', label: 'Name' },
+    { key: 'father_name', label: "Father's name" },
     { key: 'gender', label: 'Gender' },
     { key: 'dob', label: 'Date of birth' },
     { key: 'rank', label: 'Rank' },
@@ -138,24 +136,16 @@ function displayCategory(category: string): string {
     return category === 'SKILLED' ? 'SPORTS_QUOTA' : category;
 }
 
-function localeName(entity: { name_hi: string; name_en: string }, locale: string): string {
-    return locale === 'en' ? entity.name_en : (entity.name_hi ?? entity.name_en);
-}
-
-function localizedText(hi: string | null | undefined, en: string | null | undefined, locale: string): string | null {
-    if (locale === 'en') {
-        return en ?? hi ?? null;
-    }
-
-    return hi ?? en ?? null;
+function localeName(entity: { name: string }, locale: string): string {
+    return locale === 'en' ? entity.name : (entity.name ?? entity.name);
 }
 
 function postingLocation(member: Member): string | null {
-    return member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null;
+    return member.posting_district?.name ?? member.current_unit?.name ?? null;
 }
 
 function sportSummary(sport: Member['playable_sports'][number]): string {
-    return [sport.name_hi, sport.role ?? sport.pivot?.role, sport.position ?? sport.pivot?.position, sport.notes ?? sport.pivot?.notes]
+    return [sport.name, sport.role ?? sport.pivot?.role, sport.position ?? sport.pivot?.position, sport.notes ?? sport.pivot?.notes]
         .filter(Boolean)
         .join(' · ');
 }
@@ -220,7 +210,7 @@ function SportCell({ member }: { member: Member }) {
                         <ul className="mt-1 space-y-2 text-sm">
                             {playableSports.map((sport) => (
                                 <li key={sport.id} className="space-y-0.5">
-                                    <p className="font-medium">{sport.name_hi}</p>
+                                    <p className="font-medium">{sport.name}</p>
                                     <div className="space-y-0.5 text-xs text-muted-foreground">
                                         {(sport.role ?? sport.pivot?.role) && (
                                             <p>
@@ -545,15 +535,15 @@ params.append(param, filters[k]!);
                     `<tr>${cols
                         .map((c) => {
                             if (c.key === 'unit') {
-return `<td>${m.current_unit?.name_hi ?? '\u2014'}</td>`;
+return `<td>${m.current_unit?.name ?? '\u2014'}</td>`;
 }
 
                             if (c.key === 'home_district') {
-return `<td>${m.home_district?.name_hi ?? '\u2014'}</td>`;
+return `<td>${m.home_district?.name ?? '\u2014'}</td>`;
 }
 
                             if (c.key === 'posting_district') {
-return `<td>${m.posting_district?.name_hi ?? m.current_unit?.name_hi ?? '\u2014'}</td>`;
+return `<td>${m.posting_district?.name ?? m.current_unit?.name ?? '\u2014'}</td>`;
                             }
 
                             if (['dob', 'joining_date', 'promotion_date', 'team_since'].includes(c.key)) {
@@ -693,13 +683,13 @@ next.add(id);
 
                     <FilterPill
                         label={t('Rank')}
-                        activeLabel={filters.rank ? (ranks.find((rank) => rank.code === filters.rank) ? localeName(ranks.find((rank) => rank.code === filters.rank)!, locale) : filters.rank) : undefined}
+                        activeLabel={filters.rank ? (ranks.find((rank) => rank.code === filters.rank)?.name ?? filters.rank) : undefined}
                         onClear={() => applyFilters({ rank: undefined })}
                     >
                         <SearchableOptionList
                             options={ranks.map((rank) => ({
                                 value: rank.code,
-                                label: locale === 'en' ? rank.name_en : (rank.name_hi ?? rank.name_en),
+                                label: rank.name ?? rank.code,
                             }))}
                             value={filters.rank}
                             onSelect={(v) => applyFilters({ rank: v })}
@@ -709,13 +699,13 @@ next.add(id);
 
                     <FilterPill
                         label={t('Designation')}
-                        activeLabel={filters.designation ? (designations.find((designation) => designation.code === filters.designation) ? localeName(designations.find((designation) => designation.code === filters.designation)!, locale) : filters.designation) : undefined}
+                        activeLabel={filters.designation ? (designations.find((designation) => designation.code === filters.designation)?.name ?? filters.designation) : undefined}
                         onClear={() => applyFilters({ designation: undefined })}
                     >
                         <SearchableOptionList
                             options={designations.map((designation) => ({
                                 value: designation.code,
-                                label: locale === 'en' ? designation.name_en : (designation.name_hi ?? designation.name_en),
+                                label: designation.name ?? designation.code,
                             }))}
                             value={filters.designation}
                             onSelect={(v) => applyFilters({ designation: v })}
@@ -794,11 +784,11 @@ next.add(id);
                     {/* Sport */}
                     <FilterPill
                         label={t('Sport')}
-                        activeLabel={filters.sport_id ? (sports.find((s) => String(s.id) === filters.sport_id)?.name_hi ?? filters.sport_id) : undefined}
+                        activeLabel={filters.sport_id ? (sports.find((s) => String(s.id) === filters.sport_id)?.name ?? filters.sport_id) : undefined}
                         onClear={() => applyFilters({ sport_id: undefined })}
                     >
                         <SearchableOptionList
-                            options={sports.map((s) => ({ value: String(s.id), label: s.name_hi }))}
+                            options={sports.map((s) => ({ value: String(s.id), label: s.name }))}
                             value={filters.sport_id}
                             onSelect={(v) => applyFilters({ sport_id: v })}
                             searchPlaceholder={t('Search sports…')}
@@ -880,7 +870,7 @@ next.add(id);
                                     />
                                 </TableHead>
                                 <TableHead>{t('Sr no')}</TableHead>
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('PNO')}</TableHead>
                                 <TableHead>{t('Playable sports')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
@@ -924,9 +914,7 @@ next.add(id);
                                                         {member.rank}
                                                     </span>
                                                 )}
-                                                <span className="truncate font-medium">
-                                                    {localizedText(member.full_name_hi, member.full_name_en, locale) ?? '—'}
-                                                </span>
+                                                <span className="truncate font-medium">{member.full_name ?? '—'}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">

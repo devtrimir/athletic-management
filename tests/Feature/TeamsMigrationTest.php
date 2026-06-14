@@ -20,7 +20,7 @@ test('teams table is created by migration', function () {
 test('teams table has all required columns', function () {
     $columns = [
         'id', 'organization_id', 'sport_id', 'session_id', 'unit_id',
-        'name_hi', 'in_charge_hi', 'deleted_at', 'created_at', 'updated_at',
+        'name', 'in_charge', 'deleted_at', 'created_at', 'updated_at',
     ];
 
     foreach ($columns as $column) {
@@ -29,10 +29,10 @@ test('teams table has all required columns', function () {
     }
 });
 
-test('in_charge_hi is nullable', function () {
-    $team = Team::factory()->create(['in_charge_hi' => null]);
+test('in_charge is nullable', function () {
+    $team = Team::factory()->create(['in_charge' => null]);
 
-    expect($team->in_charge_hi)->toBeNull();
+    expect($team->in_charge)->toBeNull();
 });
 
 test('team can be soft deleted and restored', function () {
@@ -56,7 +56,7 @@ test('duplicate org-sport-session-unit-name combination is rejected', function (
         'sport_id' => $sport->id,
         'session_id' => $session->id,
         'unit_id' => $unit->id,
-        'name_hi' => 'टीम एक',
+        'name' => 'टीम एक',
     ]);
 
     expect(fn () => Team::factory()->create([
@@ -64,7 +64,7 @@ test('duplicate org-sport-session-unit-name combination is rejected', function (
         'sport_id' => $sport->id,
         'session_id' => $session->id,
         'unit_id' => $unit->id,
-        'name_hi' => 'टीम एक',
+        'name' => 'टीम एक',
     ]))->toThrow(QueryException::class);
 });
 
@@ -80,7 +80,7 @@ test('same name in different units within same org-sport-session is allowed', fu
         'sport_id' => $sport->id,
         'session_id' => $session->id,
         'unit_id' => $unitA->id,
-        'name_hi' => 'टीम ए',
+        'name' => 'टीम ए',
     ]);
 
     Team::factory()->create([
@@ -88,10 +88,10 @@ test('same name in different units within same org-sport-session is allowed', fu
         'sport_id' => $sport->id,
         'session_id' => $session->id,
         'unit_id' => $unitB->id,
-        'name_hi' => 'टीम ए',
+        'name' => 'टीम ए',
     ]);
 
-    expect(Team::withoutGlobalScopes()->where('name_hi', 'टीम ए')->count())->toBe(2);
+    expect(Team::withoutGlobalScopes()->where('name', 'टीम ए')->count())->toBe(2);
 });
 
 test('factory forOrganization state creates consistent related records', function () {

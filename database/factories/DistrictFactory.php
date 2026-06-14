@@ -19,21 +19,20 @@ class DistrictFactory extends Factory
     {
         // UP district names (Hindi / romanised) for realistic seeds
         $districts = [
-            ['name_hi' => 'लखनऊ',    'name_en' => 'Lucknow',     'code' => 'LKO'],
-            ['name_hi' => 'आगरा',     'name_en' => 'Agra',        'code' => 'AGR'],
-            ['name_hi' => 'वाराणसी',  'name_en' => 'Varanasi',    'code' => 'VNS'],
-            ['name_hi' => 'कानपुर',   'name_en' => 'Kanpur',      'code' => 'KNP'],
-            ['name_hi' => 'प्रयागराज', 'name_en' => 'Prayagraj',   'code' => 'PRY'],
-            ['name_hi' => 'मेरठ',     'name_en' => 'Meerut',      'code' => 'MRT'],
-            ['name_hi' => 'गाज़ियाबाद', 'name_en' => 'Ghaziabad',  'code' => 'GZB'],
-            ['name_hi' => 'बरेली',    'name_en' => 'Bareilly',    'code' => 'BRL'],
+            ['name' => 'लखनऊ',     'code' => 'LKO'],
+            ['name' => 'आगरा',        'code' => 'AGR'],
+            ['name' => 'वाराणसी',    'code' => 'VNS'],
+            ['name' => 'कानपुर',      'code' => 'KNP'],
+            ['name' => 'प्रयागराज',   'code' => 'PRY'],
+            ['name' => 'मेरठ',      'code' => 'MRT'],
+            ['name' => 'गाज़ियाबाद',  'code' => 'GZB'],
+            ['name' => 'बरेली',    'code' => 'BRL'],
         ];
 
         $district = fake()->unique()->randomElement($districts);
 
         return [
-            'name_hi' => $district['name_hi'],
-            'name_en' => $district['name_en'],
+            'name' => $district['name'],
             'state' => 'Uttar Pradesh',
             'code' => $district['code'],
         ];

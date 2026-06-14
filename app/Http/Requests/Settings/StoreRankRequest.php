@@ -31,9 +31,8 @@ class StoreRankRequest extends FormRequest
     {
         return [
             'code' => ['required', 'string', 'max:50', 'unique:ranks,code'],
-            'name_en' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'short_name' => ['nullable', 'string', 'max:100'],
-            'name_hi' => ['nullable', 'string', 'max:255'],
             'rank_order' => ['required', 'integer', 'min:1'],
             'cadre_type' => ['nullable', 'string', 'max:50'],
             'is_gazetted' => ['boolean'],

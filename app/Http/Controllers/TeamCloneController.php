@@ -25,7 +25,7 @@ class TeamCloneController extends Controller
         $memberRowIds = $data['member_ids'] ?? [];
         $coachRowIds = $data['coach_ids'] ?? [];
 
-        // Create the new team — unique constraint (org, sport, session, unit, name_hi)
+        // Create the new team — unique constraint (org, sport, session, unit, name)
         // may fire if a team with the same identity already exists for the target session.
         $newTeam = DB::transaction(function () use ($team, $targetSessionId, $memberRowIds, $coachRowIds): Team {
             $newTeam = Team::create([
@@ -33,8 +33,8 @@ class TeamCloneController extends Controller
                 'sport_id' => $team->sport_id,
                 'unit_id' => $team->unit_id,
                 'session_id' => $targetSessionId,
-                'name_hi' => $team->name_hi,
-                'in_charge_hi' => $team->in_charge_hi,
+                'name' => $team->name,
+                'in_charge' => $team->in_charge,
             ]);
 
             // Copy selected members — skip any whose (member_id, session_id) already

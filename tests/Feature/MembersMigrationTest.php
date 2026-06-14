@@ -12,8 +12,8 @@ test('members table has all required columns', function () {
     $columns = [
         'id', 'organization_id',
         'member_code', 'pno',
-        'full_name_hi', 'full_name_en', 'full_name_normalized',
-        'father_name_hi', 'rank',
+        'full_name', 'full_name', 'full_name_normalized',
+        'father_name', 'rank',
         'gender', 'dob', 'joining_date', 'mobile',
         'home_district_id', 'current_unit_id',
         'player_category', 'player_level', 'current_status',

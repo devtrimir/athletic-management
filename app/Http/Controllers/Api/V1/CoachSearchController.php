@@ -29,7 +29,7 @@ class CoachSearchController extends Controller
             $results = Coach::where('organization_id', $orgId)
                 ->where('pno', $q)
                 ->limit(1)
-                ->get(['id', 'full_name_hi', 'full_name_en', 'pno', 'nis_certified']);
+                ->get(['id', 'full_name', 'full_name', 'pno', 'nis_certified']);
 
             if ($results->isNotEmpty()) {
                 return CoachSearchResource::collection($results)
@@ -40,12 +40,12 @@ class CoachSearchController extends Controller
 
         $results = Coach::where('organization_id', $orgId)
             ->where(function ($query) use ($q): void {
-                $query->where('full_name_hi', 'LIKE', '%'.$q.'%')
-                    ->orWhere('full_name_en', 'LIKE', '%'.$q.'%');
+                $query->where('full_name', 'LIKE', '%'.$q.'%')
+                    ->orWhere('full_name', 'LIKE', '%'.$q.'%');
             })
-            ->orderBy('full_name_hi')
+            ->orderBy('full_name')
             ->limit(20)
-            ->get(['id', 'full_name_hi', 'full_name_en', 'pno', 'nis_certified']);
+            ->get(['id', 'full_name', 'full_name', 'pno', 'nis_certified']);
 
         return CoachSearchResource::collection($results)
             ->additional(['meta' => ['q' => $q, 'count' => $results->count()]])

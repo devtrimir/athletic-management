@@ -18,8 +18,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
     { key: 'pno', label: 'PNO' },
-    { key: 'full_name_hi', label: 'Name (Hindi)' },
-    { key: 'full_name_en', label: 'Name (English)' },
+    { key: 'full_name', label: 'Name' },
     { key: 'mobile', label: 'Mobile' },
     { key: 'nis_certified', label: 'NIS Certified' },
     { key: 'linked_member', label: 'Linked Member Code' },
@@ -27,8 +26,7 @@ const ALL_COLUMNS = [
 
 type Coach = {
     id: number;
-    full_name_hi: string;
-    full_name_en: string | null;
+    full_name: string;
     pno: string | null;
     mobile: string | null;
     nis_certified: boolean;
@@ -37,8 +35,7 @@ type Coach = {
 type LinkedMember = {
     id: number;
     member_code: string;
-    full_name_hi: string;
-    full_name_en: string | null;
+    full_name: string;
     pno: string | null;
     rank: string | null;
     mobile: string | null;
@@ -47,7 +44,7 @@ type LinkedMember = {
 type CoachTeamRow = {
     id: number;
     role: string | null;
-    team: { id: number; name_hi: string } | null;
+    team: { id: number; name: string } | null;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
 };
@@ -61,7 +58,7 @@ export default function CoachesShow({ coach, member, coachTeams, auditLog }: { c
     setLayoutProps({
         breadcrumbs: [
             { title: t('Coaches'), href: coachesIndex.url() },
-            { title: coach.full_name_hi },
+            { title: coach.full_name },
         ],
     });
 
@@ -92,13 +89,12 @@ return;
 
     return (
         <>
-            <Head title={coach.full_name_hi} />
+            <Head title={coach.full_name} />
 
             <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold">{coach.full_name_hi}</h1>
-                        {coach.full_name_en && <p className="text-muted-foreground">{coach.full_name_en}</p>}
+                        <h1 className="text-2xl font-bold">{coach.full_name}</h1>
                     </div>
                     <div className="flex gap-2 shrink-0">
                         <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
@@ -158,8 +154,7 @@ return;
                                             {detail(t('Member code'), <span className="font-mono">{member.member_code}</span>)}
                                             {detail(t('PNO'), <span className="font-mono">{member.pno}</span>)}
                                             {detail(t('Rank'), member.rank)}
-                                            {detail(t('Name (Hindi)'), member.full_name_hi)}
-                                            {detail(t('Name (English)'), member.full_name_en)}
+                                            {detail(t('Name'), member.full_name)}
                                             {detail(t('Mobile'), member.mobile)}
                                         </dl>
                                     ) : (
@@ -195,7 +190,7 @@ return;
                                                 <TableCell className="font-medium">
                                                     {row.team ? (
                                                         <Link href={showTeam.url(row.team)} className="hover:underline">
-                                                            {row.team.name_hi}
+                                                            {row.team.name}
                                                         </Link>
                                                     ) : '—'}
                                                 </TableCell>

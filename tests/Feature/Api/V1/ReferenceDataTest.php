@@ -53,19 +53,19 @@ test('GET /api/v1/tournament-tiers returns 401 for guest', function (): void {
 test('GET /api/v1/sports returns org-scoped sports', function (): void {
     $sport = Sport::factory()->create([
         'organization_id' => $this->org->id,
-        'name_en' => 'Athletics',
+        'name' => 'Athletics',
     ]);
 
     $otherOrg = Organization::factory()->create(['code' => 'OTHER']);
     Sport::factory()->create([
         'organization_id' => $otherOrg->id,
-        'name_en' => 'Swimming',
+        'name' => 'Swimming',
     ]);
 
     $response = $this->actingAs($this->user)
         ->getJson(route('v1.sports.index'))
         ->assertOk()
-        ->assertJsonStructure(['data' => [['id', 'name_hi', 'name_en', 'category', 'slug']]]);
+        ->assertJsonStructure(['data' => [['id', 'name', 'name', 'category', 'slug']]]);
 
     $ids = collect($response->json('data'))->pluck('id');
     expect($ids)->toContain($sport->id);
@@ -94,7 +94,7 @@ test('GET /api/v1/sports returns 401 for guest', function (): void {
 test('GET /api/v1/units returns org-scoped units', function (): void {
     $unit = Unit::factory()->create([
         'organization_id' => $this->org->id,
-        'name_en' => '17th Battalion',
+        'name' => '17th Battalion',
     ]);
 
     $otherOrg = Organization::factory()->create(['code' => 'OTH3']);
@@ -103,7 +103,7 @@ test('GET /api/v1/units returns org-scoped units', function (): void {
     $response = $this->actingAs($this->user)
         ->getJson(route('v1.units.index'))
         ->assertOk()
-        ->assertJsonStructure(['data' => [['id', 'name_hi', 'name_en', 'unit_type']]]);
+        ->assertJsonStructure(['data' => [['id', 'name', 'name', 'unit_type']]]);
 
     $ids = collect($response->json('data'))->pluck('id');
     expect($ids)->toContain($unit->id);
@@ -128,16 +128,16 @@ test('GET /api/v1/units returns 401 for guest', function (): void {
 
 // ─── Districts ────────────────────────────────────────────────────────────────
 
-test('GET /api/v1/districts returns all districts ordered by name_en', function (): void {
-    District::factory()->create(['name_en' => 'Lucknow', 'code' => 'LKO']);
-    District::factory()->create(['name_en' => 'Agra', 'code' => 'AGR']);
+test('GET /api/v1/districts returns all districts ordered by name', function (): void {
+    District::factory()->create(['name' => 'Lucknow', 'code' => 'LKO']);
+    District::factory()->create(['name' => 'Agra', 'code' => 'AGR']);
 
     $response = $this->actingAs($this->user)
         ->getJson(route('v1.districts.index'))
         ->assertOk()
-        ->assertJsonStructure(['data' => [['id', 'name_hi', 'name_en', 'state', 'code']]]);
+        ->assertJsonStructure(['data' => [['id', 'name', 'name', 'state', 'code']]]);
 
-    $names = collect($response->json('data'))->pluck('name_en');
+    $names = collect($response->json('data'))->pluck('name');
     expect($names->first())->toBe('Agra');
 });
 

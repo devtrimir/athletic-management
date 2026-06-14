@@ -23,8 +23,7 @@ class UpdateCoachRequest extends FormRequest
         $coachId = (int) $this->route('coach')?->getKey();
 
         return [
-            'full_name_hi' => ['sometimes', 'required', 'string', 'max:255'],
-            'full_name_en' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'full_name' => ['sometimes', 'required', 'string', 'max:255'],
             'pno' => ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('coaches', 'pno')->where('organization_id', $orgId)->ignore($coachId)],
             'mobile' => ['sometimes', 'nullable', 'string', 'max:20'],
             'nis_certified' => ['sometimes', 'boolean'],

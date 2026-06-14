@@ -30,11 +30,10 @@ export default function Create() {
                                     <div className="grid gap-2"><Label htmlFor="rank_order">{t('Order')}</Label><Input id="rank_order" name="rank_order" type="number" min={1} required /><InputError message={errors.rank_order} /></div>
                                 </div>
                                 <div className="grid gap-5 sm:grid-cols-2">
-                                    <div className="grid gap-2"><Label htmlFor="name_en">{t('Name (English)')}</Label><Input id="name_en" name="name_en" required maxLength={255} /><InputError message={errors.name_en} /></div>
+                                    <div className="grid gap-2"><Label htmlFor="name">{t('Name')}</Label><Input id="name" name="name" required maxLength={255} /><InputError message={errors.name} /></div>
                                     <div className="grid gap-2"><Label htmlFor="short_name">{t('Short name')}</Label><Input id="short_name" name="short_name" maxLength={100} /><InputError message={errors.short_name} /></div>
                                 </div>
                                 <div className="grid gap-5 sm:grid-cols-2">
-                                    <div className="grid gap-2"><Label htmlFor="name_hi">{t('Name (Hindi)')}</Label><Input id="name_hi" name="name_hi" maxLength={255} /><InputError message={errors.name_hi} /></div>
                                     <div className="grid gap-2"><Label htmlFor="cadre_type">{t('Cadre type')}</Label><Select name="cadre_type"><SelectTrigger id="cadre_type"><SelectValue placeholder={t('Select cadre')} /></SelectTrigger><SelectContent>{CADRES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><InputError message={errors.cadre_type} /></div>
                                 </div>
                                 <div className="grid gap-2"><Label htmlFor="aliases">{t('Aliases')}</Label><Textarea id="aliases" name="aliases" placeholder={t('Comma-separated aliases')} /><InputError message={errors.aliases} /></div>

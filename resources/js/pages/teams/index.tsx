@@ -36,11 +36,11 @@ import {
 import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
-    { key: 'name_hi', label: 'Team Name (Hindi)' },
+    { key: 'name', label: 'Team Name' },
     { key: 'session', label: 'Session' },
     { key: 'sport', label: 'Sport' },
     { key: 'unit', label: 'Unit' },
-    { key: 'in_charge_hi', label: 'In-Charge' },
+    { key: 'in_charge', label: 'In-Charge' },
     { key: 'players_count', label: 'Players' },
     { key: 'captains_count', label: 'Captains' },
     { key: 'reserves_count', label: 'Reserves' },
@@ -55,15 +55,15 @@ type PaginationLink = {
 
 type Team = {
     id: number;
-    name_hi: string;
-    in_charge_hi: string | null;
+    name: string;
+    in_charge: string | null;
     players_count: number;
     captains_count: number;
     reserves_count: number;
     coaches_count: number;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
-    unit: { id: number; name_hi: string } | null;
+    unit: { id: number; name: string } | null;
 };
 
 type PaginatedTeams = {
@@ -85,7 +85,7 @@ type Filters = {
 };
 
 type RefItem = { id: number; name: string };
-type UnitItem = { id: number; name_hi: string };
+type UnitItem = { id: number; name: string };
 
 export default function TeamsIndex({
     teams,
@@ -282,7 +282,7 @@ export default function TeamsIndex({
                             } else if (c.key === 'sport') {
                                 v = team.sport?.name ?? '\u2014';
                             } else if (c.key === 'unit') {
-                                v = team.unit?.name_hi ?? '\u2014';
+                                v = team.unit?.name ?? '\u2014';
                             } else {
                                 const raw = (team as Record<string, unknown>)[
                                     c.key
@@ -436,7 +436,7 @@ export default function TeamsIndex({
                             </SelectItem>
                             {units.map((u) => (
                                 <SelectItem key={u.id} value={String(u.id)}>
-                                    {u.name_hi}
+                                    {u.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -488,7 +488,7 @@ export default function TeamsIndex({
                                         aria-label={t('Select all on page')}
                                     />
                                 </TableHead>
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Sport')}</TableHead>
                                 <TableHead>{t('Session')}</TableHead>
                                 <TableHead>{t('Unit')}</TableHead>
@@ -536,7 +536,7 @@ export default function TeamsIndex({
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium">
-                                            {team.name_hi}
+                                            {team.name}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {team.sport?.name ?? (
@@ -553,14 +553,14 @@ export default function TeamsIndex({
                                             )}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {team.unit?.name_hi ?? (
+                                            {team.unit?.name ?? (
                                                 <span className="text-border select-none">
                                                     —
                                                 </span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {team.in_charge_hi ?? (
+                                            {team.in_charge ?? (
                                                 <span className="text-border select-none">
                                                     —
                                                 </span>

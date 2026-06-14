@@ -34,7 +34,7 @@ class DesignationController extends Controller
     {
         Gate::authorize('create', Designation::class);
 
-        $ranks = Rank::orderBy('rank_order')->get(['id', 'code', 'name_en']);
+        $ranks = Rank::orderBy('rank_order')->get(['id', 'code', 'name']);
 
         return Inertia::render('settings/designations/create', [
             'ranks' => $ranks,
@@ -63,8 +63,7 @@ class DesignationController extends Controller
         return response()->json([
             'designation' => [
                 'code' => $designation->code,
-                'name_en' => $designation->name_en,
-                'name_hi' => $designation->name_hi,
+                'name' => $designation->name,
                 'short_name' => $designation->short_name,
                 'designation_order' => $designation->designation_order,
                 'mapped_rank_code' => $designation->mapped_rank_code,
@@ -78,7 +77,7 @@ class DesignationController extends Controller
     {
         Gate::authorize('update', $designation);
 
-        $ranks = Rank::orderBy('rank_order')->get(['id', 'code', 'name_en']);
+        $ranks = Rank::orderBy('rank_order')->get(['id', 'code', 'name']);
 
         return Inertia::render('settings/designations/edit', [
             'designation' => $designation->load('rank'),

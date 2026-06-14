@@ -18,8 +18,7 @@ class CoachExportController extends Controller
     /** @var array<string, string> */
     private const COLUMN_LABELS = [
         'pno' => 'PNO',
-        'full_name_hi' => 'Name (Hindi)',
-        'full_name_en' => 'Name (English)',
+        'full_name' => 'Name',
         'mobile' => 'Mobile',
         'nis_certified' => 'NIS Certified',
         'linked_member' => 'Linked Member Code',
@@ -38,7 +37,7 @@ class CoachExportController extends Controller
         if (! empty($ids)) {
             $coaches = Coach::whereIn('id', array_map('intval', $ids))
                 ->with('member:id,member_code')
-                ->orderBy('full_name_hi')
+                ->orderBy('full_name')
                 ->get();
         } else {
             $coaches = QueryBuilder::for(Coach::class)
@@ -51,10 +50,10 @@ class CoachExportController extends Controller
                             $query->whereNull('member_id');
                         }
                     }),
-                    AllowedFilter::partial('q', 'full_name_hi'),
+                    AllowedFilter::partial('q', 'full_name'),
                 ])
-                ->allowedSorts(['full_name_hi', 'pno', 'created_at'])
-                ->defaultSort('full_name_hi')
+                ->allowedSorts(['full_name', 'pno', 'created_at'])
+                ->defaultSort('full_name')
                 ->with('member:id,member_code')
                 ->get();
         }
@@ -108,7 +107,7 @@ class CoachExportController extends Controller
         $filename = 'coach-'.($coach->pno ?? $coach->id).'-'.now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(
-            new ReportExport($rows, array_values($headings), $coach->full_name_hi),
+            new ReportExport($rows, array_values($headings), $coach->full_name),
             $filename,
         );
     }

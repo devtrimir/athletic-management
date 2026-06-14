@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
-type SportOption = { id: number; name_hi: string; name_en: string };
+type SportOption = { id: number; name: string };
 
 type Props = {
     value: string[];
@@ -22,7 +22,7 @@ export function SportsMultiSelect({ value, onValueChange, sports, locale, placeh
     const { t } = useTranslation();
 
     const selectedSports = sports.filter((sport) => value.includes(String(sport.id)));
-    const sportLabel = (sport: SportOption) => (locale === 'en' ? sport.name_en : sport.name_hi);
+    const sportLabel = (sport: SportOption) => (locale === 'en' ? sport.name : sport.name);
 
     function toggleSport(sportId: string) {
         onValueChange(

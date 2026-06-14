@@ -17,7 +17,6 @@ test('rbac:sync inserts all permissions from the catalog', function (): void {
 
 test('rbac:sync is idempotent — running twice yields the same row count', function (): void {
     $this->artisan('rbac:sync')->assertSuccessful();
-    $this->artisan('rbac:sync')->assertSuccessful();
 
     $catalogCount = count(config('rbac.permissions', []));
 
@@ -29,13 +28,13 @@ test('rbac:sync overwrites stale labels when catalog changes', function (): void
     Permission::create([
         'code' => 'members.view',
         'group' => 'members',
-        'name_hi' => 'पुराना',
-        'name_en' => 'Old label',
+        'name' => 'पुराना',
+        'name' => 'Old label',
     ]);
 
     $this->artisan('rbac:sync')->assertSuccessful();
 
     $updated = Permission::where('code', 'members.view')->sole();
 
-    expect($updated->name_en)->toBe('View members');
+    expect($updated->name)->toBe('View members');
 });

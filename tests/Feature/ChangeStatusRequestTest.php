@@ -47,17 +47,17 @@ test('effective_on must be a date', function () {
         ->and($result->errors()->has('effective_on'))->toBeTrue();
 });
 
-test('reason_hi is optional', function () {
+test('reason is optional', function () {
     $result = Validator::make(['status' => 'RETIRED', 'effective_on' => '2026-06-01'], changeStatusRules());
 
     expect($result->passes())->toBeTrue();
 });
 
-test('reason_hi accepted when provided', function () {
+test('reason accepted when provided', function () {
     $result = Validator::make([
         'status' => 'RETIRED',
         'effective_on' => '2026-06-01',
-        'reason_hi' => 'सेवानिवृत्ति',
+        'reason' => 'सेवानिवृत्ति',
     ], changeStatusRules());
 
     expect($result->passes())->toBeTrue();

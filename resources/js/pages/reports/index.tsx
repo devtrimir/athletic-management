@@ -6,8 +6,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type ReportMeta = {
     key: string;
-    name_hi: string;
-    name_en: string;
+    name: string;
 };
 
 export default function ReportsIndex({ reports }: { reports: ReportMeta[] }) {
@@ -29,8 +28,8 @@ export default function ReportsIndex({ reports }: { reports: ReportMeta[] }) {
                         <Link key={report.key} href={ReportController.show(report.key).url}>
                             <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
                                 <CardHeader>
-                                    <CardTitle className="text-base">{report.name_hi}</CardTitle>
-                                    <CardDescription>{report.name_en}</CardDescription>
+                                    <CardTitle className="text-base">{report.name}</CardTitle>
+                                    <CardDescription>{report.name}</CardDescription>
                                 </CardHeader>
                             </Card>
                         </Link>

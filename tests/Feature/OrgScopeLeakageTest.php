@@ -140,8 +140,7 @@ test('Org B user cannot update Org A session — 404', function (): void {
 test('Org B user cannot update Org A sport — 404', function (): void {
     $this->actingAs($this->adminB)
         ->patch(route('sports.update', $this->sportA), [
-            'name_hi' => $this->sportA->name_hi,
-            'name_en' => $this->sportA->name_en,
+            'name' => $this->sportA->name,
             'category' => $this->sportA->category,
         ])
         ->assertNotFound();
@@ -150,8 +149,7 @@ test('Org B user cannot update Org A sport — 404', function (): void {
 test('Org B user cannot update Org A unit — 404', function (): void {
     $this->actingAs($this->adminB)
         ->patch(route('units.update', $this->unitA), [
-            'name_hi' => $this->unitA->name_hi,
-            'name_en' => $this->unitA->name_en,
+            'name' => $this->unitA->name,
             'unit_type' => $this->unitA->unit_type,
         ])
         ->assertNotFound();

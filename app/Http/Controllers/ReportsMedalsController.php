@@ -19,17 +19,17 @@ class ReportsMedalsController extends Controller
 
         $orgId = (int) $request->user()->organization_id;
 
-        $sports = Sport::select(['id', 'name_hi', 'name_en'])
-            ->orderBy('name_hi')
+        $sports = Sport::select(['id', 'name'])
+            ->orderBy('name')
             ->get();
 
         $tiers = TournamentTier::select(['id', 'code', 'label_hi', 'label_en'])
             ->orderByDesc('weight')
             ->get();
 
-        $units = Unit::select(['id', 'name_hi', 'name_en'])
+        $units = Unit::select(['id', 'name'])
             ->where('organization_id', $orgId)
-            ->orderBy('name_hi')
+            ->orderBy('name')
             ->get();
 
         return Inertia::render('reports/medals', [

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
 
-type Rank = { id: number; code: string; name_en: string; };
+type Rank = { id: number; code: string; name: string; };
 
 export default function Create({ ranks }: { ranks: Rank[] }) {
     const { t } = useTranslation();
@@ -28,12 +28,11 @@ export default function Create({ ranks }: { ranks: Rank[] }) {
                                     <div className="grid gap-2"><Label htmlFor="designation_order">{t('Order')}</Label><Input id="designation_order" name="designation_order" type="number" min={1} required /><InputError message={errors.designation_order} /></div>
                                 </div>
                                 <div className="grid gap-5 sm:grid-cols-2">
-                                    <div className="grid gap-2"><Label htmlFor="name_en">{t('Name (English)')}</Label><Input id="name_en" name="name_en" required maxLength={255} /><InputError message={errors.name_en} /></div>
+                                    <div className="grid gap-2"><Label htmlFor="name">{t('Name')}</Label><Input id="name" name="name" required maxLength={255} /><InputError message={errors.name} /></div>
                                     <div className="grid gap-2"><Label htmlFor="short_name">{t('Short name')}</Label><Input id="short_name" name="short_name" maxLength={100} /><InputError message={errors.short_name} /></div>
                                 </div>
                                 <div className="grid gap-5 sm:grid-cols-2">
-                                    <div className="grid gap-2"><Label htmlFor="name_hi">{t('Name (Hindi)')}</Label><Input id="name_hi" name="name_hi" maxLength={255} /><InputError message={errors.name_hi} /></div>
-                                    <div className="grid gap-2"><Label htmlFor="mapped_rank_code">{t('Mapped rank')}</Label><Select name="mapped_rank_code"><SelectTrigger id="mapped_rank_code"><SelectValue placeholder={t('Select rank')} /></SelectTrigger><SelectContent>{ranks.map((rank) => <SelectItem key={rank.id} value={rank.code}>{rank.name_en}</SelectItem>)}</SelectContent></Select><InputError message={errors.mapped_rank_code} /></div>
+                                    <div className="grid gap-2"><Label htmlFor="mapped_rank_code">{t('Mapped rank')}</Label><Select name="mapped_rank_code"><SelectTrigger id="mapped_rank_code"><SelectValue placeholder={t('Select rank')} /></SelectTrigger><SelectContent>{ranks.map((rank) => <SelectItem key={rank.id} value={rank.code}>{rank.name}</SelectItem>)}</SelectContent></Select><InputError message={errors.mapped_rank_code} /></div>
                                 </div>
                                 <div className="grid gap-2"><Label htmlFor="designation_type">{t('Designation type')}</Label><Input id="designation_type" name="designation_type" maxLength={100} /><InputError message={errors.designation_type} /></div>
                                 <div className="grid gap-5 sm:grid-cols-2">

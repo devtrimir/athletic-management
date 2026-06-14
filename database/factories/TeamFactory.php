@@ -26,8 +26,8 @@ class TeamFactory extends Factory
             'sport_id' => Sport::factory(),
             'session_id' => SportSession::factory(),
             'unit_id' => Unit::factory(),
-            'name_hi' => fake()->words(3, true),
-            'in_charge_hi' => fake()->optional(0.6)->name(),
+            'name' => fake()->words(3, true),
+            'in_charge' => fake()->optional(0.6)->name(),
         ];
     }
 

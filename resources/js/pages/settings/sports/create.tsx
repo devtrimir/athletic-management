@@ -33,27 +33,15 @@ export default function Create() {
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_hi">{t('Name (Hindi)')}</Label>
+                                        <Label htmlFor="name">{t('Name')}</Label>
                                         <Input
-                                            id="name_hi"
-                                            name="name_hi"
+                                            id="name"
+                                            name="name"
                                             placeholder="e.g. हॉकी"
                                             maxLength={100}
                                             required
                                         />
-                                        <InputError message={errors.name_hi} />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="name_en">{t('Name (English)')}</Label>
-                                        <Input
-                                            id="name_en"
-                                            name="name_en"
-                                            placeholder="e.g. Hockey"
-                                            maxLength={100}
-                                            required
-                                        />
-                                        <InputError message={errors.name_en} />
+                                        <InputError message={errors.name} />
                                     </div>
                                 </div>
 

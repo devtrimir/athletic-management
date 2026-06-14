@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('session_id')->constrained('sport_sessions');
             $table->foreignId('tier_id')->constrained('tournament_tiers');
             $table->foreignId('sport_id')->nullable()->constrained('sports');
-            $table->string('name_hi');
+            $table->string('name');
             $table->string('venue')->nullable();
             $table->date('date_from')->nullable();
             $table->date('date_to')->nullable();

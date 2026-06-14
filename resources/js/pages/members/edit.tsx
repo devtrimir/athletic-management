@@ -14,19 +14,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
-type District = { id: number; name_hi: string; name_en: string };
-type Unit = { id: number; name_hi: string; name_en: string };
-type SportOption = { id: number; name_hi: string; name_en: string };
-type PlayableSport = { id: number; name_hi: string; name_en: string };
-type MasterOption = { code: string; name_en: string; name_hi: string | null; short_name: string | null };
+type District = { id: number; name: string };
+type Unit = { id: number; name: string };
+type SportOption = { id: number; name: string };
+type PlayableSport = { id: number; name: string };
+type MasterOption = { code: string; name: string; short_name: string | null };
 
 type Member = {
     id: number;
     member_code: string;
     pno: string | null;
-    full_name_hi: string;
-    full_name_en: string | null;
-    father_name_hi: string | null;
+    full_name: string;
+    father_name: string | null;
     rank: string | null;
     designation: string | null;
     gender: string;
@@ -64,9 +63,8 @@ type Member = {
 
 type FormData = {
     pno: string;
-    full_name_hi: string;
-    full_name_en: string;
-    father_name_hi: string;
+    full_name: string;
+    father_name: string;
     rank: string;
     designation: string;
     gender: string;
@@ -93,8 +91,8 @@ type FormData = {
 export default function MembersEdit({ member, districts, units, sports, ranks, designations }: { member: Member; districts: District[]; units: Unit[]; sports: SportOption[]; ranks: MasterOption[]; designations: MasterOption[] }) {
     const { t } = useTranslation();
     const { locale } = usePage().props;
-    const initialRankSelection = ranks.find((rank) => [rank.code, rank.name_en, rank.name_hi, rank.short_name].filter(Boolean).includes(member.rank ?? ''))?.code ?? '__other__';
-    const initialDesignationSelection = designations.find((designation) => [designation.code, designation.name_en, designation.name_hi, designation.short_name].filter(Boolean).includes(member.designation ?? ''))?.code ?? '__other__';
+    const initialRankSelection = ranks.find((rank) => [rank.code, rank.name, rank.name, rank.short_name].filter(Boolean).includes(member.rank ?? ''))?.code ?? '__other__';
+    const initialDesignationSelection = designations.find((designation) => [designation.code, designation.name, designation.name, designation.short_name].filter(Boolean).includes(member.designation ?? ''))?.code ?? '__other__';
     const [rankSelection, setRankSelection] = useState(initialRankSelection);
     const [rankCustom, setRankCustom] = useState(initialRankSelection === '__other__' ? (member.rank ?? '') : '');
     const [designationSelection, setDesignationSelection] = useState(initialDesignationSelection);
@@ -103,16 +101,15 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
     setLayoutProps({
         breadcrumbs: [
             { title: t('Members'), href: membersIndex.url() },
-            { title: member.full_name_hi, href: showMember.url(member) },
+            { title: member.full_name, href: showMember.url(member) },
             { title: t('Edit member') },
         ],
     });
 
     const { data, setData, patch, errors, processing } = useForm<FormData>({
         pno: member.pno ?? '',
-        full_name_hi: member.full_name_hi,
-        full_name_en: member.full_name_en ?? '',
-        father_name_hi: member.father_name_hi ?? '',
+        full_name: member.full_name,
+        father_name: member.father_name ?? '',
         rank: member.rank ?? '',
         designation: member.designation ?? '',
         gender: member.gender,
@@ -142,7 +139,7 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
     });
 
     const hasPersonalErrors = !!(
-        errors.full_name_hi || errors.full_name_en || errors.father_name_hi ||
+        errors.full_name || errors.full_name || errors.father_name ||
         errors.gender || errors.dob || errors.mobile || errors.blood_group ||
         errors.caste || errors.home_address
     );
@@ -155,7 +152,7 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
     );
 
     function masterLabel(item: MasterOption): string {
-        const name = locale === 'en' ? item.name_en : (item.name_hi ?? item.name_en);
+        const name = locale === 'en' ? item.name : (item.name ?? item.name);
 
         return item.short_name ? `${item.short_name} - ${name}` : name;
     }
@@ -175,14 +172,14 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
             <div className="space-y-6">
                 {/* Header: title + photo */}
                 <div className="flex items-start justify-between gap-6">
-                    <Heading variant="small" title={t('Edit member')} description={member.full_name_hi} />
+                    <Heading variant="small" title={t('Edit member')} description={member.full_name} />
 
                     <div className="shrink-0">
                         {member.photo_path ? (
                             <div className="relative group size-20 rounded-xl overflow-hidden border bg-muted">
                                 <img
                                     src={`/storage/${member.photo_path}`}
-                                    alt={member.full_name_hi}
+                                    alt={member.full_name}
                                     className="size-full object-cover"
                                 />
                                 <button
@@ -257,40 +254,30 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
                                 <TabsContent value="personal" className="mt-0 space-y-5">
                                     <div className="grid gap-5 sm:grid-cols-2">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="full_name_hi">
-                                                {t('Name (Hindi)')} <span className="text-destructive">*</span>
+                                            <Label htmlFor="full_name">
+                                                {t('Name')} <span className="text-destructive">*</span>
                                             </Label>
                                             <Input
-                                                id="full_name_hi"
-                                                value={data.full_name_hi}
-                                                onChange={(e) => setData('full_name_hi', e.target.value)}
+                                                id="full_name"
+                                                value={data.full_name}
+                                                onChange={(e) => setData('full_name', e.target.value)}
                                                 maxLength={255}
                                                 required
                                             />
-                                            <InputError message={errors.full_name_hi} />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="full_name_en">{t('Name (English)')}</Label>
-                                            <Input
-                                                id="full_name_en"
-                                                value={data.full_name_en}
-                                                onChange={(e) => setData('full_name_en', e.target.value)}
-                                                maxLength={255}
-                                            />
-                                            <InputError message={errors.full_name_en} />
+                                            <InputError message={errors.full_name} />
                                         </div>
                                     </div>
 
                                     <div className="grid gap-5 sm:grid-cols-3">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="father_name_hi">{t("Father's name")}</Label>
+                                            <Label htmlFor="father_name">{t("Father's name")}</Label>
                                             <Input
-                                                id="father_name_hi"
-                                                value={data.father_name_hi}
-                                                onChange={(e) => setData('father_name_hi', e.target.value)}
+                                                id="father_name"
+                                                value={data.father_name}
+                                                onChange={(e) => setData('father_name', e.target.value)}
                                                 maxLength={255}
                                             />
-                                            <InputError message={errors.father_name_hi} />
+                                            <InputError message={errors.father_name} />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="gender">
@@ -495,7 +482,7 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
                                                 id="current_unit_id"
                                                 value={data.current_unit_id}
                                                 onValueChange={(v) => setData('current_unit_id', v)}
-                                                items={units.map((u) => ({ value: String(u.id), label: locale === 'en' ? u.name_en : u.name_hi }))}
+                                                items={units.map((u) => ({ value: String(u.id), label: locale === 'en' ? u.name : u.name }))}
                                                 placeholder={t('Select unit')}
                                                 searchPlaceholder={t('Search units…')}
                                             />
@@ -507,7 +494,7 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
                                                 id="posting_district_id"
                                                 value={data.posting_district_id}
                                                 onValueChange={(v) => setData('posting_district_id', v)}
-                                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name_en : d.name_hi }))}
+                                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name : d.name }))}
                                                 placeholder={t('Select district')}
                                                 searchPlaceholder={t('Search districts…')}
                                             />
@@ -519,7 +506,7 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
                                                 id="home_district_id"
                                                 value={data.home_district_id}
                                                 onValueChange={(v) => setData('home_district_id', v)}
-                                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name_en : d.name_hi }))}
+                                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name : d.name }))}
                                                 placeholder={t('Select district')}
                                                 searchPlaceholder={t('Search districts…')}
                                             />
@@ -579,7 +566,7 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
                                                     <Select value={row.sport_id} onValueChange={(v) => setData('playable_sports', data.playable_sports.map((item, i) => i === index ? { ...item, sport_id: v } : item))}>
                                                         <SelectTrigger className="w-full"><SelectValue placeholder={t('Select sport')} /></SelectTrigger>
                                                         <SelectContent>
-                                                            {sports.map((s) => <SelectItem key={s.id} value={String(s.id)}>{locale === 'en' ? s.name_en : s.name_hi}</SelectItem>)}
+                                                            {sports.map((s) => <SelectItem key={s.id} value={String(s.id)}>{locale === 'en' ? s.name : s.name}</SelectItem>)}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>

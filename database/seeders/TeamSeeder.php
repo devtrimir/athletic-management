@@ -26,7 +26,7 @@ class TeamSeeder extends Seeder
     /**
      * Canonical sport name overrides for Hindi variants used in CSV headers.
      * Key = raw CSV sport text (lowercased, spaces normalised).
-     * Value = name_hi in the sports table.
+     * Value = name in the sports table.
      *
      * @var array<string, string>
      */
@@ -66,16 +66,16 @@ class TeamSeeder extends Seeder
             return;
         }
 
-        /** @var array<string, int> $sportMap name_hi → id */
+        /** @var array<string, int> $sportMap name → id */
         $sportMap = Sport::withoutGlobalScopes()
             ->where('organization_id', $org->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
-        /** @var array<string, int> $unitMap name_hi → id */
+        /** @var array<string, int> $unitMap name → id */
         $unitMap = Unit::withoutGlobalScopes()
             ->where('organization_id', $org->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         $sources = [
@@ -147,9 +147,9 @@ class TeamSeeder extends Seeder
                     'sport_id' => $sportId,
                     'session_id' => $session->id,
                     'unit_id' => $unitId,
-                    'name_hi' => $header,
+                    'name' => $header,
                 ],
-                ['in_charge_hi' => null],
+                ['in_charge' => null],
             );
 
             $created++;

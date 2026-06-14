@@ -20,8 +20,8 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $organization_id
  * @property int|null $member_id
- * @property string $full_name_hi
- * @property string|null $full_name_en
+ * @property string $full_name
+ * @property string|null $full_name
  * @property string|null $pno
  * @property string|null $mobile
  * @property bool $nis_certified
@@ -34,8 +34,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'organization_id',
     'member_id',
-    'full_name_hi',
-    'full_name_en',
+    'full_name',
     'pno',
     'mobile',
     'nis_certified',

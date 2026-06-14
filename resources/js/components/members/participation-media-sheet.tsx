@@ -16,7 +16,7 @@ export type MediaFile = {
     original_name: string;
     mime_type: string;
     size_bytes: number;
-    caption_hi: string | null;
+    caption: string | null;
     uploaded_by: { id: number; name: string };
     created_at: string;
 };
@@ -353,7 +353,7 @@ return;
                                         >
                                             <img
                                                 src={file.url}
-                                                alt={file.caption_hi ?? file.original_name}
+                                                alt={file.caption ?? file.original_name}
                                                 className="size-full cursor-pointer object-cover transition-opacity group-hover:opacity-80"
                                                 onClick={() => setLightboxIdx(idx)}
                                             />
@@ -368,9 +368,9 @@ return;
                                                     <Trash2 className="size-3" />
                                                 </Button>
                                             )}
-                                            {file.caption_hi && (
+                                            {file.caption && (
                                                 <div className="absolute bottom-0 inset-x-0 bg-black/60 px-2 py-1">
-                                                    <p className="text-[10px] text-white truncate">{file.caption_hi}</p>
+                                                    <p className="text-[10px] text-white truncate">{file.caption}</p>
                                                 </div>
                                             )}
                                         </div>

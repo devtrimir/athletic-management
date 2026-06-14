@@ -22,7 +22,7 @@ class SportController extends Controller
         Gate::authorize('viewAny', Sport::class);
 
         $sports = Sport::where('organization_id', $request->user()->organization_id)
-            ->orderBy('name_en')
+            ->orderBy('name')
             ->get();
 
         return Inertia::render('settings/sports/index', [
@@ -46,7 +46,7 @@ class SportController extends Controller
 
         Sport::create(array_merge($data, [
             'organization_id' => $orgId,
-            'slug' => Str::slug($data['name_en']),
+            'slug' => $this->slugForName($data['name']),
         ]));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Sport created.')]);
@@ -70,7 +70,7 @@ class SportController extends Controller
         $data = $request->validated();
 
         $sport->update(array_merge($data, [
-            'slug' => Str::slug($data['name_en']),
+            'slug' => $this->slugForName($data['name']),
         ]));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Sport updated.')]);
@@ -87,5 +87,12 @@ class SportController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Sport deleted.')]);
 
         return to_route('sports.index');
+    }
+
+    private function slugForName(string $name): string
+    {
+        $slug = Str::slug($name);
+
+        return $slug !== '' ? $slug : 'sport-'.substr(sha1($name), 0, 10);
     }
 }

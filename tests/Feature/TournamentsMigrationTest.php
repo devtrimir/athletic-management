@@ -17,7 +17,7 @@ test('tournaments table is created by migration', function () {
 test('tournaments table has all required columns', function () {
     $columns = [
         'id', 'organization_id', 'session_id', 'tier_id', 'sport_id',
-        'name_hi', 'venue', 'date_from', 'date_to', 'raw_date_text',
+        'name', 'venue', 'date_from', 'date_to', 'raw_date_text',
         'deleted_at', 'created_at', 'updated_at',
     ];
 

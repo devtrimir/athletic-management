@@ -28,7 +28,7 @@ class ReferenceDataController extends Controller
     public function sports(Request $request): AnonymousResourceCollection
     {
         $sports = Sport::where('organization_id', $request->user()->organization_id)
-            ->orderBy('name_en')
+            ->orderBy('name')
             ->get();
 
         return SportResource::collection($sports);
@@ -37,7 +37,7 @@ class ReferenceDataController extends Controller
     public function units(Request $request): AnonymousResourceCollection
     {
         $units = Unit::where('organization_id', $request->user()->organization_id)
-            ->orderBy('name_en')
+            ->orderBy('name')
             ->get();
 
         return UnitResource::collection($units);
@@ -45,7 +45,7 @@ class ReferenceDataController extends Controller
 
     public function districts(): AnonymousResourceCollection
     {
-        $districts = District::orderBy('name_en')->get();
+        $districts = District::orderBy('name')->get();
 
         return DistrictResource::collection($districts);
     }

@@ -1,4 +1,4 @@
-import { router, useForm, usePage } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Combobox } from '@/components/combobox';
@@ -44,8 +44,8 @@ type LiveAchievement = {
     position: number | null;
     remarks: string | null;
     session: { id: number; name: string };
-    tournament: { id: number; name_hi: string; tier_code: string | null };
-    event: { id: number; name_hi: string };
+    tournament: { id: number; name: string; tier_code: string | null };
+    event: { id: number; name: string };
     benefits: { id: number; benefit_type: string }[];
 };
 
@@ -54,11 +54,11 @@ type ParticipationItem = {
     position: number | null;
     tournament: {
         id: number;
-        name_hi: string;
+        name: string;
         tier_code: string | null;
         date_from: string | null;
     };
-    event: { id: number; name_hi: string; gender_class: string };
+    event: { id: number; name: string; gender_class: string };
     achievement: {
         medal_type: string;
         position: number | null;
@@ -119,24 +119,22 @@ type PromotionMediaFile = {
     original_name: string;
     mime_type: string;
     size_bytes: number;
-    caption_hi: string | null;
+    caption: string | null;
     uploaded_by: { id: number; name: string };
     created_at: string;
 };
 
 type RankOption = {
     code: string;
-    name_hi: string;
-    name_en: string;
+    name: string;
     short_name: string | null;
 };
 
 type InlineRankPayload = {
     code: string;
-    name_en: string;
+    name: string;
     rank_order: string;
     short_name: string;
-    name_hi: string;
     is_active: boolean;
 };
 
@@ -155,8 +153,8 @@ function evidenceKey(type: string, id: number): string {
     return `${type}:${id}`;
 }
 
-function rankDisplay(rank: RankOption, locale: string): string {
-    const label = locale === 'en' ? rank.name_en : rank.name_hi;
+function rankDisplay(rank: RankOption): string {
+    const label = rank.name;
 
     return `${rank.code} · ${label}${rank.short_name ? ` · ${rank.short_name}` : ''}`;
 }
@@ -250,7 +248,6 @@ function medalBadgeContent(medalType: string): {
 function resolveRankLabel(
     value: string | null,
     ranks: RankOption[],
-    locale: string,
 ): string {
     if (!value) {
         return '';
@@ -259,12 +256,11 @@ function resolveRankLabel(
     const rank = ranks.find(
         (item) =>
             item.code === value ||
-            item.name_en === value ||
-            item.name_hi === value ||
+            item.name === value ||
             item.short_name === value,
     );
 
-    return rank ? rankDisplay(rank, locale) : value;
+    return rank ? rankDisplay(rank) : value;
 }
 
 function getCsrfToken(): string {
@@ -417,10 +413,9 @@ function InlineRankDialog({
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [data, setData] = useState<InlineRankPayload>({
         code: '',
-        name_en: '',
+        name: '',
         rank_order: '',
         short_name: '',
-        name_hi: '',
         is_active: true,
     });
 
@@ -446,10 +441,9 @@ function InlineRankDialog({
                 },
                 body: JSON.stringify({
                     code: data.code,
-                    name_en: data.name_en,
+                    name: data.name,
                     rank_order: Number(data.rank_order),
                     short_name: data.short_name || null,
-                    name_hi: data.name_hi || null,
                     is_active: data.is_active,
                 }),
             });
@@ -480,10 +474,9 @@ function InlineRankDialog({
             onCreated(json.rank);
             setData({
                 code: '',
-                name_en: '',
+                name: '',
                 rank_order: '',
                 short_name: '',
-                name_hi: '',
                 is_active: true,
             });
             setOpen(false);
@@ -552,16 +545,16 @@ function InlineRankDialog({
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="inline-rank-name-en">
-                                {t('Name (English)')}
+                                {t('Name')}
                             </Label>
                             <Input
                                 id="inline-rank-name-en"
-                                value={data.name_en}
+                                value={data.name}
                                 onChange={(e) =>
-                                    setField('name_en', e.target.value)
+                                    setField('name', e.target.value)
                                 }
                             />
-                            <InputError message={errors.name_en} />
+                            <InputError message={errors.name} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="inline-rank-short-name">
@@ -580,16 +573,16 @@ function InlineRankDialog({
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="inline-rank-name-hi">
-                                {t('Name (Hindi)')}
+                                {t('Name')}
                             </Label>
                             <Input
                                 id="inline-rank-name-hi"
-                                value={data.name_hi}
+                                value={data.name}
                                 onChange={(e) =>
-                                    setField('name_hi', e.target.value)
+                                    setField('name', e.target.value)
                                 }
                             />
-                            <InputError message={errors.name_hi} />
+                            <InputError message={errors.name} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="inline-rank-active">
@@ -653,8 +646,6 @@ function PromotionDialog({
     onSaved: () => void;
 }) {
     const { t } = useTranslation();
-    const { locale } = usePage().props as { locale?: string };
-    const resolvedLocale = locale ?? 'en';
     const [open, setOpen] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [availableRanks, setAvailableRanks] = useState(ranks);
@@ -681,7 +672,7 @@ function PromotionDialog({
     const rankItems: ComboboxItem[] = useMemo(() => {
         const items = availableRanks.map((rank) => ({
             value: rank.code,
-            label: rankDisplay(rank, resolvedLocale),
+            label: rankDisplay(rank),
         }));
 
         if (memberRank && !items.some((item) => item.value === memberRank)) {
@@ -689,7 +680,7 @@ function PromotionDialog({
         }
 
         return items;
-    }, [availableRanks, memberRank, resolvedLocale]);
+    }, [availableRanks, memberRank]);
 
     const form = useForm({
         promotion_date: promotion?.promotion_date ?? '',
@@ -738,8 +729,8 @@ function PromotionDialog({
             }
 
             return [...prev, rank].sort((left, right) =>
-                (left.name_en ?? left.code).localeCompare(
-                    right.name_en ?? right.code,
+                (left.name ?? left.code).localeCompare(
+                    right.name ?? right.code,
                 ),
             );
         });
@@ -772,7 +763,7 @@ function PromotionDialog({
                     });
                 }
 
-                const label = `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}${item.achievement?.benefits && item.achievement.benefits.length > 0 ? ` · ${summarizeBenefits(item.achievement.benefits, t)}` : ''}`;
+                const label = `${group.session.name} · ${item.tournament.name} · ${item.event.name}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}${item.achievement?.benefits && item.achievement.benefits.length > 0 ? ` · ${summarizeBenefits(item.achievement.benefits, t)}` : ''}`;
                 const existing = deduped.get(key);
 
                 if (!existing || existing.priority < 2) {
@@ -787,7 +778,7 @@ function PromotionDialog({
             if (!deduped.has(key)) {
                 deduped.set(key, {
                     key,
-                    label: `${t(item.medal_type)} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.benefits.length > 0 ? ` · ${t('Benefit recorded')}` : ''}`,
+                    label: `${t(item.medal_type)} · ${item.tournament.name} · ${item.event.name}${item.benefits.length > 0 ? ` · ${t('Benefit recorded')}` : ''}`,
                     evidences: [{ type: 'achievement', id: item.id }],
                     priority: 1,
                 });
@@ -1111,16 +1102,14 @@ function PromotionDialog({
                                 <Badge variant="outline">
                                     {resolveRankLabel(
                                         form.data.from_rank,
-                                        ranks,
-                                        resolvedLocale,
+                                        ranks ,
                                     ) || t('Unknown')}
                                 </Badge>
                                 <span className="text-muted-foreground">→</span>
                                 <Badge>
                                     {resolveRankLabel(
                                         form.data.to_rank,
-                                        ranks,
-                                        resolvedLocale,
+                                        ranks ,
                                     ) || t('Unknown')}
                                 </Badge>
                             </div>
@@ -1191,7 +1180,7 @@ function CashRewardDialog({
         for (const group of participations) {
             for (const item of group.participations) {
                 const key = `participation:${item.id}`;
-                const label = `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}`;
+                const label = `${group.session.name} · ${item.tournament.name} · ${item.event.name}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}`;
 
                 deduped.set(key, {
                     key,
@@ -1595,9 +1584,6 @@ export function PromotionsTab({
     onSaved,
 }: Props) {
     const { t } = useTranslation();
-    const { locale } = usePage().props as { locale?: string };
-    const resolvedLocale = locale ?? 'en';
-
     function evidenceSummary(evidence: PromotionEvidence): string {
         if (evidence.type === 'participation') {
             for (const group of participations) {
@@ -1616,7 +1602,7 @@ export function PromotionsTab({
                         ? ` · #${item.position}`
                         : '';
 
-                    return `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi} · ${item.tournament.date_from ?? t('No date')}${item.event.gender_class ? ` · ${item.event.gender_class}` : ''}${medalSummary}${positionSummary}${benefitSummary}`;
+                    return `${group.session.name} · ${item.tournament.name} · ${item.event.name} · ${item.tournament.date_from ?? t('No date')}${item.event.gender_class ? ` · ${item.event.gender_class}` : ''}${medalSummary}${positionSummary}${benefitSummary}`;
                 }
             }
 
@@ -1636,7 +1622,7 @@ export function PromotionsTab({
         const item = achievements.find((a) => a.id === evidence.evidence_id);
 
         return item
-            ? `${medalBadgeContent(item.medal_type).label} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.tournament.tier_code ? ` · ${item.tournament.tier_code}` : ''}${item.benefits.length > 0 ? ` · ${summarizeBenefits(item.benefits, t)}` : ''}`
+            ? `${medalBadgeContent(item.medal_type).label} · ${item.tournament.name} · ${item.event.name}${item.tournament.tier_code ? ` · ${item.tournament.tier_code}` : ''}${item.benefits.length > 0 ? ` · ${summarizeBenefits(item.benefits, t)}` : ''}`
             : `${t('Achievement')} #${evidence.evidence_id}`;
     }
 
@@ -1655,8 +1641,8 @@ export function PromotionsTab({
                     >
                         {medal.icon}
                         <span className="truncate">
-                            {medal.label} {item.tournament.name_hi} ·{' '}
-                            {item.event.name_hi}
+                            {medal.label} {item.tournament.name} ·{' '}
+                            {item.event.name}
                         </span>
                     </span>
                 );
@@ -1706,7 +1692,7 @@ export function PromotionsTab({
                                 benefit_date: benefit.benefit_date,
                                 order_reference: benefit.order_reference,
                                 remarks: benefit.remarks,
-                                source_label: `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}`,
+                                source_label: `${group.session.name} · ${item.tournament.name} · ${item.event.name}`,
                             });
                         }
                     }
@@ -1749,7 +1735,7 @@ export function PromotionsTab({
                             benefit_date: benefit.benefit_date,
                             order_reference: benefit.order_reference,
                             remarks: benefit.remarks,
-                            source_label: `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}`,
+                            source_label: `${group.session.name} · ${item.tournament.name} · ${item.event.name}`,
                         });
                     }
                 }
@@ -1777,8 +1763,7 @@ export function PromotionsTab({
                         {memberRank
                             ? resolveRankLabel(
                                   memberRank,
-                                  ranks,
-                                  resolvedLocale,
+                                  ranks ,
                               )
                             : t('Unknown')}
                     </p>
@@ -1822,8 +1807,7 @@ export function PromotionsTab({
                                         <Badge variant="outline">
                                             {resolveRankLabel(
                                                 promotion.from_rank,
-                                                ranks,
-                                                resolvedLocale,
+                                                ranks ,
                                             ) || t('Unknown')}
                                         </Badge>
                                         <span className="text-muted-foreground">
@@ -1832,8 +1816,7 @@ export function PromotionsTab({
                                         <Badge>
                                             {resolveRankLabel(
                                                 promotion.to_rank,
-                                                ranks,
-                                                resolvedLocale,
+                                                ranks ,
                                             )}
                                         </Badge>
                                         {promotion.promotion_date && (

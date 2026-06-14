@@ -1,42 +1,42 @@
-name_hi,name_en,category
-एथलेटिक्स,Athletics,INDIVIDUAL
-आर्चरी,Archery,INDIVIDUAL
-शूटिंग,Shooting,INDIVIDUAL
-योगा,Yoga,INDIVIDUAL
-जिम्नास्टिक,Gymnastics,INDIVIDUAL
-साइकिलिंग,Cycling,INDIVIDUAL
-क्रॉस कंट्री,Cross Country,INDIVIDUAL
-पावर लिफ्टिंग,Power Lifting,INDIVIDUAL
-भारोत्तोलन,Weightlifting,INDIVIDUAL
-बॉडी बिल्डिंग,Body Building,INDIVIDUAL
-बैडमिंटन,Badminton,INDIVIDUAL
-टेबल टेनिस,Table Tennis,INDIVIDUAL
-टेनिस,Tennis,INDIVIDUAL
-स्क्वैश,Squash,INDIVIDUAL
-कुश्ती,Wrestling,COMBAT
-वुशु,Wushu,COMBAT
-ताईक्वांडो,Taekwondo,COMBAT
-जूडो,Judo,COMBAT
-कराटे,Karate,COMBAT
-बॉक्सिंग,Boxing,COMBAT
-आर्म रेसलिंग,Arm Wrestling,COMBAT
-मलखम्भ,Mallakhamb,COMBAT
-फेंसिंग,Fencing,COMBAT
-हॉकी,Hockey,TEAM
-कबड्डी,Kabaddi,TEAM
-वॉलीबॉल,Volleyball,TEAM
-फुटबॉल,Football,TEAM
-क्रिकेट,Cricket,TEAM
-बास्केटबॉल,Basketball,TEAM
-हैंडबॉल,Handball,TEAM
-खो-खो,Kho Kho,TEAM
-रस्साकशी,Tug of War,TEAM
-बॉल बैडमिंटन,Ball Badminton,TEAM
-तैराकी,Swimming,WATER
-वाटर पोलो,Water Polo,WATER
-डाइविंग,Diving,WATER
-कयाकिंग व केनोइंग,Kayaking and Canoeing,WATER
-रोइंग,Rowing,WATER
-पेंचक सिलाट,Pencak Silat,COMBAT
-सेपक टकरा,Sepak Takraw,TEAM
-वाटर स्पोर्ट्स,Water Sports,WATER
+name,category
+एथलेटिक्स,INDIVIDUAL
+आर्चरी,INDIVIDUAL
+शूटिंग,INDIVIDUAL
+योगा,INDIVIDUAL
+जिम्नास्टिक,INDIVIDUAL
+साइकिलिंग,INDIVIDUAL
+क्रॉस कंट्री,INDIVIDUAL
+पावर लिफ्टिंग,INDIVIDUAL
+भारोत्तोलन,INDIVIDUAL
+बॉडी बिल्डिंग,INDIVIDUAL
+बैडमिंटन,INDIVIDUAL
+टेबल टेनिस,INDIVIDUAL
+टेनिस,INDIVIDUAL
+स्क्वैश,INDIVIDUAL
+कुश्ती,COMBAT
+वुशु,COMBAT
+ताईक्वांडो,COMBAT
+जूडो,COMBAT
+कराटे,COMBAT
+बॉक्सिंग,COMBAT
+आर्म रेसलिंग,COMBAT
+मलखम्भ,COMBAT
+फेंसिंग,COMBAT
+हॉकी,TEAM
+कबड्डी,TEAM
+वॉलीबॉल,TEAM
+फुटबॉल,TEAM
+क्रिकेट,TEAM
+बास्केटबॉल,TEAM
+हैंडबॉल,TEAM
+खो-खो,TEAM
+रस्साकशी,TEAM
+बॉल बैडमिंटन,TEAM
+तैराकी,WATER
+वाटर पोलो,WATER
+डाइविंग,WATER
+कयाकिंग व केनोइंग,WATER
+रोइंग,WATER
+पेंचक सिलाट,COMBAT
+सेपक टकरा,TEAM
+वाटर स्पोर्ट्स,WATER

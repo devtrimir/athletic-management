@@ -75,25 +75,25 @@ test('returns matching members in correct contract shape', function () {
     $user = searchUser('members.view');
     Member::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'राम कुमार',
+        'full_name' => 'राम कुमार',
         'current_status' => 'ACTIVE',
     ]);
     Member::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'श्याम लाल',
+        'full_name' => 'श्याम लाल',
     ]);
 
     $response = $this->actingAs($user)
         ->getJson(route('v1.search.members', ['q' => 'राम']))
         ->assertOk()
         ->assertJsonStructure([
-            'data' => [['id', 'member_code', 'pno', 'full_name_hi', 'full_name_en', 'player_category', 'player_level', 'current_status']],
+            'data' => [['id', 'member_code', 'pno', 'full_name', 'full_name', 'player_category', 'player_level', 'current_status']],
             'meta' => ['q', 'count'],
         ]);
 
     $data = $response->json('data');
     expect(count($data))->toBe(1)
-        ->and($data[0]['full_name_hi'])->toBe('राम कुमार');
+        ->and($data[0]['full_name'])->toBe('राम कुमार');
 });
 
 test('PNO exact match returns the correct member', function () {
@@ -101,7 +101,7 @@ test('PNO exact match returns the correct member', function () {
     Member::factory()->create([
         'organization_id' => $user->organization_id,
         'pno' => '1234567890',
-        'full_name_hi' => 'राम कुमार',
+        'full_name' => 'राम कुमार',
     ]);
 
     $response = $this->actingAs($user)
@@ -117,7 +117,7 @@ test('cross-org members are not returned', function () {
     $otherOrg = Organization::factory()->create();
     Member::factory()->create([
         'organization_id' => $otherOrg->id,
-        'full_name_hi' => 'राम कुमार',
+        'full_name' => 'राम कुमार',
     ]);
 
     $response = $this->actingAs($user)
@@ -134,27 +134,27 @@ test('team availability search returns only active playable available members', 
 
     $available = Member::factory()->create([
         'organization_id' => $org->id,
-        'full_name_hi' => 'राम उपलब्ध',
+        'full_name' => 'राम उपलब्ध',
         'current_status' => 'ACTIVE',
     ]);
     $available->playableSports()->sync([$team->sport_id]);
 
     $inactive = Member::factory()->create([
         'organization_id' => $org->id,
-        'full_name_hi' => 'राम निष्क्रिय',
+        'full_name' => 'राम निष्क्रिय',
         'current_status' => 'RETIRED',
     ]);
     $inactive->playableSports()->sync([$team->sport_id]);
 
     Member::factory()->create([
         'organization_id' => $org->id,
-        'full_name_hi' => 'राम अयोग्य',
+        'full_name' => 'राम अयोग्य',
         'current_status' => 'ACTIVE',
     ]);
 
     $assigned = Member::factory()->create([
         'organization_id' => $org->id,
-        'full_name_hi' => 'राम नियुक्त',
+        'full_name' => 'राम नियुक्त',
         'current_status' => 'ACTIVE',
     ]);
     $assigned->playableSports()->sync([$team->sport_id]);

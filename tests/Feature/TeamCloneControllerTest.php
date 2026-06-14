@@ -144,7 +144,7 @@ test('clone creates a new team with same name for the target session', function 
         'sport_id' => $team->sport_id,
         'unit_id' => $team->unit_id,
         'session_id' => $targetSession->id,
-        'name_hi' => $team->name_hi,
+        'name' => $team->name,
     ]);
 });
 

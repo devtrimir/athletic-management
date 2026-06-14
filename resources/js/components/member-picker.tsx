@@ -17,8 +17,7 @@ export type MemberOption = {
     id: number;
     member_code: string;
     pno: string | null;
-    full_name_hi: string;
-    full_name_en: string | null;
+    full_name: string;
     player_category: string;
     player_level: string;
     current_status: string;
@@ -42,7 +41,7 @@ export function MemberPicker({ value, onChange, placeholder, disabled = false, i
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<MemberOption[]>([]);
-    const timerRef = useRef<ReturnType<typeof setTimeout>>();
+    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const { get, cancel, processing } = useHttp<Record<string, never>, SearchResponse>({});
 
     const handleInputChange = useCallback(
@@ -77,7 +76,7 @@ export function MemberPicker({ value, onChange, placeholder, disabled = false, i
 return '';
 }
 
-        return member.pno ? `${member.full_name_hi} · ${member.pno}` : member.full_name_hi;
+        return member.pno ? `${member.full_name} · ${member.pno}` : member.full_name;
     };
 
     return (
@@ -132,16 +131,13 @@ return '';
                                         />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-medium">{member.full_name_hi}</span>
+                                                <span className="font-medium">{member.full_name}</span>
                                                 {member.pno && (
                                                     <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
                                                         {member.pno}
                                                     </span>
                                                 )}
                                             </div>
-                                            {member.full_name_en && (
-                                                <p className="text-muted-foreground truncate text-xs">{member.full_name_en}</p>
-                                            )}
                                         </div>
                                     </div>
                                 )}

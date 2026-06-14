@@ -24,8 +24,7 @@ class CoachFactory extends Factory
         return [
             'organization_id' => Organization::factory(),
             'member_id' => null,
-            'full_name_hi' => fake()->name(),
-            'full_name_en' => fake()->optional(0.5)->name(),
+            'full_name' => fake()->name(),
             'pno' => fake()->optional(0.6)->numerify('##########'),
             'mobile' => fake()->optional(0.7)->numerify('##########'),
             'nis_certified' => fake()->boolean(30),
@@ -46,7 +45,7 @@ class CoachFactory extends Factory
 
             return [
                 'member_id' => $linked->id,
-                'full_name_hi' => $linked->full_name_hi,
+                'full_name' => $linked->full_name,
                 'pno' => $linked->pno,
             ];
         });

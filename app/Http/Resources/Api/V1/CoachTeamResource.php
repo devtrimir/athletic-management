@@ -22,7 +22,7 @@ class CoachTeamResource extends JsonResource
             'role' => $this->role,
             'team' => [
                 'id' => $this->team->id,
-                'name_hi' => $this->team->name_hi,
+                'name' => $this->team->name,
             ],
             'sport' => [
                 'id' => $this->team->sport->id,

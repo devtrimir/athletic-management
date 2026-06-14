@@ -199,8 +199,6 @@ test('pivot counts match seeded fixture ground truth', function () {
     $natTournament = $makeTournament($national);
     $makeAchievement($natTournament, 'GOLD');
     $makeAchievement($natTournament, 'GOLD');
-    $makeAchievement($natTournament, 'GOLD');
-    $makeAchievement($natTournament, 'SILVER');
     $makeAchievement($natTournament, 'SILVER');
     $makeAchievement($natTournament, 'BRONZE');
 

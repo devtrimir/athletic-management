@@ -17,7 +17,7 @@ class NewJoinersReport
      *  2. session_id → derives start_year-01-01 … end_year-12-31 from sport_sessions
      *
      * @param  array{session_id?: int|null, sport_id?: int|null, unit_id?: int|null, tier_id?: int|null, from_date?: string|null, to_date?: string|null}  $filters
-     * @return Collection<int, array{member: array{id: int, member_code: string, pno: string|null, full_name_hi: string, rank: string|null, player_category: string}, unit: array{id: int, name_hi: string, name_en: string}|null, joining_date: string}>
+     * @return Collection<int, array{member: array{id: int, member_code: string, pno: string|null, full_name: string, rank: string|null, player_category: string}, unit: array{id: int, name: string, name: string}|null, joining_date: string}>
      */
     public function run(int $orgId, array $filters): Collection
     {
@@ -45,13 +45,12 @@ class NewJoinersReport
                 'm.id',
                 'm.member_code',
                 'm.pno',
-                'm.full_name_hi',
+                'm.full_name',
                 'm.rank',
                 'm.player_category',
                 'm.joining_date',
                 'u.id as unit_id',
-                'u.name_hi as unit_name_hi',
-                'u.name_en as unit_name_en',
+                'u.name as unit_name',
             ])
             ->where('m.organization_id', $orgId)
             ->whereNull('m.deleted_at')
@@ -60,7 +59,7 @@ class NewJoinersReport
             ->when($toDate, fn ($q) => $q->where('m.joining_date', '<=', $toDate))
             ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))
             ->orderBy('m.joining_date')
-            ->orderBy('m.full_name_hi')
+            ->orderBy('m.full_name')
             ->get();
 
         return $rows->map(fn (object $row): array => [
@@ -68,12 +67,12 @@ class NewJoinersReport
                 'id' => $row->id,
                 'member_code' => $row->member_code,
                 'pno' => $row->pno,
-                'full_name_hi' => $row->full_name_hi,
+                'full_name' => $row->full_name,
                 'rank' => $row->rank,
                 'player_category' => $row->player_category,
             ],
             'unit' => $row->unit_id !== null
-                ? ['id' => $row->unit_id, 'name_hi' => $row->unit_name_hi, 'name_en' => $row->unit_name_en]
+                ? ['id' => $row->unit_id, 'name' => $row->unit_name]
                 : null,
             'joining_date' => substr((string) $row->joining_date, 0, 10),
         ]);

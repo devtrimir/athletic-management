@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
             $table->enum('status', ['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED']);
             $table->date('effective_on');
-            $table->text('reason_hi')->nullable();
+            $table->text('reason')->nullable();
             $table->foreignId('recorded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 

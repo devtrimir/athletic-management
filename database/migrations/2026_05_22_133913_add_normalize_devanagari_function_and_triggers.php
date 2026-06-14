@@ -50,8 +50,8 @@ return new class extends Migration
             BEFORE INSERT ON members
             FOR EACH ROW
             BEGIN
-                IF NEW.full_name_hi IS NOT NULL THEN
-                    SET NEW.full_name_normalized = normalize_devanagari(NEW.full_name_hi);
+                IF NEW.full_name IS NOT NULL THEN
+                    SET NEW.full_name_normalized = normalize_devanagari(NEW.full_name);
                 END IF;
             END
         SQL);
@@ -62,8 +62,8 @@ return new class extends Migration
             BEFORE UPDATE ON members
             FOR EACH ROW
             BEGIN
-                IF NEW.full_name_hi IS NOT NULL THEN
-                    SET NEW.full_name_normalized = normalize_devanagari(NEW.full_name_hi);
+                IF NEW.full_name IS NOT NULL THEN
+                    SET NEW.full_name_normalized = normalize_devanagari(NEW.full_name);
                 END IF;
             END
         SQL);
@@ -75,8 +75,8 @@ return new class extends Migration
             BEFORE INSERT ON name_aliases
             FOR EACH ROW
             BEGIN
-                IF NEW.alias_hi IS NOT NULL THEN
-                    SET NEW.alias_normalized = normalize_devanagari(NEW.alias_hi);
+                IF NEW.alias IS NOT NULL THEN
+                    SET NEW.alias_normalized = normalize_devanagari(NEW.alias);
                 END IF;
             END
         SQL);
@@ -87,8 +87,8 @@ return new class extends Migration
             BEFORE UPDATE ON name_aliases
             FOR EACH ROW
             BEGIN
-                IF NEW.alias_hi IS NOT NULL THEN
-                    SET NEW.alias_normalized = normalize_devanagari(NEW.alias_hi);
+                IF NEW.alias IS NOT NULL THEN
+                    SET NEW.alias_normalized = normalize_devanagari(NEW.alias);
                 END IF;
             END
         SQL);

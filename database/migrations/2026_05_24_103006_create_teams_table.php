@@ -16,15 +16,15 @@ return new class extends Migration
             $table->foreignId('sport_id')->constrained('sports');
             $table->foreignId('session_id')->constrained('sport_sessions');
             $table->foreignId('unit_id')->constrained('units');
-            $table->string('name_hi');
-            $table->string('in_charge_hi')->nullable();
+            $table->string('name');
+            $table->string('in_charge')->nullable();
 
             $table->softDeletes();
             $table->timestamps();
 
             // 5-column unique composite — allows the same team name across different units.
             $table->unique(
-                ['organization_id', 'sport_id', 'session_id', 'unit_id', 'name_hi'],
+                ['organization_id', 'sport_id', 'session_id', 'unit_id', 'name'],
                 'teams_unique_org_sport_session_unit_name'
             );
             $table->index('organization_id');

@@ -19,8 +19,8 @@ class TeamResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'name_hi' => $this->name_hi,
-            'in_charge_hi' => $this->in_charge_hi,
+            'name' => $this->name,
+            'in_charge' => $this->in_charge,
             'players_count' => $this->whenCounted('teamMembers'),
             'coaches_count' => $this->whenCounted('coachAssignments'),
             'sport' => $this->whenLoaded('sport', fn () => [
@@ -33,7 +33,7 @@ class TeamResource extends JsonResource
             ]),
             'unit' => $this->whenLoaded('unit', fn () => [
                 'id' => $this->unit->id,
-                'name_hi' => $this->unit->name_hi,
+                'name' => $this->unit->name,
             ]),
         ];
     }

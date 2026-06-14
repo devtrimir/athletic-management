@@ -14,9 +14,8 @@ type Member = {
     id: number;
     member_code: string;
     pno: string | null;
-    full_name_hi: string;
-    full_name_en: string | null;
-    father_name_hi: string | null;
+    full_name: string;
+    father_name: string | null;
     rank: string | null;
     designation: string | null;
     gender: string;
@@ -26,9 +25,9 @@ type Member = {
     player_category: string;
     player_level: string;
     current_status: string;
-    home_district: { id: number; name_hi: string } | null;
-    posting_district: { id: number; name_hi: string } | null;
-    current_unit: { id: number; name_hi: string } | null;
+    home_district: { id: number; name: string } | null;
+    posting_district: { id: number; name: string } | null;
+    current_unit: { id: number; name: string } | null;
     photo_path: string | null;
     blood_group: string | null;
     caste: string | null;
@@ -36,8 +35,8 @@ type Member = {
     appointment: string | null;
     home_address: string | null;
     recruitment_type: string | null;
-    sport: { id: number; name_hi: string; name_en: string } | null;
-    playable_sports: { id: number; name_hi: string; name_en: string; role?: string | null; position?: string | null; notes?: string | null }[];
+    sport: { id: number; name: string } | null;
+    playable_sports: { id: number; name: string; role?: string | null; position?: string | null; notes?: string | null }[];
     other_notes: string | null;
     team_since: string | null;
 };
@@ -46,7 +45,7 @@ type StatusEntry = {
     id: number;
     status: string;
     effective_on: string;
-    reason_hi: string | null;
+    reason: string | null;
     recorded_by_name: string | null;
 };
 type MemberTeamRow = {
@@ -54,7 +53,7 @@ type MemberTeamRow = {
     role: string | null;
     joined_on: string | null;
     left_on: string | null;
-    team: { id: number; name_hi: string } | null;
+    team: { id: number; name: string } | null;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
 };
@@ -90,14 +89,14 @@ type AchievementRow = {
     session: { id: number; name: string };
     tournament: {
         id: number;
-        name_hi: string;
+        name: string;
         tier_code: string | null;
         tier_weight: number | null;
         date_from: string | null;
         date_to: string | null;
         venue: string | null;
     };
-    event: { id: number; name_hi: string };
+    event: { id: number; name: string };
     benefits: AchievementBenefitRow[];
 };
 type AchievementTierGroup = {
@@ -118,7 +117,41 @@ type PromotionRow = {
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
-    evidences: { id: number; type: string; evidence_id: number }[];
+    evidences: PromotionEvidenceRow[];
+};
+type PromotionEvidenceRow = {
+    id: number;
+    type: string;
+    evidence_id: number;
+    summary: string | null;
+    session?: { id: number; name: string } | null;
+    tournament?: {
+        id: number;
+        name: string;
+        tier_code: string | null;
+        date_from: string | null;
+        date_to: string | null;
+        venue: string | null;
+    } | null;
+    event?: { id: number; name: string; gender_class: string | null } | null;
+    achievement?: {
+        id: number;
+        medal_type: string | null;
+        position: string | number | null;
+        benefits: AchievementBenefitRow[];
+    } | null;
+    legacy_achievement?: {
+        id: number;
+        period: string;
+        level: string;
+        competition_details: string;
+        event: string | null;
+        event_date: string | null;
+        venue: string | null;
+        sport_discipline: string | null;
+        medal_type: string | null;
+        benefits: AchievementBenefitRow[];
+    } | null;
 };
 type AuditChange = { field: string; old: string | null; new: string | null };
 type AuditEntry = {
@@ -192,8 +225,7 @@ const UI_LABELS: Record<
     'Record timeline': { en: 'Record timeline', hi: 'रिकॉर्ड समयरेखा' },
     PNO: { en: 'PNO', hi: 'पीएनओ' },
     'Current status': { en: 'Current status', hi: 'वर्तमान स्थिति' },
-    'Name (Hindi)': { en: 'Name (Hindi)', hi: 'नाम (हिंदी)' },
-    'Name (English)': { en: 'Name (English)', hi: 'नाम (अंग्रेजी)' },
+    Name: { en: 'Name', hi: 'नाम' },
     "Father's name": { en: "Father's name", hi: 'पिता का नाम' },
     Gender: { en: 'Gender', hi: 'लिंग' },
     'Date of birth': { en: 'Date of birth', hi: 'जन्म तिथि' },
@@ -243,9 +275,10 @@ const UI_LABELS: Record<
         hi: 'नकद पुरस्कार संदर्भ',
     },
     Tier: { en: 'Tier', hi: 'स्तर' },
-    Session: { en: 'Session', hi: 'सत्र' },
     Tournament: { en: 'Tournament', hi: 'प्रतियोगिता' },
     Position: { en: 'Position', hi: 'स्थान' },
+    Evidence: { en: 'Evidence', hi: 'प्रमाण' },
+    Benefits: { en: 'Benefits', hi: 'लाभ' },
 };
 
 const DATE_FIELD_LABELS = new Set([
@@ -430,8 +463,7 @@ const STORY_SUBJECTS: Record<
 };
 
 const STORY_FIELDS: Record<string, { en: string; hi: string }> = {
-    'Name (Hindi)': { en: 'the Hindi name', hi: 'हिंदी नाम' },
-    'Name (English)': { en: 'the English name', hi: 'अंग्रेजी नाम' },
+    Name: { en: 'the name', hi: 'नाम' },
     "Father's name": { en: "the father's name", hi: 'पिता का नाम' },
     PNO: { en: 'the PNO', hi: 'पीएनओ' },
     Rank: { en: 'the rank', hi: 'रैंक' },
@@ -532,15 +564,7 @@ function storyField(
 }
 
 function postingLocation(member: Member): string | null {
-    return member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null;
-}
-
-function localizedText(hi: string | null | undefined, en: string | null | undefined, locale: string): string | null {
-    if (locale === 'en') {
-        return en ?? hi ?? null;
-    }
-
-    return hi ?? en ?? null;
+    return member.posting_district?.name ?? member.current_unit?.name ?? null;
 }
 
 function groupAchievementsByTier(
@@ -579,6 +603,96 @@ function groupAchievementsByTier(
             }),
         }))
         .sort((a, b) => b.weight - a.weight || a.label.localeCompare(b.label, locale === 'en' ? 'en' : 'hi'));
+}
+
+function benefitSummary(
+    benefits: AchievementBenefitRow[] | undefined,
+    locale: string,
+    t: (key: string) => string,
+): string | null {
+    if (!benefits || benefits.length === 0) {
+        return null;
+    }
+
+    return benefits
+        .map((benefit) =>
+            [
+                t(benefit.benefit_type),
+                benefit.cash_amount ? `₹${benefit.cash_amount}` : null,
+                benefit.benefit_date ? formatDateValue(benefit.benefit_date, locale) : null,
+                benefit.order_reference,
+            ]
+                .filter(Boolean)
+                .join(' · '),
+        )
+        .join('; ');
+}
+
+function promotionEvidenceLines(
+    evidence: PromotionEvidenceRow,
+    locale: string,
+    t: (key: string) => string,
+): string[] {
+    const lines: string[] = [];
+
+    if (evidence.legacy_achievement) {
+        const legacy = evidence.legacy_achievement;
+        lines.push(
+            [
+                t(legacy.period),
+                t(legacy.level),
+                legacy.competition_details,
+                legacy.event,
+                legacy.event_date ? formatDateValue(legacy.event_date, locale) : null,
+                legacy.venue,
+                legacy.medal_type ? t(legacy.medal_type) : null,
+            ]
+                .filter(Boolean)
+                .join(' · '),
+        );
+
+        const benefits = benefitSummary(legacy.benefits, locale, t);
+
+        if (benefits) {
+            lines.push(`${uiText('Benefits', locale)}: ${benefits}`);
+        }
+
+        return lines;
+    }
+
+    lines.push(
+        [
+            evidence.session?.name,
+            evidence.tournament?.name,
+            evidence.event?.name,
+            evidence.tournament?.tier_code,
+            evidence.tournament?.date_from ? formatDateValue(evidence.tournament.date_from, locale) : null,
+            evidence.event?.gender_class ? t(evidence.event.gender_class) : null,
+        ]
+            .filter(Boolean)
+            .join(' · ') ||
+            evidence.summary ||
+            `${uiText('Evidence', locale)} #${evidence.evidence_id}`,
+    );
+
+    if (evidence.achievement) {
+        lines.push(
+            [
+                evidence.achievement.medal_type ? t(evidence.achievement.medal_type) : null,
+                evidence.achievement.position != null ? `${uiText('Position', locale)}: ${evidence.achievement.position}` : null,
+            ]
+                .filter(Boolean)
+                .join(' · '),
+        );
+
+        const benefits = benefitSummary(evidence.achievement.benefits, locale, t);
+
+        if (benefits) {
+            lines.push(`${uiText('Benefits', locale)}: ${benefits}`);
+        }
+    }
+
+    return lines.filter(Boolean);
 }
 
 function countMedals(rows: AchievementRow[]): Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'NONE', number> {
@@ -1063,7 +1177,7 @@ export default function PrintPreview({
     const [timelineMode, setTimelineMode] = useState<TimelineMode>('story');
     const breadcrumbs: BreadcrumbItem[] = [
         { title: t('Members'), href: MemberController.index.url() },
-        { title: member.full_name_hi, href: MemberController.show.url(member) },
+        { title: member.full_name, href: MemberController.show.url(member) },
     ];
 
     const toggleSection = (section: SectionKey) => {
@@ -1077,7 +1191,7 @@ export default function PrintPreview({
     const sectionEnabled = (section: SectionKey): boolean =>
         selectedSections.includes(section);
 
-    const preferredName = localizedText(member.full_name_hi, member.full_name_en, locale);
+    const preferredName = member.full_name;
     const achievementGroups = groupAchievementsByTier(achievements ?? [], locale);
     const achievementSummary = countMedals(achievements ?? []);
 
@@ -1149,7 +1263,7 @@ export default function PrintPreview({
     return (
         <>
             <Head
-                title={`${member.full_name_hi} - ${uiText('Print preview', locale)}`}
+                title={`${member.full_name} - ${uiText('Print preview', locale)}`}
             />
             <div
                 ref={printTargetRef}
@@ -1167,7 +1281,7 @@ export default function PrintPreview({
                             {member.photo_path ? (
                                 <img
                                     src={`/storage/${member.photo_path}`}
-                                    alt={member.full_name_hi}
+                                    alt={member.full_name}
                                     className="size-full object-cover"
                                 />
                             ) : (
@@ -1283,7 +1397,7 @@ export default function PrintPreview({
                                 />
                                 <Field
                                     label={uiText("Father's name", locale)}
-                                    value={member.father_name_hi}
+                                    value={member.father_name}
                                 />
                                 <Field
                                     label={uiText('Gender', locale)}
@@ -1365,11 +1479,11 @@ export default function PrintPreview({
                                 />
                                 <Field
                                     label={uiText('Current unit', locale)}
-                                    value={member.current_unit?.name_hi}
+                                    value={member.current_unit?.name}
                                 />
                                 <Field
                                     label={uiText('Home district', locale)}
-                                    value={member.home_district?.name_hi}
+                                    value={member.home_district?.name}
                                 />
                                 <Field
                                     label={uiText('Posting unit / district', locale)}
@@ -1411,8 +1525,8 @@ export default function PrintPreview({
                                         {member.playable_sports.length > 0 ? (
                                             member.playable_sports.map((sport) => {
                                                 const name = locale === 'en'
-                                                    ? sport.name_en
-                                                    : sport.name_hi;
+                                                    ? sport.name
+                                                    : sport.name;
 
                                                 return (
                                                     <div key={sport.id} className="rounded-md border p-2 print:rounded-sm print:p-1.5">
@@ -1508,7 +1622,7 @@ export default function PrintPreview({
                                                         >
                                                             <td className="p-2 print:py-1">
                                                                 {row.team
-                                                                    ?.name_hi ??
+                                                                    ?.name ??
                                                                     '—'}
                                                             </td>
                                                             <td className="p-2 print:py-1">
@@ -1736,7 +1850,7 @@ export default function PrintPreview({
                                                                 {row.session.name}
                                                             </td>
                                                             <td className="p-2 print:py-1">
-                                                                {row.tournament.name_hi}
+                                                                {row.tournament.name}
                                                                 <div className="text-xs text-muted-foreground">
                                                                     {[
                                                                         formatDateValue(
@@ -1757,7 +1871,7 @@ export default function PrintPreview({
                                                                 </div>
                                                             </td>
                                                             <td className="whitespace-nowrap p-2 print:py-1">
-                                                                {row.event.name_hi}
+                                                                {row.event.name}
                                                                 <div className="text-xs text-muted-foreground">
                                                                     {row.position != null
                                                                         ? `${uiText('Position', locale)}: ${row.position}`
@@ -1821,6 +1935,25 @@ export default function PrintPreview({
                                                         .filter(Boolean)
                                                         .join(' · ')}
                                                 </div>
+                                                {row.evidences.length > 0 && (
+                                                    <div className="mt-2 space-y-1 border-t pt-2 print:mt-1 print:pt-1">
+                                                        <p className="text-xs font-medium text-muted-foreground print:text-[9px]">
+                                                            {uiText('Evidence', locale)}
+                                                        </p>
+                                                        <ul className="space-y-1 text-xs text-muted-foreground print:text-[9px]">
+                                                            {row.evidences.map((evidence) => (
+                                                                <li key={evidence.id}>
+                                                                    {promotionEvidenceLines(evidence, locale, t).map((line, index) => (
+                                                                        <div key={index}>
+                                                                            {index === 0 ? '• ' : ''}
+                                                                            {line}
+                                                                        </div>
+                                                                    ))}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -1878,9 +2011,9 @@ export default function PrintPreview({
                                                     <div className="font-medium">
                                                         {t(row.status)}
                                                     </div>
-                                                    {row.reason_hi && (
+                                                    {row.reason && (
                                                         <div className="text-xs text-muted-foreground">
-                                                            {row.reason_hi}
+                                                            {row.reason}
                                                         </div>
                                                     )}
                                                 </div>

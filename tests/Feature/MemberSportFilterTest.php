@@ -80,14 +80,14 @@ test('member can be created without sport entries', function () {
     foreach (['members.view', 'members.create'] as $code) {
         $perm = Permission::firstOrCreate(
             ['code' => $code],
-            ['group' => 'members', 'name_hi' => $code, 'name_en' => $code],
+            ['group' => 'members', 'name_hi' => 'members.view', 'name_en' => 'members.view'],
         );
         DB::table('role_permission')->insert(['role_id' => $role->id, 'permission_id' => $perm->id]);
     }
 
     $this->actingAs($user)
         ->post(route('members.store'), [
-            'full_name_hi' => 'परीक्षण सदस्य',
+            'full_name' => 'परीक्षण सदस्य',
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
@@ -107,14 +107,14 @@ test('playable sports entries must exist in sports table', function () {
     foreach (['members.view', 'members.create'] as $code) {
         $perm = Permission::firstOrCreate(
             ['code' => $code],
-            ['group' => 'members', 'name_hi' => $code, 'name_en' => $code],
+            ['group' => 'members', 'name_hi' => 'members.view', 'name_en' => 'members.view'],
         );
         DB::table('role_permission')->insert(['role_id' => $role->id, 'permission_id' => $perm->id]);
     }
 
     $this->actingAs($user)
         ->post(route('members.store'), [
-            'full_name_hi' => 'परीक्षण',
+            'full_name' => 'परीक्षण',
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
@@ -136,7 +136,7 @@ test('store saves playable sports with metadata', function () {
 
     $this->actingAs($user)
         ->post(route('members.store'), [
-            'full_name_hi' => 'परीक्षण सदस्य',
+            'full_name' => 'परीक्षण सदस्य',
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',

@@ -22,7 +22,7 @@ function insertMember(int $orgId, string $fullNameHi): int
     return DB::table('members')->insertGetId([
         'organization_id' => $orgId,
         'member_code' => 'UPP-2026-'.fake()->unique()->numerify('######'),
-        'full_name_hi' => $fullNameHi,
+        'full_name' => $fullNameHi,
         'gender' => 'M',
         'player_category' => 'GD',
         'player_level' => 'ZONAL',
@@ -44,7 +44,7 @@ test('trigger re-populates full_name_normalized on member update', function () {
     $orgId = insertOrg();
     $id = insertMember($orgId, 'पुराना नाम');
 
-    DB::table('members')->where('id', $id)->update(['full_name_hi' => 'नया नाम']);
+    DB::table('members')->where('id', $id)->update(['full_name' => 'नया नाम']);
 
     $row = DB::table('members')->where('id', $id)->first();
     expect($row->full_name_normalized)->toBe('नया नाम');
@@ -81,7 +81,7 @@ test('trigger populates alias_normalized on name_alias insert', function () {
 
     DB::table('name_aliases')->insert([
         'member_id' => $memberId,
-        'alias_hi' => 'fl)kUr lsB',
+        'alias' => 'fl)kUr lsB',
         'source' => 'krutidev',
         'created_at' => now(),
         'updated_at' => now(),

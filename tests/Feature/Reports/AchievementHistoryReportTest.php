@@ -101,7 +101,7 @@ test('returns achievement with correct shape', function (): void {
     expect($row['member']['id'])->toBe($setup['member']->id);
     expect($row['medal_type'])->toBe('GOLD');
     expect($row['tournament']['id'])->toBe($setup['tournament']->id);
-    expect(array_keys($row['event']))->toBe(['id', 'name_hi', 'discipline']);
+    expect(array_keys($row['event']))->toBe(['id', 'name', 'discipline']);
 });
 
 test('org isolation — other org achievements not returned', function (): void {
@@ -189,7 +189,7 @@ test('excludes achievements for soft-deleted members', function (): void {
     expect(app(AchievementHistoryReport::class)->run($org->id, []))->toBeEmpty();
 });
 
-test('results ordered by date_from desc then full_name_hi asc', function (): void {
+test('results ordered by date_from desc then full_name asc', function (): void {
     $org = ahOrg();
 
     ahSetup($org, dateFrom: '2025-06-01');

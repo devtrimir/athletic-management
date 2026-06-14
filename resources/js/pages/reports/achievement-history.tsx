@@ -17,21 +17,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useTranslation } from '@/hooks/use-translation';
 
 type Session = { id: number; name: string };
-type Sport = { id: number; name_hi: string };
+type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label_hi: string };
-type Unit = { id: number; name_hi: string };
-type Tournament = { id: number; name_hi: string; date_from: string | null };
+type Unit = { id: number; name: string };
+type Tournament = { id: number; name: string; date_from: string | null };
 
 type AchievementRow = {
-    member: { id: number; member_code: string; pno: string | null; full_name_hi: string; rank: string | null };
+    member: { id: number; member_code: string; pno: string | null; full_name: string; rank: string | null };
     tournament: {
         id: number;
-        name_hi: string;
+        name: string;
         date_from: string | null;
         tier_label_hi: string | null;
-        sport_name_hi: string | null;
+        sport_name: string | null;
     };
-    event: { id: number; name_hi: string; discipline: string | null };
+    event: { id: number; name: string; discipline: string | null };
     session: { name: string };
     medal_type: string;
     position: number | null;
@@ -193,10 +193,10 @@ params['event_name'] = eventName;
         setEventName('');
     }
 
-    const sportItems: ComboboxItem[] = sports.map((s) => ({ value: String(s.id), label: s.name_hi }));
+    const sportItems: ComboboxItem[] = sports.map((s) => ({ value: String(s.id), label: s.name }));
     const tournamentItems: ComboboxItem[] = tournaments.map((tour) => ({
         value: String(tour.id),
-        label: tour.name_hi,
+        label: tour.name,
     }));
 
     return (
@@ -261,7 +261,7 @@ params['event_name'] = eventName;
                                 <SelectItem value={ALL}>{t('All Units')}</SelectItem>
                                 {units.map((u) => (
                                     <SelectItem key={u.id} value={String(u.id)}>
-                                        {u.name_hi}
+                                        {u.name}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -329,7 +329,7 @@ params['event_name'] = eventName;
                                     className="cursor-pointer"
                                     onClick={() => setSelectedRow(row)}
                                 >
-                                    <TableCell>{row.member.full_name_hi}</TableCell>
+                                    <TableCell>{row.member.full_name}</TableCell>
                                     <TableCell className="text-muted-foreground text-sm">
                                         {[row.member.pno, row.member.rank].filter(Boolean).join(' / ')}
                                     </TableCell>
@@ -339,13 +339,13 @@ params['event_name'] = eventName;
                                         </Badge>
                                     </TableCell>
                                     <TableCell>{row.position != null ? `#${row.position}` : '—'}</TableCell>
-                                    <TableCell>{row.tournament.name_hi}</TableCell>
+                                    <TableCell>{row.tournament.name}</TableCell>
                                     <TableCell className="text-muted-foreground text-sm">
-                                        {[row.tournament.tier_label_hi, row.tournament.sport_name_hi]
+                                        {[row.tournament.tier_label_hi, row.tournament.sport_name]
                                             .filter(Boolean)
                                             .join(' / ')}
                                     </TableCell>
-                                    <TableCell>{row.event.name_hi}</TableCell>
+                                    <TableCell>{row.event.name}</TableCell>
                                     <TableCell className="text-muted-foreground text-sm">
                                         {row.session.name}
                                     </TableCell>
@@ -374,7 +374,7 @@ setSelectedRow(null);
                             {/* Member */}
                             <div className="space-y-1">
                                 <p className="font-semibold">{t('Member')}</p>
-                                <p className="text-base">{selectedRow.member.full_name_hi}</p>
+                                <p className="text-base">{selectedRow.member.full_name}</p>
                                 <p className="text-muted-foreground">
                                     {t('Code')}: {selectedRow.member.member_code}
                                     {selectedRow.member.pno ? ` · ${t('PNO')}: ${selectedRow.member.pno}` : ''}
@@ -390,11 +390,11 @@ setSelectedRow(null);
                             {/* Tournament */}
                             <div className="space-y-1">
                                 <p className="font-semibold">{t('Tournament')}</p>
-                                <p>{selectedRow.tournament.name_hi}</p>
+                                <p>{selectedRow.tournament.name}</p>
                                 <p className="text-muted-foreground">
                                     {[
                                         selectedRow.tournament.tier_label_hi,
-                                        selectedRow.tournament.sport_name_hi,
+                                        selectedRow.tournament.sport_name,
                                         selectedRow.tournament.date_from,
                                     ]
                                         .filter(Boolean)
@@ -410,7 +410,7 @@ setSelectedRow(null);
                             {/* Event */}
                             <div className="space-y-1">
                                 <p className="font-semibold">{t('Event')}</p>
-                                <p>{selectedRow.event.name_hi}</p>
+                                <p>{selectedRow.event.name}</p>
                                 <p className="text-muted-foreground">
                                     {[selectedRow.event.discipline, selectedRow.session.name].filter(Boolean).join(' · ')}
                                 </p>

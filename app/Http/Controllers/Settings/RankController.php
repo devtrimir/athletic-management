@@ -56,8 +56,7 @@ class RankController extends Controller
         return response()->json([
             'rank' => [
                 'code' => $rank->code,
-                'name_en' => $rank->name_en,
-                'name_hi' => $rank->name_hi,
+                'name' => $rank->name,
                 'short_name' => $rank->short_name,
                 'rank_order' => $rank->rank_order,
                 'cadre_type' => $rank->cadre_type,

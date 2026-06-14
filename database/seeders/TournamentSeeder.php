@@ -42,20 +42,20 @@ class TournamentSeeder extends Seeder
             return;
         }
 
-        /** @var array<string, int> $sports name_hi → id */
+        /** @var array<string, int> $sports name → id */
         $sports = Sport::withoutGlobalScopes()
             ->where('organization_id', $orgId)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         $startYear = $session->start_year;
 
         /**
-         * @var list<array{name_hi: string, tier: string, sport: string|null, venue: string|null, date_from: string|null, date_to: string|null, raw_date_text: string|null, events: list<array{name_hi: string, sport: string, discipline: string|null, weight_category?: string|null, gender_class: string}>}>
+         * @var list<array{name: string, tier: string, sport: string|null, venue: string|null, date_from: string|null, date_to: string|null, raw_date_text: string|null, events: list<array{name: string, sport: string, discipline: string|null, weight_category?: string|null, gender_class: string}>}>
          */
         $definitions = [
             [
-                'name_hi' => 'अखिल भारतीय पुलिस खेल-कूद प्रतियोगिता',
+                'name' => 'अखिल भारतीय पुलिस खेल-कूद प्रतियोगिता',
                 'tier' => 'AIPSC',
                 'sport' => null,
                 'venue' => 'नई दिल्ली',
@@ -63,13 +63,13 @@ class TournamentSeeder extends Seeder
                 'date_to' => $startYear.'-11-10',
                 'raw_date_text' => null,
                 'events' => [
-                    ['name_hi' => '100 मीटर दौड़', 'sport' => 'एथलेटिक्स', 'discipline' => '100m', 'gender_class' => 'M'],
-                    ['name_hi' => '4×100 मीटर रिले', 'sport' => 'एथलेटिक्स', 'discipline' => '4x100m Relay', 'gender_class' => 'M'],
-                    ['name_hi' => 'मुक्केबाजी 60 कि.ग्रा.', 'sport' => 'मुक्केबाजी', 'discipline' => null, 'weight_category' => '60kg', 'gender_class' => 'M'],
+                    ['name' => '100 मीटर दौड़', 'sport' => 'एथलेटिक्स', 'discipline' => '100m', 'gender_class' => 'M'],
+                    ['name' => '4×100 मीटर रिले', 'sport' => 'एथलेटिक्स', 'discipline' => '4x100m Relay', 'gender_class' => 'M'],
+                    ['name' => 'मुक्केबाजी 60 कि.ग्रा.', 'sport' => 'मुक्केबाजी', 'discipline' => null, 'weight_category' => '60kg', 'gender_class' => 'M'],
                 ],
             ],
             [
-                'name_hi' => 'राष्ट्रीय एथलेटिक्स प्रतियोगिता',
+                'name' => 'राष्ट्रीय एथलेटिक्स प्रतियोगिता',
                 'tier' => 'NATIONAL',
                 'sport' => 'एथलेटिक्स',
                 'venue' => 'लखनऊ',
@@ -77,13 +77,13 @@ class TournamentSeeder extends Seeder
                 'date_to' => $startYear.'-09-18',
                 'raw_date_text' => null,
                 'events' => [
-                    ['name_hi' => '200 मीटर दौड़ (पुरुष)', 'sport' => 'एथलेटिक्स', 'discipline' => '200m', 'gender_class' => 'M'],
-                    ['name_hi' => '200 मीटर दौड़ (महिला)', 'sport' => 'एथलेटिक्स', 'discipline' => '200m', 'gender_class' => 'F'],
-                    ['name_hi' => 'लंबी कूद', 'sport' => 'एथलेटिक्स', 'discipline' => 'Long Jump', 'gender_class' => 'M'],
+                    ['name' => '200 मीटर दौड़ (पुरुष)', 'sport' => 'एथलेटिक्स', 'discipline' => '200m', 'gender_class' => 'M'],
+                    ['name' => '200 मीटर दौड़ (महिला)', 'sport' => 'एथलेटिक्स', 'discipline' => '200m', 'gender_class' => 'F'],
+                    ['name' => 'लंबी कूद', 'sport' => 'एथलेटिक्स', 'discipline' => 'Long Jump', 'gender_class' => 'M'],
                 ],
             ],
             [
-                'name_hi' => 'राज्यस्तरीय कुश्ती प्रतियोगिता',
+                'name' => 'राज्यस्तरीय कुश्ती प्रतियोगिता',
                 'tier' => 'STATE',
                 'sport' => 'कुश्ती',
                 'venue' => 'वाराणसी',
@@ -91,13 +91,13 @@ class TournamentSeeder extends Seeder
                 'date_to' => $startYear.'-10-07',
                 'raw_date_text' => null,
                 'events' => [
-                    ['name_hi' => 'फ्रीस्टाइल 65 कि.ग्रा.', 'sport' => 'कुश्ती', 'discipline' => 'Freestyle', 'weight_category' => '65kg', 'gender_class' => 'M'],
-                    ['name_hi' => 'फ्रीस्टाइल 74 कि.ग्रा.', 'sport' => 'कुश्ती', 'discipline' => 'Freestyle', 'weight_category' => '74kg', 'gender_class' => 'M'],
-                    ['name_hi' => 'ग्रीको-रोमन 67 कि.ग्रा.', 'sport' => 'कुश्ती', 'discipline' => 'Greco-Roman', 'weight_category' => '67kg', 'gender_class' => 'M'],
+                    ['name' => 'फ्रीस्टाइल 65 कि.ग्रा.', 'sport' => 'कुश्ती', 'discipline' => 'Freestyle', 'weight_category' => '65kg', 'gender_class' => 'M'],
+                    ['name' => 'फ्रीस्टाइल 74 कि.ग्रा.', 'sport' => 'कुश्ती', 'discipline' => 'Freestyle', 'weight_category' => '74kg', 'gender_class' => 'M'],
+                    ['name' => 'ग्रीको-रोमन 67 कि.ग्रा.', 'sport' => 'कुश्ती', 'discipline' => 'Greco-Roman', 'weight_category' => '67kg', 'gender_class' => 'M'],
                 ],
             ],
             [
-                'name_hi' => 'राज्यस्तरीय तैराकी प्रतियोगिता',
+                'name' => 'राज्यस्तरीय तैराकी प्रतियोगिता',
                 'tier' => 'STATE',
                 'sport' => 'तैराकी',
                 'venue' => 'आगरा',
@@ -105,12 +105,12 @@ class TournamentSeeder extends Seeder
                 'date_to' => $startYear.'-08-22',
                 'raw_date_text' => null,
                 'events' => [
-                    ['name_hi' => '100 मीटर फ्रीस्टाइल (पुरुष)', 'sport' => 'तैराकी', 'discipline' => 'Freestyle', 'gender_class' => 'M'],
-                    ['name_hi' => '200 मीटर ब्रेस्टस्ट्रोक (पुरुष)', 'sport' => 'तैराकी', 'discipline' => 'Breaststroke', 'gender_class' => 'M'],
+                    ['name' => '100 मीटर फ्रीस्टाइल (पुरुष)', 'sport' => 'तैराकी', 'discipline' => 'Freestyle', 'gender_class' => 'M'],
+                    ['name' => '200 मीटर ब्रेस्टस्ट्रोक (पुरुष)', 'sport' => 'तैराकी', 'discipline' => 'Breaststroke', 'gender_class' => 'M'],
                 ],
             ],
             [
-                'name_hi' => 'क्षेत्रीय बैडमिंटन प्रतियोगिता',
+                'name' => 'क्षेत्रीय बैडमिंटन प्रतियोगिता',
                 'tier' => 'ZONAL',
                 'sport' => 'बैडमिंटन',
                 'venue' => 'कानपुर',
@@ -118,13 +118,13 @@ class TournamentSeeder extends Seeder
                 'date_to' => $startYear.'-07-12',
                 'raw_date_text' => null,
                 'events' => [
-                    ['name_hi' => 'पुरुष एकल', 'sport' => 'बैडमिंटन', 'discipline' => 'Singles', 'gender_class' => 'M'],
-                    ['name_hi' => 'महिला एकल', 'sport' => 'बैडमिंटन', 'discipline' => 'Singles', 'gender_class' => 'F'],
-                    ['name_hi' => 'मिश्रित युगल', 'sport' => 'बैडमिंटन', 'discipline' => 'Mixed Doubles', 'gender_class' => 'MIXED'],
+                    ['name' => 'पुरुष एकल', 'sport' => 'बैडमिंटन', 'discipline' => 'Singles', 'gender_class' => 'M'],
+                    ['name' => 'महिला एकल', 'sport' => 'बैडमिंटन', 'discipline' => 'Singles', 'gender_class' => 'F'],
+                    ['name' => 'मिश्रित युगल', 'sport' => 'बैडमिंटन', 'discipline' => 'Mixed Doubles', 'gender_class' => 'MIXED'],
                 ],
             ],
             [
-                'name_hi' => 'क्षेत्रीय शूटिंग प्रतियोगिता',
+                'name' => 'क्षेत्रीय शूटिंग प्रतियोगिता',
                 'tier' => 'ZONAL',
                 'sport' => 'शूटिंग',
                 'venue' => 'प्रयागराज',
@@ -132,12 +132,12 @@ class TournamentSeeder extends Seeder
                 'date_to' => ($startYear + 1).'-01-17',
                 'raw_date_text' => null,
                 'events' => [
-                    ['name_hi' => '10 मीटर एयर राइफल', 'sport' => 'शूटिंग', 'discipline' => 'Air Rifle 10m', 'gender_class' => 'M'],
-                    ['name_hi' => '25 मीटर पिस्टल', 'sport' => 'शूटिंग', 'discipline' => 'Pistol 25m', 'gender_class' => 'M'],
+                    ['name' => '10 मीटर एयर राइफल', 'sport' => 'शूटिंग', 'discipline' => 'Air Rifle 10m', 'gender_class' => 'M'],
+                    ['name' => '25 मीटर पिस्टल', 'sport' => 'शूटिंग', 'discipline' => 'Pistol 25m', 'gender_class' => 'M'],
                 ],
             ],
             [
-                'name_hi' => 'उ.प्र. पुलिस आंतरिक एथलेटिक्स',
+                'name' => 'उ.प्र. पुलिस आंतरिक एथलेटिक्स',
                 'tier' => 'OTHER',
                 'sport' => 'एथलेटिक्स',
                 'venue' => 'लखनऊ पुलिस लाइन्स',
@@ -145,13 +145,13 @@ class TournamentSeeder extends Seeder
                 'date_to' => ($startYear + 1).'-02-11',
                 'raw_date_text' => null,
                 'events' => [
-                    ['name_hi' => '1500 मीटर दौड़', 'sport' => 'एथलेटिक्स', 'discipline' => '1500m', 'gender_class' => 'M'],
-                    ['name_hi' => 'गोला फेंक', 'sport' => 'एथलेटिक्स', 'discipline' => 'Shot Put', 'gender_class' => 'M'],
-                    ['name_hi' => 'ऊंची कूद', 'sport' => 'एथलेटिक्स', 'discipline' => 'High Jump', 'gender_class' => 'OPEN'],
+                    ['name' => '1500 मीटर दौड़', 'sport' => 'एथलेटिक्स', 'discipline' => '1500m', 'gender_class' => 'M'],
+                    ['name' => 'गोला फेंक', 'sport' => 'एथलेटिक्स', 'discipline' => 'Shot Put', 'gender_class' => 'M'],
+                    ['name' => 'ऊंची कूद', 'sport' => 'एथलेटिक्स', 'discipline' => 'High Jump', 'gender_class' => 'OPEN'],
                 ],
             ],
             [
-                'name_hi' => 'उ.प्र. पुलिस कबड्डी चैम्पियनशिप',
+                'name' => 'उ.प्र. पुलिस कबड्डी चैम्पियनशिप',
                 'tier' => 'OTHER',
                 'sport' => 'कबड्डी',
                 'venue' => null,
@@ -178,7 +178,7 @@ class TournamentSeeder extends Seeder
                 [
                     'organization_id' => $orgId,
                     'session_id' => $session->id,
-                    'name_hi' => $def['name_hi'],
+                    'name' => $def['name'],
                 ],
                 [
                     'tier_id' => $tier->id,
@@ -203,7 +203,7 @@ class TournamentSeeder extends Seeder
                     Event::create([
                         'tournament_id' => $tournament->id,
                         'sport_id' => $evSportId,
-                        'name_hi' => $eventDef['name_hi'],
+                        'name' => $eventDef['name'],
                         'discipline' => $eventDef['discipline'] ?? null,
                         'weight_category' => $eventDef['weight_category'] ?? null,
                         'gender_class' => $eventDef['gender_class'],

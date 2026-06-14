@@ -74,7 +74,7 @@ test('valid status change writes history and updates member', function () {
         ->post(route('members.status.store', $member), [
             'status' => 'RETIRED',
             'effective_on' => '2026-05-23',
-            'reason_hi' => 'सेवानिवृत्त',
+            'reason' => 'सेवानिवृत्त',
         ])
         ->assertRedirect(route('members.show', $member));
 
@@ -82,7 +82,7 @@ test('valid status change writes history and updates member', function () {
     expect($history)->not->toBeNull()
         ->and($history->status)->toBe('RETIRED')
         ->and($history->recorded_by)->toBe($user->id)
-        ->and($history->reason_hi)->toBe('सेवानिवृत्त');
+        ->and($history->reason)->toBe('सेवानिवृत्त');
 
     expect($member->fresh()->current_status)->toBe('RETIRED');
 });

@@ -15,7 +15,7 @@ type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label: string };
 
 type FormData = {
-    name_hi: string;
+    name: string;
     session_id: string;
     tier_id: string;
     sport_id: string;
@@ -44,7 +44,7 @@ export default function TournamentsCreate({
     });
 
     const { data, setData, post, errors, processing } = useForm<FormData>({
-        name_hi: '',
+        name: '',
         session_id: '',
         tier_id: '',
         sport_id: '',
@@ -70,17 +70,17 @@ export default function TournamentsCreate({
                     <div className="rounded-xl border bg-card p-6 space-y-5">
                         {/* Name */}
                         <div className="grid gap-2">
-                            <Label htmlFor="name_hi">
-                                {t('Name (Hindi)')} <span className="text-destructive">*</span>
+                            <Label htmlFor="name">
+                                {t('Name')} <span className="text-destructive">*</span>
                             </Label>
                             <Input
-                                id="name_hi"
-                                value={data.name_hi}
-                                onChange={(e) => setData('name_hi', e.target.value)}
+                                id="name"
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
                                 maxLength={255}
                                 required
                             />
-                            <InputError message={errors.name_hi} />
+                            <InputError message={errors.name} />
                         </div>
 
                         <div className="grid gap-5 sm:grid-cols-2">

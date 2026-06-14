@@ -35,7 +35,7 @@ type Props = {
 export function MembersMultiSelect({ value, onValueChange, className }: Props) {
     const { t } = useTranslation();
     const [results, setResults] = useState<MemberOption[]>([]);
-    const timerRef = useRef<ReturnType<typeof setTimeout>>();
+    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const { get, cancel, processing } = useHttp<
         Record<string, never>,
         SearchResponse
@@ -97,7 +97,7 @@ export function MembersMultiSelect({ value, onValueChange, className }: Props) {
                                 <span className="truncate">
                                     {value
                                         .slice(0, 2)
-                                        .map((member) => member.full_name_hi)
+                                        .map((member) => member.full_name)
                                         .join(', ')}
                                 </span>
                                 {value.length > 2 && (
@@ -130,7 +130,7 @@ export function MembersMultiSelect({ value, onValueChange, className }: Props) {
                                         className="gap-1 pr-1"
                                     >
                                         <span className="max-w-36 truncate">
-                                            {member.full_name_hi}
+                                            {member.full_name}
                                         </span>
                                         <button
                                             type="button"
@@ -168,7 +168,7 @@ export function MembersMultiSelect({ value, onValueChange, className }: Props) {
                                 return (
                                     <CommandItem
                                         key={member.id}
-                                        value={`${member.full_name_hi} ${member.pno ?? ''}`}
+                                        value={`${member.full_name} ${member.pno ?? ''}`}
                                         onSelect={() => toggle(member)}
                                     >
                                         <CheckIcon
@@ -181,7 +181,7 @@ export function MembersMultiSelect({ value, onValueChange, className }: Props) {
                                         />
                                         <div className="min-w-0">
                                             <div className="truncate font-medium">
-                                                {member.full_name_hi}
+                                                {member.full_name}
                                             </div>
                                             <div className="text-xs text-muted-foreground">
                                                 {[

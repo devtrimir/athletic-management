@@ -258,6 +258,20 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ### PR 4 — Frontend: Member Media tab `feat/p5m-t04-member-media-tab`
 - [ ] **P5M-T04** New **"मीडिया"** tab in `Members/Show.tsx` — lazy-loaded via `useHttp`; accordion grouped by tournament → event; thumbnail grid per event; lightbox on click; download + delete actions; animated skeleton empty-state while loading — all strings via `t()`
 
+---
+
+## Phase 7N — Single Name Field Cleanup
+
+See [phases/P07N-name-field-cleanup.md](phases/P07N-name-field-cleanup.md) for the full breakdown.
+
+- [~] **P7N-T01** Phase docs + journal bootstrap
+- [ ] **P7N-T02** Core schema migration for neutral domain names
+- [ ] **P7N-T03** Backend models, requests, resources, controllers, and API payloads
+- [ ] **P7N-T04** Seeders, factories, and master data CSV cleanup
+- [ ] **P7N-T05** Reports, exports, and search cleanup
+- [ ] **P7N-T06** React/Inertia frontend neutral-name field cleanup
+- [ ] **P7N-T07** Final compatibility removal and verification sweep
+
 ### PR 5 — Tests `feat/p5m-t05-tests`
 - [ ] **P5M-T05** Pest Feature: upload happy path (jpeg/png/webp), type rejection (PDF → 422), size rejection (> 10 MB → 422), max-count rejection (> 20 → 422), cross-org 403, `media:delete` gating (viewer → 403), media retrieval grouped by member endpoint
 

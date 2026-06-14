@@ -31,7 +31,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type Tournament = {
     id: number;
-    name_hi: string;
+    name: string;
     venue: string | null;
     date_from: string | null;
     date_to: string | null;
@@ -43,7 +43,7 @@ type Tournament = {
 
 type EventRow = {
     id: number;
-    name_hi: string;
+    name: string;
     discipline: string | null;
     weight_category: string | null;
     gender_class: string;
@@ -55,7 +55,7 @@ type Sport = { id: number; name: string };
 
 type EventForm = {
     sport_id: string;
-    name_hi: string;
+    name: string;
     discipline: string;
     weight_category: string;
     gender_class: string;
@@ -116,17 +116,17 @@ function EventFormFields({
             </div>
 
             <div className="grid gap-2 sm:col-span-2">
-                <Label htmlFor={`${idPrefix}_name_hi`}>
-                    {t('Event name (Hindi)')} <span className="text-destructive">*</span>
+                <Label htmlFor={`${idPrefix}_name`}>
+                    {t('Event name')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                    id={`${idPrefix}_name_hi`}
-                    value={data.name_hi}
-                    onChange={(e) => setData('name_hi', e.target.value)}
+                    id={`${idPrefix}_name`}
+                    value={data.name}
+                    onChange={(e) => setData('name', e.target.value)}
                     maxLength={255}
                     required
                 />
-                <InputError message={errors.name_hi} />
+                <InputError message={errors.name} />
             </div>
 
             <div className="grid gap-2">
@@ -171,7 +171,7 @@ function AddEventDialog({
     const { t } = useTranslation();
     const { data, setData, post, errors, processing, reset } = useForm<EventForm>({
         sport_id: tournament.sport ? String(tournament.sport.id) : '',
-        name_hi: '',
+        name: '',
         discipline: '',
         weight_category: '',
         gender_class: 'M',
@@ -234,7 +234,7 @@ function EditEventDialog({
     const { t } = useTranslation();
     const { data, setData, patch, errors, processing, reset } = useForm<EventForm>({
         sport_id: event?.sport ? String(event.sport.id) : '',
-        name_hi: event?.name_hi ?? '',
+        name: event?.name ?? '',
         discipline: event?.discipline ?? '',
         weight_category: event?.weight_category ?? '',
         gender_class: event?.gender_class ?? 'M',
@@ -264,7 +264,7 @@ function EditEventDialog({
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{t('Edit event')}</DialogTitle>
-                    <DialogDescription>{event?.name_hi}</DialogDescription>
+                    <DialogDescription>{event?.name}</DialogDescription>
                 </DialogHeader>
                 <form id="edit-event-form" onSubmit={handleSubmit}>
                     <EventFormFields
@@ -371,7 +371,7 @@ export default function TournamentsShow({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Tournaments'), href: tournamentsIndex.url() },
-            { title: tournament.name_hi },
+            { title: tournament.name },
         ],
     });
 
@@ -384,13 +384,13 @@ export default function TournamentsShow({
 
     return (
         <>
-            <Head title={tournament.name_hi} />
+            <Head title={tournament.name} />
 
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold">{tournament.name_hi}</h1>
+                        <h1 className="text-2xl font-bold">{tournament.name}</h1>
                         <div className="mt-1 flex flex-wrap gap-2">
                             {tournament.tier && (
                                 <Badge variant="secondary">{tournament.tier.label}</Badge>
@@ -461,7 +461,7 @@ export default function TournamentsShow({
                                 <Table>
                                     <TableHeader>
                                         <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                            <TableHead>{t('Event name (Hindi)')}</TableHead>
+                                            <TableHead>{t('Event name')}</TableHead>
                                             <TableHead>{t('Sport')}</TableHead>
                                             <TableHead>{t('Gender class')}</TableHead>
                                             <TableHead>{t('Discipline')}</TableHead>
@@ -480,7 +480,7 @@ export default function TournamentsShow({
                                         ) : (
                                             (events ?? []).map((ev) => (
                                                 <TableRow key={ev.id}>
-                                                    <TableCell className="font-medium">{ev.name_hi}</TableCell>
+                                                    <TableCell className="font-medium">{ev.name}</TableCell>
                                                     <TableCell className="text-muted-foreground">{ev.sport?.name ?? '—'}</TableCell>
                                                     <TableCell>
                                                         <Badge variant="outline">{t(ev.gender_class)}</Badge>

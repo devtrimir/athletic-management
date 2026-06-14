@@ -95,7 +95,7 @@ class ReportController extends Controller
                 'data' => $data,
                 'filters' => $filters,
                 ...$this->filterOptions($orgId),
-                'tournaments' => Tournament::select(['id', 'name_hi', 'date_from'])
+                'tournaments' => Tournament::select(['id', 'name', 'date_from'])
                     ->where('organization_id', $orgId)
                     ->whereNull('deleted_at')
                     ->orderByDesc('date_from')
@@ -132,7 +132,7 @@ class ReportController extends Controller
         $filters = $this->buildFilters($request, $key);
         $data = $this->runService($key, $orgId, $filters);
 
-        $title = self::REPORTS[$key]['name_hi'];
+        $title = self::REPORTS[$key]['name'];
         $filename = $key.'.xlsx';
 
         if ($data->count() > 500) {
@@ -161,7 +161,7 @@ class ReportController extends Controller
         return response()->json([
             'member' => [
                 'id' => $member->id,
-                'full_name_hi' => $member->full_name_hi,
+                'full_name' => $member->full_name,
                 'member_code' => $member->member_code,
                 'pno' => $member->pno,
                 'rank' => $member->rank,
@@ -342,18 +342,18 @@ class ReportController extends Controller
                 ->where('organization_id', $orgId)
                 ->orderBy('name')
                 ->get(),
-            'sports' => Sport::select(['id', 'name_hi', 'name_en'])
-                ->orderBy('name_hi')
+            'sports' => Sport::select(['id', 'name'])
+                ->orderBy('name')
                 ->get(),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en'])
                 ->orderByDesc('weight')
                 ->get(),
-            'units' => Unit::select(['id', 'name_hi'])
+            'units' => Unit::select(['id', 'name'])
                 ->where('organization_id', $orgId)
-                ->orderBy('name_hi')
+                ->orderBy('name')
                 ->get(),
-            'districts' => District::select(['id', 'name_hi'])
-                ->orderBy('name_hi')
+            'districts' => District::select(['id', 'name'])
+                ->orderBy('name')
                 ->get(),
         ];
     }
@@ -385,7 +385,7 @@ class ReportController extends Controller
         return Member::query()
             ->where('organization_id', $orgId)
             ->whereIn('id', $memberIds)
-            ->get(['id', 'member_code', 'pno', 'full_name_hi', 'full_name_en', 'player_category', 'player_level', 'current_status']);
+            ->get(['id', 'member_code', 'pno', 'full_name', 'full_name', 'player_category', 'player_level', 'current_status']);
     }
 
     /**

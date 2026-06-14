@@ -32,7 +32,7 @@ class TeamMemberController extends Controller
             ->all();
 
         // Check: already on a team for this sport in this session.
-        $sameSportConflicts = TeamMember::with(['team:id,name_hi,sport_id', 'member:id,full_name_hi'])
+        $sameSportConflicts = TeamMember::with(['team:id,name,sport_id', 'member:id,full_name'])
             ->where('session_id', $sessionId)
             ->whereIn('member_id', $memberIds)
             ->whereHas('team', fn ($query) => $query->where('sport_id', $sportId))
@@ -56,8 +56,8 @@ class TeamMemberController extends Controller
                 continue; // already reported above
             }
             $index = array_search($conflict->member_id, $memberIds);
-            $teamName = (string) $conflict->team->name_hi;
-            $memberName = (string) $conflict->member->full_name_hi;
+            $teamName = (string) $conflict->team->name;
+            $memberName = (string) $conflict->member->full_name;
             $errors["member_ids.{$index}"] = __(':name is already assigned to team :team for this session.', [
                 'name' => $memberName,
                 'team' => $teamName,

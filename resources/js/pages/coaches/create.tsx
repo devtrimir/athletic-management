@@ -12,8 +12,7 @@ import { Label } from '@/components/ui/label';
 import { useTranslation } from '@/hooks/use-translation';
 
 type FormData = {
-    full_name_hi: string;
-    full_name_en: string;
+    full_name: string;
     pno: string;
     mobile: string;
     nis_certified: boolean;
@@ -33,8 +32,7 @@ export default function CoachesCreate() {
     const [pickedMember, setPickedMember] = useState<MemberOption | null>(null);
 
     const { data, setData, post, errors, processing } = useForm<FormData>({
-        full_name_hi: '',
-        full_name_en: '',
+        full_name: '',
         pno: '',
         mobile: '',
         nis_certified: false,
@@ -46,7 +44,7 @@ export default function CoachesCreate() {
         setData((prev) => ({
             ...prev,
             member_id: member?.id ?? null,
-            full_name_hi: prev.full_name_hi || (member?.full_name_hi ?? ''),
+            full_name: prev.full_name || (member?.full_name ?? ''),
             pno: prev.pno || (member?.pno ?? ''),
         }));
     }
@@ -71,28 +69,17 @@ export default function CoachesCreate() {
 
                         <div className="grid gap-5 sm:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="full_name_hi">
-                                    {t('Name (Hindi)')} <span className="text-destructive">*</span>
+                                <Label htmlFor="full_name">
+                                    {t('Name')} <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
-                                    id="full_name_hi"
-                                    value={data.full_name_hi}
-                                    onChange={(e) => setData('full_name_hi', e.target.value)}
+                                    id="full_name"
+                                    value={data.full_name}
+                                    onChange={(e) => setData('full_name', e.target.value)}
                                     maxLength={255}
                                     required
                                 />
-                                <InputError message={errors.full_name_hi} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="full_name_en">{t('Name (English)')}</Label>
-                                <Input
-                                    id="full_name_en"
-                                    value={data.full_name_en}
-                                    onChange={(e) => setData('full_name_en', e.target.value)}
-                                    maxLength={255}
-                                />
-                                <InputError message={errors.full_name_en} />
+                                <InputError message={errors.full_name} />
                             </div>
                         </div>
 

@@ -25,9 +25,8 @@ test('store creates rank and redirects', function (): void {
     $this->actingAs($this->admin)
         ->post(route('ranks.store'), [
             'code' => 'TEST_RANK',
-            'name_en' => 'Test Rank',
+            'name' => 'टेस्ट रैंक',
             'short_name' => 'TR',
-            'name_hi' => 'टेस्ट रैंक',
             'rank_order' => 999,
             'cadre_type' => 'IPS',
             'is_gazetted' => '1',
@@ -43,16 +42,15 @@ test('store inline creates rank and returns created data', function (): void {
     $response = $this->actingAs($this->admin)
         ->postJson(route('ranks.inline.store'), [
             'code' => 'INLINE_RANK',
-            'name_en' => 'Inline Rank',
+            'name' => 'इनलाइन रैंक',
             'short_name' => 'IR',
-            'name_hi' => 'इनलाइन रैंक',
             'rank_order' => 998,
             'is_active' => true,
         ]);
 
     $response->assertOk()
         ->assertJsonPath('rank.code', 'INLINE_RANK')
-        ->assertJsonPath('rank.name_en', 'Inline Rank');
+        ->assertJsonPath('rank.name', 'इनलाइन रैंक');
 
     expect(Rank::where('code', 'INLINE_RANK')->exists())->toBeTrue();
 });
@@ -61,7 +59,7 @@ test('store is forbidden without permission', function (): void {
     $this->actingAs($this->user)
         ->post(route('ranks.store'), [
             'code' => 'TEST_RANK',
-            'name_en' => 'Test Rank',
+            'name' => 'Test Rank',
             'rank_order' => 999,
         ])
         ->assertForbidden();
@@ -70,9 +68,8 @@ test('store is forbidden without permission', function (): void {
 test('edit page returns 200 for authorized user', function (): void {
     $rank = Rank::create([
         'code' => 'EDIT_RANK',
-        'name_en' => 'Edit Rank',
+        'name' => 'एडिट रैंक',
         'short_name' => 'ER',
-        'name_hi' => 'एडिट रैंक',
         'rank_order' => 10,
         'cadre_type' => 'IPS',
         'is_gazetted' => false,
@@ -89,9 +86,8 @@ test('edit page returns 200 for authorized user', function (): void {
 test('update saves changes and redirects', function (): void {
     $rank = Rank::create([
         'code' => 'UPDATE_RANK',
-        'name_en' => 'Update Rank',
+        'name' => 'अपडेट रैंक',
         'short_name' => 'UR',
-        'name_hi' => 'अपडेट रैंक',
         'rank_order' => 20,
         'cadre_type' => 'IPS',
         'is_gazetted' => false,
@@ -102,9 +98,8 @@ test('update saves changes and redirects', function (): void {
     $this->actingAs($this->admin)
         ->patch(route('ranks.update', $rank), [
             'code' => 'UPDATE_RANK',
-            'name_en' => 'Updated Rank',
+            'name' => 'अपडेटेड रैंक',
             'short_name' => 'UR',
-            'name_hi' => 'अपडेटेड रैंक',
             'rank_order' => 21,
             'cadre_type' => 'PPS',
             'is_gazetted' => '0',
@@ -113,14 +108,14 @@ test('update saves changes and redirects', function (): void {
         ])
         ->assertRedirect(route('ranks.index'));
 
-    expect($rank->refresh()->name_en)->toBe('Updated Rank');
+    expect($rank->refresh()->name)->toBe('अपडेटेड रैंक');
     expect($rank->refresh()->aliases)->toBe(['Alias One', 'Alias Two']);
 });
 
 test('destroy deletes rank and redirects', function (): void {
     $rank = Rank::create([
         'code' => 'DELETE_RANK',
-        'name_en' => 'Delete Rank',
+        'name' => 'Delete Rank',
         'rank_order' => 30,
         'is_gazetted' => false,
         'is_active' => true,

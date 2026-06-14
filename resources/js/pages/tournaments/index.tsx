@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
-    { key: 'name_hi', label: 'Tournament Name (Hindi)' },
+    { key: 'name', label: 'Tournament Name' },
     { key: 'session', label: 'Session' },
     { key: 'tier', label: 'Tier' },
     { key: 'sport', label: 'Sport' },
@@ -32,7 +32,7 @@ type Tier = { id: number; code: string; label: string };
 
 type Tournament = {
     id: number;
-    name_hi: string;
+    name: string;
     date_from: string | null;
     venue: string | null;
     events_count: number;
@@ -303,7 +303,7 @@ params.append('filter[sport_id]', filters.sport_id);
                                         aria-label={t('Select all on page')}
                                     />
                                 </TableHead>
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Session')}</TableHead>
                                 <TableHead>{t('Tier')}</TableHead>
                                 <TableHead>{t('Sport')}</TableHead>
@@ -329,7 +329,7 @@ params.append('filter[sport_id]', filters.sport_id);
                                                 aria-label={t('Select row')}
                                             />
                                         </TableCell>
-                                        <TableCell className="font-medium">{t_.name_hi}</TableCell>
+                                        <TableCell className="font-medium">{t_.name}</TableCell>
                                         <TableCell className="text-muted-foreground">{t_.session?.name ?? '—'}</TableCell>
                                         <TableCell>
                                             {t_.tier ? (

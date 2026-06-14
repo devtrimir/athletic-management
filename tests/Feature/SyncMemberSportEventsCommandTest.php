@@ -14,8 +14,8 @@ test('members:sync-sport-events backfills pivot sport event data from a csv sour
     $org = Organization::factory()->create();
     $sport = Sport::factory()->create([
         'organization_id' => $org->id,
-        'name_hi' => 'आर्चरी',
-        'name_en' => 'Archery',
+        'name' => 'आर्चरी',
+        'name' => 'Archery',
     ]);
 
     $member = Member::factory()->create([
@@ -50,8 +50,8 @@ test('members:sync-sport-events preserves existing pivot values while syncing fr
     $org = Organization::factory()->create();
     $sport = Sport::factory()->create([
         'organization_id' => $org->id,
-        'name_hi' => 'आर्चरी',
-        'name_en' => 'Archery',
+        'name' => 'आर्चरी',
+        'name' => 'Archery',
     ]);
 
     $member = Member::factory()->create([

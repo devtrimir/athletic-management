@@ -19,7 +19,7 @@ class MemberStatusHistoryResource extends JsonResource
             'id' => $this->id,
             'status' => $this->status,
             'effective_on' => $this->effective_on->toDateString(),
-            'reason_hi' => $this->reason_hi,
+            'reason' => $this->reason,
             'recorded_by_name' => $this->whenLoaded('recorder', fn () => $this->recorder?->name),
         ];
     }

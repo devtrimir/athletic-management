@@ -23,9 +23,8 @@ class StoreMemberRequest extends FormRequest
 
         return [
             'pno' => ['nullable', 'string', 'max:20', Rule::unique('members', 'pno')->where('organization_id', $orgId)],
-            'full_name_hi' => ['required', 'string', 'max:255'],
-            'full_name_en' => ['nullable', 'string', 'max:255'],
-            'father_name_hi' => ['nullable', 'string', 'max:255'],
+            'full_name' => ['required', 'string', 'max:255'],
+            'father_name' => ['nullable', 'string', 'max:255'],
             'rank' => ['nullable', 'string', 'max:100'],
             'designation' => ['nullable', 'string', 'max:100'],
             'gender' => ['required', Rule::in(['M', 'F', 'O'])],

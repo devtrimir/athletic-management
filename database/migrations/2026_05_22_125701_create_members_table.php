@@ -18,10 +18,9 @@ return new class extends Migration
             $table->string('member_code', 30);
             $table->string('pno', 20)->nullable();
 
-            $table->string('full_name_hi');
-            $table->string('full_name_en')->nullable();
+            $table->string('full_name');
             $table->string('full_name_normalized')->nullable()->comment('Populated by normalize_devanagari trigger in P2-T04');
-            $table->string('father_name_hi')->nullable();
+            $table->string('father_name')->nullable();
             $table->string('rank', 100)->nullable();
 
             $table->enum('gender', ['M', 'F', 'O']);

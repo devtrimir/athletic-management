@@ -18,7 +18,7 @@ class TournamentExportController extends Controller
 {
     /** @var array<string, string> */
     private const COLUMN_LABELS = [
-        'name_hi' => 'Tournament Name (Hindi)',
+        'name' => 'Tournament Name',
         'session' => 'Session',
         'tier' => 'Tier',
         'sport' => 'Sport',
@@ -47,8 +47,8 @@ class TournamentExportController extends Controller
         if (! empty($ids)) {
             $tournaments = Tournament::whereIn('id', array_map('intval', $ids))
                 ->withCount('events')
-                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name_hi,name_en'])
-                ->orderBy('name_hi')
+                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name'])
+                ->orderBy('name')
                 ->get();
         } else {
             $tournaments = QueryBuilder::for(Tournament::class)
@@ -56,12 +56,12 @@ class TournamentExportController extends Controller
                     AllowedFilter::exact('session_id'),
                     AllowedFilter::exact('tier_id'),
                     AllowedFilter::exact('sport_id'),
-                    AllowedFilter::partial('q', 'name_hi'),
+                    AllowedFilter::partial('q', 'name'),
                 ])
-                ->allowedSorts(['name_hi', 'date_from', 'created_at'])
+                ->allowedSorts(['name', 'date_from', 'created_at'])
                 ->defaultSort('-date_from')
                 ->withCount('events')
-                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name_hi,name_en'])
+                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name'])
                 ->when(
                     ! $request->has('filter.session_id') && $defaultSessionId,
                     fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -78,7 +78,7 @@ class TournamentExportController extends Controller
                 $row[$col] = match ($col) {
                     'session' => $tournament->session?->name,
                     'tier' => $tournament->tier?->label_hi ?? $tournament->tier?->code,
-                    'sport' => $tournament->sport?->name_hi,
+                    'sport' => $tournament->sport?->name,
                     'date_from' => $tournament->date_from?->toDateString(),
                     'date_to' => $tournament->date_to?->toDateString(),
                     default => $tournament->{$col},

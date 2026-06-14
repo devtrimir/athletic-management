@@ -31,7 +31,7 @@ class TournamentTier extends Model
     /** @var list<string> */
     protected $appends = ['label'];
 
-    /** Locale-aware label — returns label_en when locale is 'en', otherwise label_hi. */
+    /** Locale-aware label for system-managed tournament tier labels. */
     protected function label(): Attribute
     {
         return Attribute::make(get: fn () => app()->getLocale() === 'en' ? $this->label_en : $this->label_hi);

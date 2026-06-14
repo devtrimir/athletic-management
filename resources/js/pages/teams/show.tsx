@@ -75,11 +75,11 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type Team = {
     id: number;
-    name_hi: string;
-    in_charge_hi: string | null;
+    name: string;
+    in_charge: string | null;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
-    unit: { id: number; name_hi: string } | null;
+    unit: { id: number; name: string } | null;
 };
 
 type TeamMemberRow = {
@@ -89,7 +89,7 @@ type TeamMemberRow = {
     left_on: string | null;
     member: {
         id: number;
-        full_name_hi: string;
+        full_name: string;
         member_code: string;
         pno: string | null;
     } | null;
@@ -99,7 +99,7 @@ type TeamMemberRow = {
 type CoachAssignmentRow = {
     id: number;
     role: string | null;
-    coach: { id: number; full_name_hi: string; pno: string | null } | null;
+    coach: { id: number; full_name: string; pno: string | null } | null;
     session: { id: number; name: string } | null;
 };
 
@@ -213,7 +213,7 @@ export default function TeamsShow({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Teams'), href: teamsIndex.url() },
-            { title: team.name_hi },
+            { title: team.name },
         ],
     });
 
@@ -277,7 +277,7 @@ export default function TeamsShow({
                   )
                 : t(':name added to team.').replace(
                       ':name',
-                      addedMembers[0]?.full_name_hi ?? t('Member'),
+                      addedMembers[0]?.full_name ?? t('Member'),
                   ),
         );
     }
@@ -328,7 +328,7 @@ export default function TeamsShow({
                   )
                 : t(':name removed from team.').replace(
                       ':name',
-                      rows[0]?.member?.full_name_hi ?? t('Member'),
+                      rows[0]?.member?.full_name ?? t('Member'),
                   ),
             {
                 action: {
@@ -435,7 +435,7 @@ export default function TeamsShow({
             {
                 confirmLabel: t('Remove selected'),
                 names: removedRows.flatMap((row) =>
-                    row.member ? [row.member.full_name_hi] : [],
+                    row.member ? [row.member.full_name] : [],
                 ),
                 note: t('You can undo this removal from the success message.'),
             },
@@ -514,7 +514,7 @@ export default function TeamsShow({
                 confirmLabel: t('Remove selected'),
                 names: (coaches ?? []).flatMap((row) =>
                     row.coach && selectedCoachIds.has(row.coach.id)
-                        ? [row.coach.full_name_hi]
+                        ? [row.coach.full_name]
                         : [],
                 ),
             },
@@ -581,7 +581,7 @@ export default function TeamsShow({
 
         if (memberSearch) {
             const q = memberSearch.toLowerCase();
-            const nameMatch = r.member?.full_name_hi?.toLowerCase().includes(q);
+            const nameMatch = r.member?.full_name?.toLowerCase().includes(q);
             const pnoMatch = r.member?.pno?.toLowerCase().includes(q);
 
             if (!nameMatch && !pnoMatch) {
@@ -606,7 +606,7 @@ export default function TeamsShow({
 
         if (coachSearch) {
             const q = coachSearch.toLowerCase();
-            const nameMatch = r.coach?.full_name_hi?.toLowerCase().includes(q);
+            const nameMatch = r.coach?.full_name?.toLowerCase().includes(q);
             const pnoMatch = r.coach?.pno?.toLowerCase().includes(q);
 
             if (!nameMatch && !pnoMatch) {
@@ -662,7 +662,7 @@ export default function TeamsShow({
 
     return (
         <>
-            <Head title={team.name_hi} />
+            <Head title={team.name} />
 
             <AlertDialog
                 open={confirm.open}
@@ -833,7 +833,7 @@ export default function TeamsShow({
             <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold">{team.name_hi}</h1>
+                        <h1 className="text-2xl font-bold">{team.name}</h1>
                         {team.sport && (
                             <p className="text-sm text-muted-foreground">
                                 {team.sport.name}
@@ -893,11 +893,11 @@ export default function TeamsShow({
                     <TabsContent value="overview">
                         <div className="rounded-xl border bg-card p-6">
                             <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3">
-                                {detail(t('Team name'), team.name_hi)}
+                                {detail(t('Team name'), team.name)}
                                 {detail(t('Sport'), team.sport?.name)}
                                 {detail(t('Session'), team.session?.name)}
-                                {detail(t('Unit'), team.unit?.name_hi)}
-                                {detail(t('In-charge'), team.in_charge_hi)}
+                                {detail(t('Unit'), team.unit?.name)}
+                                {detail(t('In-charge'), team.in_charge)}
                                 <Deferred
                                     data="counts"
                                     fallback={
@@ -1165,13 +1165,13 @@ export default function TeamsShow({
                                                                     aria-label={
                                                                         row
                                                                             .member
-                                                                            ?.full_name_hi
+                                                                            ?.full_name
                                                                     }
                                                                 />
                                                             </TableCell>
                                                             <TableCell className="font-medium">
                                                                 {row.member
-                                                                    ?.full_name_hi ??
+                                                                    ?.full_name ??
                                                                     '—'}
                                                             </TableCell>
                                                             <TableCell className="font-mono text-sm">
@@ -1249,7 +1249,7 @@ export default function TeamsShow({
                                                                                     .id,
                                                                                 row
                                                                                     .member
-                                                                                    .full_name_hi,
+                                                                                    .full_name,
                                                                             )
                                                                         }
                                                                         disabled={
@@ -1492,13 +1492,13 @@ export default function TeamsShow({
                                                                 }
                                                                 aria-label={
                                                                     row.coach
-                                                                        ?.full_name_hi
+                                                                        ?.full_name
                                                                 }
                                                             />
                                                         </TableCell>
                                                         <TableCell className="font-medium">
                                                             {row.coach
-                                                                ?.full_name_hi ??
+                                                                ?.full_name ??
                                                                 '—'}
                                                         </TableCell>
                                                         <TableCell className="font-mono text-sm">
@@ -1547,7 +1547,7 @@ export default function TeamsShow({
                                                                                 .id,
                                                                             row
                                                                                 .coach
-                                                                                .full_name_hi,
+                                                                                .full_name,
                                                                         )
                                                                     }
                                                                     disabled={

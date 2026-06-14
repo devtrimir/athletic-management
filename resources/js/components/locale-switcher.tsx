@@ -1,14 +1,14 @@
 import { router, usePage } from '@inertiajs/react';
 import { Languages } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { update } from '@/routes/locale';
+import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { update } from '@/routes/locale';
 
 type Locale = 'hi' | 'en';
 

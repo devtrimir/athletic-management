@@ -13,8 +13,7 @@ return new class extends Migration
     {
         Schema::create('districts', function (Blueprint $table) {
             $table->id();
-            $table->string('name_hi');
-            $table->string('name_en');
+            $table->string('name');
             $table->string('state');
             $table->string('code', 10)->unique();
             $table->timestamps();

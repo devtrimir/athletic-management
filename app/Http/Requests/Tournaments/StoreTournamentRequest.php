@@ -25,7 +25,7 @@ class StoreTournamentRequest extends FormRequest
             'session_id' => ['required', 'integer', Rule::exists('sport_sessions', 'id')->where('organization_id', $orgId)],
             'tier_id' => ['required', 'integer', 'exists:tournament_tiers,id'],
             'sport_id' => ['nullable', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
-            'name_hi' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'venue' => ['nullable', 'string', 'max:255'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],

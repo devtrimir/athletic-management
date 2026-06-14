@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('name_aliases', function (Blueprint $table) {
             $table->id();
             $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
-            $table->string('alias_hi');
+            $table->string('alias');
             $table->string('alias_normalized')->nullable()->comment('Populated by normalize_devanagari trigger in P2-T04');
             $table->enum('source', ['krutidev', 'spelling_variant', 'rank_prefixed', 'legacy', 'manual']);
             $table->timestamps();

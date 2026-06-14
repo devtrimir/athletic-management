@@ -36,13 +36,13 @@ class SyncMemberSportEvents extends Command
         /** @var array<string, int> $sportMap */
         $sportMap = Sport::withoutGlobalScopes()
             ->where('organization_id', $org->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         /** @var array<string, int> $unitMap */
         $unitMap = Unit::withoutGlobalScopes()
             ->where('organization_id', $org->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         $matchedMembers = [];

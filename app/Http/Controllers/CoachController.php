@@ -35,11 +35,11 @@ class CoachController extends Controller
                         $query->whereNull('member_id');
                     }
                 }),
-                AllowedFilter::partial('q', 'full_name_hi'),
+                AllowedFilter::partial('q', 'full_name'),
             ])
-            ->allowedSorts(['full_name_hi', 'pno', 'created_at'])
-            ->defaultSort('full_name_hi')
-            ->with('member:id,member_code,full_name_hi,pno,rank')
+            ->allowedSorts(['full_name', 'pno', 'created_at'])
+            ->defaultSort('full_name')
+            ->with('member:id,member_code,full_name,pno,rank')
             ->paginate(25)
             ->withQueryString();
 
@@ -77,17 +77,17 @@ class CoachController extends Controller
         return Inertia::render('coaches/show', [
             'coach' => (new CoachResource($coach))->resolve(),
             'member' => Inertia::defer(fn () => $coach->member_id
-                ? Member::withoutGlobalScopes()->find($coach->member_id, ['id', 'member_code', 'full_name_hi', 'full_name_en', 'pno', 'rank', 'mobile'])
+                ? Member::withoutGlobalScopes()->find($coach->member_id, ['id', 'member_code', 'full_name', 'full_name', 'pno', 'rank', 'mobile'])
                 : null
             ),
             'coachTeams' => Inertia::defer(fn () => CoachAssignment::where('coach_id', $coach->id)
-                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi,name_en', 'session:id,name'])
+                ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
                 ->orderByDesc('id')
                 ->get()
                 ->map(fn ($ca) => [
                     'id' => $ca->id,
                     'role' => $ca->role,
-                    'team' => $ca->team ? ['id' => $ca->team->id, 'name_hi' => $ca->team->name_hi] : null,
+                    'team' => $ca->team ? ['id' => $ca->team->id, 'name' => $ca->team->name] : null,
                     'sport' => $ca->team?->sport ? ['id' => $ca->team->sport->id, 'name' => $ca->team->sport->name] : null,
                     'session' => $ca->session ? ['id' => $ca->session->id, 'name' => $ca->session->name] : null,
                 ])),
@@ -100,7 +100,7 @@ class CoachController extends Controller
         Gate::authorize('update', $coach);
 
         return Inertia::render('coaches/edit', [
-            'coach' => $coach->load('member:id,member_code,full_name_hi,full_name_en,pno,rank,player_category,player_level,current_status'),
+            'coach' => $coach->load('member:id,member_code,full_name,full_name,pno,rank,player_category,player_level,current_status'),
         ]);
     }
 

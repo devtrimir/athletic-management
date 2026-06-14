@@ -38,7 +38,7 @@ class MediaFileFactory extends Factory
             'original_name' => fake()->word().".{$ext}",
             'mime_type' => $mime,
             'size_bytes' => fake()->numberBetween(50_000, 5_000_000),
-            'caption_hi' => fake()->optional(0.4)->sentence(4),
+            'caption' => fake()->optional(0.4)->sentence(4),
             'uploaded_by' => User::factory()->create(['organization_id' => $orgId])->id,
         ];
     }

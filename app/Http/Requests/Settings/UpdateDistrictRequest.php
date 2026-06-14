@@ -22,8 +22,7 @@ class UpdateDistrictRequest extends FormRequest
         $districtId = (int) $this->route('district')->id;
 
         return [
-            'name_hi' => ['required', 'string', 'max:100'],
-            'name_en' => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100'],
             'state' => ['required', 'string', 'max:100'],
             'code' => [
                 'required',

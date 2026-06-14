@@ -41,18 +41,18 @@ class MedalsExportController extends Controller
                 'a.remarks',
                 'm.member_code',
                 'm.pno',
-                'm.full_name_hi',
+                'm.full_name',
                 'm.rank',
                 'm.gender',
-                'u.name_hi as unit_name',
-                't.name_hi as tournament_name',
+                'u.name as unit_name',
+                't.name as tournament_name',
                 't.venue',
                 't.date_from',
                 't.date_to',
                 'tt.label_hi as tier_label',
                 'ss.name as session_name',
-                's.name_hi as sport_name',
-                'e.name_hi as event_name',
+                's.name as sport_name',
+                'e.name as event_name',
                 'e.discipline',
                 'e.weight_category',
                 'e.gender_class',
@@ -67,13 +67,13 @@ class MedalsExportController extends Controller
             ->when($filters['unit_id'], fn ($q) => $q->where('m.current_unit_id', $filters['unit_id']))
             ->when($filters['medal_type'], fn ($q) => $q->where('a.medal_type', $filters['medal_type']))
             ->when($filters['gender'], fn ($q) => $q->where('m.gender', $filters['gender']))
-            ->when($filters['member_name'], fn ($q) => $q->where('m.full_name_hi', 'like', "%{$filters['member_name']}%"))
+            ->when($filters['member_name'], fn ($q) => $q->where('m.full_name', 'like', "%{$filters['member_name']}%"))
             ->when($filters['pno'], fn ($q) => $q->where('m.pno', 'like', "%{$filters['pno']}%"))
             ->when($filters['tournament_id'], fn ($q) => $q->where('t.id', $filters['tournament_id']))
-            ->when($filters['event_name'], fn ($q) => $q->where('e.name_hi', 'like', "%{$filters['event_name']}%"))
+            ->when($filters['event_name'], fn ($q) => $q->where('e.name', 'like', "%{$filters['event_name']}%"))
             ->orderByRaw("FIELD(a.medal_type, 'GOLD', 'SILVER', 'BRONZE', 'MERIT')")
             ->orderByDesc('t.date_from')
-            ->orderBy('m.full_name_hi')
+            ->orderBy('m.full_name')
             ->limit(5000)
             ->get();
 
@@ -89,7 +89,7 @@ class MedalsExportController extends Controller
             fwrite($out, "\xEF\xBB\xBF");
 
             fputcsv($out, [
-                'Medal', 'Position', 'Member Code', 'PNO', 'Name (Hindi)',
+                'Medal', 'Position', 'Member Code', 'PNO', 'Name',
                 'Rank', 'Gender', 'Unit', 'Session', 'Tournament',
                 'Tier', 'Sport', 'Event', 'Discipline', 'Weight Category',
                 'Gender Class', 'Venue', 'Date From', 'Date To', 'Remarks',
@@ -101,7 +101,7 @@ class MedalsExportController extends Controller
                     $row->position,
                     $row->member_code,
                     $row->pno,
-                    $row->full_name_hi,
+                    $row->full_name,
                     $row->rank,
                     $row->gender,
                     $row->unit_name,

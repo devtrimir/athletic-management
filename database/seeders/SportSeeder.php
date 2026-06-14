@@ -30,17 +30,23 @@ class SportSeeder extends Seeder
                 continue;
             }
 
-            [$nameHi, $nameEn, $category] = $line;
+            [$name, $category] = $line;
 
             $rows[] = [
                 'organization_id' => $org->id,
-                'name_hi' => $nameHi,
-                'name_en' => $nameEn,
+                'name' => $name,
                 'category' => $category,
-                'slug' => Str::slug($nameEn),
+                'slug' => $this->slugForName($name),
             ];
         }
 
-        Sport::upsert($rows, uniqueBy: ['organization_id', 'slug'], update: ['name_hi', 'name_en', 'category', 'updated_at']);
+        Sport::upsert($rows, uniqueBy: ['organization_id', 'slug'], update: ['name', 'category', 'updated_at']);
+    }
+
+    private function slugForName(string $name): string
+    {
+        $slug = Str::slug($name);
+
+        return $slug !== '' ? $slug : 'sport-'.substr(sha1($name), 0, 10);
     }
 }

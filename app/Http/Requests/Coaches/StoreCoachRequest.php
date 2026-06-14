@@ -22,8 +22,7 @@ class StoreCoachRequest extends FormRequest
         $orgId = (int) $this->user()->organization_id;
 
         return [
-            'full_name_hi' => ['required', 'string', 'max:255'],
-            'full_name_en' => ['nullable', 'string', 'max:255'],
+            'full_name' => ['required', 'string', 'max:255'],
             'pno' => ['nullable', 'string', 'max:20', Rule::unique('coaches', 'pno')->where('organization_id', $orgId)],
             'mobile' => ['nullable', 'string', 'max:20'],
             'nis_certified' => ['boolean'],

@@ -222,7 +222,7 @@ export function AddMemberDialog({ open, onOpenChange, team, onAdded }: Props) {
                                         key={member.id}
                                         className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs"
                                     >
-                                        {member.full_name_hi}
+                                        {member.full_name}
                                         {member.pno && (
                                             <span className="font-mono text-muted-foreground">
                                                 {member.pno}

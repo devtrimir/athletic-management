@@ -19,15 +19,14 @@ class CoachResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'full_name_hi' => $this->full_name_hi,
-            'full_name_en' => $this->full_name_en,
+            'full_name' => $this->full_name,
             'pno' => $this->pno,
             'mobile' => $this->mobile,
             'nis_certified' => $this->nis_certified,
             'member' => $this->whenLoaded('member', fn () => [
                 'id' => $this->member->id,
                 'member_code' => $this->member->member_code,
-                'full_name_hi' => $this->member->full_name_hi,
+                'full_name' => $this->member->full_name,
                 'pno' => $this->member->pno,
                 'rank' => $this->member->rank,
             ]),

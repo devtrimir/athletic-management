@@ -12,8 +12,7 @@ import { useTranslation } from '@/hooks/use-translation';
 type Role = {
     id: number;
     code: string;
-    name_hi: string;
-    name_en: string;
+    name: string;
 };
 
 type User = {
@@ -109,7 +108,7 @@ export default function Index({ users }: { users: User[] }) {
                                             <div className="flex flex-wrap gap-1">
                                                 {user.roles.map((r) => (
                                                     <Badge key={r.id} variant="secondary" className="text-xs">
-                                                        {locale === 'hi' ? r.name_hi : r.name_en}
+                                                        {locale === 'hi' ? r.name : r.name}
                                                     </Badge>
                                                 ))}
                                             </div>

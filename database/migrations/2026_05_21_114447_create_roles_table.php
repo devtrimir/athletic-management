@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
             $table->string('code');
             $table->string('name_hi');
-            $table->string('name_en');
+            $table->string('name_en')->nullable();
             $table->boolean('is_system')->default(false);
             $table->string('description')->nullable();
             $table->timestamps();

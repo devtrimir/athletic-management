@@ -53,7 +53,7 @@ test('authorized user can view coach preview', function () {
     $this->actingAs($user)
         ->getJson(route('v1.coaches.preview', $coach))
         ->assertOk()
-        ->assertJsonStructure(['id', 'full_name_hi', 'mobile', 'nis_certified']);
+        ->assertJsonStructure(['id', 'full_name', 'mobile', 'nis_certified']);
 });
 
 test('user cannot preview coach from another organization', function () {

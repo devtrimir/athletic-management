@@ -13,14 +13,14 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type TeamMemberRow = {
     pno: string | null;
-    full_name_hi: string | null;
+    full_name: string | null;
     rank: string | null;
     role: string;
     session_name: string | null;
 };
 
 type TeamCoachRow = {
-    full_name_hi: string | null;
+    full_name: string | null;
     pno: string | null;
     nis_certified: boolean;
     role: string;
@@ -29,13 +29,13 @@ type TeamCoachRow = {
 
 type TeamPreview = {
     id: number;
-    name_hi: string;
-    in_charge_hi: string | null;
+    name: string;
+    in_charge: string | null;
     players_count: number;
     coaches_count: number;
-    sport: { name_hi: string } | null;
+    sport: { name: string } | null;
     session: { name: string } | null;
-    unit: { name_hi: string } | null;
+    unit: { name: string } | null;
     members: TeamMemberRow[];
     coaches: TeamCoachRow[];
 };
@@ -55,15 +55,15 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 
 function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
     const memberRows = data.members.map(
-        (m) => `<tr><td class="mono">${m.pno ?? '—'}</td><td>${m.full_name_hi ?? '—'}</td><td>${m.rank ? t(m.rank) : '—'}</td><td>${t(m.role)}</td><td>${m.session_name ?? '—'}</td></tr>`,
+        (m) => `<tr><td class="mono">${m.pno ?? '—'}</td><td>${m.full_name ?? '—'}</td><td>${m.rank ? t(m.rank) : '—'}</td><td>${t(m.role)}</td><td>${m.session_name ?? '—'}</td></tr>`,
     ).join('');
 
     const coachRows = data.coaches.map(
-        (c) => `<tr><td>${c.full_name_hi ?? '—'}</td><td class="mono">${c.pno ?? '—'}</td><td>${c.nis_certified ? '✓' : '—'}</td><td>${t(c.role)}</td><td>${c.session_name ?? '—'}</td></tr>`,
+        (c) => `<tr><td>${c.full_name ?? '—'}</td><td class="mono">${c.pno ?? '—'}</td><td>${c.nis_certified ? '✓' : '—'}</td><td>${t(c.role)}</td><td>${c.session_name ?? '—'}</td></tr>`,
     ).join('');
 
     return `<!DOCTYPE html><html><head>
-    <meta charset="utf-8"><title>${data.name_hi}</title>
+    <meta charset="utf-8"><title>${data.name}</title>
     <style>
         body{font-family:Arial,sans-serif;padding:20px;font-size:13px;color:#111}
         h1{font-size:18px;margin:0 0 2px}
@@ -78,13 +78,13 @@ function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
         @media print{@page{margin:1cm}}
     </style></head><body>
     <div class="header">
-        <h1>${data.name_hi}</h1>
+        <h1>${data.name}</h1>
     </div>
     <h2>${t('Team info')}</h2>
-    ${data.sport ? `<div class="row"><span class="label">${t('Sport')}</span><span class="val">${data.sport.name_hi}</span></div>` : ''}
+    ${data.sport ? `<div class="row"><span class="label">${t('Sport')}</span><span class="val">${data.sport.name}</span></div>` : ''}
     ${data.session ? `<div class="row"><span class="label">${t('Session')}</span><span class="val">${data.session.name}</span></div>` : ''}
-    ${data.unit ? `<div class="row"><span class="label">${t('Unit')}</span><span class="val">${data.unit.name_hi}</span></div>` : ''}
-    ${data.in_charge_hi ? `<div class="row"><span class="label">${t('In-charge')}</span><span class="val">${data.in_charge_hi}</span></div>` : ''}
+    ${data.unit ? `<div class="row"><span class="label">${t('Unit')}</span><span class="val">${data.unit.name}</span></div>` : ''}
+    ${data.in_charge ? `<div class="row"><span class="label">${t('In-charge')}</span><span class="val">${data.in_charge}</span></div>` : ''}
     ${data.members.length ? `<h2>${t('Players')} (${data.members.length})</h2>
     <table><thead><tr><th>${t('PNO')}</th><th>${t('Name')}</th><th>${t('Rank')}</th><th>${t('Role')}</th><th>${t('Session')}</th></tr></thead>
     <tbody>${memberRows}</tbody></table>` : ''}
@@ -152,11 +152,11 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                         </div>
                     ) : (
                         <>
-                            <SheetTitle className="text-lg">{data.name_hi}</SheetTitle>
+                            <SheetTitle className="text-lg">{data.name}</SheetTitle>
                             <div className="flex flex-wrap items-center gap-3 pt-1 text-sm text-muted-foreground">
-                                {data.sport && <span>{data.sport.name_hi}</span>}
+                                {data.sport && <span>{data.sport.name}</span>}
                                 {data.session && <span>· {data.session.name}</span>}
-                                {data.unit && <span>· {data.unit.name_hi}</span>}
+                                {data.unit && <span>· {data.unit.name}</span>}
                             </div>
                             <div className="flex gap-4 pt-1 text-sm">
                                 <span><span className="font-semibold">{data.players_count}</span> {t('players')}</span>
@@ -181,7 +181,7 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                         <div className="py-2">
                             <div className="border-b py-4">
                                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('Team info')}</h3>
-                                <InfoRow label={t('In-charge')} value={data.in_charge_hi} />
+                                <InfoRow label={t('In-charge')} value={data.in_charge} />
                             </div>
 
                             {data.members.length > 0 && (
@@ -203,7 +203,7 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                                             {data.members.map((m, i) => (
                                                 <TableRow key={i}>
                                                     <TableCell className="font-mono text-xs">{m.pno ?? '—'}</TableCell>
-                                                    <TableCell className="font-medium">{m.full_name_hi ?? '—'}</TableCell>
+                                                    <TableCell className="font-medium">{m.full_name ?? '—'}</TableCell>
                                                     <TableCell className="text-xs">{m.rank ? t(m.rank) : '—'}</TableCell>
                                                     <TableCell className="text-xs">{t(m.role)}</TableCell>
                                                     <TableCell className="text-xs">{m.session_name ?? '—'}</TableCell>
@@ -232,7 +232,7 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                                         <TableBody>
                                             {data.coaches.map((c, i) => (
                                                 <TableRow key={i}>
-                                                    <TableCell className="font-medium">{c.full_name_hi ?? '—'}</TableCell>
+                                                    <TableCell className="font-medium">{c.full_name ?? '—'}</TableCell>
                                                     <TableCell className="font-mono text-xs">{c.pno ?? '—'}</TableCell>
                                                     <TableCell className="text-xs">{c.nis_certified ? '✓' : '—'}</TableCell>
                                                     <TableCell className="text-xs">{t(c.role)}</TableCell>

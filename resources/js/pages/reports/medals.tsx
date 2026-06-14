@@ -18,9 +18,9 @@ import { useTranslation } from '@/hooks/use-translation';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Sport = { id: number; name_hi: string; name_en: string };
+type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label_hi: string; label_en: string };
-type Unit = { id: number; name_hi: string; name_en: string };
+type Unit = { id: number; name: string };
 
 type PivotRow = {
     tier: { code: string; label: string; weight: number };
@@ -54,8 +54,7 @@ type MedalRow = {
         id: number;
         member_code: string;
         pno: string | null;
-        full_name_hi: string;
-        full_name_en: string | null;
+        full_name: string;
         rank: string | null;
         gender: string;
         unit_name: string | null;
@@ -70,7 +69,7 @@ type MedalRow = {
         tier_label: string | null;
     };
     session_name: string | null;
-    sport: { id: number; name_hi: string; name_en: string | null };
+    sport: { id: number; name: string };
     event: {
         id: number;
         name: string;
@@ -300,11 +299,11 @@ function exportRelatedCsv(rows: MedalRow[], filename: string): void {
     const header = ['Medal', 'Name', 'PNO', 'Rank', 'Unit', 'Sport', 'Event', 'Tournament', 'Date'].join(',');
     const body = rows.map((r) => [
         r.medal_type,
-        r.member.full_name_hi,
+        r.member.full_name,
         r.member.pno ?? '',
         r.member.rank ?? '',
         r.member.unit_name ?? '',
-        r.sport.name_hi,
+        r.sport.name,
         r.event.name,
         r.tournament.name,
         r.tournament.date_from ?? '',
@@ -339,11 +338,11 @@ function printRelated(rows: MedalRow[], title: string): void {
     const tableRows = rows.map((r) => `
         <tr>
             <td style="color:${MEDAL_COLOR[r.medal_type] ?? '#000'};font-weight:600">${r.medal_type}</td>
-            <td>${r.member.full_name_hi}</td>
+            <td>${r.member.full_name}</td>
             <td>${r.member.pno ?? ''}</td>
             <td>${r.member.rank ?? ''}</td>
             <td>${r.member.unit_name ?? ''}</td>
-            <td>${r.sport.name_hi}</td>
+            <td>${r.sport.name}</td>
             <td>${r.event.name}</td>
             <td>${r.tournament.name}</td>
             <td>${r.tournament.date_from ?? ''}</td>
@@ -397,9 +396,10 @@ function RelatedMedalsModal({
 
     useEffect(() => {
         if (!open) {
- return;
-}
+            return;
+        }
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setRelatedData(null);
         fetchRows(
             MedalsDetailController.url({ query: { ...params, per_page: '50' } }),
@@ -441,9 +441,9 @@ function RelatedMedalsModal({
                                     <div key={r.id} className="flex items-center gap-3 px-3 py-2.5 bg-card hover:bg-muted/40">
                                         <MedalBadge type={r.medal_type} />
                                         <div className="min-w-0 flex-1">
-                                            <div className="text-sm font-medium truncate">{r.member.full_name_hi}</div>
+                                            <div className="text-sm font-medium truncate">{r.member.full_name}</div>
                                             <div className="text-xs text-muted-foreground truncate">
-                                                {[r.sport.name_hi, r.event.name].filter(Boolean).join(' · ')}
+                                                {[r.sport.name, r.event.name].filter(Boolean).join(' · ')}
                                             </div>
                                         </div>
                                         <div className="shrink-0 text-right">
@@ -556,7 +556,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
         <RelatedMedalsModal
             open={subModal === 'event'}
             onOpenChange={(v) => setSubModal(v ? 'event' : null)}
-            title={[row.sport.name_hi, row.event.name].filter(Boolean).join(' – ')}
+            title={[row.sport.name, row.event.name].filter(Boolean).join(' – ')}
             description={t('All medal records for this event')}
             params={{ tournament_id: String(row.tournament.id), event_name: row.event.name }}
         />
@@ -564,7 +564,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
             <RelatedMedalsModal
                 open={subModal === 'athlete'}
                 onOpenChange={(v) => setSubModal(v ? 'athlete' : null)}
-                title={row.member.full_name_hi}
+                title={row.member.full_name}
                 description={t('All medal records for this athlete')}
                 params={{ pno: row.member.pno }}
             />
@@ -590,7 +590,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <h2 className="text-lg font-bold leading-tight">{row.member.full_name_hi}</h2>
+                            <h2 className="text-lg font-bold leading-tight">{row.member.full_name}</h2>
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                             {row.member.member_code && <span>{row.member.member_code}</span>}
@@ -613,7 +613,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
                         </div>
                     </div>
                     <DialogHeader className="sr-only">
-                        <DialogTitle>{row.member.full_name_hi}</DialogTitle>
+                        <DialogTitle>{row.member.full_name}</DialogTitle>
                     </DialogHeader>
                 </div>
 
@@ -636,7 +636,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
                         title={t('Event')}
                         action={viewAllBtn(() => setSubModal('event'), t('All in event'))}
                     >
-                        <DetailRow label={t('Sport')} value={row.sport.name_hi} />
+                        <DetailRow label={t('Sport')} value={row.sport.name} />
                         <DetailRow label={t('Event')} value={row.event.name} />
                         {row.event.discipline && <DetailRow label={t('Discipline')} value={row.event.discipline} />}
                         {row.event.weight_category && <DetailRow label={t('Weight category')} value={row.event.weight_category} />}
@@ -652,7 +652,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
                         <DetailRow label={t('PNO')} value={row.member.pno} />
                         <DetailRow label={t('Rank')} value={row.member.rank} />
                         <DetailRow label={t('Gender')} value={genderLabel ? t(genderLabel) : row.member.gender} />
-                        {row.member.full_name_en && <DetailRow label={t('Name (English)')} value={row.member.full_name_en} full />}
+                        {row.member.full_name && <DetailRow label={t('Name')} value={row.member.full_name} full />}
                         <DetailRow label={t('Unit')} value={row.member.unit_name} full />
                     </SectionCard>
 
@@ -814,6 +814,7 @@ export default function ReportsMedals({
 
     // Reset page when filters change
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPage(1);
     }, [filters, memberSearch, perPage]);
 
@@ -887,9 +888,9 @@ return `≤ ${to}`;
 
         return undefined;
     })();
-    const sportLabel = sports.find((s) => String(s.id) === filters.sport_id)?.name_hi;
+    const sportLabel = sports.find((s) => String(s.id) === filters.sport_id)?.name;
     const tierLabel = tiers.find((t) => String(t.id) === filters.tier_id)?.label_hi;
-    const unitLabel = units.find((u) => String(u.id) === filters.unit_id)?.name_hi;
+    const unitLabel = units.find((u) => String(u.id) === filters.unit_id)?.name;
     const medalLabel = filters.medal_type !== ALL ? t(filters.medal_type) : undefined;
     const genderLabel = filters.gender !== ALL ? t(GENDER_OPTIONS.find((g) => g.value === filters.gender)?.label ?? filters.gender) : undefined;
 
@@ -973,7 +974,7 @@ return `≤ ${to}`;
                         onClear={() => setFilter('sport_id', ALL)}
                     >
                         <SearchableOptionList
-                            options={sports.map((s) => ({ value: String(s.id), label: s.name_hi }))}
+                            options={sports.map((s) => ({ value: String(s.id), label: s.name }))}
                             value={filters.sport_id}
                             onSelect={(v) => setFilter('sport_id', v)}
                             searchPlaceholder={t('Search sports…')}
@@ -1000,7 +1001,7 @@ return `≤ ${to}`;
                         onClear={() => setFilter('unit_id', ALL)}
                     >
                         <SearchableOptionList
-                            options={units.map((u) => ({ value: String(u.id), label: u.name_hi }))}
+                            options={units.map((u) => ({ value: String(u.id), label: u.name }))}
                             value={filters.unit_id}
                             onSelect={(v) => setFilter('unit_id', v)}
                             searchPlaceholder={t('Search units…')}
@@ -1206,7 +1207,7 @@ return `≤ ${to}`;
                                                     <MedalBadge type={row.medal_type} />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-medium">{row.member.full_name_hi}</div>
+                                                    <div className="font-medium">{row.member.full_name}</div>
                                                     <div className="text-xs text-muted-foreground">
                                                         {[row.member.member_code, row.member.pno].filter(Boolean).join(' · ')}
                                                     </div>
@@ -1214,7 +1215,7 @@ return `≤ ${to}`;
                                                 <TableCell className="text-sm">{row.member.rank ?? '—'}</TableCell>
                                                 <TableCell className="text-sm">{row.member.unit_name ?? '—'}</TableCell>
                                                 <TableCell>
-                                                    <div className="text-sm">{row.sport.name_hi}</div>
+                                                    <div className="text-sm">{row.sport.name}</div>
                                                     <div className="text-xs text-muted-foreground">{row.event.name}</div>
                                                 </TableCell>
                                                 <TableCell>

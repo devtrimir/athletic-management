@@ -63,10 +63,10 @@ class MedalsDetailReport
             ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))
             ->when($medalType, fn ($q) => $q->where('a.medal_type', $medalType))
             ->when($gender, fn ($q) => $q->where('m.gender', $gender))
-            ->when($memberName, fn ($q) => $q->where('m.full_name_hi', 'like', "%{$memberName}%"))
+            ->when($memberName, fn ($q) => $q->where('m.full_name', 'like', "%{$memberName}%"))
             ->when($pno, fn ($q) => $q->where('m.pno', 'like', "%{$pno}%"))
             ->when($tournamentId, fn ($q) => $q->where('t.id', $tournamentId))
-            ->when($eventName, fn ($q) => $q->where('e.name_hi', 'like', "%{$eventName}%"))
+            ->when($eventName, fn ($q) => $q->where('e.name', 'like', "%{$eventName}%"))
             ->groupBy('a.medal_type')
             ->get();
 
@@ -126,13 +126,12 @@ class MedalsDetailReport
                 'm.id as member_id',
                 'm.member_code',
                 'm.pno',
-                'm.full_name_hi',
-                'm.full_name_en',
+                'm.full_name',
                 'm.rank',
                 'm.gender',
-                'u.name_hi as unit_name',
+                'u.name as unit_name',
                 't.id as tournament_id',
-                't.name_hi as tournament_name',
+                't.name as tournament_name',
                 't.venue',
                 't.date_from',
                 't.date_to',
@@ -141,10 +140,9 @@ class MedalsDetailReport
                 'tt.label_en as tier_label_en',
                 'ss.name as session_name',
                 's.id as sport_id',
-                's.name_hi as sport_name_hi',
-                's.name_en as sport_name_en',
+                's.name as sport_name',
                 'e.id as event_id',
-                'e.name_hi as event_name',
+                'e.name as event_name',
                 'e.discipline',
                 'e.weight_category',
                 'e.gender_class',
@@ -166,13 +164,13 @@ class MedalsDetailReport
             ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))
             ->when($medalType, fn ($q) => $q->where('a.medal_type', $medalType))
             ->when($gender, fn ($q) => $q->where('m.gender', $gender))
-            ->when($memberName, fn ($q) => $q->where('m.full_name_hi', 'like', "%{$memberName}%"))
+            ->when($memberName, fn ($q) => $q->where('m.full_name', 'like', "%{$memberName}%"))
             ->when($pno, fn ($q) => $q->where('m.pno', 'like', "%{$pno}%"))
             ->when($tournamentId, fn ($q) => $q->where('t.id', $tournamentId))
-            ->when($eventName, fn ($q) => $q->where('e.name_hi', 'like', "%{$eventName}%"))
+            ->when($eventName, fn ($q) => $q->where('e.name', 'like', "%{$eventName}%"))
             ->orderByRaw("FIELD(a.medal_type, 'GOLD', 'SILVER', 'BRONZE', 'MERIT')")
             ->orderByDesc('t.date_from')
-            ->orderBy('m.full_name_hi')
+            ->orderBy('m.full_name')
             ->paginate($perPage);
 
         $locale = app()->getLocale();
@@ -191,8 +189,7 @@ class MedalsDetailReport
                     'id' => $row->member_id,
                     'member_code' => $row->member_code,
                     'pno' => $row->pno,
-                    'full_name_hi' => $row->full_name_hi,
-                    'full_name_en' => $row->full_name_en,
+                    'full_name' => $row->full_name,
                     'rank' => $row->rank,
                     'gender' => $row->gender,
                     'unit_name' => $row->unit_name,
@@ -209,8 +206,7 @@ class MedalsDetailReport
                 'session_name' => $row->session_name,
                 'sport' => [
                     'id' => $row->sport_id,
-                    'name_hi' => $row->sport_name_hi,
-                    'name_en' => $row->sport_name_en,
+                    'name' => $row->sport_name,
                 ],
                 'event' => [
                     'id' => $row->event_id,

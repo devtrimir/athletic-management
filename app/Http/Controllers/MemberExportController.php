@@ -19,9 +19,8 @@ class MemberExportController extends Controller
     /** @var array<string, string> */
     private const COLUMN_LABELS = [
         'pno' => 'PNO',
-        'full_name_hi' => 'Name (Hindi)',
-        'full_name_en' => 'Name (English)',
-        'father_name_hi' => "Father's Name",
+        'full_name' => 'Name',
+        'father_name' => "Father's Name",
         'gender' => 'Gender',
         'dob' => 'Date of Birth',
         'rank' => 'Rank',
@@ -52,7 +51,7 @@ class MemberExportController extends Controller
 
         return $sports->map(static function ($sport): string {
             $parts = array_filter([
-                $sport->name_hi,
+                $sport->name,
                 $sport->pivot?->role,
                 $sport->pivot?->position,
                 $sport->pivot?->sport_event,
@@ -87,8 +86,8 @@ class MemberExportController extends Controller
         if (! empty($ids)) {
             $baseQuery->whereIn('id', array_map('intval', $ids));
             $members = $baseQuery
-                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi', 'playableSports'])
-                ->orderBy('full_name_hi')
+                ->with(['currentUnit:id,name', 'homeDistrict:id,name', 'postingDistrict:id,name', 'playableSports'])
+                ->orderBy('full_name')
                 ->get();
         } else {
             $members = QueryBuilder::for($baseQuery)
@@ -103,7 +102,7 @@ class MemberExportController extends Controller
                     AllowedFilter::exact('blood_group'),
                     AllowedFilter::callback('q', function ($query, string $value): void {
                         $query->where(function ($q) use ($value): void {
-                            $q->where('full_name_hi', 'LIKE', "%{$value}%")
+                            $q->where('full_name', 'LIKE', "%{$value}%")
                                 ->orWhere('pno', 'LIKE', "%{$value}%");
                         });
                     }),
@@ -114,9 +113,9 @@ class MemberExportController extends Controller
                         $query->whereYear('joining_date', '<=', (int) $value);
                     }),
                 ])
-                ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
-                ->defaultSort('full_name_hi')
-                ->with(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi', 'playableSports'])
+                ->allowedSorts(['full_name', 'pno', 'joining_date', 'created_at'])
+                ->defaultSort('full_name')
+                ->with(['currentUnit:id,name', 'homeDistrict:id,name', 'postingDistrict:id,name', 'playableSports'])
                 ->get();
         }
 
@@ -127,9 +126,9 @@ class MemberExportController extends Controller
             $row = [];
             foreach ($validColumns as $col) {
                 $row[$col] = match ($col) {
-                    'unit' => $member->currentUnit?->name_hi,
-                    'home_district' => $member->homeDistrict?->name_hi,
-                    'posting_district' => $member->postingDistrict?->name_hi ?? $member->currentUnit?->name_hi,
+                    'unit' => $member->currentUnit?->name,
+                    'home_district' => $member->homeDistrict?->name,
+                    'posting_district' => $member->postingDistrict?->name ?? $member->currentUnit?->name,
                     'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
                     'playable_sports' => $this->playableSportsSummary($member),
                     default => $member->{$col},
@@ -149,7 +148,7 @@ class MemberExportController extends Controller
     {
         Gate::authorize('view', $member);
 
-        $member->load(['currentUnit:id,name_hi', 'homeDistrict:id,name_hi', 'postingDistrict:id,name_hi', 'playableSports']);
+        $member->load(['currentUnit:id,name', 'homeDistrict:id,name', 'postingDistrict:id,name', 'playableSports']);
 
         /** @var array<int, string> $columns */
         $columns = $request->query('columns', array_keys(self::COLUMN_LABELS));
@@ -160,9 +159,9 @@ class MemberExportController extends Controller
             $row = [];
             foreach ($validColumns as $col) {
                 $row[$col] = match ($col) {
-                    'unit' => $member->currentUnit?->name_hi,
-                    'home_district' => $member->homeDistrict?->name_hi,
-                    'posting_district' => $member->postingDistrict?->name_hi ?? $member->currentUnit?->name_hi,
+                    'unit' => $member->currentUnit?->name,
+                    'home_district' => $member->homeDistrict?->name,
+                    'posting_district' => $member->postingDistrict?->name ?? $member->currentUnit?->name,
                     'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
                     'playable_sports' => $this->playableSportsSummary($member),
                     default => $member->{$col},
@@ -175,7 +174,7 @@ class MemberExportController extends Controller
         $filename = 'member-'.$member->member_code.'-'.now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(
-            new ReportExport($rows, array_values($headings), $member->full_name_hi),
+            new ReportExport($rows, array_values($headings), $member->full_name),
             $filename,
         );
     }

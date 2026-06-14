@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
 class CoachSeeder extends Seeder
 {
     /**
-     * Sport name aliases: COACH.csv variant → canonical name_hi in sports table.
+     * Sport name aliases: COACH.csv variant → canonical name in sports table.
      *
      * @var array<string, string>
      */
@@ -97,16 +97,16 @@ class CoachSeeder extends Seeder
             ->where('is_current', true)
             ->first();
 
-        /** @var array<string, int> $sportMap name_hi → id */
+        /** @var array<string, int> $sportMap name → id */
         $sportMap = Sport::withoutGlobalScopes()
             ->where('organization_id', $org->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
-        /** @var array<string, int> $unitMap name_hi → id */
+        /** @var array<string, int> $unitMap name → id */
         $unitMap = Unit::withoutGlobalScopes()
             ->where('organization_id', $org->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         $coachCreated = 0;
@@ -209,8 +209,7 @@ class CoachSeeder extends Seeder
             [
                 'organization_id' => $orgId,
                 'member_id' => $memberId,
-                'full_name_hi' => $name,
-                'full_name_en' => null,
+                'full_name' => $name,
                 'pno' => $pno,
                 'mobile' => $mobile,
                 'nis_certified' => $nis,

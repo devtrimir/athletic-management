@@ -10,23 +10,23 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type Sport = { id: number; name: string };
 type Session = { id: number; name: string };
-type Unit = { id: number; name_hi: string };
+type Unit = { id: number; name: string };
 
 type Team = {
     id: number;
-    name_hi: string;
-    in_charge_hi: string | null;
+    name: string;
+    in_charge: string | null;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
-    unit: { id: number; name_hi: string } | null;
+    unit: { id: number; name: string } | null;
 };
 
 type FormData = {
     sport_id: string;
     session_id: string;
     unit_id: string;
-    name_hi: string;
-    in_charge_hi: string;
+    name: string;
+    in_charge: string;
 };
 
 export default function TeamsEdit({
@@ -45,7 +45,7 @@ export default function TeamsEdit({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Teams'), href: teamsIndex.url() },
-            { title: team.name_hi, href: showTeam.url(team) },
+            { title: team.name, href: showTeam.url(team) },
             { title: t('Edit team') },
         ],
     });
@@ -54,8 +54,8 @@ export default function TeamsEdit({
         sport_id: team.sport ? String(team.sport.id) : '',
         session_id: team.session ? String(team.session.id) : '',
         unit_id: team.unit ? String(team.unit.id) : '',
-        name_hi: team.name_hi,
-        in_charge_hi: team.in_charge_hi ?? '',
+        name: team.name,
+        in_charge: team.in_charge ?? '',
     });
 
     function handleSubmit(e: React.FormEvent) {
@@ -69,7 +69,7 @@ export default function TeamsEdit({
             <h1 className="sr-only">{t('Edit team')}</h1>
 
             <div className="space-y-6">
-                <Heading variant="small" title={t('Edit team')} description={team.name_hi} />
+                <Heading variant="small" title={t('Edit team')} description={team.name} />
 
                 <form onSubmit={handleSubmit} className="max-w-xl space-y-6">
                     <div className="rounded-xl border bg-card p-6 space-y-5">
@@ -133,7 +133,7 @@ export default function TeamsEdit({
                                 <SelectContent>
                                     {units.map((u) => (
                                         <SelectItem key={u.id} value={String(u.id)}>
-                                            {u.name_hi}
+                                            {u.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -142,28 +142,28 @@ export default function TeamsEdit({
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="name_hi">
+                            <Label htmlFor="name">
                                 {t('Team name')} <span className="text-destructive">*</span>
                             </Label>
                             <Input
-                                id="name_hi"
-                                value={data.name_hi}
-                                onChange={(e) => setData('name_hi', e.target.value)}
+                                id="name"
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
                                 maxLength={100}
                                 required
                             />
-                            <InputError message={errors.name_hi} />
+                            <InputError message={errors.name} />
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="in_charge_hi">{t('In-charge')}</Label>
+                            <Label htmlFor="in_charge">{t('In-charge')}</Label>
                             <Input
-                                id="in_charge_hi"
-                                value={data.in_charge_hi}
-                                onChange={(e) => setData('in_charge_hi', e.target.value)}
+                                id="in_charge"
+                                value={data.in_charge}
+                                onChange={(e) => setData('in_charge', e.target.value)}
                                 maxLength={100}
                             />
-                            <InputError message={errors.in_charge_hi} />
+                            <InputError message={errors.in_charge} />
                         </div>
                     </div>
 

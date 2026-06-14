@@ -26,22 +26,22 @@ class TeamPreviewController extends Controller
 
         return response()->json([
             'id' => $team->id,
-            'name_hi' => $team->name_hi,
-            'in_charge_hi' => $team->in_charge_hi,
-            'sport' => $team->sport ? ['id' => $team->sport->id, 'name_hi' => $team->sport->name_hi] : null,
+            'name' => $team->name,
+            'in_charge' => $team->in_charge,
+            'sport' => $team->sport ? ['id' => $team->sport->id, 'name' => $team->sport->name] : null,
             'session' => $team->session ? ['id' => $team->session->id, 'name' => $team->session->name] : null,
-            'unit' => $team->unit ? ['id' => $team->unit->id, 'name_hi' => $team->unit->name_hi] : null,
+            'unit' => $team->unit ? ['id' => $team->unit->id, 'name' => $team->unit->name] : null,
             'players_count' => $team->teamMembers->count(),
             'coaches_count' => $team->coachAssignments->count(),
             'members' => $team->teamMembers->map(fn ($tm) => [
                 'pno' => $tm->member?->pno,
-                'full_name_hi' => $tm->member?->full_name_hi,
+                'full_name' => $tm->member?->full_name,
                 'rank' => $tm->member?->rank,
                 'role' => $tm->role,
                 'session_name' => $tm->session?->name,
             ]),
             'coaches' => $team->coachAssignments->map(fn ($ca) => [
-                'full_name_hi' => $ca->coach?->full_name_hi,
+                'full_name' => $ca->coach?->full_name,
                 'pno' => $ca->coach?->pno,
                 'nis_certified' => $ca->coach?->nis_certified,
                 'role' => $ca->role,

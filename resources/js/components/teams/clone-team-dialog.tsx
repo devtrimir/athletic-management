@@ -15,13 +15,13 @@ type Team = { id: number; session: Session | null };
 type MemberRow = {
     id: number;
     role: string | null;
-    member: { id: number; full_name_hi: string; pno: string | null } | null;
+    member: { id: number; full_name: string; pno: string | null } | null;
 };
 
 type CoachRow = {
     id: number;
     role: string | null;
-    coach: { id: number; full_name_hi: string; pno: string | null } | null;
+    coach: { id: number; full_name: string; pno: string | null } | null;
 };
 
 interface Props {
@@ -149,7 +149,7 @@ reset();
                                             onCheckedChange={(v) => toggleMember(row.id, Boolean(v))}
                                         />
                                         <label htmlFor={`clone-m-${row.id}`} className="flex-1 cursor-pointer text-sm">
-                                            {row.member?.full_name_hi ?? '—'}
+                                            {row.member?.full_name ?? '—'}
                                             {row.member?.pno && (
                                                 <span className="ml-1.5 font-mono text-xs text-muted-foreground">{row.member.pno}</span>
                                             )}
@@ -201,7 +201,7 @@ reset();
                                             onCheckedChange={(v) => toggleCoach(row.id, Boolean(v))}
                                         />
                                         <label htmlFor={`clone-c-${row.id}`} className="flex-1 cursor-pointer text-sm">
-                                            {row.coach?.full_name_hi ?? '—'}
+                                            {row.coach?.full_name ?? '—'}
                                             {row.coach?.pno && (
                                                 <span className="ml-1.5 font-mono text-xs text-muted-foreground">{row.coach.pno}</span>
                                             )}

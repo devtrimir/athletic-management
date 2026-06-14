@@ -13,16 +13,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
-type District = { id: number; name_hi: string; name_en: string };
-type Unit = { id: number; name_hi: string; name_en: string };
-type SportOption = { id: number; name_hi: string; name_en: string };
-type MasterOption = { code: string; name_en: string; name_hi: string | null; short_name: string | null };
+type District = { id: number; name: string };
+type Unit = { id: number; name: string };
+type SportOption = { id: number; name: string };
+type MasterOption = { code: string; name: string; short_name: string | null };
 
 type FormData = {
     pno: string;
-    full_name_hi: string;
-    full_name_en: string;
-    father_name_hi: string;
+    full_name: string;
+    father_name: string;
     rank: string;
     designation: string;
     gender: string;
@@ -63,9 +62,8 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
 
     const { data, setData, post, errors, processing } = useForm<FormData>({
         pno: '',
-        full_name_hi: '',
-        full_name_en: '',
-        father_name_hi: '',
+        full_name: '',
+        father_name: '',
         rank: '',
         designation: '',
         gender: '',
@@ -95,7 +93,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
     }
 
     const hasPersonalErrors = !!(
-        errors.full_name_hi || errors.full_name_en || errors.father_name_hi ||
+        errors.full_name || errors.full_name || errors.father_name ||
         errors.gender || errors.dob || errors.mobile || errors.blood_group ||
         errors.caste || errors.home_address
     );
@@ -108,7 +106,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
     );
 
     function masterLabel(item: MasterOption): string {
-        const name = locale === 'en' ? item.name_en : (item.name_hi ?? item.name_en);
+        const name = locale === 'en' ? item.name : (item.name ?? item.name);
 
         return item.short_name ? `${item.short_name} - ${name}` : name;
     }
@@ -163,40 +161,30 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
                                 <TabsContent value="personal" className="mt-0 space-y-5">
                                     <div className="grid gap-5 sm:grid-cols-2">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="full_name_hi">
-                                                {t('Name (Hindi)')} <span className="text-destructive">*</span>
+                                            <Label htmlFor="full_name">
+                                                {t('Name')} <span className="text-destructive">*</span>
                                             </Label>
                                             <Input
-                                                id="full_name_hi"
-                                                value={data.full_name_hi}
-                                                onChange={(e) => setData('full_name_hi', e.target.value)}
+                                                id="full_name"
+                                                value={data.full_name}
+                                                onChange={(e) => setData('full_name', e.target.value)}
                                                 maxLength={255}
                                                 required
                                             />
-                                            <InputError message={errors.full_name_hi} />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="full_name_en">{t('Name (English)')}</Label>
-                                            <Input
-                                                id="full_name_en"
-                                                value={data.full_name_en}
-                                                onChange={(e) => setData('full_name_en', e.target.value)}
-                                                maxLength={255}
-                                            />
-                                            <InputError message={errors.full_name_en} />
+                                            <InputError message={errors.full_name} />
                                         </div>
                                     </div>
 
                                     <div className="grid gap-5 sm:grid-cols-3">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="father_name_hi">{t("Father's name")}</Label>
+                                            <Label htmlFor="father_name">{t("Father's name")}</Label>
                                             <Input
-                                                id="father_name_hi"
-                                                value={data.father_name_hi}
-                                                onChange={(e) => setData('father_name_hi', e.target.value)}
+                                                id="father_name"
+                                                value={data.father_name}
+                                                onChange={(e) => setData('father_name', e.target.value)}
                                                 maxLength={255}
                                             />
-                                            <InputError message={errors.father_name_hi} />
+                                            <InputError message={errors.father_name} />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="gender">
@@ -401,7 +389,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
                                                 id="current_unit_id"
                                                 value={data.current_unit_id}
                                                 onValueChange={(v) => setData('current_unit_id', v)}
-                                                items={units.map((u) => ({ value: String(u.id), label: locale === 'en' ? u.name_en : u.name_hi }))}
+                                                items={units.map((u) => ({ value: String(u.id), label: locale === 'en' ? u.name : u.name }))}
                                                 placeholder={t('Select unit')}
                                                 searchPlaceholder={t('Search units…')}
                                             />
@@ -413,7 +401,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
                                                 id="posting_district_id"
                                                 value={data.posting_district_id}
                                                 onValueChange={(v) => setData('posting_district_id', v)}
-                                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name_en : d.name_hi }))}
+                                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name : d.name }))}
                                                 placeholder={t('Select district')}
                                                 searchPlaceholder={t('Search districts…')}
                                             />
@@ -425,7 +413,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
                                                 id="home_district_id"
                                                 value={data.home_district_id}
                                                 onValueChange={(v) => setData('home_district_id', v)}
-                                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name_en : d.name_hi }))}
+                                                items={districts.map((d) => ({ value: String(d.id), label: locale === 'en' ? d.name : d.name }))}
                                                 placeholder={t('Select district')}
                                                 searchPlaceholder={t('Search districts…')}
                                             />
@@ -485,7 +473,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
                                                     <Select value={row.sport_id} onValueChange={(v) => setData('playable_sports', data.playable_sports.map((item, i) => i === index ? { ...item, sport_id: v } : item))}>
                                                         <SelectTrigger className="w-full"><SelectValue placeholder={t('Select sport')} /></SelectTrigger>
                                                         <SelectContent>
-                                                            {sports.map((s) => <SelectItem key={s.id} value={String(s.id)}>{locale === 'en' ? s.name_en : s.name_hi}</SelectItem>)}
+                                                            {sports.map((s) => <SelectItem key={s.id} value={String(s.id)}>{locale === 'en' ? s.name : s.name}</SelectItem>)}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>

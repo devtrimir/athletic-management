@@ -118,7 +118,7 @@ class TyagpatraSeeder extends Seeder
             Member::withoutGlobalScopes()->create([
                 'organization_id' => $org->id,
                 'member_code' => $code,
-                'full_name_hi' => $name,
+                'full_name' => $name,
                 'pno' => $pno,
                 'current_status' => $status,
                 'gender' => 'M',

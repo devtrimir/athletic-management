@@ -23,8 +23,8 @@ use Illuminate\Support\Carbon;
  * @property int $sport_id
  * @property int $session_id
  * @property int $unit_id
- * @property string $name_hi
- * @property string|null $in_charge_hi
+ * @property string $name
+ * @property string|null $in_charge
  * @property Carbon|null $deleted_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -40,8 +40,8 @@ use Illuminate\Support\Carbon;
     'sport_id',
     'session_id',
     'unit_id',
-    'name_hi',
-    'in_charge_hi',
+    'name',
+    'in_charge',
 ])]
 #[ObservedBy([AuditObserver::class])]
 class Team extends Model

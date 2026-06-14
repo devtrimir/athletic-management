@@ -31,7 +31,7 @@ class CoachPreviewController extends Controller
                 ->orderByDesc('joined_on')
                 ->get()
                 ->map(fn ($tm) => [
-                    'team_name_hi' => $tm->team?->name_hi,
+                    'team_name' => $tm->team?->name,
                     'session_name' => $tm->session?->name,
                     'role' => $tm->role,
                     'joined_on' => $tm->joined_on?->toDateString(),
@@ -43,17 +43,15 @@ class CoachPreviewController extends Controller
 
         return response()->json([
             'id' => $coach->id,
-            'full_name_hi' => $coach->full_name_hi,
-            'full_name_en' => $coach->full_name_en,
+            'full_name' => $coach->full_name,
             'pno' => $coach->pno,
             'mobile' => $coach->mobile,
             'nis_certified' => $coach->nis_certified,
             'member' => $m ? [
                 'id' => $m->id,
                 'member_code' => $m->member_code,
-                'full_name_hi' => $m->full_name_hi,
-                'full_name_en' => $m->full_name_en,
-                'father_name_hi' => $m->father_name_hi,
+                'full_name' => $m->full_name,
+                'father_name' => $m->father_name,
                 'rank' => $m->rank,
                 'gender' => $m->gender,
                 'dob' => $m->dob?->toDateString(),
@@ -69,13 +67,13 @@ class CoachPreviewController extends Controller
                 'player_level' => $m->player_level,
                 'player_category' => $m->player_category,
                 'team_since' => $m->team_since?->toDateString(),
-                'home_district' => $m->homeDistrict ? ['name_hi' => $m->homeDistrict->name_hi] : null,
-                'current_unit' => $m->currentUnit ? ['name_hi' => $m->currentUnit->name_hi] : null,
-                'sport' => $m->sport ? ['name_hi' => $m->sport->name_hi] : null,
+                'home_district' => $m->homeDistrict ? ['name' => $m->homeDistrict->name] : null,
+                'current_unit' => $m->currentUnit ? ['name' => $m->currentUnit->name] : null,
+                'sport' => $m->sport ? ['name' => $m->sport->name] : null,
                 'status_history' => $m->statusHistory->map(fn ($h) => [
                     'status' => $h->status,
                     'effective_on' => $h->effective_on->toDateString(),
-                    'reason_hi' => $h->reason_hi,
+                    'reason' => $h->reason,
                 ]),
                 'team_history' => $memberTeamHistory,
                 'achievements' => $m->legacyAchievements->map(fn ($a) => [

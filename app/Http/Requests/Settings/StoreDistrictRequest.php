@@ -20,8 +20,7 @@ class StoreDistrictRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name_hi' => ['required', 'string', 'max:100'],
-            'name_en' => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100'],
             'state' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:10', Rule::unique('districts', 'code')],
         ];

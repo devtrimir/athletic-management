@@ -13,9 +13,8 @@ return new class extends Migration
 
             $table->string('code', 50)->unique();
 
-            $table->string('name_en');
+            $table->string('name');
             $table->string('short_name', 100)->nullable();
-            $table->string('name_hi')->nullable();
 
             $table->unsignedSmallInteger('designation_order')->index();
 

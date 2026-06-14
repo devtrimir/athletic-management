@@ -20,8 +20,7 @@ class CoachSearchResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'full_name_hi' => $this->full_name_hi,
-            'full_name_en' => $this->full_name_en,
+            'full_name' => $this->full_name,
             'pno' => $this->pno,
             'nis_certified' => (bool) $this->nis_certified,
         ];

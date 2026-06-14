@@ -9,7 +9,7 @@ uses(RefreshDatabase::class);
 
 test('districts table has expected columns', function (): void {
     expect(Schema::hasColumns('districts', [
-        'id', 'name_hi', 'name_en', 'state', 'code',
+        'id', 'name', 'name', 'state', 'code',
         'created_at', 'updated_at',
     ]))->toBeTrue();
 });
@@ -17,8 +17,8 @@ test('districts table has expected columns', function (): void {
 test('district factory creates a record with correct attributes', function (): void {
     $district = District::factory()->create();
 
-    expect($district->name_hi)->toBeString()->not->toBeEmpty()
-        ->and($district->name_en)->toBeString()->not->toBeEmpty()
+    expect($district->name)->toBeString()->not->toBeEmpty()
+        ->and($district->name)->toBeString()->not->toBeEmpty()
         ->and($district->state)->toBe('Uttar Pradesh')
         ->and($district->code)->toBeString()->not->toBeEmpty();
 });

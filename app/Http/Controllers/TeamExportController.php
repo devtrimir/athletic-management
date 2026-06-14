@@ -18,11 +18,11 @@ class TeamExportController extends Controller
 {
     /** @var array<string, string> */
     private const COLUMN_LABELS = [
-        'name_hi' => 'Team Name (Hindi)',
+        'name' => 'Team Name',
         'session' => 'Session',
         'sport' => 'Sport',
         'unit' => 'Unit',
-        'in_charge_hi' => 'In-Charge',
+        'in_charge' => 'In-Charge',
         'players_count' => 'Players',
         'coaches_count' => 'Coaches',
     ];
@@ -46,8 +46,8 @@ class TeamExportController extends Controller
         if (! empty($ids)) {
             $teams = Team::whereIn('id', array_map('intval', $ids))
                 ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-                ->with(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])
-                ->orderBy('name_hi')
+                ->with(['sport:id,name', 'session:id,name', 'unit:id,name'])
+                ->orderBy('name')
                 ->get();
         } else {
             $teams = QueryBuilder::for(Team::class)
@@ -55,12 +55,12 @@ class TeamExportController extends Controller
                     AllowedFilter::exact('session_id'),
                     AllowedFilter::exact('sport_id'),
                     AllowedFilter::exact('unit_id'),
-                    AllowedFilter::partial('q', 'name_hi'),
+                    AllowedFilter::partial('q', 'name'),
                 ])
-                ->allowedSorts(['name_hi', 'created_at'])
-                ->defaultSort('name_hi')
+                ->allowedSorts(['name', 'created_at'])
+                ->defaultSort('name')
                 ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-                ->with(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])
+                ->with(['sport:id,name', 'session:id,name', 'unit:id,name'])
                 ->when(
                     ! $request->has('filter.session_id') && $defaultSessionId,
                     fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -76,8 +76,8 @@ class TeamExportController extends Controller
             foreach ($validColumns as $col) {
                 $row[$col] = match ($col) {
                     'session' => $team->session?->name,
-                    'sport' => $team->sport?->name_hi,
-                    'unit' => $team->unit?->name_hi,
+                    'sport' => $team->sport?->name,
+                    'unit' => $team->unit?->name,
                     default => $team->{$col},
                 };
             }

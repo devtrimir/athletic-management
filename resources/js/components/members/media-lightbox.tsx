@@ -55,11 +55,11 @@ export function Lightbox({ files, index, onClose }: { files: MediaFile[]; index:
             >
                 <img
                     src={file?.url}
-                    alt={file?.caption_hi ?? file?.original_name}
+                    alt={file?.caption ?? file?.original_name}
                     className="max-h-[80vh] max-w-full rounded-lg object-contain"
                 />
-                {file?.caption_hi && (
-                    <p className="text-center text-sm text-white/80">{file.caption_hi}</p>
+                {file?.caption && (
+                    <p className="text-center text-sm text-white/80">{file.caption}</p>
                 )}
                 <p className="text-xs text-white/50">{current + 1} / {files.length}</p>
             </div>

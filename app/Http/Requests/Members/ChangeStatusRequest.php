@@ -22,7 +22,7 @@ class ChangeStatusRequest extends FormRequest
         return [
             'status' => ['required', Rule::in(['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'])],
             'effective_on' => ['required', 'date'],
-            'reason_hi' => ['nullable', 'string'],
+            'reason' => ['nullable', 'string'],
         ];
     }
 }

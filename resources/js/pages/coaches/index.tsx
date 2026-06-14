@@ -18,8 +18,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
     { key: 'pno', label: 'PNO' },
-    { key: 'full_name_hi', label: 'Name (Hindi)' },
-    { key: 'full_name_en', label: 'Name (English)' },
+    { key: 'full_name', label: 'Name' },
     { key: 'mobile', label: 'Mobile' },
     { key: 'nis_certified', label: 'NIS Certified' },
     { key: 'linked_member', label: 'Linked Member Code' },
@@ -34,15 +33,14 @@ type PaginationLink = {
 type LinkedMember = {
     id: number;
     member_code: string;
-    full_name_hi: string;
+    full_name: string;
     pno: string | null;
     rank: string | null;
 };
 
 type Coach = {
     id: number;
-    full_name_hi: string;
-    full_name_en: string | null;
+    full_name: string;
     pno: string | null;
     mobile: string | null;
     nis_certified: boolean;
@@ -331,7 +329,7 @@ return;
                                         aria-label={t('Select all on page')}
                                     />
                                 </TableHead>
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('PNO')}</TableHead>
                                 <TableHead>{t('NIS')}</TableHead>
                                 <TableHead>{t('Linked member')}</TableHead>
@@ -357,7 +355,7 @@ return;
                                                 aria-label={t('Select row')}
                                             />
                                         </TableCell>
-                                        <TableCell className="font-medium">{coach.full_name_hi}</TableCell>
+                                        <TableCell className="font-medium">{coach.full_name}</TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {coach.pno ?? <span className="select-none text-border">—</span>}
                                         </TableCell>
@@ -373,7 +371,7 @@ return;
                                                 <span className="font-mono text-xs">
                                                     {coach.member.member_code}
                                                     {' · '}
-                                                    {coach.member.full_name_hi}
+                                                    {coach.member.full_name}
                                                 </span>
                                             ) : (
                                                 <span className="select-none text-border">—</span>

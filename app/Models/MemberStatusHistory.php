@@ -19,14 +19,14 @@ use Illuminate\Support\Carbon;
  * @property int $member_id
  * @property string $status
  * @property Carbon $effective_on
- * @property string|null $reason_hi
+ * @property string|null $reason
  * @property int|null $recorded_by
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Member $member
  * @property-read User|null $recorder
  */
-#[Fillable(['member_id', 'status', 'effective_on', 'reason_hi', 'recorded_by'])]
+#[Fillable(['member_id', 'status', 'effective_on', 'reason', 'recorded_by'])]
 #[ObservedBy([AuditObserver::class])]
 class MemberStatusHistory extends Model
 {

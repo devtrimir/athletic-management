@@ -20,24 +20,23 @@ class SportFactory extends Factory
     public function definition(): array
     {
         $sports = [
-            ['name_hi' => 'हॉकी',         'name_en' => 'Hockey',       'category' => 'TEAM'],
-            ['name_hi' => 'कबड्डी',       'name_en' => 'Kabaddi',      'category' => 'TEAM'],
-            ['name_hi' => 'बॉक्सिंग',     'name_en' => 'Boxing',       'category' => 'COMBAT'],
-            ['name_hi' => 'कुश्ती',       'name_en' => 'Wrestling',    'category' => 'COMBAT'],
-            ['name_hi' => 'एथलेटिक्स',   'name_en' => 'Athletics',    'category' => 'INDIVIDUAL'],
-            ['name_hi' => 'शूटिंग',       'name_en' => 'Shooting',     'category' => 'INDIVIDUAL'],
-            ['name_hi' => 'स्विमिंग',     'name_en' => 'Swimming',     'category' => 'WATER'],
-            ['name_hi' => 'वॉलीबॉल',      'name_en' => 'Volleyball',   'category' => 'TEAM'],
+            ['name' => 'हॉकी',       'category' => 'TEAM'],
+            ['name' => 'कबड्डी',      'category' => 'TEAM'],
+            ['name' => 'बॉक्सिंग',       'category' => 'COMBAT'],
+            ['name' => 'कुश्ती',    'category' => 'COMBAT'],
+            ['name' => 'एथलेटिक्स',    'category' => 'INDIVIDUAL'],
+            ['name' => 'शूटिंग',     'category' => 'INDIVIDUAL'],
+            ['name' => 'स्विमिंग',     'category' => 'WATER'],
+            ['name' => 'वॉलीबॉल',   'category' => 'TEAM'],
         ];
 
         $sport = fake()->unique()->randomElement($sports);
 
         return [
             'organization_id' => Organization::factory(),
-            'name_hi' => $sport['name_hi'],
-            'name_en' => $sport['name_en'],
+            'name' => $sport['name'],
             'category' => $sport['category'],
-            'slug' => Str::slug($sport['name_en']),
+            'slug' => Str::slug($sport['name']),
         ];
     }
 }

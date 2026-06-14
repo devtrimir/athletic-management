@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
 
-type Alias = { id: number; alias_hi: string; source: string };
+type Alias = { id: number; alias: string; source: string };
 
 type Props = {
     member: { id: number };
@@ -21,7 +21,7 @@ type Props = {
 export function AliasInlineForm({ member, aliases }: Props) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
-    const form = useForm({ alias_hi: '', source: '' });
+    const form = useForm({ alias: '', source: '' });
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -50,15 +50,15 @@ export function AliasInlineForm({ member, aliases }: Props) {
                         <form onSubmit={handleSubmit} className="mt-2 space-y-4">
                             <div className="grid gap-2">
                                 <Label>
-                                    {t('Alias (Hindi)')} <span className="text-destructive">*</span>
+                                    {t('Alias')} <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
-                                    value={form.data.alias_hi}
-                                    onChange={(e) => form.setData('alias_hi', e.target.value)}
+                                    value={form.data.alias}
+                                    onChange={(e) => form.setData('alias', e.target.value)}
                                     maxLength={255}
                                     required
                                 />
-                                <InputError message={form.errors.alias_hi} />
+                                <InputError message={form.errors.alias} />
                             </div>
                             <div className="grid gap-2">
                                 <Label>
@@ -98,7 +98,7 @@ export function AliasInlineForm({ member, aliases }: Props) {
                     (aliases ?? []).map((a) => (
                         <div key={a.id} className="flex items-center justify-between py-3">
                             <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium">{a.alias_hi}</span>
+                                <span className="text-sm font-medium">{a.alias}</span>
                                 <Badge variant="outline" className="text-xs">
                                     {t(a.source)}
                                 </Badge>

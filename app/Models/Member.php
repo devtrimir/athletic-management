@@ -25,10 +25,10 @@ use Illuminate\Support\Carbon;
  * @property int $organization_id
  * @property string $member_code
  * @property string|null $pno
- * @property string $full_name_hi
- * @property string|null $full_name_en
+ * @property string $full_name
+ * @property string|null $full_name
  * @property string|null $full_name_normalized
- * @property string|null $father_name_hi
+ * @property string|null $father_name
  * @property string|null $rank
  * @property string|null $designation
  * @property string $gender
@@ -67,10 +67,9 @@ use Illuminate\Support\Carbon;
     'organization_id',
     'member_code',
     'pno',
-    'full_name_hi',
-    'full_name_en',
+    'full_name',
     'full_name_normalized',
-    'father_name_hi',
+    'father_name',
     'rank',
     'designation',
     'photo_path',

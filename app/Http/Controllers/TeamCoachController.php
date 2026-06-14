@@ -34,14 +34,14 @@ class TeamCoachController extends Controller
         }
 
         // Check: already on ANY other team for this session (cross-team uniqueness).
-        $crossConflict = CoachAssignment::with(['team:id,name_hi', 'coach:id,full_name_hi'])
+        $crossConflict = CoachAssignment::with(['team:id,name', 'coach:id,full_name'])
             ->where('session_id', $data['session_id'])
             ->where('coach_id', $data['coach_id'])
             ->first();
 
         if ($crossConflict) {
-            $teamName = (string) $crossConflict->team->name_hi;
-            $coachName = (string) $crossConflict->coach->full_name_hi;
+            $teamName = (string) $crossConflict->team->name;
+            $coachName = (string) $crossConflict->coach->full_name;
 
             return back()
                 ->withErrors(['coach_id' => __(':name is already assigned to team :team for this session.', [

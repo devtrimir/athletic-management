@@ -10,14 +10,14 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type Sport = { id: number; name: string };
 type Session = { id: number; name: string };
-type Unit = { id: number; name_hi: string };
+type Unit = { id: number; name: string };
 
 type FormData = {
     sport_id: string;
     session_id: string;
     unit_id: string;
-    name_hi: string;
-    in_charge_hi: string;
+    name: string;
+    in_charge: string;
 };
 
 export default function TeamsCreate({
@@ -42,8 +42,8 @@ export default function TeamsCreate({
         sport_id: '',
         session_id: '',
         unit_id: '',
-        name_hi: '',
-        in_charge_hi: '',
+        name: '',
+        in_charge: '',
     });
 
     function handleSubmit(e: React.FormEvent) {
@@ -121,7 +121,7 @@ export default function TeamsCreate({
                                 <SelectContent>
                                     {units.map((u) => (
                                         <SelectItem key={u.id} value={String(u.id)}>
-                                            {u.name_hi}
+                                            {u.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -130,28 +130,28 @@ export default function TeamsCreate({
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="name_hi">
+                            <Label htmlFor="name">
                                 {t('Team name')} <span className="text-destructive">*</span>
                             </Label>
                             <Input
-                                id="name_hi"
-                                value={data.name_hi}
-                                onChange={(e) => setData('name_hi', e.target.value)}
+                                id="name"
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
                                 maxLength={100}
                                 required
                             />
-                            <InputError message={errors.name_hi} />
+                            <InputError message={errors.name} />
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="in_charge_hi">{t('In-charge')}</Label>
+                            <Label htmlFor="in_charge">{t('In-charge')}</Label>
                             <Input
-                                id="in_charge_hi"
-                                value={data.in_charge_hi}
-                                onChange={(e) => setData('in_charge_hi', e.target.value)}
+                                id="in_charge"
+                                value={data.in_charge}
+                                onChange={(e) => setData('in_charge', e.target.value)}
                                 maxLength={100}
                             />
-                            <InputError message={errors.in_charge_hi} />
+                            <InputError message={errors.in_charge} />
                         </div>
                     </div>
 

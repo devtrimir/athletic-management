@@ -26,8 +26,8 @@ class PlayerPerformanceReport
      * }  $filters
      * @return Collection<int, array{
      *     rank: int,
-     *     member: array{id: int|null, member_code: string|null, pno: string|null, full_name_hi: string|null, full_name_en: string|null},
-     *     unit: array{id: int, name_hi: string, name_en: string}|null,
+     *     member: array{id: int|null, member_code: string|null, pno: string|null, full_name: string|null, full_name: string|null},
+     *     unit: array{id: int, name: string, name: string}|null,
      *     participation_count: int,
      *     achievement_count: int,
      *     award_count: int,

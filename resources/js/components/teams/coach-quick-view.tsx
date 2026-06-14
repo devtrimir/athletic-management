@@ -12,16 +12,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
-type StatusHistoryItem = { status: string; effective_on: string; reason_hi: string | null };
-type TeamHistoryItem = { team_name_hi: string | null; session_name: string | null; role: string; joined_on: string | null; left_on: string | null };
+type StatusHistoryItem = { status: string; effective_on: string; reason: string | null };
+type TeamHistoryItem = { team_name: string | null; session_name: string | null; role: string; joined_on: string | null; left_on: string | null };
 type AchievementItem = { period: string; level: string; competition_details: string; event: string | null; medal_type: string | null; event_date: string | null; venue: string | null };
 
 type MemberRecord = {
     id: number;
     member_code: string;
-    full_name_hi: string;
-    full_name_en: string | null;
-    father_name_hi: string | null;
+    full_name: string;
+    father_name: string | null;
     rank: string | null;
     gender: string | null;
     dob: string | null;
@@ -37,9 +36,9 @@ type MemberRecord = {
     player_level: string | null;
     player_category: string | null;
     team_since: string | null;
-    home_district: { name_hi: string } | null;
-    current_unit: { name_hi: string } | null;
-    sport: { name_hi: string } | null;
+    home_district: { name: string } | null;
+    current_unit: { name: string } | null;
+    sport: { name: string } | null;
     status_history: StatusHistoryItem[];
     team_history: TeamHistoryItem[];
     achievements: AchievementItem[];
@@ -47,8 +46,7 @@ type MemberRecord = {
 
 type CoachPreview = {
     id: number;
-    full_name_hi: string;
-    full_name_en: string | null;
+    full_name: string;
     pno: string | null;
     mobile: string | null;
     nis_certified: boolean;
@@ -98,11 +96,11 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     const m = data.member;
 
     const statusRows = m?.status_history.map(
-        (h) => `<tr><td>${h.effective_on}</td><td>${t(h.status)}</td><td>${h.reason_hi ?? '—'}</td></tr>`,
+        (h) => `<tr><td>${h.effective_on}</td><td>${t(h.status)}</td><td>${h.reason ?? '—'}</td></tr>`,
     ).join('') ?? '';
 
     const teamRows = m?.team_history.map(
-        (th) => `<tr><td>${th.team_name_hi ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${th.joined_on ?? '—'}</td><td>${th.left_on ?? t('Present')}</td></tr>`,
+        (th) => `<tr><td>${th.team_name ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${th.joined_on ?? '—'}</td><td>${th.left_on ?? t('Present')}</td></tr>`,
     ).join('') ?? '';
 
     const achievementRows = m?.achievements.map(
@@ -110,7 +108,7 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     ).join('') ?? '';
 
     return `<!DOCTYPE html><html><head>
-    <meta charset="utf-8"><title>${data.full_name_hi}</title>
+    <meta charset="utf-8"><title>${data.full_name}</title>
     <style>
         body{font-family:Arial,sans-serif;padding:20px;font-size:13px;color:#111}
         h1{font-size:18px;margin:0 0 2px}
@@ -125,28 +123,28 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
         @media print{@page{margin:1cm}}
     </style></head><body>
     <div class="header">
-        <h1>${data.full_name_hi}${data.full_name_en ? ` <small>(${data.full_name_en})</small>` : ''}</h1>
+        <h1>${data.full_name}${data.full_name ? ` <small>(${data.full_name})</small>` : ''}</h1>
         <span class="meta">${data.pno ?? ''} · ${data.nis_certified ? t('NIS Certified') : t('Not NIS Certified')}</span>
     </div>
     <h2>${t('Contact')}</h2>
     ${row(t('Mobile'), data.mobile)}
     ${m ? `
     <h2>${t('Personal')}</h2>
-    ${row(t("Father's name"), m.father_name_hi)}
+    ${row(t("Father's name"), m.father_name)}
     ${row(t('Date of birth'), m.dob)}
     ${row(t('Gender'), m.gender ? t(m.gender) : null)}
     ${row(t('Blood group'), m.blood_group)}
     ${row(t('Caste'), m.caste)}
     ${row(t('Mobile'), m.mobile)}
-    ${row(t('Home district'), m.home_district?.name_hi)}
+    ${row(t('Home district'), m.home_district?.name)}
     <h2>${t('Service')}</h2>
     ${row(t('Code'), m.member_code)}
     ${row(t('Rank'), m.rank ? t(m.rank) : null)}
-    ${row(t('Current unit'), m.current_unit?.name_hi)}
+    ${row(t('Current unit'), m.current_unit?.name)}
     ${row(t('Joining date'), m.joining_date)}
     ${row(t('Promotion date'), m.promotion_date)}
     ${row(t('Appointment'), m.appointment)}
-    ${row(t('Sport'), m.sport?.name_hi)}
+    ${row(t('Sport'), m.sport?.name)}
     ${row(t('Sport event'), m.sport_event)}
     ${row(t('Player level'), m.player_level ? t(m.player_level) : null)}
     ${row(t('Player category'), m.player_category ? t(m.player_category) : null)}
@@ -222,10 +220,7 @@ return;
                         </div>
                     ) : (
                         <>
-                            <SheetTitle className="text-lg">{data.full_name_hi}</SheetTitle>
-                            {data.full_name_en && (
-                                <p className="text-sm text-muted-foreground">{data.full_name_en}</p>
-                            )}
+                            <SheetTitle className="text-lg">{data.full_name}</SheetTitle>
                             <div className="flex flex-wrap items-center gap-2 pt-1">
                                 {data.pno && <span className="font-mono text-xs text-muted-foreground">{data.pno}</span>}
                                 {data.member?.member_code && (
@@ -265,20 +260,20 @@ return;
                             {data.member && (
                                 <>
                                     <Section title={t('Personal')}>
-                                        <InfoRow label={t("Father's name")} value={data.member.father_name_hi} />
+                                        <InfoRow label={t("Father's name")} value={data.member.father_name} />
                                         <InfoRow label={t('Date of birth')} value={data.member.dob} />
                                         <InfoRow label={t('Gender')} value={data.member.gender ? t(data.member.gender) : null} />
                                         <InfoRow label={t('Blood group')} value={data.member.blood_group} />
                                         <InfoRow label={t('Caste')} value={data.member.caste} />
-                                        <InfoRow label={t('Home district')} value={data.member.home_district?.name_hi} />
+                                        <InfoRow label={t('Home district')} value={data.member.home_district?.name} />
                                     </Section>
 
                                     <Section title={t('Service')}>
-                                        <InfoRow label={t('Current unit')} value={data.member.current_unit?.name_hi} />
+                                        <InfoRow label={t('Current unit')} value={data.member.current_unit?.name} />
                                         <InfoRow label={t('Joining date')} value={data.member.joining_date} />
                                         <InfoRow label={t('Promotion date')} value={data.member.promotion_date} />
                                         <InfoRow label={t('Appointment')} value={data.member.appointment} />
-                                        <InfoRow label={t('Sport')} value={data.member.sport?.name_hi} />
+                                        <InfoRow label={t('Sport')} value={data.member.sport?.name} />
                                         <InfoRow label={t('Sport event')} value={data.member.sport_event} />
                                         <InfoRow label={t('Player level')} value={data.member.player_level ? t(data.member.player_level) : null} />
                                         <InfoRow label={t('Player category')} value={data.member.player_category ? t(data.member.player_category) : null} />
@@ -299,7 +294,7 @@ return;
                                                         <div className="pb-3">
                                                             <span className="font-mono text-xs text-muted-foreground">{h.effective_on}</span>
                                                             <p className="font-semibold">{t(h.status)}</p>
-                                                            {h.reason_hi && <p className="text-muted-foreground">{h.reason_hi}</p>}
+                                                            {h.reason && <p className="text-muted-foreground">{h.reason}</p>}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -322,7 +317,7 @@ return;
                                                 <TableBody>
                                                     {data.member.team_history.map((th, i) => (
                                                         <TableRow key={i}>
-                                                            <TableCell className="font-medium">{th.team_name_hi ?? '—'}</TableCell>
+                                                            <TableCell className="font-medium">{th.team_name ?? '—'}</TableCell>
                                                             <TableCell className="text-xs">{th.session_name ?? '—'}</TableCell>
                                                             <TableCell className="text-xs">{t(th.role)}</TableCell>
                                                             <TableCell className="font-mono text-xs">{th.joined_on ?? '—'}</TableCell>

@@ -9,10 +9,10 @@ test('report export flattens nested playable sports data into a readable string'
     $export = new ReportExport(
         new Collection([
             [
-                'full_name_hi' => 'राम कुमार',
+                'full_name' => 'राम कुमार',
                 'playable_sports' => [
                     [
-                        'name_hi' => 'आर्चरी',
+                        'name' => 'आर्चरी',
                         'role' => 'Batsman',
                         'position' => '3',
                         'notes' => 'Top order',

@@ -13,14 +13,13 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
- * @property string $name_hi
- * @property string $name_en
+ * @property string $name
  * @property string $state
  * @property string $code
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-#[Fillable(['name_hi', 'name_en', 'state', 'code'])]
+#[Fillable(['name', 'state', 'code'])]
 #[ObservedBy([AuditObserver::class])]
 class District extends Model
 {

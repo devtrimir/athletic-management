@@ -43,8 +43,8 @@ class TeamController extends Controller
                 AllowedFilter::callback('q', function ($query, $value) {
                     $term = '%'.mb_strtolower((string) $value).'%';
                     $query->where(function ($q) use ($term) {
-                        $q->whereRaw('LOWER(name_hi) LIKE ?', [$term])
-                            ->orWhereRaw('LOWER(COALESCE(in_charge_hi, \'\')) LIKE ?', [$term]);
+                        $q->whereRaw('LOWER(name) LIKE ?', [$term])
+                            ->orWhereRaw('LOWER(COALESCE(in_charge, \'\')) LIKE ?', [$term]);
                     });
                 }),
                 AllowedFilter::callback('pno', function ($query, $value) {
@@ -61,15 +61,15 @@ class TeamController extends Controller
                     $query->whereIn('id', $teamIds);
                 }),
             ])
-            ->allowedSorts(['name_hi', 'created_at'])
-            ->defaultSort('name_hi')
+            ->allowedSorts(['name', 'created_at'])
+            ->defaultSort('name')
             ->withCount([
                 'teamMembers as players_count',
                 'teamMembers as captains_count' => fn ($query) => $query->where('role', 'CAPTAIN'),
                 'teamMembers as reserves_count' => fn ($query) => $query->where('role', 'RESERVE'),
                 'coachAssignments as coaches_count',
             ])
-            ->with(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])
+            ->with(['sport:id,name', 'session:id,name', 'unit:id,name'])
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
                 fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -82,12 +82,12 @@ class TeamController extends Controller
             ->orderBy('name')
             ->get();
 
-        $sports = Sport::select(['id', 'name_hi', 'name_en'])
-            ->orderBy('name_hi')
+        $sports = Sport::select(['id', 'name'])
+            ->orderBy('name')
             ->get();
 
-        $units = Unit::select(['id', 'name_hi'])
-            ->orderBy('name_hi')
+        $units = Unit::select(['id', 'name'])
+            ->orderBy('name')
             ->get();
 
         return Inertia::render('teams/index', [
@@ -127,7 +127,7 @@ class TeamController extends Controller
     {
         Gate::authorize('view', $team);
 
-        $team->load(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi']);
+        $team->load(['sport:id,name', 'session:id,name', 'unit:id,name']);
 
         $orgId = (int) $request->user()->organization_id;
 
@@ -144,7 +144,7 @@ class TeamController extends Controller
                 'coaches_count' => $team->coachAssignments()->count(),
             ]),
             'members' => Inertia::defer(fn () => $team->teamMembers()
-                ->with(['member:id,full_name_hi,member_code,pno', 'session:id,name'])
+                ->with(['member:id,full_name,member_code,pno', 'session:id,name'])
                 ->orderBy('id')
                 ->get()
                 ->map(fn ($tm) => [
@@ -154,7 +154,7 @@ class TeamController extends Controller
                     'left_on' => $tm->left_on?->toDateString(),
                     'member' => $tm->member ? [
                         'id' => $tm->member->id,
-                        'full_name_hi' => $tm->member->full_name_hi,
+                        'full_name' => $tm->member->full_name,
                         'member_code' => $tm->member->member_code,
                         'pno' => $tm->member->pno,
                     ] : null,
@@ -164,7 +164,7 @@ class TeamController extends Controller
                     ] : null,
                 ])),
             'coaches' => Inertia::defer(fn () => $team->coachAssignments()
-                ->with(['coach:id,full_name_hi,pno', 'session:id,name'])
+                ->with(['coach:id,full_name,pno', 'session:id,name'])
                 ->orderBy('id')
                 ->get()
                 ->map(fn ($ca) => [
@@ -172,7 +172,7 @@ class TeamController extends Controller
                     'role' => $ca->role,
                     'coach' => $ca->coach ? [
                         'id' => $ca->coach->id,
-                        'full_name_hi' => $ca->coach->full_name_hi,
+                        'full_name' => $ca->coach->full_name,
                         'pno' => $ca->coach->pno,
                     ] : null,
                     'session' => $ca->session ? [
@@ -192,7 +192,7 @@ class TeamController extends Controller
 
         return Inertia::render('teams/edit', array_merge(
             $this->formOptions($orgId),
-            ['team' => $team->load(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])],
+            ['team' => $team->load(['sport:id,name', 'session:id,name', 'unit:id,name'])],
         ));
     }
 
@@ -228,11 +228,11 @@ class TeamController extends Controller
                 ->where('organization_id', $orgId)
                 ->orderBy('name')
                 ->get(),
-            'sports' => Sport::select(['id', 'name_hi', 'name_en'])
-                ->orderBy('name_hi')
+            'sports' => Sport::select(['id', 'name'])
+                ->orderBy('name')
                 ->get(),
-            'units' => Unit::select(['id', 'name_hi'])
-                ->orderBy('name_hi')
+            'units' => Unit::select(['id', 'name'])
+                ->orderBy('name')
                 ->get(),
         ];
     }

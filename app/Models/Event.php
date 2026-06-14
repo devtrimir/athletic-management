@@ -17,7 +17,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $tournament_id
  * @property int $sport_id
- * @property string $name_hi
+ * @property string $name
  * @property string|null $discipline
  * @property string|null $weight_category
  * @property string $gender_class
@@ -30,7 +30,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'tournament_id',
     'sport_id',
-    'name_hi',
+    'name',
     'discipline',
     'weight_category',
     'gender_class',

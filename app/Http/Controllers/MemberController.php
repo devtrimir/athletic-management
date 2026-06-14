@@ -14,7 +14,10 @@ use App\Models\AuditLog;
 use App\Models\Designation;
 use App\Models\District;
 use App\Models\Member;
+use App\Models\MemberLegacyAchievement;
 use App\Models\MemberPromotion;
+use App\Models\Participation;
+use App\Models\PromotionEvidence;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TeamMember;
@@ -67,7 +70,7 @@ class MemberController extends Controller
                 AllowedFilter::exact('sport_id'),
                 AllowedFilter::callback('q', function ($query, string $value): void {
                     $query->where(function ($q) use ($value): void {
-                        $q->where('full_name_hi', 'LIKE', "%{$value}%")
+                        $q->where('full_name', 'LIKE', "%{$value}%")
                             ->orWhere('pno', 'LIKE', "%{$value}%");
                     });
                 }),
@@ -78,13 +81,13 @@ class MemberController extends Controller
                     $query->whereYear('joining_date', '<=', (int) $value);
                 }),
             ])
-            ->allowedSorts(['full_name_hi', 'pno', 'joining_date', 'created_at'])
+            ->allowedSorts(['full_name', 'pno', 'joining_date', 'created_at'])
             ->defaultSort('-created_at')
             ->with([
-                'currentUnit:id,name_hi,name_en',
-                'homeDistrict:id,name_hi,name_en',
-                'postingDistrict:id,name_hi,name_en',
-                'sport:id,name_hi,name_en',
+                'currentUnit:id,name',
+                'homeDistrict:id,name',
+                'postingDistrict:id,name',
+                'sport:id,name',
                 'playableSports',
             ])
             ->paginate(min((int) ($request->query('per_page', 25)), 100))
@@ -94,11 +97,11 @@ class MemberController extends Controller
             'members' => $members,
             'filters' => ['current_status' => 'ACTIVE', ...$filters],
             'perPage' => min((int) ($request->query('per_page', 25)), 100),
-            'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name_hi', 'name_en', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name_hi,name_en,short_name')->get(['code', 'name_hi', 'name_en', 'short_name', 'mapped_rank_code']),
+            'units' => Unit::orderBy('name')->get(['id', 'name']),
+            'districts' => District::orderBy('name')->get(['id', 'name']),
+            'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'totalCount' => Member::count(),
         ]);
     }
@@ -108,11 +111,11 @@ class MemberController extends Controller
         Gate::authorize('create', Member::class);
 
         return Inertia::render('members/create', [
-            'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name_en', 'name_hi', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name_en,name_hi,short_name')->get(['code', 'name_en', 'name_hi', 'short_name', 'mapped_rank_code']),
+            'districts' => District::orderBy('name')->get(['id', 'name']),
+            'units' => Unit::orderBy('name')->get(['id', 'name']),
+            'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
     }
 
@@ -158,11 +161,11 @@ class MemberController extends Controller
 
         return Inertia::render('members/edit', [
             'member' => $member->load(['playableSports']),
-            'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name_en', 'name_hi', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name_en,name_hi,short_name')->get(['code', 'name_en', 'name_hi', 'short_name', 'mapped_rank_code']),
+            'districts' => District::orderBy('name')->get(['id', 'name']),
+            'units' => Unit::orderBy('name')->get(['id', 'name']),
+            'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
     }
 
@@ -323,13 +326,13 @@ class MemberController extends Controller
             'aliases' => Inertia::defer(fn () => NameAliasResource::collection(
                 $member->aliases()->get()
             )->resolve()),
-            'districts' => District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'units' => Unit::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'sports' => Sport::orderBy('name_en')->get(['id', 'name_hi', 'name_en']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name_hi', 'name_en', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name_hi,name_en,short_name')->get(['code', 'name_hi', 'name_en', 'short_name', 'mapped_rank_code']),
+            'districts' => District::orderBy('name')->get(['id', 'name']),
+            'units' => Unit::orderBy('name')->get(['id', 'name']),
+            'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
-                ->with(['team:id,name_hi,sport_id', 'team.sport:id,name_hi,name_en', 'session:id,name'])
+                ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
                 ->orderByDesc('id')
                 ->get()
                 ->map(fn ($tm) => [
@@ -337,7 +340,7 @@ class MemberController extends Controller
                     'role' => $tm->role,
                     'joined_on' => $tm->joined_on?->toDateString(),
                     'left_on' => $tm->left_on?->toDateString(),
-                    'team' => $tm->team ? ['id' => $tm->team->id, 'name_hi' => $tm->team->name_hi] : null,
+                    'team' => $tm->team ? ['id' => $tm->team->id, 'name' => $tm->team->name] : null,
                     'sport' => $tm->team?->sport ? ['id' => $tm->team->sport->id, 'name' => $tm->team->sport->name] : null,
                     'session' => $tm->session ? ['id' => $tm->session->id, 'name' => $tm->session->name] : null,
                 ])),
@@ -375,8 +378,8 @@ class MemberController extends Controller
             )
                 ->with([
                     'participation.session:id,name',
-                    'participation.event:id,tournament_id,name_hi',
-                    'participation.event.tournament:id,name_hi,tier_id,date_from,date_to,venue',
+                    'participation.event:id,tournament_id,name',
+                    'participation.event.tournament:id,name,tier_id,date_from,date_to,venue',
                     'participation.event.tournament.tier:id,code,weight',
                     'benefits',
                 ])
@@ -394,7 +397,7 @@ class MemberController extends Controller
                     ],
                     'tournament' => [
                         'id' => $achievement->participation->event->tournament->id,
-                        'name_hi' => $achievement->participation->event->tournament->name_hi,
+                        'name' => $achievement->participation->event->tournament->name,
                         'tier_code' => $achievement->participation->event->tournament->tier->code ?? null,
                         'tier_weight' => $achievement->participation->event->tournament->tier->weight ?? null,
                         'date_from' => $achievement->participation->event->tournament->date_from?->toDateString(),
@@ -403,7 +406,7 @@ class MemberController extends Controller
                     ],
                     'event' => [
                         'id' => $achievement->participation->event->id,
-                        'name_hi' => $achievement->participation->event->name_hi,
+                        'name' => $achievement->participation->event->name,
                     ],
                     'benefits' => $achievement->benefits->map(fn ($benefit) => [
                         'id' => $benefit->id,
@@ -434,16 +437,187 @@ class MemberController extends Controller
                     'reason' => $promotion->reason,
                     'remarks' => $promotion->remarks,
                     'recorded_by_name' => $promotion->recorder?->name,
-                    'evidences' => $promotion->evidences->map(fn ($evidence) => [
-                        'id' => $evidence->id,
-                        'type' => $evidence->evidencable_type,
-                        'evidence_id' => $evidence->evidencable_id,
-                    ])->all(),
+                    'evidences' => $promotion->evidences
+                        ->map(fn (PromotionEvidence $evidence): array => $this->promotionEvidencePayload($evidence))
+                        ->all(),
                 ])->all()),
             'performance' => Inertia::defer(
                 fn () => $memberPerformance->run((int) $member->organization_id, (int) $member->id)
             ),
             'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forMember($member)),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function promotionEvidencePayload(PromotionEvidence $evidence): array
+    {
+        $payload = [
+            'id' => $evidence->id,
+            'type' => $evidence->evidencable_type,
+            'evidence_id' => $evidence->evidencable_id,
+            'summary' => null,
+        ];
+
+        if ($evidence->evidencable_type === 'participation') {
+            $participation = Participation::query()
+                ->with([
+                    'session:id,name',
+                    'event:id,tournament_id,name,gender_class',
+                    'event.tournament:id,name,tier_id,date_from,date_to,venue',
+                    'event.tournament.tier:id,code',
+                    'achievement.benefits',
+                ])
+                ->find($evidence->evidencable_id);
+
+            if ($participation === null) {
+                return $payload;
+            }
+
+            $achievement = $participation->achievement;
+            $tournament = $participation->event?->tournament;
+
+            return array_merge($payload, [
+                'summary' => collect([
+                    $participation->session?->name,
+                    $tournament?->name,
+                    $participation->event?->name,
+                    $tournament?->date_from?->toDateString(),
+                    $participation->event?->gender_class,
+                    $achievement?->medal_type,
+                    $participation->position ? '#'.$participation->position : null,
+                ])->filter()->join(' · '),
+                'session' => $participation->session ? [
+                    'id' => $participation->session->id,
+                    'name' => $participation->session->name,
+                ] : null,
+                'tournament' => $tournament ? [
+                    'id' => $tournament->id,
+                    'name' => $tournament->name,
+                    'tier_code' => $tournament->tier?->code,
+                    'date_from' => $tournament->date_from?->toDateString(),
+                    'date_to' => $tournament->date_to?->toDateString(),
+                    'venue' => $tournament->venue,
+                ] : null,
+                'event' => $participation->event ? [
+                    'id' => $participation->event->id,
+                    'name' => $participation->event->name,
+                    'gender_class' => $participation->event->gender_class,
+                ] : null,
+                'achievement' => $achievement ? [
+                    'id' => $achievement->id,
+                    'medal_type' => $achievement->medal_type,
+                    'position' => $achievement->position,
+                    'benefits' => $this->achievementBenefitsPayload($achievement->benefits),
+                ] : null,
+            ]);
+        }
+
+        if ($evidence->evidencable_type === 'achievement') {
+            $achievement = Achievement::query()
+                ->with([
+                    'participation.session:id,name',
+                    'participation.event:id,tournament_id,name,gender_class',
+                    'participation.event.tournament:id,name,tier_id,date_from,date_to,venue',
+                    'participation.event.tournament.tier:id,code',
+                    'benefits',
+                ])
+                ->find($evidence->evidencable_id);
+
+            if ($achievement === null) {
+                return $payload;
+            }
+
+            $participation = $achievement->participation;
+            $event = $participation?->event;
+            $tournament = $event?->tournament;
+
+            return array_merge($payload, [
+                'summary' => collect([
+                    $achievement->medal_type,
+                    $participation?->session?->name,
+                    $tournament?->name,
+                    $event?->name,
+                    $tournament?->tier?->code,
+                    $achievement->position ? '#'.$achievement->position : null,
+                ])->filter()->join(' · '),
+                'session' => $participation?->session ? [
+                    'id' => $participation->session->id,
+                    'name' => $participation->session->name,
+                ] : null,
+                'tournament' => $tournament ? [
+                    'id' => $tournament->id,
+                    'name' => $tournament->name,
+                    'tier_code' => $tournament->tier?->code,
+                    'date_from' => $tournament->date_from?->toDateString(),
+                    'date_to' => $tournament->date_to?->toDateString(),
+                    'venue' => $tournament->venue,
+                ] : null,
+                'event' => $event ? [
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'gender_class' => $event->gender_class,
+                ] : null,
+                'achievement' => [
+                    'id' => $achievement->id,
+                    'medal_type' => $achievement->medal_type,
+                    'position' => $achievement->position,
+                    'benefits' => $this->achievementBenefitsPayload($achievement->benefits),
+                ],
+            ]);
+        }
+
+        $legacyAchievement = MemberLegacyAchievement::query()
+            ->with('benefits')
+            ->find($evidence->evidencable_id);
+
+        if ($legacyAchievement === null) {
+            return $payload;
+        }
+
+        return array_merge($payload, [
+            'summary' => collect([
+                $legacyAchievement->period,
+                $legacyAchievement->level,
+                $legacyAchievement->competition_details,
+                $legacyAchievement->event,
+                $legacyAchievement->event_date?->toDateString(),
+                $legacyAchievement->venue,
+                $legacyAchievement->medal_type,
+            ])->filter()->join(' · '),
+            'legacy_achievement' => [
+                'id' => $legacyAchievement->id,
+                'period' => $legacyAchievement->period,
+                'level' => $legacyAchievement->level,
+                'competition_details' => $legacyAchievement->competition_details,
+                'event' => $legacyAchievement->event,
+                'event_date' => $legacyAchievement->event_date?->toDateString(),
+                'venue' => $legacyAchievement->venue,
+                'sport_discipline' => $legacyAchievement->sport_discipline,
+                'medal_type' => $legacyAchievement->medal_type,
+                'benefits' => $this->achievementBenefitsPayload($legacyAchievement->benefits),
+            ],
+        ]);
+    }
+
+    /**
+     * @param  iterable<int, mixed>  $benefits
+     * @return array<int, array<string, mixed>>
+     */
+    private function achievementBenefitsPayload(iterable $benefits): array
+    {
+        return collect($benefits)
+            ->map(fn ($benefit): array => [
+                'id' => $benefit->id,
+                'benefit_type' => $benefit->benefit_type,
+                'promoted_from_rank' => $benefit->promoted_from_rank,
+                'promoted_to_rank' => $benefit->promoted_to_rank,
+                'cash_amount' => $benefit->cash_amount,
+                'benefit_date' => $benefit->benefit_date?->toDateString(),
+                'order_reference' => $benefit->order_reference,
+                'remarks' => $benefit->remarks,
+            ])
+            ->all();
     }
 }

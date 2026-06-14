@@ -13,8 +13,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type Coach = {
     id: number;
-    full_name_hi: string;
-    full_name_en: string | null;
+    full_name: string;
     pno: string | null;
     mobile: string | null;
     nis_certified: boolean;
@@ -22,8 +21,7 @@ type Coach = {
     member?: {
         id: number;
         member_code: string;
-        full_name_hi: string;
-        full_name_en: string | null;
+        full_name: string;
         pno: string | null;
         rank: string | null;
         player_category: string;
@@ -33,8 +31,7 @@ type Coach = {
 };
 
 type FormData = {
-    full_name_hi: string;
-    full_name_en: string;
+    full_name: string;
     pno: string;
     mobile: string;
     nis_certified: boolean;
@@ -46,8 +43,7 @@ function coachMemberToOption(m: NonNullable<Coach['member']>): MemberOption {
         id: m.id,
         member_code: m.member_code,
         pno: m.pno,
-        full_name_hi: m.full_name_hi,
-        full_name_en: m.full_name_en,
+        full_name: m.full_name,
         player_category: m.player_category,
         player_level: m.player_level,
         current_status: m.current_status,
@@ -60,7 +56,7 @@ export default function CoachesEdit({ coach }: { coach: Coach }) {
     setLayoutProps({
         breadcrumbs: [
             { title: t('Coaches'), href: coachesIndex.url() },
-            { title: coach.full_name_hi, href: showCoach.url(coach) },
+            { title: coach.full_name, href: showCoach.url(coach) },
             { title: t('Edit coach') },
         ],
     });
@@ -70,8 +66,7 @@ export default function CoachesEdit({ coach }: { coach: Coach }) {
     );
 
     const { data, setData, patch, errors, processing } = useForm<FormData>({
-        full_name_hi: coach.full_name_hi,
-        full_name_en: coach.full_name_en ?? '',
+        full_name: coach.full_name,
         pno: coach.pno ?? '',
         mobile: coach.mobile ?? '',
         nis_certified: coach.nis_certified,
@@ -94,7 +89,7 @@ export default function CoachesEdit({ coach }: { coach: Coach }) {
             <h1 className="sr-only">{t('Edit coach')}</h1>
 
             <div className="space-y-6">
-                <Heading variant="small" title={t('Edit coach')} description={coach.full_name_hi} />
+                <Heading variant="small" title={t('Edit coach')} description={coach.full_name} />
 
                 <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
                     {/* Coach details */}
@@ -103,28 +98,17 @@ export default function CoachesEdit({ coach }: { coach: Coach }) {
 
                         <div className="grid gap-5 sm:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="full_name_hi">
-                                    {t('Name (Hindi)')} <span className="text-destructive">*</span>
+                                <Label htmlFor="full_name">
+                                    {t('Name')} <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
-                                    id="full_name_hi"
-                                    value={data.full_name_hi}
-                                    onChange={(e) => setData('full_name_hi', e.target.value)}
+                                    id="full_name"
+                                    value={data.full_name}
+                                    onChange={(e) => setData('full_name', e.target.value)}
                                     maxLength={255}
                                     required
                                 />
-                                <InputError message={errors.full_name_hi} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="full_name_en">{t('Name (English)')}</Label>
-                                <Input
-                                    id="full_name_en"
-                                    value={data.full_name_en}
-                                    onChange={(e) => setData('full_name_en', e.target.value)}
-                                    maxLength={255}
-                                />
-                                <InputError message={errors.full_name_en} />
+                                <InputError message={errors.full_name} />
                             </div>
                         </div>
 

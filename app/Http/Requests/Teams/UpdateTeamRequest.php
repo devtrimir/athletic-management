@@ -26,19 +26,19 @@ class UpdateTeamRequest extends FormRequest
             'sport_id' => ['sometimes', 'required', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'session_id' => ['sometimes', 'required', 'integer', Rule::exists('sport_sessions', 'id')->where('organization_id', $orgId)],
             'unit_id' => ['sometimes', 'required', 'integer', Rule::exists('units', 'id')->where('organization_id', $orgId)],
-            'name_hi' => [
+            'name' => [
                 'sometimes',
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('teams', 'name_hi')
+                Rule::unique('teams', 'name')
                     ->where('organization_id', $orgId)
                     ->where('sport_id', (int) ($this->input('sport_id') ?? $this->route('team')?->sport_id))
                     ->where('session_id', (int) ($this->input('session_id') ?? $this->route('team')?->session_id))
                     ->where('unit_id', (int) ($this->input('unit_id') ?? $this->route('team')?->unit_id))
                     ->ignore($teamId),
             ],
-            'in_charge_hi' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'in_charge' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 }

@@ -18,8 +18,7 @@ return new class extends Migration
             // Optional link to a member record (when the coach is also a serving constable).
             $table->foreignId('member_id')->nullable()->constrained('members')->nullOnDelete();
 
-            $table->string('full_name_hi');
-            $table->string('full_name_en')->nullable();
+            $table->string('full_name');
             $table->string('pno', 20)->nullable();
             $table->string('mobile', 20)->nullable();
             $table->boolean('nis_certified')->default(false);

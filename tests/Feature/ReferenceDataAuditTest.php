@@ -47,8 +47,8 @@ function storeCase(string $resource, int $orgId): array
             'route' => 'sports.store',
             'payload' => [
                 'organization_id' => $orgId,
-                'name_hi' => 'हॉकी',
-                'name_en' => 'Hockey',
+                'name' => 'हॉकी',
+                'name' => 'Hockey',
                 'category' => 'TEAM',
             ],
         ],
@@ -66,16 +66,16 @@ function storeCase(string $resource, int $orgId): array
             'route' => 'units.store',
             'payload' => [
                 'organization_id' => $orgId,
-                'name_hi' => 'मुख्यालय',
-                'name_en' => 'Headquarters',
+                'name' => 'मुख्यालय',
+                'name' => 'Headquarters',
                 'unit_type' => 'HQ',
             ],
         ],
         'District' => [
             'route' => 'districts.store',
             'payload' => [
-                'name_hi' => 'लखनऊ',
-                'name_en' => 'Lucknow',
+                'name' => 'लखनऊ',
+                'name' => 'Lucknow',
                 'state' => 'Uttar Pradesh',
                 'code' => 'LKO',
             ],
@@ -114,10 +114,10 @@ test('store fires a created audit log', function (string $resource): void {
 test('update fires an updated audit log with a diff', function (string $resource): void {
     [$model, $updateRoute, $updatePayload, $changedField, $changedValue] = match ($resource) {
         'Sport' => [
-            Sport::factory()->create(['organization_id' => $this->org->id, 'name_en' => 'Hockey', 'name_hi' => 'हॉकी', 'category' => 'TEAM']),
+            Sport::factory()->create(['organization_id' => $this->org->id, 'name' => 'हॉकी', 'category' => 'TEAM']),
             'sports.update',
-            ['organization_id' => $this->org->id, 'name_hi' => 'हॉकी', 'name_en' => 'Hockey Updated', 'category' => 'TEAM'],
-            'name_en',
+            ['organization_id' => $this->org->id, 'name' => 'Hockey Updated', 'category' => 'TEAM'],
+            'name',
             'Hockey Updated',
         ],
         'SportSession' => [
@@ -128,17 +128,17 @@ test('update fires an updated audit log with a diff', function (string $resource
             '2025-26',
         ],
         'Unit' => [
-            Unit::factory()->create(['organization_id' => $this->org->id, 'name_en' => 'HQ Unit', 'name_hi' => 'मुख्यालय', 'unit_type' => 'HQ']),
+            Unit::factory()->create(['organization_id' => $this->org->id, 'name' => 'मुख्यालय', 'unit_type' => 'HQ']),
             'units.update',
-            ['organization_id' => $this->org->id, 'name_hi' => 'मुख्यालय', 'name_en' => 'HQ Unit Updated', 'unit_type' => 'HQ'],
-            'name_en',
+            ['organization_id' => $this->org->id, 'name' => 'HQ Unit Updated', 'unit_type' => 'HQ'],
+            'name',
             'HQ Unit Updated',
         ],
         'District' => [
-            District::factory()->create(['name_en' => 'Lucknow', 'name_hi' => 'लखनऊ', 'state' => 'Uttar Pradesh', 'code' => 'LKO']),
+            District::factory()->create(['name' => 'लखनऊ', 'state' => 'Uttar Pradesh', 'code' => 'LKO']),
             'districts.update',
-            ['name_hi' => 'लखनऊ', 'name_en' => 'Lucknow Updated', 'state' => 'Uttar Pradesh', 'code' => 'LKO'],
-            'name_en',
+            ['name' => 'Lucknow Updated', 'state' => 'Uttar Pradesh', 'code' => 'LKO'],
+            'name',
             'Lucknow Updated',
         ],
         'TournamentTier' => [

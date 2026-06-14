@@ -17,14 +17,14 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $member_id
- * @property string $alias_hi
+ * @property string $alias
  * @property string|null $alias_normalized
  * @property string $source
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Member $member
  */
-#[Fillable(['member_id', 'alias_hi', 'alias_normalized', 'source'])]
+#[Fillable(['member_id', 'alias', 'alias_normalized', 'source'])]
 #[ObservedBy([AuditObserver::class])]
 class NameAlias extends Model
 {

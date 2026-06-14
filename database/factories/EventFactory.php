@@ -22,7 +22,7 @@ class EventFactory extends Factory
         return [
             'tournament_id' => Tournament::factory(),
             'sport_id' => Sport::factory(),
-            'name_hi' => fake()->words(3, true),
+            'name' => fake()->words(3, true),
             'discipline' => fake()->optional(0.5)->word(),
             'weight_category' => null,
             'gender_class' => fake()->randomElement(['M', 'F', 'MIXED', 'OPEN']),

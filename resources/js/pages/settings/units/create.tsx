@@ -18,8 +18,7 @@ const UNIT_TYPES = [
 
 type District = {
     id: number;
-    name_hi: string;
-    name_en: string;
+    name: string;
 };
 
 export default function Create({ districts }: { districts: District[] }) {
@@ -40,27 +39,15 @@ export default function Create({ districts }: { districts: District[] }) {
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_hi">{t('Name (Hindi)')}</Label>
+                                        <Label htmlFor="name">{t('Name')}</Label>
                                         <Input
-                                            id="name_hi"
-                                            name="name_hi"
+                                            id="name"
+                                            name="name"
                                             placeholder="e.g. प्रथम वाहिनी पीएसी"
                                             maxLength={100}
                                             required
                                         />
-                                        <InputError message={errors.name_hi} />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="name_en">{t('Name (English)')}</Label>
-                                        <Input
-                                            id="name_en"
-                                            name="name_en"
-                                            placeholder="e.g. 1st Battalion PAC"
-                                            maxLength={100}
-                                            required
-                                        />
-                                        <InputError message={errors.name_en} />
+                                        <InputError message={errors.name} />
                                     </div>
                                 </div>
 
@@ -102,7 +89,7 @@ export default function Create({ districts }: { districts: District[] }) {
                                             <SelectContent>
                                                 {districts.map((d) => (
                                                     <SelectItem key={d.id} value={String(d.id)}>
-                                                        {d.name_en}
+                                                        {d.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
