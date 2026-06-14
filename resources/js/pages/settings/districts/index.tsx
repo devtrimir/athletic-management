@@ -34,7 +34,6 @@ export default function Index({ districts }: { districts: District[] }) {
             const matchesQuery =
                 !q ||
                 d.name.toLowerCase().includes(q) ||
-                d.name.toLowerCase().includes(q) ||
                 d.code.toLowerCase().includes(q);
             const matchesState = stateFilter === 'all' || d.state === stateFilter;
 
@@ -93,7 +92,6 @@ export default function Index({ districts }: { districts: District[] }) {
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
                                 <TableHead>{t('Name')}</TableHead>
-                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('State')}</TableHead>
                                 <TableHead>{t('Code')}</TableHead>
                                 <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
@@ -102,7 +100,7 @@ export default function Index({ districts }: { districts: District[] }) {
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
                                         {districts.length === 0 ? t('No districts yet.') : t('No districts match your filters.')}
                                     </TableCell>
                                 </TableRow>
@@ -110,7 +108,6 @@ export default function Index({ districts }: { districts: District[] }) {
                                 filtered.map((district) => (
                                     <TableRow key={district.id}>
                                         <TableCell className="font-medium">{district.name}</TableCell>
-                                        <TableCell>{district.name}</TableCell>
                                         <TableCell className="text-muted-foreground">{district.state}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className="font-mono">{district.code}</Badge>

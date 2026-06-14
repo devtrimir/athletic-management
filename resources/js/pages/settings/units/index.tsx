@@ -40,7 +40,6 @@ export default function Index({ units }: { units: Unit[] }) {
             const matchesQuery =
                 !q ||
                 u.name.toLowerCase().includes(q) ||
-                u.name.toLowerCase().includes(q) ||
                 (u.commandant ?? '').toLowerCase().includes(q) ||
                 (u.district?.name ?? '').toLowerCase().includes(q);
             const matchesType = typeFilter === 'all' || u.unit_type === typeFilter;
@@ -98,7 +97,6 @@ export default function Index({ units }: { units: Unit[] }) {
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
                                 <TableHead>{t('Name')}</TableHead>
-                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Type')}</TableHead>
                                 <TableHead>{t('Commandant')}</TableHead>
                                 <TableHead>{t('District')}</TableHead>
@@ -108,7 +106,7 @@ export default function Index({ units }: { units: Unit[] }) {
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
                                         {units.length === 0 ? t('No units yet.') : t('No units match your filters.')}
                                     </TableCell>
                                 </TableRow>
@@ -116,7 +114,6 @@ export default function Index({ units }: { units: Unit[] }) {
                                 filtered.map((unit) => (
                                     <TableRow key={unit.id}>
                                         <TableCell className="font-medium">{unit.name}</TableCell>
-                                        <TableCell>{unit.name}</TableCell>
                                         <TableCell>
                                             <Badge variant="secondary">{t(unit.unit_type)}</Badge>
                                         </TableCell>
