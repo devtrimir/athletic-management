@@ -714,7 +714,13 @@ export default function PlayerPerformanceRanking({
             <Head title={report.name} />
 
             <div className="space-y-6 px-4 py-6">
-                <Heading title={report.name} description={report.name} />
+                <h1 className="sr-only">{report.name}</h1>
+                <Heading
+                    title={report.name}
+                    description={t(
+                        'Review ranked player performance across points, medals, participation, and awards.',
+                    )}
+                />
 
                 <div className="space-y-2 rounded-lg border p-3">
                     <div className="flex flex-wrap items-center gap-2">
