@@ -74,6 +74,38 @@ test('filter by sport_id uses playable sports instead of legacy direct sport col
         );
 });
 
+test('filter by sport_ids supports multiple playable sports', function () {
+    $user = sportFilterUser();
+    $org = $user->organization;
+
+    $sportA = Sport::factory()->create(['organization_id' => $org->id]);
+    $sportB = Sport::factory()->create(['organization_id' => $org->id]);
+    $sportC = Sport::factory()->create(['organization_id' => $org->id]);
+
+    $firstMatch = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportC->id]);
+    $firstMatch->playableSports()->sync([$sportA->id]);
+
+    $secondMatch = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => null]);
+    $secondMatch->playableSports()->sync([$sportB->id]);
+
+    $legacyDirectSportOnly = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportA->id]);
+    $legacyDirectSportOnly->playableSports()->sync([$sportC->id]);
+
+    $this->actingAs($user)
+        ->get(route('members.index', ['filter' => ['sport_ids' => [$sportA->id, $sportB->id]]]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('members.total', 2)
+            ->where('filters.sport_ids', [(string) $sportA->id, (string) $sportB->id])
+            ->where('members.data', fn ($members) => collect($members)
+                ->pluck('id')
+                ->sort()
+                ->values()
+                ->all() === collect([$firstMatch->id, $secondMatch->id])->sort()->values()->all())
+        );
+});
+
 test('member can be created without sport entries', function () {
     $org = Organization::factory()->create();
     $user = User::factory()->create(['organization_id' => $org->id]);

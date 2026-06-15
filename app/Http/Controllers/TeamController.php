@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\Teams\CreateTeamAction;
+use App\Actions\Teams\UpdateTeamAction;
 use App\Http\Requests\Teams\StoreTeamRequest;
 use App\Http\Requests\Teams\UpdateTeamRequest;
 use App\Http\Resources\TeamResource;
 use App\Models\CoachAssignment;
+use App\Models\District;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
+use App\Models\TeamInchargeAssignment;
 use App\Models\TeamMember;
 use App\Models\Unit;
 use App\Services\AuditLogBuilder;
@@ -39,7 +43,10 @@ class TeamController extends Controller
             ->allowedFilters([
                 AllowedFilter::exact('session_id'),
                 AllowedFilter::exact('sport_id'),
+                AllowedFilter::exact('district_id'),
                 AllowedFilter::exact('unit_id'),
+                AllowedFilter::exact('location_type'),
+                AllowedFilter::exact('is_active'),
                 AllowedFilter::callback('q', function ($query, $value) {
                     $term = '%'.mb_strtolower((string) $value).'%';
                     $query->where(function ($q) use ($term) {
@@ -69,7 +76,11 @@ class TeamController extends Controller
                 'teamMembers as reserves_count' => fn ($query) => $query->where('role', 'RESERVE'),
                 'coachAssignments as coaches_count',
             ])
-            ->with(['sport:id,name', 'session:id,name', 'unit:id,name'])
+            ->with(['sport:id,name', 'session:id,name', 'district:id,name', 'unit:id,name,district_id'])
+            ->when(
+                ! $request->has('filter.is_active'),
+                fn ($q) => $q->where('is_active', true)
+            )
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
                 fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -86,6 +97,10 @@ class TeamController extends Controller
             ->orderBy('name')
             ->get();
 
+        $districts = District::select(['id', 'name'])
+            ->orderBy('name')
+            ->get();
+
         $units = Unit::select(['id', 'name'])
             ->orderBy('name')
             ->get();
@@ -96,6 +111,7 @@ class TeamController extends Controller
             'defaultSessionId' => $defaultSessionId,
             'sessions' => $sessions,
             'sports' => $sports,
+            'districts' => $districts,
             'units' => $units,
         ]);
     }
@@ -109,14 +125,14 @@ class TeamController extends Controller
         return Inertia::render('teams/create', $this->formOptions($orgId));
     }
 
-    public function store(StoreTeamRequest $request): RedirectResponse
+    public function store(StoreTeamRequest $request, CreateTeamAction $createTeam): RedirectResponse
     {
         Gate::authorize('create', Team::class);
 
-        $data = $request->validated();
-        $data['organization_id'] = (int) $request->user()->organization_id;
-
-        $team = Team::create($data);
+        $team = $createTeam(
+            $request->validated(),
+            (int) $request->user()->organization_id,
+        );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Team created.')]);
 
@@ -127,7 +143,13 @@ class TeamController extends Controller
     {
         Gate::authorize('view', $team);
 
-        $team->load(['sport:id,name', 'session:id,name', 'unit:id,name']);
+        $team->load([
+            'sport:id,name',
+            'session:id,name',
+            'district:id,name',
+            'unit:id,name,district_id',
+            'currentInchargeAssignment',
+        ]);
 
         $orgId = (int) $request->user()->organization_id;
 
@@ -181,6 +203,37 @@ class TeamController extends Controller
                     ] : null,
                 ])),
             'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forTeam($team)),
+            'inchargeHistory' => Inertia::defer(fn () => TeamInchargeAssignment::query()
+                ->where('team_id', $team->id)
+                ->with([
+                    'assignedBy:id,name',
+                    'removedBy:id,name',
+                ])
+                ->latest('assigned_at')
+                ->get()
+                ->map(fn (TeamInchargeAssignment $assignment) => [
+                    'id' => $assignment->id,
+                    'full_name' => $assignment->full_name,
+                    'pno' => $assignment->pno,
+                    'rank' => $assignment->rank,
+                    'designation' => $assignment->designation,
+                    'mobile' => $assignment->mobile,
+                    'email' => $assignment->email,
+                    'assigned_at' => $assignment->assigned_at?->toDateTimeString(),
+                    'removed_at' => $assignment->removed_at?->toDateTimeString(),
+                    'assignment_reason' => $assignment->assignment_reason,
+                    'removal_reason' => $assignment->removal_reason,
+                    'remarks' => $assignment->remarks,
+                    'is_current' => $assignment->is_current,
+                    'assigned_by' => $assignment->assignedBy ? [
+                        'id' => $assignment->assignedBy->id,
+                        'name' => $assignment->assignedBy->name,
+                    ] : null,
+                    'removed_by' => $assignment->removedBy ? [
+                        'id' => $assignment->removedBy->id,
+                        'name' => $assignment->removedBy->name,
+                    ] : null,
+                ])),
         ]);
     }
 
@@ -192,15 +245,17 @@ class TeamController extends Controller
 
         return Inertia::render('teams/edit', array_merge(
             $this->formOptions($orgId),
-            ['team' => $team->load(['sport:id,name', 'session:id,name', 'unit:id,name'])],
+            ['team' => (new TeamResource(
+                $team->load(['sport:id,name', 'session:id,name', 'district:id,name', 'unit:id,name,district_id'])
+            ))->resolve()],
         ));
     }
 
-    public function update(UpdateTeamRequest $request, Team $team): RedirectResponse
+    public function update(UpdateTeamRequest $request, Team $team, UpdateTeamAction $updateTeam): RedirectResponse
     {
         Gate::authorize('update', $team);
 
-        $team->update($request->validated());
+        $updateTeam($team, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Team updated.')]);
 
@@ -219,7 +274,7 @@ class TeamController extends Controller
     }
 
     /**
-     * @return array{sessions: Collection, sports: Collection, units: Collection}
+     * @return array{sessions: Collection, sports: Collection, districts: Collection, units: Collection}
      */
     private function formOptions(int $orgId): array
     {
@@ -231,7 +286,10 @@ class TeamController extends Controller
             'sports' => Sport::select(['id', 'name'])
                 ->orderBy('name')
                 ->get(),
-            'units' => Unit::select(['id', 'name'])
+            'districts' => District::select(['id', 'name'])
+                ->orderBy('name')
+                ->get(),
+            'units' => Unit::select(['id', 'name', 'district_id'])
                 ->orderBy('name')
                 ->get(),
         ];

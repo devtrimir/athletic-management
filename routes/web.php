@@ -23,6 +23,7 @@ use App\Http\Controllers\TeamCloneController;
 use App\Http\Controllers\TeamCoachController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamExportController;
+use App\Http\Controllers\TeamInchargeController;
 use App\Http\Controllers\TeamMemberController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentExportController;
@@ -73,6 +74,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('teams/{team}/coaches', [TeamCoachController::class, 'store'])->name('teams.coaches.store');
     Route::delete('teams/{team}/coaches/bulk', [TeamCoachController::class, 'bulkDestroy'])->name('teams.coaches.bulkDestroy');
     Route::delete('teams/{team}/coaches/{coach}', [TeamCoachController::class, 'destroy'])->name('teams.coaches.destroy');
+    Route::post('teams/{team}/incharge', [TeamInchargeController::class, 'store'])->name('teams.incharge.store');
+    Route::patch('teams/{team}/incharge', [TeamInchargeController::class, 'update'])->name('teams.incharge.update');
+    Route::delete('teams/{team}/incharge', [TeamInchargeController::class, 'destroy'])->name('teams.incharge.destroy');
     Route::post('teams/{team}/clone', TeamCloneController::class)->name('teams.clone');
     Route::post('members/{member}/status', [MemberStatusController::class, 'store'])->name('members.status.store');
     Route::post('members/{member}/aliases', [MemberAliasController::class, 'store'])->name('members.aliases.store');

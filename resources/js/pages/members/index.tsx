@@ -5,6 +5,7 @@ import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
 import { MemberQuickView } from '@/components/members/member-quick-view';
+import { OptionMultiSelect } from '@/components/option-multi-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -74,6 +75,7 @@ type Filters = {
     gender?: string;
     blood_group?: string;
     sport_id?: string;
+    sport_ids?: string[];
     joining_year_from?: string;
     joining_year_to?: string;
 };
@@ -401,6 +403,7 @@ export default function MembersIndex({
     // Local draft for joining year (applied on blur/enter only to avoid spamming requests)
     const [yearFrom, setYearFrom] = useState(filters.joining_year_from ?? '');
     const [yearTo, setYearTo] = useState(filters.joining_year_to ?? '');
+    const selectedSportIds = filters.sport_ids ?? (filters.sport_id ? [filters.sport_id] : []);
 
     const applyFilters = useCallback((patch: Partial<Filters>) => {
         const merged: Filters = {
@@ -416,12 +419,13 @@ export default function MembersIndex({
             gender: filters.gender,
             blood_group: filters.blood_group,
             sport_id: filters.sport_id,
+            sport_ids: filters.sport_ids,
             joining_year_from: filters.joining_year_from,
             joining_year_to: filters.joining_year_to,
             ...patch,
         };
 
-        const clean: Record<string, string> = {};
+        const clean: Record<string, string | string[]> = {};
         const mapping: [keyof Filters, string][] = [
             ['q', 'filter[q]'],
             ['current_status', 'filter[current_status]'],
@@ -435,13 +439,24 @@ export default function MembersIndex({
             ['gender', 'filter[gender]'],
             ['blood_group', 'filter[blood_group]'],
             ['sport_id', 'filter[sport_id]'],
+            ['sport_ids', 'filter[sport_ids]'],
             ['joining_year_from', 'filter[joining_year_from]'],
             ['joining_year_to', 'filter[joining_year_to]'],
         ];
 
         for (const [k, param] of mapping) {
-            if (merged[k]) {
-                clean[param] = merged[k]!;
+            const value = merged[k];
+
+            if (Array.isArray(value)) {
+                if (value.length > 0) {
+                    clean[param] = value;
+                }
+
+                continue;
+            }
+
+            if (value) {
+                clean[param] = value;
             }
         }
 
@@ -473,7 +488,7 @@ export default function MembersIndex({
     const activeFilterCount = [
         filters.current_status, filters.player_category, filters.player_level,
         filters.rank, filters.designation, filters.current_unit_id, filters.home_district_id, filters.posting_district_id, filters.gender,
-        filters.blood_group, filters.sport_id,
+        filters.blood_group, selectedSportIds.length > 0 ? 'sports' : undefined,
         filters.joining_year_from, filters.joining_year_to,
     ].filter(Boolean).length;
     const hasAnyFilter = !!(filters.q) || activeFilterCount > 0;
@@ -508,13 +523,24 @@ export default function MembersIndex({
                 ['gender', 'filter[gender]'],
                 ['blood_group', 'filter[blood_group]'],
                 ['sport_id', 'filter[sport_id]'],
+                ['sport_ids', 'filter[sport_ids]'],
                 ['joining_year_from', 'filter[joining_year_from]'],
                 ['joining_year_to', 'filter[joining_year_to]'],
             ];
 
             for (const [k, param] of filterKeys) {
-                if (filters[k]) {
-params.append(param, filters[k]!);
+                const value = filters[k];
+
+                if (Array.isArray(value)) {
+                    for (const item of value) {
+                        params.append(`${param}[]`, item);
+                    }
+
+                    continue;
+                }
+
+                if (value) {
+params.append(param, value);
 }
             }
         }
@@ -782,18 +808,14 @@ next.add(id);
                     </FilterPill>
 
                     {/* Playable sport */}
-                    <FilterPill
-                        label={t('Playable sport')}
-                        activeLabel={filters.sport_id ? (sports.find((s) => String(s.id) === filters.sport_id)?.name ?? filters.sport_id) : undefined}
-                        onClear={() => applyFilters({ sport_id: undefined })}
-                    >
-                        <SearchableOptionList
-                            options={sports.map((s) => ({ value: String(s.id), label: s.name }))}
-                            value={filters.sport_id}
-                            onSelect={(v) => applyFilters({ sport_id: v })}
-                            searchPlaceholder={t('Search sports…')}
-                        />
-                    </FilterPill>
+                    <OptionMultiSelect
+                        value={selectedSportIds}
+                        onValueChange={(value) => applyFilters({ sport_id: undefined, sport_ids: value })}
+                        options={sports.map((s) => ({ value: String(s.id), label: s.name }))}
+                        placeholder={t('Playable sport')}
+                        searchPlaceholder={t('Search sports…')}
+                        className="h-8 w-48 text-xs"
+                    />
 
                     {/* Joining year range */}
                     <FilterPill
@@ -983,7 +1005,7 @@ next.add(id);
                                         : 'border-input bg-background hover:bg-accent',
                                 ].join(' ')}
                                 onClick={() => {
-                                    const params: Record<string, string> = { per_page: String(n) };
+                                    const params: Record<string, string | string[]> = { per_page: String(n) };
                                     const filterKeys: [keyof Filters, string][] = [
                                         ['q', 'filter[q]'],
                                         ['current_status', 'filter[current_status]'],
@@ -995,13 +1017,24 @@ next.add(id);
                                         ['gender', 'filter[gender]'],
                                         ['blood_group', 'filter[blood_group]'],
                                         ['sport_id', 'filter[sport_id]'],
+                                        ['sport_ids', 'filter[sport_ids]'],
                                         ['joining_year_from', 'filter[joining_year_from]'],
                                         ['joining_year_to', 'filter[joining_year_to]'],
                                     ];
 
                                     for (const [k, param] of filterKeys) {
-                                        if (filters[k]) {
-params[param] = filters[k]!;
+                                        const value = filters[k];
+
+                                        if (Array.isArray(value)) {
+                                            if (value.length > 0) {
+                                                params[param] = value;
+                                            }
+
+                                            continue;
+                                        }
+
+                                        if (value) {
+params[param] = value;
 }
                                     }
 

@@ -6,6 +6,7 @@ import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import Heading from '@/components/heading';
 import { TeamQuickView } from '@/components/teams/team-quick-view';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -39,7 +40,10 @@ const ALL_COLUMNS = [
     { key: 'name', label: 'Team Name' },
     { key: 'session', label: 'Session' },
     { key: 'sport', label: 'Sport' },
+    { key: 'location_type', label: 'Location Type' },
+    { key: 'district', label: 'District' },
     { key: 'unit', label: 'Unit' },
+    { key: 'is_active', label: 'Status' },
     { key: 'in_charge', label: 'In-Charge' },
     { key: 'players_count', label: 'Players' },
     { key: 'captains_count', label: 'Captains' },
@@ -57,12 +61,16 @@ type Team = {
     id: number;
     name: string;
     in_charge: string | null;
+    location_type: 'unit' | 'district';
+    location_label: string | null;
+    is_active: boolean;
     players_count: number;
     captains_count: number;
     reserves_count: number;
     coaches_count: number;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
+    district: { id: number; name: string } | null;
     unit: { id: number; name: string } | null;
 };
 
@@ -81,7 +89,10 @@ type Filters = {
     pno?: string;
     session_id?: string;
     sport_id?: string;
+    district_id?: string;
     unit_id?: string;
+    location_type?: string;
+    is_active?: string;
 };
 
 type RefItem = { id: number; name: string };
@@ -92,12 +103,14 @@ export default function TeamsIndex({
     filters,
     sessions,
     sports,
+    districts,
     units,
 }: {
     teams: PaginatedTeams;
     filters: Filters;
     sessions: RefItem[];
     sports: RefItem[];
+    districts: RefItem[];
     units: UnitItem[];
 }) {
     const { t } = useTranslation();
@@ -121,7 +134,10 @@ export default function TeamsIndex({
                 pno: pnoQuery || undefined,
                 session_id: filters.session_id,
                 sport_id: filters.sport_id,
+                district_id: filters.district_id,
                 unit_id: filters.unit_id,
+                location_type: filters.location_type,
+                is_active: filters.is_active,
             };
             const merged: Filters = { ...current, ...patch };
 
@@ -147,6 +163,18 @@ export default function TeamsIndex({
                 clean['filter[unit_id]'] = merged.unit_id;
             }
 
+            if (merged.district_id) {
+                clean['filter[district_id]'] = merged.district_id;
+            }
+
+            if (merged.location_type) {
+                clean['filter[location_type]'] = merged.location_type;
+            }
+
+            if (merged.is_active) {
+                clean['filter[is_active]'] = merged.is_active;
+            }
+
             router.get(TeamController.index.url(), clean, {
                 preserveState: true,
                 replace: true,
@@ -157,7 +185,10 @@ export default function TeamsIndex({
             pnoQuery,
             filters.session_id,
             filters.sport_id,
+            filters.district_id,
             filters.unit_id,
+            filters.location_type,
+            filters.is_active,
         ],
     );
 
@@ -255,8 +286,20 @@ export default function TeamsIndex({
                 params.append('filter[sport_id]', filters.sport_id);
             }
 
+            if (filters.district_id) {
+                params.append('filter[district_id]', filters.district_id);
+            }
+
             if (filters.unit_id) {
                 params.append('filter[unit_id]', filters.unit_id);
+            }
+
+            if (filters.location_type) {
+                params.append('filter[location_type]', filters.location_type);
+            }
+
+            if (filters.is_active) {
+                params.append('filter[is_active]', filters.is_active);
             }
         }
 
@@ -281,8 +324,19 @@ export default function TeamsIndex({
                                 v = team.session?.name ?? '\u2014';
                             } else if (c.key === 'sport') {
                                 v = team.sport?.name ?? '\u2014';
+                            } else if (c.key === 'district') {
+                                v = team.district?.name ?? '\u2014';
                             } else if (c.key === 'unit') {
                                 v = team.unit?.name ?? '\u2014';
+                            } else if (c.key === 'location_type') {
+                                v =
+                                    team.location_type === 'unit'
+                                        ? t('Unit')
+                                        : t('District');
+                            } else if (c.key === 'is_active') {
+                                v = team.is_active
+                                    ? t('Active')
+                                    : t('Inactive');
                             } else {
                                 const raw = (team as Record<string, unknown>)[
                                     c.key
@@ -314,7 +368,10 @@ export default function TeamsIndex({
         filters.pno ||
         filters.session_id ||
         filters.sport_id ||
-        filters.unit_id
+        filters.district_id ||
+        filters.unit_id ||
+        filters.location_type ||
+        filters.is_active
     );
 
     return (
@@ -420,6 +477,54 @@ export default function TeamsIndex({
                     </Select>
 
                     <Select
+                        value={filters.location_type ?? 'all'}
+                        onValueChange={(v) =>
+                            applyFilters({
+                                location_type: v === 'all' ? undefined : v,
+                            })
+                        }
+                    >
+                        <SelectTrigger className="w-44">
+                            <SelectValue placeholder={t('All locations')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">
+                                {t('All locations')}
+                            </SelectItem>
+                            <SelectItem value="unit">{t('Unit')}</SelectItem>
+                            <SelectItem value="district">
+                                {t('District')}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={filters.district_id ?? 'all'}
+                        onValueChange={(v) =>
+                            applyFilters({
+                                district_id: v === 'all' ? undefined : v,
+                            })
+                        }
+                    >
+                        <SelectTrigger className="w-44">
+                            <SelectValue placeholder={t('All districts')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">
+                                {t('All districts')}
+                            </SelectItem>
+                            {districts.map((district) => (
+                                <SelectItem
+                                    key={district.id}
+                                    value={String(district.id)}
+                                >
+                                    {district.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select
                         value={filters.unit_id ?? 'all'}
                         onValueChange={(v) =>
                             applyFilters({
@@ -439,6 +544,26 @@ export default function TeamsIndex({
                                     {u.name}
                                 </SelectItem>
                             ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={filters.is_active ?? '1'}
+                        onValueChange={(v) =>
+                            applyFilters({
+                                is_active: v === 'all' ? undefined : v,
+                            })
+                        }
+                    >
+                        <SelectTrigger className="w-40">
+                            <SelectValue placeholder={t('All statuses')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="1">{t('Active')}</SelectItem>
+                            <SelectItem value="0">{t('Inactive')}</SelectItem>
+                            <SelectItem value="all">
+                                {t('All statuses')}
+                            </SelectItem>
                         </SelectContent>
                     </Select>
 
@@ -491,7 +616,9 @@ export default function TeamsIndex({
                                 <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Sport')}</TableHead>
                                 <TableHead>{t('Session')}</TableHead>
+                                <TableHead>{t('Location')}</TableHead>
                                 <TableHead>{t('Unit')}</TableHead>
+                                <TableHead>{t('Status')}</TableHead>
                                 <TableHead>{t('In-charge')}</TableHead>
                                 <TableHead>{t('Roster')}</TableHead>
                                 <TableHead className="text-right">
@@ -506,7 +633,7 @@ export default function TeamsIndex({
                             {teams.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={9}
+                                        colSpan={11}
                                         className="py-12 text-center text-muted-foreground"
                                     >
                                         {hasActiveFilters
@@ -553,16 +680,36 @@ export default function TeamsIndex({
                                             )}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {team.unit?.name ?? (
+                                            {team.location_label ?? (
                                                 <span className="text-border select-none">
                                                     —
                                                 </span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {team.in_charge ?? (
+                                            {team.unit?.name ?? (
                                                 <span className="text-border select-none">
                                                     —
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={
+                                                    team.is_active
+                                                        ? 'default'
+                                                        : 'secondary'
+                                                }
+                                            >
+                                                {team.is_active
+                                                    ? t('Active')
+                                                    : t('Inactive')}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {team.in_charge ?? (
+                                                <span className="text-muted-foreground">
+                                                    {t('Unassigned')}
                                                 </span>
                                             )}
                                         </TableCell>

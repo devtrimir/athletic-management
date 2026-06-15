@@ -1,4 +1,12 @@
-import { Deferred, Head, Link, router, setLayoutProps } from '@inertiajs/react';
+import {
+    Deferred,
+    Head,
+    Link,
+    router,
+    setLayoutProps,
+    usePage,
+    useRemember,
+} from '@inertiajs/react';
 import {
     Copy,
     Info,
@@ -33,6 +41,7 @@ import { AddCoachDialog } from '@/components/teams/add-coach-dialog';
 import { AddMemberDialog } from '@/components/teams/add-member-dialog';
 import { CloneTeamDialog } from '@/components/teams/clone-team-dialog';
 import { CoachQuickView } from '@/components/teams/coach-quick-view';
+import { TeamInchargePanel } from '@/components/teams/team-incharge-panel';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -77,9 +86,31 @@ type Team = {
     id: number;
     name: string;
     in_charge: string | null;
+    current_incharge_name: string | null;
+    current_incharge_pno: string | null;
+    current_incharge_designation: string | null;
+    current_incharge_mobile: string | null;
+    current_incharge_since: string | null;
+    has_current_incharge: boolean;
+    location_type: 'unit' | 'district';
+    location_label: string | null;
+    is_active: boolean;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
+    district: { id: number; name: string } | null;
     unit: { id: number; name: string } | null;
+    current_incharge_assignment: {
+        id: number;
+        full_name: string;
+        pno: string | null;
+        rank: string | null;
+        designation: string | null;
+        mobile: string | null;
+        email: string | null;
+        assigned_at: string | null;
+        assignment_reason: string | null;
+        remarks: string | null;
+    } | null;
 };
 
 type TeamMemberRow = {
@@ -105,6 +136,23 @@ type CoachAssignmentRow = {
 
 type Counts = { players_count: number; coaches_count: number };
 type Session = { id: number; name: string };
+type InchargeHistoryRow = {
+    id: number;
+    full_name: string;
+    pno: string | null;
+    rank: string | null;
+    designation: string | null;
+    mobile: string | null;
+    email: string | null;
+    assigned_at: string | null;
+    removed_at: string | null;
+    assignment_reason: string | null;
+    removal_reason: string | null;
+    remarks: string | null;
+    is_current: boolean;
+    assigned_by: { id: number; name: string } | null;
+    removed_by: { id: number; name: string } | null;
+};
 
 const MEMBER_ROLES = ['PLAYER', 'CAPTAIN', 'RESERVE'] as const;
 const COACH_ROLES = ['HEAD', 'ASSISTANT'] as const;
@@ -115,6 +163,7 @@ export default function TeamsShow({
     sessions,
     members,
     coaches,
+    inchargeHistory,
     auditLog,
 }: {
     team: Team;
@@ -122,9 +171,11 @@ export default function TeamsShow({
     sessions: Session[];
     members?: TeamMemberRow[];
     coaches?: CoachAssignmentRow[];
+    inchargeHistory?: InchargeHistoryRow[];
     auditLog?: AuditEntry[];
 }) {
     const { t } = useTranslation();
+    const page = usePage<{ errors?: Record<string, string> }>();
 
     const [addMemberOpen, setAddMemberOpen] = useState(false);
     const [addCoachOpen, setAddCoachOpen] = useState(false);
@@ -144,10 +195,35 @@ export default function TeamsShow({
         left_on: '',
     });
 
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useRemember(
+        'overview',
+        `teams.${team.id}.active-tab`,
+    );
     const [highlightedMemberIds, setHighlightedMemberIds] = useState<
         Set<number>
     >(new Set());
+
+    useEffect(() => {
+        const errors = page.props.errors ?? {};
+        const inchargeFields = [
+            'full_name',
+            'pno',
+            'rank',
+            'designation',
+            'mobile',
+            'email',
+            'assigned_at',
+            'assignment_reason',
+            'removal_reason',
+            'remarks',
+            'removed_at',
+            'team',
+        ];
+
+        if (inchargeFields.some((field) => field in errors)) {
+            setActiveTab('incharge');
+        }
+    }, [page.props.errors, setActiveTab]);
 
     // Selection state for bulk remove
     const [selectedMemberIds, setSelectedMemberIds] = useState<Set<number>>(
@@ -884,6 +960,9 @@ export default function TeamsShow({
                                 </span>
                             )}
                         </TabsTrigger>
+                        <TabsTrigger value="incharge">
+                            {t('Incharge')}
+                        </TabsTrigger>
                         <TabsTrigger value="changelog">
                             {t('Change log')}
                         </TabsTrigger>
@@ -896,8 +975,18 @@ export default function TeamsShow({
                                 {detail(t('Team name'), team.name)}
                                 {detail(t('Sport'), team.sport?.name)}
                                 {detail(t('Session'), team.session?.name)}
+                                {detail(t('Location'), team.location_label)}
+                                {detail(t('District'), team.district?.name)}
                                 {detail(t('Unit'), team.unit?.name)}
-                                {detail(t('In-charge'), team.in_charge)}
+                                {detail(
+                                    t('Status'),
+                                    team.is_active ? t('Active') : t('Inactive'),
+                                )}
+                                {detail(
+                                    t('In-charge'),
+                                    team.current_incharge_name ?? team.in_charge,
+                                )}
+                                {detail(t('PNO'), team.current_incharge_pno)}
                                 <Deferred
                                     data="counts"
                                     fallback={
@@ -1568,6 +1657,24 @@ export default function TeamsShow({
                                 </div>
                             </Deferred>
                         </div>
+                    </TabsContent>
+
+                    <TabsContent value="incharge">
+                        <Deferred
+                            data="inchargeHistory"
+                            fallback={
+                                <div className="rounded-xl border bg-card p-6">
+                                    <Skeleton className="h-24 w-full" />
+                                </div>
+                            }
+                        >
+                            <TeamInchargePanel
+                                teamId={team.id}
+                                teamIsActive={team.is_active}
+                                currentAssignment={team.current_incharge_assignment}
+                                history={inchargeHistory}
+                            />
+                        </Deferred>
                     </TabsContent>
 
                     {/* Change log */}

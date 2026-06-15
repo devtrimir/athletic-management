@@ -16,7 +16,7 @@ class TeamPreviewController extends Controller
     {
         Gate::authorize('view', $team);
 
-        $team->loadMissing(['sport', 'session', 'unit']);
+        $team->loadMissing(['sport', 'session', 'district', 'unit']);
         $team->load([
             'teamMembers.member',
             'teamMembers.session',
@@ -28,8 +28,12 @@ class TeamPreviewController extends Controller
             'id' => $team->id,
             'name' => $team->name,
             'in_charge' => $team->in_charge,
+            'location_type' => $team->location_type,
+            'location_label' => $team->location_label,
+            'is_active' => $team->is_active,
             'sport' => $team->sport ? ['id' => $team->sport->id, 'name' => $team->sport->name] : null,
             'session' => $team->session ? ['id' => $team->session->id, 'name' => $team->session->name] : null,
+            'district' => $team->district ? ['id' => $team->district->id, 'name' => $team->district->name] : null,
             'unit' => $team->unit ? ['id' => $team->unit->id, 'name' => $team->unit->name] : null,
             'players_count' => $team->teamMembers->count(),
             'coaches_count' => $team->coachAssignments->count(),

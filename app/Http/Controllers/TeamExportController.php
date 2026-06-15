@@ -21,7 +21,10 @@ class TeamExportController extends Controller
         'name' => 'Team Name',
         'session' => 'Session',
         'sport' => 'Sport',
+        'location_type' => 'Location Type',
+        'district' => 'District',
         'unit' => 'Unit',
+        'is_active' => 'Status',
         'in_charge' => 'In-Charge',
         'players_count' => 'Players',
         'coaches_count' => 'Coaches',
@@ -46,7 +49,7 @@ class TeamExportController extends Controller
         if (! empty($ids)) {
             $teams = Team::whereIn('id', array_map('intval', $ids))
                 ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-                ->with(['sport:id,name', 'session:id,name', 'unit:id,name'])
+                ->with(['sport:id,name', 'session:id,name', 'district:id,name', 'unit:id,name'])
                 ->orderBy('name')
                 ->get();
         } else {
@@ -54,13 +57,20 @@ class TeamExportController extends Controller
                 ->allowedFilters([
                     AllowedFilter::exact('session_id'),
                     AllowedFilter::exact('sport_id'),
+                    AllowedFilter::exact('district_id'),
                     AllowedFilter::exact('unit_id'),
+                    AllowedFilter::exact('location_type'),
+                    AllowedFilter::exact('is_active'),
                     AllowedFilter::partial('q', 'name'),
                 ])
                 ->allowedSorts(['name', 'created_at'])
                 ->defaultSort('name')
                 ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-                ->with(['sport:id,name', 'session:id,name', 'unit:id,name'])
+                ->with(['sport:id,name', 'session:id,name', 'district:id,name', 'unit:id,name'])
+                ->when(
+                    ! $request->has('filter.is_active'),
+                    fn ($q) => $q->where('is_active', true)
+                )
                 ->when(
                     ! $request->has('filter.session_id') && $defaultSessionId,
                     fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -77,7 +87,10 @@ class TeamExportController extends Controller
                 $row[$col] = match ($col) {
                     'session' => $team->session?->name,
                     'sport' => $team->sport?->name,
+                    'location_type' => $team->location_type,
+                    'district' => $team->district?->name,
                     'unit' => $team->unit?->name,
+                    'is_active' => $team->is_active ? 'Active' : 'Inactive',
                     default => $team->{$col},
                 };
             }

@@ -31,10 +31,13 @@ class TeamCloneController extends Controller
             $newTeam = Team::create([
                 'organization_id' => $team->organization_id,
                 'sport_id' => $team->sport_id,
+                'location_type' => $team->location_type,
+                'district_id' => $team->district_id,
                 'unit_id' => $team->unit_id,
                 'session_id' => $targetSessionId,
                 'name' => $team->name,
                 'in_charge' => $team->in_charge,
+                'is_active' => $team->is_active,
             ]);
 
             // Copy selected members — skip any whose (member_id, session_id) already

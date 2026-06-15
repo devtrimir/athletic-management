@@ -142,6 +142,8 @@ test('clone creates a new team with same name for the target session', function 
     $this->assertDatabaseHas('teams', [
         'organization_id' => $org->id,
         'sport_id' => $team->sport_id,
+        'location_type' => $team->location_type,
+        'district_id' => $team->district_id,
         'unit_id' => $team->unit_id,
         'session_id' => $targetSession->id,
         'name' => $team->name,

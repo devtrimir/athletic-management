@@ -8,6 +8,7 @@ use App\Exports\ReportExport;
 use App\Models\Member;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\QueryBuilder\AllowedFilter;
@@ -100,9 +101,8 @@ class MemberExportController extends Controller
                     AllowedFilter::exact('current_unit_id'),
                     AllowedFilter::exact('gender'),
                     AllowedFilter::exact('blood_group'),
-                    AllowedFilter::callback('sport_id', function ($query, string $value): void {
-                        $query->whereHas('playableSports', fn ($query) => $query->where('sports.id', (int) $value));
-                    }),
+                    AllowedFilter::callback('sport_id', fn ($query, mixed $value): mixed => $this->filterByPlayableSports($query, $value)),
+                    AllowedFilter::callback('sport_ids', fn ($query, mixed $value): mixed => $this->filterByPlayableSports($query, $value)),
                     AllowedFilter::callback('q', function ($query, string $value): void {
                         $query->where(function ($q) use ($value): void {
                             $q->where('full_name', 'LIKE', "%{$value}%")
@@ -144,6 +144,25 @@ class MemberExportController extends Controller
         return Excel::download(
             new ReportExport($rows, array_values($headings), 'Members'),
             'members-'.now()->format('Y-m-d').'.xlsx',
+        );
+    }
+
+    private function filterByPlayableSports(mixed $query, mixed $value): mixed
+    {
+        $sportIds = collect(Arr::wrap($value))
+            ->flatMap(fn (mixed $item): array => is_string($item) ? explode(',', $item) : [$item])
+            ->map(fn (mixed $item): int => (int) $item)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($sportIds->isEmpty()) {
+            return $query;
+        }
+
+        return $query->whereHas(
+            'playableSports',
+            fn ($query) => $query->whereIn('sports.id', $sportIds->all()),
         );
     }
 

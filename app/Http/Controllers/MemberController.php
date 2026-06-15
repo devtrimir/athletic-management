@@ -27,6 +27,7 @@ use App\Services\MemberCodeGenerator;
 use App\Services\Performance\MemberPerformanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -67,9 +68,8 @@ class MemberController extends Controller
                 AllowedFilter::exact('gender'),
                 AllowedFilter::exact('blood_group'),
                 AllowedFilter::exact('recruitment_type'),
-                AllowedFilter::callback('sport_id', function ($query, string $value): void {
-                    $query->whereHas('playableSports', fn ($query) => $query->where('sports.id', (int) $value));
-                }),
+                AllowedFilter::callback('sport_id', fn ($query, mixed $value): mixed => $this->filterByPlayableSports($query, $value)),
+                AllowedFilter::callback('sport_ids', fn ($query, mixed $value): mixed => $this->filterByPlayableSports($query, $value)),
                 AllowedFilter::callback('q', function ($query, string $value): void {
                     $query->where(function ($q) use ($value): void {
                         $q->where('full_name', 'LIKE', "%{$value}%")
@@ -106,6 +106,25 @@ class MemberController extends Controller
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'totalCount' => Member::count(),
         ]);
+    }
+
+    private function filterByPlayableSports(mixed $query, mixed $value): mixed
+    {
+        $sportIds = collect(Arr::wrap($value))
+            ->flatMap(fn (mixed $item): array => is_string($item) ? explode(',', $item) : [$item])
+            ->map(fn (mixed $item): int => (int) $item)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($sportIds->isEmpty()) {
+            return $query;
+        }
+
+        return $query->whereHas(
+            'playableSports',
+            fn ($query) => $query->whereIn('sports.id', $sportIds->all()),
+        );
     }
 
     public function create(): Response

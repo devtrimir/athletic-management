@@ -10,34 +10,41 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type Sport = { id: number; name: string };
 type Session = { id: number; name: string };
-type Unit = { id: number; name: string };
+type District = { id: number; name: string };
+type Unit = { id: number; name: string; district_id: number | null };
 
 type Team = {
     id: number;
     name: string;
-    in_charge: string | null;
+    location_type: 'unit' | 'district';
+    is_active: boolean;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
+    district: { id: number; name: string } | null;
     unit: { id: number; name: string } | null;
 };
 
 type FormData = {
     sport_id: string;
     session_id: string;
+    location_type: 'unit' | 'district';
+    district_id: string;
     unit_id: string;
     name: string;
-    in_charge: string;
+    is_active: boolean;
 };
 
 export default function TeamsEdit({
     team,
     sessions,
     sports,
+    districts,
     units,
 }: {
     team: Team;
     sessions: Session[];
     sports: Sport[];
+    districts: District[];
     units: Unit[];
 }) {
     const { t } = useTranslation();
@@ -53,10 +60,15 @@ export default function TeamsEdit({
     const { data, setData, patch, errors, processing } = useForm<FormData>({
         sport_id: team.sport ? String(team.sport.id) : '',
         session_id: team.session ? String(team.session.id) : '',
+        location_type: team.location_type,
+        district_id: team.district ? String(team.district.id) : '',
         unit_id: team.unit ? String(team.unit.id) : '',
         name: team.name,
-        in_charge: team.in_charge ?? '',
+        is_active: team.is_active,
     });
+
+    const selectedUnit = units.find((unit) => String(unit.id) === data.unit_id);
+    const derivedDistrict = districts.find((district) => district.id === selectedUnit?.district_id);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -120,51 +132,128 @@ export default function TeamsEdit({
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="unit_id">
-                                {t('Unit')} <span className="text-destructive">*</span>
+                            <Label htmlFor="location_type">
+                                {t('Team Location')} <span className="text-destructive">*</span>
                             </Label>
                             <Select
-                                value={data.unit_id}
-                                onValueChange={(v) => setData('unit_id', v)}
+                                value={data.location_type}
+                                onValueChange={(value: 'unit' | 'district') => {
+                                    setData('location_type', value);
+                                    setData('unit_id', '');
+                                    setData('district_id', '');
+                                }}
                             >
-                                <SelectTrigger id="unit_id" className="w-full">
-                                    <SelectValue placeholder={t('Select unit')} />
+                                <SelectTrigger id="location_type" className="w-full">
+                                    <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {units.map((u) => (
-                                        <SelectItem key={u.id} value={String(u.id)}>
-                                            {u.name}
-                                        </SelectItem>
-                                    ))}
+                                    <SelectItem value="unit">
+                                        {t('Create team for Unit')}
+                                    </SelectItem>
+                                    <SelectItem value="district">
+                                        {t('Create team for District')}
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <InputError message={errors.unit_id} />
+                            <InputError message={errors.location_type} />
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">
-                                {t('Team name')} <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                                id="name"
-                                value={data.name}
-                                onChange={(e) => setData('name', e.target.value)}
-                                maxLength={100}
-                                required
-                            />
-                            <InputError message={errors.name} />
+                        {data.location_type === 'unit' ? (
+                            <>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="unit_id">
+                                        {t('Unit')} <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Select
+                                        value={data.unit_id}
+                                        onValueChange={(value) => {
+                                            setData('unit_id', value);
+                                            setData('district_id', '');
+                                        }}
+                                    >
+                                        <SelectTrigger id="unit_id" className="w-full">
+                                            <SelectValue placeholder={t('Select unit')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {units.map((unit) => (
+                                                <SelectItem key={unit.id} value={String(unit.id)}>
+                                                    {unit.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.unit_id} />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label>{t('District')}</Label>
+                                    <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                                        {derivedDistrict?.name ?? t('District will be derived from the selected unit.')}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="grid gap-2">
+                                <Label htmlFor="district_id">
+                                    {t('District')} <span className="text-destructive">*</span>
+                                </Label>
+                                <Select
+                                    value={data.district_id}
+                                    onValueChange={(value) => setData('district_id', value)}
+                                >
+                                    <SelectTrigger id="district_id" className="w-full">
+                                        <SelectValue placeholder={t('Select district')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {districts.map((district) => (
+                                            <SelectItem key={district.id} value={String(district.id)}>
+                                                {district.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.district_id} />
+                            </div>
+                        )}
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="name">
+                                    {t('Team name')} <span className="text-destructive">*</span>
+                                </Label>
+                                <Input
+                                    id="name"
+                                    value={data.name}
+                                    onChange={(e) => setData('name', e.target.value)}
+                                    maxLength={100}
+                                    required
+                                />
+                                <InputError message={errors.name} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="is_active">
+                                    {t('Status')} <span className="text-destructive">*</span>
+                                </Label>
+                                <Select
+                                    value={data.is_active ? '1' : '0'}
+                                    onValueChange={(value) => setData('is_active', value === '1')}
+                                >
+                                    <SelectTrigger id="is_active" className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">{t('Active')}</SelectItem>
+                                        <SelectItem value="0">{t('Inactive')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.is_active} />
+                            </div>
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="in_charge">{t('In-charge')}</Label>
-                            <Input
-                                id="in_charge"
-                                value={data.in_charge}
-                                onChange={(e) => setData('in_charge', e.target.value)}
-                                maxLength={100}
-                            />
-                            <InputError message={errors.in_charge} />
-                        </div>
+                        <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                            {t('Use the team page to assign or change the current incharge with history tracking.')}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3">

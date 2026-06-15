@@ -31,10 +31,14 @@ type TeamPreview = {
     id: number;
     name: string;
     in_charge: string | null;
+    location_type: 'unit' | 'district';
+    location_label: string | null;
+    is_active: boolean;
     players_count: number;
     coaches_count: number;
     sport: { name: string } | null;
     session: { name: string } | null;
+    district: { name: string } | null;
     unit: { name: string } | null;
     members: TeamMemberRow[];
     coaches: TeamCoachRow[];
@@ -83,7 +87,8 @@ function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
     <h2>${t('Team info')}</h2>
     ${data.sport ? `<div class="row"><span class="label">${t('Sport')}</span><span class="val">${data.sport.name}</span></div>` : ''}
     ${data.session ? `<div class="row"><span class="label">${t('Session')}</span><span class="val">${data.session.name}</span></div>` : ''}
-    ${data.unit ? `<div class="row"><span class="label">${t('Unit')}</span><span class="val">${data.unit.name}</span></div>` : ''}
+    ${data.location_label ? `<div class="row"><span class="label">${t('Location')}</span><span class="val">${data.location_label}</span></div>` : ''}
+    <div class="row"><span class="label">${t('Status')}</span><span class="val">${data.is_active ? t('Active') : t('Inactive')}</span></div>
     ${data.in_charge ? `<div class="row"><span class="label">${t('In-charge')}</span><span class="val">${data.in_charge}</span></div>` : ''}
     ${data.members.length ? `<h2>${t('Players')} (${data.members.length})</h2>
     <table><thead><tr><th>${t('PNO')}</th><th>${t('Name')}</th><th>${t('Rank')}</th><th>${t('Role')}</th><th>${t('Session')}</th></tr></thead>
@@ -156,7 +161,9 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                             <div className="flex flex-wrap items-center gap-3 pt-1 text-sm text-muted-foreground">
                                 {data.sport && <span>{data.sport.name}</span>}
                                 {data.session && <span>· {data.session.name}</span>}
-                                {data.unit && <span>· {data.unit.name}</span>}
+                                {data.location_label && (
+                                    <span>· {data.location_label}</span>
+                                )}
                             </div>
                             <div className="flex gap-4 pt-1 text-sm">
                                 <span><span className="font-semibold">{data.players_count}</span> {t('players')}</span>
@@ -182,6 +189,11 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                             <div className="border-b py-4">
                                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('Team info')}</h3>
                                 <InfoRow label={t('In-charge')} value={data.in_charge} />
+                                <InfoRow label={t('Location')} value={data.location_label} />
+                                <InfoRow
+                                    label={t('Status')}
+                                    value={data.is_active ? t('Active') : t('Inactive')}
+                                />
                             </div>
 
                             {data.members.length > 0 && (
