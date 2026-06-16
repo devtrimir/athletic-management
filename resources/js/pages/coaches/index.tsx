@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
+import { BadgeCheck, Check, ChevronDown, Download, Eye, IdCard, Info, Mail, MapPinned, Phone, Plus, Printer, Search, ShieldCheck, UserCheck, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
@@ -9,10 +9,11 @@ import { CoachQuickView } from '@/components/teams/coach-quick-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -23,7 +24,6 @@ const ALL_COLUMNS = [
     { key: 'mobile', label: 'Mobile' },
     { key: 'coach_status', label: 'Status' },
     { key: 'nis_certified', label: 'NIS Certified' },
-    { key: 'linked_member', label: 'Linked Member Code' },
 ] as const;
 
 type PaginationLink = {
@@ -46,10 +46,14 @@ type Coach = {
     full_name: string;
     pno: string | null;
     designation: string | null;
+    blood_group?: string | null;
+    gender?: string | null;
     mobile: string | null;
     email: string | null;
     coach_status: string | null;
     nis_certified: boolean;
+    district?: { id: number; name: string } | null;
+    unit?: { id: number; name: string } | null;
     member: LinkedMember | null;
 };
 
@@ -72,22 +76,147 @@ type Filters = {
     q?: string;
     has_member?: string;
     nis_certified?: string;
+    blood_group?: string;
+    district_id?: string;
+    unit_id?: string;
     coach_status?: string;
-    designation?: string;
-    email?: string;
     gender?: string;
     has_certification?: string;
     certification_name?: string;
     certification_type?: string;
     sport_id?: string;
     has_active_assignment?: string;
-    assignment_role?: string;
 };
+
+function FilterPill({
+    label,
+    activeLabel,
+    onClear,
+    children,
+}: {
+    label: string;
+    activeLabel?: string;
+    onClear: () => void;
+    children: React.ReactNode;
+}) {
+    const [open, setOpen] = useState(false);
+    const isActive = !!activeLabel;
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className={[
+                        'inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors',
+                        isActive
+                            ? 'border-primary/40 bg-primary/8 text-primary hover:bg-primary/12'
+                            : 'border-input bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    ].join(' ')}
+                >
+                    <span>{label}</span>
+                    {isActive && (
+                        <>
+                            <span className="text-primary/50">·</span>
+                            <span className="max-w-24 truncate font-semibold">{activeLabel}</span>
+                            <span
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Clear ${label}`}
+                                className="ml-0.5 flex size-4 items-center justify-center rounded-sm opacity-60 hover:opacity-100"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClear();
+                                    setOpen(false);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.stopPropagation();
+                                        onClear();
+                                        setOpen(false);
+                                    }
+                                }}
+                            >
+                                <X className="size-3" />
+                            </span>
+                        </>
+                    )}
+                    {!isActive && <ChevronDown className="size-3 opacity-50" />}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto p-0">
+                {children}
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+function OptionList({
+    options,
+    value,
+    onSelect,
+}: {
+    options: { value: string; label: string }[];
+    value: string | undefined;
+    onSelect: (value: string | undefined) => void;
+}) {
+    return (
+        <div className="py-1">
+            {options.map((option) => (
+                <button
+                    key={option.value}
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                    onClick={() => onSelect(value === option.value ? undefined : option.value)}
+                >
+                    <Check className={['size-3.5 shrink-0', value === option.value ? 'opacity-100' : 'opacity-0'].join(' ')} />
+                    {option.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function SearchableOptionList({
+    options,
+    value,
+    onSelect,
+    searchPlaceholder,
+}: {
+    options: { value: string; label: string }[];
+    value: string | undefined;
+    onSelect: (value: string | undefined) => void;
+    searchPlaceholder: string;
+}) {
+    return (
+        <Command className="w-56">
+            <CommandInput placeholder={searchPlaceholder} className="h-8 text-sm" />
+            <CommandList className="max-h-52">
+                <CommandEmpty>—</CommandEmpty>
+                <CommandGroup>
+                    {options.map((option) => (
+                        <CommandItem
+                            key={option.value}
+                            value={option.label}
+                            onSelect={() => onSelect(value === option.value ? undefined : option.value)}
+                            className="gap-2"
+                        >
+                            <Check className={['size-3.5 shrink-0', value === option.value ? 'opacity-100' : 'opacity-0'].join(' ')} />
+                            {option.label}
+                        </CommandItem>
+                    ))}
+                </CommandGroup>
+            </CommandList>
+        </Command>
+    );
+}
 
 export default function CoachesIndex({
     coaches,
     filters,
     sports,
+    districts,
+    units,
     certificateTypes,
     coachStatuses,
     genders,
@@ -95,6 +224,8 @@ export default function CoachesIndex({
     coaches: PaginatedCoaches;
     filters: Filters;
     sports: SportOption[];
+    districts: { id: number; name: string }[];
+    units: { id: number; name: string; district_id: number | null }[];
     certificateTypes: string[];
     coachStatuses: string[];
     genders: string[];
@@ -115,16 +246,16 @@ export default function CoachesIndex({
                 q: query || undefined,
                 has_member: filters.has_member,
                 nis_certified: filters.nis_certified,
+                blood_group: filters.blood_group,
+                district_id: filters.district_id,
+                unit_id: filters.unit_id,
                 coach_status: filters.coach_status,
-                designation: filters.designation,
-                email: filters.email,
                 gender: filters.gender,
                 has_certification: filters.has_certification,
                 certification_name: filters.certification_name,
                 certification_type: filters.certification_type,
                 sport_id: filters.sport_id,
                 has_active_assignment: filters.has_active_assignment,
-                assignment_role: filters.assignment_role,
             };
             const merged: Filters = { ...current, ...patch };
 
@@ -142,16 +273,20 @@ export default function CoachesIndex({
                 clean['filter[nis_certified]'] = merged.nis_certified;
             }
 
+            if (merged.blood_group) {
+                clean['filter[blood_group]'] = merged.blood_group;
+            }
+
+            if (merged.district_id) {
+                clean['filter[district_id]'] = merged.district_id;
+            }
+
+            if (merged.unit_id) {
+                clean['filter[unit_id]'] = merged.unit_id;
+            }
+
             if (merged.coach_status) {
                 clean['filter[coach_status]'] = merged.coach_status;
-            }
-
-            if (merged.designation) {
-                clean['filter[designation]'] = merged.designation;
-            }
-
-            if (merged.email) {
-                clean['filter[email]'] = merged.email;
             }
 
             if (merged.gender) {
@@ -178,10 +313,6 @@ export default function CoachesIndex({
                 clean['filter[has_active_assignment]'] = merged.has_active_assignment;
             }
 
-            if (merged.assignment_role) {
-                clean['filter[assignment_role]'] = merged.assignment_role;
-            }
-
             router.get(CoachController.index.url(), clean, {
                 preserveState: true,
                 replace: true,
@@ -191,16 +322,16 @@ export default function CoachesIndex({
             query,
             filters.has_member,
             filters.nis_certified,
+            filters.blood_group,
+            filters.district_id,
+            filters.unit_id,
             filters.coach_status,
-            filters.designation,
-            filters.email,
             filters.gender,
             filters.has_certification,
             filters.certification_name,
             filters.certification_type,
             filters.sport_id,
             filters.has_active_assignment,
-            filters.assignment_role,
         ],
     );
 
@@ -225,18 +356,21 @@ export default function CoachesIndex({
         return [coach.designation, coach.full_name].filter(Boolean).join(' / ') || coach.full_name;
     }
 
-    function linkedMemberDisplay(coach: Coach): string {
-        const pieces: string[] = [];
-
-        if (coach.member?.member_code) {
-            pieces.push(coach.member.member_code);
+    function genderLabel(value: string | null | undefined): string {
+        switch (value) {
+            case 'M':
+                return t('Male');
+            case 'F':
+                return t('Female');
+            case 'O':
+                return t('Other gender');
+            default:
+                return value ?? '';
         }
+    }
 
-        if (coach.member?.full_name) {
-            pieces.push(coach.member.full_name);
-        }
-
-        return pieces.join(' · ');
+    function coachLocation(coach: Coach): string | null {
+        return coach.unit?.name ?? coach.district?.name ?? null;
     }
 
     function exportValue(coach: Coach, key: string): string {
@@ -248,8 +382,12 @@ export default function CoachesIndex({
             return coach.coach_status ? t(coach.coach_status) : '';
         }
 
-        if (key === 'linked_member') {
-            return linkedMemberDisplay(coach);
+        if (key === 'designation') {
+            return coach.designation ?? '';
+        }
+
+        if (key === 'mobile') {
+            return coach.mobile ?? '';
         }
 
         const raw = (coach as Record<string, unknown>)[key];
@@ -310,16 +448,20 @@ export default function CoachesIndex({
                 params.append('filter[nis_certified]', filters.nis_certified);
             }
 
+            if (filters.blood_group) {
+                params.append('filter[blood_group]', filters.blood_group);
+            }
+
+            if (filters.district_id) {
+                params.append('filter[district_id]', filters.district_id);
+            }
+
+            if (filters.unit_id) {
+                params.append('filter[unit_id]', filters.unit_id);
+            }
+
             if (filters.coach_status) {
                 params.append('filter[coach_status]', filters.coach_status);
-            }
-
-            if (filters.designation) {
-                params.append('filter[designation]', filters.designation);
-            }
-
-            if (filters.email) {
-                params.append('filter[email]', filters.email);
             }
 
             if (filters.gender) {
@@ -344,10 +486,6 @@ export default function CoachesIndex({
 
             if (filters.has_active_assignment) {
                 params.append('filter[has_active_assignment]', filters.has_active_assignment);
-            }
-
-            if (filters.assignment_role) {
-                params.append('filter[assignment_role]', filters.assignment_role);
             }
         }
 
@@ -379,17 +517,75 @@ export default function CoachesIndex({
         filters.q ||
         filters.has_member ||
         filters.nis_certified ||
+        filters.blood_group ||
+        filters.district_id ||
+        filters.unit_id ||
         filters.coach_status ||
-        filters.designation ||
-        filters.email ||
         filters.gender ||
         filters.has_certification ||
         filters.certification_name ||
         filters.certification_type ||
         filters.sport_id ||
-        filters.has_active_assignment ||
-        filters.assignment_role
+        filters.has_active_assignment
     );
+
+    const memberOptions = [
+        { value: 'true', label: t('Linked to member') },
+        { value: 'false', label: t('Standalone') },
+    ];
+    const nisOptions = [
+        { value: '1', label: t('NIS certified') },
+        { value: '0', label: t('Not NIS certified') },
+    ];
+    const bloodGroupOptions = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((value) => ({ value, label: value }));
+    const statusOptions = coachStatuses.map((status) => ({ value: status, label: t(status) }));
+    const genderOptions = genders.map((gender) => ({
+        value: gender,
+        label:
+            gender === 'M'
+                ? t('Male')
+                : gender === 'F'
+                    ? t('Female')
+                    : gender === 'O'
+                        ? t('Other gender')
+                        : gender,
+    }));
+    const certificationOptions = [
+        { value: 'true', label: t('Has certification') },
+        { value: 'false', label: t('No certification') },
+    ];
+    const certificateTypeOptions = certificateTypes.map((certType) => ({ value: certType, label: t(certType) }));
+    const sportOptions = sports.map((sport) => ({ value: sport.id.toString(), label: sport.name }));
+    const districtOptions = districts.map((district) => ({ value: String(district.id), label: district.name }));
+    const unitOptions = units.map((unit) => ({ value: String(unit.id), label: unit.name }));
+    const assignmentOptions = [
+        { value: 'true', label: t('Has active assignment') },
+        { value: 'false', label: t('No active assignment') },
+    ];
+    const activeFilterCount = [
+        filters.has_member,
+        filters.nis_certified,
+        filters.coach_status,
+        filters.designation,
+        filters.email,
+        filters.gender,
+        filters.has_certification,
+        filters.certification_name,
+        filters.certification_type,
+        filters.sport_id,
+        filters.has_active_assignment,
+        filters.assignment_role,
+    ].filter(Boolean).length;
+
+    function optionLabel(options: { value: string; label: string }[], value: string | undefined): string | undefined {
+        return options.find((option) => option.value === value)?.label;
+    }
+
+    function clearAllFilters(): void {
+        setQuery('');
+        setSelectedIds(new Set());
+        router.get(CoachController.index.url(), {}, { preserveState: false, replace: true });
+    }
 
     return (
         <>
@@ -418,9 +614,9 @@ export default function CoachesIndex({
                     </div>
                 </div>
 
-                <div className="rounded-xl border bg-card p-4">
-                    <div className="grid gap-3 md:grid-cols-[1fr_220px_220px_auto]">
-                        <div className="relative">
+                <div className="space-y-3 rounded-xl border bg-card p-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="relative w-full lg:max-w-md">
                             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 placeholder={t('Search coaches…')}
@@ -430,247 +626,316 @@ export default function CoachesIndex({
                             />
                         </div>
 
-                        <Select
-                            value={filters.has_member ?? 'all'}
-                            onValueChange={(v) => applyFilters({ has_member: v === 'all' ? undefined : v })}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('All coaches')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{t('All coaches')}</SelectItem>
-                                <SelectItem value="true">{t('Linked to member')}</SelectItem>
-                                <SelectItem value="false">{t('Standalone')}</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={filters.nis_certified ?? 'all'}
-                            onValueChange={(v) => applyFilters({ nis_certified: v === 'all' ? undefined : v })}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('All NIS')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{t('All NIS')}</SelectItem>
-                                <SelectItem value="1">{t('NIS certified')}</SelectItem>
-                                <SelectItem value="0">{t('Not NIS certified')}</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={filters.coach_status ?? 'all'}
-                            onValueChange={(v) => applyFilters({ coach_status: v === 'all' ? undefined : v })}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('All statuses')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{t('All statuses')}</SelectItem>
-                                {coachStatuses.map((status) => (
-                                    <SelectItem key={status} value={status}>
-                                        {t(status)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={filters.gender ?? 'all'}
-                            onValueChange={(v) => applyFilters({ gender: v === 'all' ? undefined : v })}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('All genders')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{t('All genders')}</SelectItem>
-                                {genders.map((gender) => (
-                                    <SelectItem key={gender} value={gender}>
-                                        {t(gender)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={filters.has_certification ?? 'all'}
-                            onValueChange={(v) => applyFilters({ has_certification: v === 'all' ? undefined : v })}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('All certifications')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{t('All certifications')}</SelectItem>
-                                <SelectItem value="true">{t('Has certification')}</SelectItem>
-                                <SelectItem value="false">{t('No certification')}</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Input
-                            placeholder={t('Designation contains…')}
-                            value={filters.designation ?? ''}
-                            onChange={(e) => applyFilters({ designation: e.target.value || undefined })}
-                        />
-
-                        <Input
-                            placeholder={t('Email contains…')}
-                            value={filters.email ?? ''}
-                            onChange={(e) => applyFilters({ email: e.target.value || undefined })}
-                        />
-
-                        <Input
-                            placeholder={t('Certification name')}
-                            value={filters.certification_name ?? ''}
-                            onChange={(e) => applyFilters({ certification_name: e.target.value || undefined })}
-                        />
-
-                        <Select
-                            value={filters.certification_type ?? 'all'}
-                            onValueChange={(v) => applyFilters({ certification_type: v === 'all' ? undefined : v })}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('All cert types')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{t('All cert types')}</SelectItem>
-                                {certificateTypes.map((certType) => (
-                                    <SelectItem key={certType} value={certType}>
-                                        {t(certType)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={filters.sport_id ?? 'all'}
-                            onValueChange={(v) => applyFilters({ sport_id: v === 'all' ? undefined : v })}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('All sports')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{t('All sports')}</SelectItem>
-                                {sports.map((sport) => (
-                                    <SelectItem key={sport.id} value={sport.id.toString()}>
-                                        {sport.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={filters.has_active_assignment ?? 'all'}
-                            onValueChange={(v) => applyFilters({ has_active_assignment: v === 'all' ? undefined : v })}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('Any assignment state')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{t('Any assignment state')}</SelectItem>
-                                <SelectItem value="true">{t('Has active assignment')}</SelectItem>
-                                <SelectItem value="false">{t('No active assignment')}</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Input
-                            placeholder={t('Current assignment role')}
-                            value={filters.assignment_role ?? ''}
-                            onChange={(e) => applyFilters({ assignment_role: e.target.value || undefined })}
-                        />
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {activeFilterCount > 0 && (
+                                <span>
+                                    {t(':count filters active').replace(':count', String(activeFilterCount))}
+                                </span>
+                            )}
+                            {hasActiveFilters && (
+                                <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-8 px-2">
+                                    <X className="mr-1.5 h-4 w-4" />
+                                    {t('Clear filters')}
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
-                    {hasActiveFilters && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                setQuery('');
-                                setSelectedIds(new Set());
-                                router.get(CoachController.index.url(), {}, { preserveState: false, replace: true });
-                            }}
+                    <div className="flex flex-wrap gap-2">
+                        <FilterPill
+                            label={t('Member')}
+                            activeLabel={optionLabel(memberOptions, filters.has_member)}
+                            onClear={() => applyFilters({ has_member: undefined })}
                         >
-                            <X className="mr-1.5 h-4 w-4" />
-                            {t('Clear filters')}
-                        </Button>
-                    )}
+                            <OptionList options={memberOptions} value={filters.has_member} onSelect={(value) => applyFilters({ has_member: value })} />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('NIS')}
+                            activeLabel={optionLabel(nisOptions, filters.nis_certified)}
+                            onClear={() => applyFilters({ nis_certified: undefined })}
+                        >
+                            <OptionList options={nisOptions} value={filters.nis_certified} onSelect={(value) => applyFilters({ nis_certified: value })} />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('Blood group')}
+                            activeLabel={filters.blood_group}
+                            onClear={() => applyFilters({ blood_group: undefined })}
+                        >
+                            <OptionList options={bloodGroupOptions} value={filters.blood_group} onSelect={(value) => applyFilters({ blood_group: value })} />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('District')}
+                            activeLabel={optionLabel(districtOptions, filters.district_id)}
+                            onClear={() => applyFilters({ district_id: undefined })}
+                        >
+                            <SearchableOptionList options={districtOptions} value={filters.district_id} onSelect={(value) => applyFilters({ district_id: value })} searchPlaceholder={t('Search districts…')} />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('Unit')}
+                            activeLabel={optionLabel(unitOptions, filters.unit_id)}
+                            onClear={() => applyFilters({ unit_id: undefined })}
+                        >
+                            <SearchableOptionList options={unitOptions} value={filters.unit_id} onSelect={(value) => applyFilters({ unit_id: value })} searchPlaceholder={t('Search units…')} />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('Status')}
+                            activeLabel={optionLabel(statusOptions, filters.coach_status)}
+                            onClear={() => applyFilters({ coach_status: undefined })}
+                        >
+                            <OptionList options={statusOptions} value={filters.coach_status} onSelect={(value) => applyFilters({ coach_status: value })} />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('Gender')}
+                            activeLabel={optionLabel(genderOptions, filters.gender)}
+                            onClear={() => applyFilters({ gender: undefined })}
+                        >
+                            <OptionList options={genderOptions} value={filters.gender} onSelect={(value) => applyFilters({ gender: value })} />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('Certification')}
+                            activeLabel={optionLabel(certificationOptions, filters.has_certification)}
+                            onClear={() => applyFilters({ has_certification: undefined })}
+                        >
+                            <OptionList
+                                options={certificationOptions}
+                                value={filters.has_certification}
+                                onSelect={(value) => applyFilters({ has_certification: value })}
+                            />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('Certificate type')}
+                            activeLabel={optionLabel(certificateTypeOptions, filters.certification_type)}
+                            onClear={() => applyFilters({ certification_type: undefined })}
+                        >
+                            <SearchableOptionList
+                                options={certificateTypeOptions}
+                                value={filters.certification_type}
+                                onSelect={(value) => applyFilters({ certification_type: value })}
+                                searchPlaceholder={t('Search certificate types…')}
+                            />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('Sport')}
+                            activeLabel={optionLabel(sportOptions, filters.sport_id)}
+                            onClear={() => applyFilters({ sport_id: undefined })}
+                        >
+                            <SearchableOptionList
+                                options={sportOptions}
+                                value={filters.sport_id}
+                                onSelect={(value) => applyFilters({ sport_id: value })}
+                                searchPlaceholder={t('Search sports…')}
+                            />
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('Certificate name')}
+                            activeLabel={filters.certification_name}
+                            onClear={() => applyFilters({ certification_name: undefined })}
+                        >
+                            <div className="w-64 p-3">
+                                <Input
+                                    autoFocus
+                                    placeholder={t('Certification name')}
+                                    value={filters.certification_name ?? ''}
+                                    onChange={(e) => applyFilters({ certification_name: e.target.value || undefined })}
+                                />
+                            </div>
+                        </FilterPill>
+
+                        <FilterPill
+                            label={t('Assignment')}
+                            activeLabel={optionLabel(assignmentOptions, filters.has_active_assignment)}
+                            onClear={() => applyFilters({ has_active_assignment: undefined })}
+                        >
+                            <OptionList
+                                options={assignmentOptions}
+                                value={filters.has_active_assignment}
+                                onSelect={(value) => applyFilters({ has_active_assignment: value })}
+                            />
+                        </FilterPill>
+                    </div>
                 </div>
 
                 <div className="overflow-hidden rounded-xl border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead className="w-0">
-                                    <Checkbox
-                                        checked={
-                                            coaches.data.length > 0 && coaches.data.every((c) => selectedIds.has(c.id))
-                                                ? true
-                                                : coaches.data.some((c) => selectedIds.has(c.id))
-                                                  ? 'indeterminate'
-                                                  : false
-                                        }
-                                        onCheckedChange={togglePage}
-                                        aria-label={t('Select all on page')}
-                                    />
-                                </TableHead>
-                                <TableHead>{t('Name')}</TableHead>
-                                <TableHead>{t('PNO')}</TableHead>
-                                <TableHead>{t('Designation')}</TableHead>
-                                <TableHead>{t('Mobile')}</TableHead>
-                                <TableHead>{t('Status')}</TableHead>
-                                <TableHead>{t('NIS')}</TableHead>
-                                <TableHead>{t('Linked member')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {coaches.data.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
-                                        {hasActiveFilters ? t('No coaches match your filters.') : t('No coaches yet.')}
-                                    </TableCell>
+                    <div className="overflow-x-auto">
+                        <div className="min-w-[980px]">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                    <TableHead className="w-0">
+                                        <Checkbox
+                                            checked={
+                                                coaches.data.length > 0 && coaches.data.every((c) => selectedIds.has(c.id))
+                                                    ? true
+                                                    : coaches.data.some((c) => selectedIds.has(c.id))
+                                                      ? 'indeterminate'
+                                                      : false
+                                            }
+                                            onCheckedChange={togglePage}
+                                            aria-label={t('Select all on page')}
+                                        />
+                                    </TableHead>
+                                    <TableHead className="w-16 text-center">{t('S.No.')}</TableHead>
+                                    <TableHead>{t('Coach')}</TableHead>
+                                    <TableHead className="hidden md:table-cell">{t('PNO')}</TableHead>
+                                    <TableHead className="hidden md:table-cell">{t('Blood group')}</TableHead>
+                                    <TableHead className="hidden lg:table-cell">{t('Gender')}</TableHead>
+                                    <TableHead>{t('Location')}</TableHead>
+                                    <TableHead className="w-28">{t('Status')}</TableHead>
+                                    <TableHead className="hidden lg:table-cell">{t('Contact')}</TableHead>
+                                    <TableHead>{t('Credentials')}</TableHead>
+                                    <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
                                 </TableRow>
-                            ) : (
-                                coaches.data.map((coach) => (
-                                    <TableRow key={coach.id}>
-                                        <TableCell className="w-0">
-                                            <Checkbox
-                                                checked={selectedIds.has(coach.id)}
-                                                onCheckedChange={() => toggleRow(coach.id)}
-                                                aria-label={t('Select row')}
-                                            />
-                                        </TableCell>
-                                        <TableCell className="font-medium">{coachDisplayName(coach)}</TableCell>
-                                        <TableCell className="text-muted-foreground">{coach.pno ?? ''}</TableCell>
-                                        <TableCell className="text-muted-foreground">{coach.designation ?? ''}</TableCell>
-                                        <TableCell className="text-muted-foreground">{coach.mobile ?? ''}</TableCell>
-                                        <TableCell className="text-muted-foreground">{coach.coach_status ? t(coach.coach_status) : ''}</TableCell>
-                                        <TableCell>{coach.nis_certified ? <Badge>{t('NIS')}</Badge> : ''}</TableCell>
-                                        <TableCell className="text-muted-foreground">{linkedMemberDisplay(coach)}</TableCell>
-                                        <TableCell className="w-0">
-                                            <div className="flex items-center">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    title={t('Quick info')}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setQuickViewId(coach.id);
-                                                    }}
-                                                >
-                                                    <Info className="h-4 w-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" title={t('View')} asChild>
-                                                    <Link href={CoachController.show.url(coach.id)}>
-                                                        <Eye className="h-4 w-4" />
-                                                    </Link>
-                                                </Button>
-                                            </div>
+                            </TableHeader>
+                            <TableBody>
+                                {coaches.data.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={11} className="py-12 text-center text-muted-foreground">
+                                            {hasActiveFilters ? t('No coaches match your filters.') : t('No coaches yet.')}
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : (
+                                    coaches.data.map((coach, index) => {
+                                        const serialNumber = (coaches.from ?? 1) + index;
+
+                                        return (
+                                                <TableRow
+                                                    key={coach.id}
+                                                    className="group cursor-pointer transition-colors hover:bg-muted/30"
+                                                    onClick={() => setQuickViewId(coach.id)}
+                                                >
+                                                <TableCell className="w-0">
+                                                    <Checkbox
+                                                        checked={selectedIds.has(coach.id)}
+                                                        onCheckedChange={() => toggleRow(coach.id)}
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        aria-label={t('Select row')}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="text-center text-sm font-semibold text-muted-foreground tabular-nums">
+                                                    {serialNumber}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="min-w-56 space-y-2">
+                                                        <div className="font-semibold text-foreground">{coachDisplayName(coach)}</div>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {coach.designation ? (
+                                                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                                                                    <BadgeCheck className="h-3.5 w-3.5" />
+                                                                    {coach.designation}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="hidden md:table-cell text-muted-foreground">
+                                                    {coach.pno ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <IdCard className="h-4 w-4 text-sky-600 dark:text-sky-300" />
+                                                            <span>{coach.pno}</span>
+                                                        </div>
+                                                    ) : null}
+                                                </TableCell>
+                                                <TableCell className="hidden md:table-cell text-muted-foreground">
+                                                    {coach.blood_group ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <ShieldCheck className="h-4 w-4 text-rose-600 dark:text-rose-300" />
+                                                            <span>{coach.blood_group}</span>
+                                                        </div>
+                                                    ) : null}
+                                                </TableCell>
+                                                <TableCell className="hidden lg:table-cell text-muted-foreground">
+                                                    {coach.gender ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <UserCheck className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-300" />
+                                                            <span>{genderLabel(coach.gender)}</span>
+                                                        </div>
+                                                    ) : null}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {coachLocation(coach) ? (
+                                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                                            <MapPinned className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                                                            <span>{coachLocation(coach)}</span>
+                                                        </div>
+                                                    ) : null}
+                                                </TableCell>
+                                                <TableCell className="text-muted-foreground">
+                                                    {coach.coach_status ? (
+                                                        <Badge variant="outline" className="inline-flex gap-1">
+                                                            <ShieldCheck className="h-3 w-3" />
+                                                            {t(coach.coach_status)}
+                                                        </Badge>
+                                                    ) : null}
+                                                </TableCell>
+                                                <TableCell className="hidden lg:table-cell">
+                                                    <div className="min-w-48 space-y-1.5 text-sm">
+                                                        {coach.mobile ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                                                                <span className="font-medium">{coach.mobile}</span>
+                                                            </div>
+                                                        ) : null}
+                                                        {coach.email ? (
+                                                            <div className="flex items-center gap-2 text-muted-foreground">
+                                                                <Mail className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                                                                <span>{coach.email}</span>
+                                                            </div>
+                                                        ) : null}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {coach.nis_certified ? (
+                                                        <div className="flex min-w-40 flex-wrap gap-1.5">
+                                                            <span
+                                                                className="inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-2 py-1 text-xs font-medium text-violet-700 dark:text-violet-300"
+                                                            >
+                                                                <ShieldCheck className="h-3.5 w-3.5" />
+                                                                {t('NIS certified')}
+                                                            </span>
+                                                        </div>
+                                                    ) : null}
+                                                </TableCell>
+                                                <TableCell className="w-0 text-right">
+                                                    <div className="flex items-center justify-end">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title={t('Quick info')}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setQuickViewId(coach.id);
+                                                            }}
+                                                        >
+                                                            <Info className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" title={t('View')} asChild>
+                                                            <Link
+                                                                href={CoachController.show.url(coach.id)}
+                                                                onClick={(event) => event.stopPropagation()}
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Link>
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
+                                )}
+                            </TableBody>
+                        </Table>
+                        </div>
+                    </div>
                 </div>
 
                 {coaches.last_page > 1 && (

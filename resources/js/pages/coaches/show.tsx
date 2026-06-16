@@ -1,5 +1,5 @@
 import { Deferred, Head, Link, router, setLayoutProps } from '@inertiajs/react';
-import { Download, Printer } from 'lucide-react';
+import { ArrowLeft, Download, Printer } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { destroy, edit as editCoach, index as coachesIndex } from '@/actions/App/Http/Controllers/CoachController';
@@ -17,7 +17,6 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type LinkedMember = {
     id: number;
-    member_code: string;
     full_name: string;
     pno: string | null;
     rank: string | null;
@@ -83,7 +82,6 @@ const ALL_COLUMNS = [
     { key: 'designation', label: 'Designation' },
     { key: 'mobile', label: 'Mobile' },
     { key: 'nis_certified', label: 'NIS Certified' },
-    { key: 'linked_member', label: 'Linked Member Code' },
 ] as const;
 
 const BASE_STATUS_STYLES: Record<string, 'default' | 'outline' | 'secondary' | 'destructive'> = {
@@ -92,16 +90,32 @@ const BASE_STATUS_STYLES: Record<string, 'default' | 'outline' | 'secondary' | '
     RETIRED: 'secondary',
 };
 
+function genderLabel(gender: string | null | undefined, t: (key: string) => string): string {
+    switch (gender) {
+        case 'M':
+            return t('Male');
+        case 'F':
+            return t('Female');
+        case 'O':
+            return t('Other gender');
+        default:
+            return gender ?? '';
+    }
+}
+
 export default function CoachesShow({
     coach,
+    coachTeams,
     auditLog,
 }: {
     coach: Coach;
+    coachTeams?: CoachAssignment[];
     auditLog?: AuditEntry[];
 }) {
     const { t } = useTranslation();
 
     const [exportOpen, setExportOpen] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
     const [exportMode, setExportMode] = useState<'print' | 'download'>('download');
 
@@ -119,10 +133,6 @@ export default function CoachesShow({
     function exportValue(key: string): string {
         if (key === 'nis_certified') {
             return coach.nis_certified ? t('NIS Certified') : '';
-        }
-
-        if (key === 'linked_member') {
-            return linkedMember?.member_code ?? '';
         }
 
         const raw = (coach as Record<string, unknown>)[key];
@@ -165,11 +175,8 @@ export default function CoachesShow({
     };
 
     function handleDelete() {
-        if (!confirm(t('Delete this coach?'))) {
-            return;
-        }
-
         router.delete(destroy.url(coach));
+        setDeleteOpen(false);
     }
 
     const detail = (label: string, value: string) => (
@@ -179,9 +186,7 @@ export default function CoachesShow({
         </div>
     );
 
-    const assignmentRows = coach.assignment_history?.length > 0
-        ? coach.assignment_history
-        : [];
+    const assignmentRows = coachTeams ?? coach.assignment_history ?? [];
 
     return (
         <>
@@ -197,6 +202,12 @@ export default function CoachesShow({
                     </div>
 
                     <div className="flex gap-2 shrink-0">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={coachesIndex.url()}>
+                                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                                {t('Back')}
+                            </Link>
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => {
                             setExportMode('print');
                             setExportOpen(true);
@@ -214,7 +225,7 @@ export default function CoachesShow({
                         <Button variant="outline" size="sm" asChild>
                             <Link href={editCoach.url(coach)}>{t('Edit')}</Link>
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={handleDelete}>
+                        <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
                             {t('Delete')}
                         </Button>
                     </div>
@@ -233,7 +244,7 @@ export default function CoachesShow({
                         <TabsTrigger value="profile">{t('Profile')}</TabsTrigger>
                         <TabsTrigger value="certifications">{t('Certifications')}</TabsTrigger>
                         <TabsTrigger value="sports">{t('Sports')}</TabsTrigger>
-                        <TabsTrigger value="assignments">{t('Assignment history')}</TabsTrigger>
+                        <TabsTrigger value="assignments">{t('Team')}</TabsTrigger>
                         <TabsTrigger value="changelog">{t('Change log')}</TabsTrigger>
                     </TabsList>
 
@@ -244,7 +255,7 @@ export default function CoachesShow({
                                     {detail(t('Display name'), coach.display_name ?? '')}
                                     {detail(t('Designation'), coach.designation ?? '')}
                                     {detail(t('Email'), coach.email ?? '')}
-                                    {detail(t('Gender'), coach.gender ?? '')}
+                                    {detail(t('Gender'), genderLabel(coach.gender, t))}
                                     {detail(t('Date of birth'), coach.date_of_birth ?? '')}
                                     {detail(t('Address'), coach.address ?? '')}
                                     {detail(t('Status'), coach.coach_status ?? '')}
@@ -258,7 +269,6 @@ export default function CoachesShow({
                                 <h3 className="mb-4 text-sm font-medium text-muted-foreground">{t('Linked member')}</h3>
                                 {linkedMember ? (
                                     <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                                        {detail(t('Member code'), linkedMember.member_code ?? '')}
                                         {detail(t('Name'), linkedMember.full_name ?? '')}
                                         {detail(t('PNO'), linkedMember.pno ?? '')}
                                         {detail(t('Rank'), linkedMember.rank ?? '')}
@@ -337,7 +347,16 @@ export default function CoachesShow({
 
                     <TabsContent value="assignments">
                         <div className="rounded-xl border bg-card">
-                            <Deferred data="auditLog">
+                            <Deferred
+                                data="coachTeams"
+                                fallback={
+                                    <div className="space-y-2 p-4">
+                                        {[1, 2, 3].map((n) => (
+                                            <div key={n} className="h-12 w-full animate-pulse rounded bg-muted" />
+                                        ))}
+                                    </div>
+                                }
+                            >
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -404,6 +423,25 @@ export default function CoachesShow({
                 exportMode={exportMode}
                 t={t}
             />
+
+            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{t('Delete coach')}</DialogTitle>
+                        <DialogDescription>
+                            {t('Are you sure you want to delete this coach? This action cannot be undone.')}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+                            {t('Cancel')}
+                        </Button>
+                        <Button variant="destructive" onClick={handleDelete}>
+                            {t('Delete')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
@@ -413,7 +451,6 @@ function ExportDialog({
     onOpenChange,
     selectedColumns,
     setSelectedColumns,
-    onPrimaryExport,
     onPrint,
     onDownload,
     exportMode,
@@ -423,7 +460,6 @@ function ExportDialog({
     onOpenChange: (open: boolean) => void;
     selectedColumns: string[];
     setSelectedColumns: Dispatch<SetStateAction<string[]>>;
-    onPrimaryExport: () => void;
     onPrint: () => void;
     onDownload: () => void;
     exportMode: 'print' | 'download';

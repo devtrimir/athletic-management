@@ -9,6 +9,7 @@ import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { index as designationsIndex } from '@/routes/designations';
 import { index as districtsIndex } from '@/routes/districts';
+import { index as nisMastersIndex } from '@/routes/nis-masters';
 import { edit } from '@/routes/profile';
 import { index as ranksIndex } from '@/routes/ranks';
 import { index as rolesIndex } from '@/routes/roles';
@@ -57,6 +58,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
         { title: t('Ranks'), href: ranksIndex(), icon: ShieldIcon },
         { title: t('Designations'), href: designationsIndex(), icon: BriefcaseIcon },
         { title: t('Tournament Tiers'), href: tournamentTiersIndex(), icon: Medal },
+        { title: t('NIS Masters'), href: nisMastersIndex(), icon: Medal },
     ];
 
     const adminNavItems: NavItem[] = [

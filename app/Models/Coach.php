@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property string $full_name
  * @property string|null $pno
  * @property string|null $mobile
+ * @property string|null $blood_group
  * @property string|null $display_name
  * @property string|null $designation
  * @property string|null $email
@@ -37,6 +38,12 @@ use Illuminate\Support\Carbon;
  * @property string|null $address
  * @property string|null $photo_path
  * @property bool $nis_certified
+ * @property int|null $district_id
+ * @property int|null $unit_id
+ * @property int|null $nis_master_id
+ * @property int|null $tier_master_id
+ * @property int|null $rank_master_id
+ * @property int|null $designation_master_id
  * @property Carbon|null $deleted_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -54,7 +61,14 @@ use Illuminate\Support\Carbon;
     'full_name',
     'pno',
     'mobile',
+    'blood_group',
     'nis_certified',
+    'district_id',
+    'unit_id',
+    'nis_master_id',
+    'tier_master_id',
+    'rank_master_id',
+    'designation_master_id',
     'display_name',
     'designation',
     'email',
@@ -83,6 +97,36 @@ class Coach extends Model
         ];
     }
 
+    public function district(): BelongsTo
+    {
+        return $this->belongsTo(District::class);
+    }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    public function nisMaster(): BelongsTo
+    {
+        return $this->belongsTo(NisMaster::class, 'nis_master_id');
+    }
+
+    public function tierMaster(): BelongsTo
+    {
+        return $this->belongsTo(TournamentTier::class, 'tier_master_id');
+    }
+
+    public function rankMaster(): BelongsTo
+    {
+        return $this->belongsTo(Rank::class, 'rank_master_id');
+    }
+
+    public function designationMaster(): BelongsTo
+    {
+        return $this->belongsTo(Designation::class, 'designation_master_id');
+    }
+
     /** @return BelongsTo<Organization, $this> */
     public function organization(): BelongsTo
     {
@@ -106,7 +150,7 @@ class Coach extends Model
     {
         return $this->belongsToMany(Sport::class, 'coach_sport')
             ->using(CoachSport::class)
-            ->withPivot(['is_primary', 'level', 'effective_from', 'effective_to', 'notes'])
+            ->withPivot(['is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes'])
             ->withTimestamps();
     }
 

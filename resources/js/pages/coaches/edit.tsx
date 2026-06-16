@@ -2,11 +2,22 @@ import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
 import { Award, Dumbbell, IdCard, Link2, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import { index as coachesIndex, show as showCoach, update } from '@/actions/App/Http/Controllers/CoachController';
+import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import type { MemberOption } from '@/components/member-picker';
 import { MemberPicker } from '@/components/member-picker';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -17,6 +28,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type SportOption = { id: number; name: string };
+type NisMasterOption = { id: number; code: string; name: string; short_name: string | null };
+type RankOption = { id: number; code: string; name: string; short_name: string | null };
+type DesignationOption = { id: number; code: string; name: string; short_name: string | null };
+type TierOption = { id: number; code: string; label_hi: string; label_en: string; weight: number; label?: string };
+type ComboboxItem = { value: string; label: string };
+const GENDER_OPTIONS: ComboboxItem[] = [
+    { value: 'M', label: 'Male' },
+    { value: 'F', label: 'Female' },
+    { value: 'O', label: 'Other gender' },
+];
 
 type Coach = {
     id: number;
@@ -31,6 +52,13 @@ type Coach = {
     gender: string | null;
     date_of_birth: string | null;
     coach_status: string;
+    blood_group: string | null;
+    district_id: number | null;
+    unit_id: number | null;
+    nis_master_id: number | null;
+    tier_master_id: number | null;
+    rank_master_id: number | null;
+    designation_master_id: number | null;
     bio: string | null;
     address: string | null;
     certifications: Array<{
@@ -45,7 +73,9 @@ type Coach = {
     sports: Array<{
         id: number;
         pivot: {
+            level_master_id: number | null;
             level: string | null;
+            sport_event: string | null;
             is_primary: boolean;
             effective_from: string | null;
             effective_to: string | null;
@@ -75,21 +105,37 @@ type CertificationRow = {
 type SportRow = {
     id: number | '';
     sport_id: string;
+    level_master_id: string;
     level: string;
+    sport_event: string;
     is_primary: boolean;
     effective_from: string;
     effective_to: string;
     notes: string;
 };
 
+type ProtectedSport = {
+    sport_id: number;
+    sport_name: string;
+    teams: string[];
+    message: string;
+};
+
 type FormData = {
     full_name: string;
     pno: string;
     mobile: string;
+    blood_group: string;
     nis_certified: boolean;
     member_id: number | null;
     display_name: string;
     designation: string;
+    rank_master_id: string;
+    designation_master_id: string;
+    tier_master_id: string;
+    nis_master_id: string;
+    district_id: string;
+    unit_id: string;
     email: string;
     gender: string;
     date_of_birth: string;
@@ -117,7 +163,9 @@ function coachToSportRows(coach: Coach): SportRow[] {
     return coach.sports.map((sport) => ({
         id: sport.id,
         sport_id: String(sport.id),
+        level_master_id: sport.pivot.level_master_id ? String(sport.pivot.level_master_id) : '',
         level: sport.pivot.level ?? '',
+        sport_event: sport.pivot.sport_event ?? '',
         is_primary: sport.pivot.is_primary,
         effective_from: sport.pivot.effective_from ?? '',
         effective_to: sport.pivot.effective_to ?? '',
@@ -132,7 +180,7 @@ function coachToMemberOption(coach: Coach): MemberOption | null {
 
     return {
         id: coach.member.id,
-        member_code: coach.member.member_code,
+        member_code: '',
         pno: coach.member.pno,
         full_name: coach.member.full_name,
         player_category: '',
@@ -144,15 +192,52 @@ function coachToMemberOption(coach: Coach): MemberOption | null {
 export default function CoachesEdit({
     coach,
     sports,
+    districts,
+    units,
+    ranks,
+    designations,
+    tiers,
+    nisMasters,
+    protectedSports,
     coachStatuses,
     genders,
 }: {
     coach: Coach;
     sports: SportOption[];
+    districts: { id: number; name: string }[];
+    units: { id: number; name: string; district_id: number | null }[];
+    ranks: RankOption[];
+    designations: DesignationOption[];
+    tiers: TierOption[];
+    nisMasters: NisMasterOption[];
+    protectedSports: ProtectedSport[];
     coachStatuses: string[];
     genders: string[];
 }) {
     const { t } = useTranslation();
+    const bloodGroupItems: ComboboxItem[] = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((group) => ({
+        value: group,
+        label: group,
+    }));
+    const unitItems: ComboboxItem[] = units.map((unit) => ({ value: String(unit.id), label: unit.name }));
+    const districtItems: ComboboxItem[] = districts.map((district) => ({ value: String(district.id), label: district.name }));
+    const rankItems: ComboboxItem[] = ranks.map((master) => ({
+        value: String(master.id),
+        label: master.short_name ? `${master.name} (${master.short_name})` : master.name,
+    }));
+    const designationItems: ComboboxItem[] = designations.map((master) => ({
+        value: String(master.id),
+        label: master.short_name ? `${master.name} (${master.short_name})` : master.name,
+    }));
+    const tierItems: ComboboxItem[] = tiers.map((master) => ({
+        value: String(master.id),
+        label: master.label ?? master.label_en ?? master.label_hi,
+    }));
+    const nisItems: ComboboxItem[] = nisMasters.map((master) => ({
+        value: String(master.id),
+        label: master.short_name ? `${master.name} (${master.short_name})` : master.name,
+    }));
+    const sportItems: ComboboxItem[] = sports.map((sport) => ({ value: String(sport.id), label: sport.name }));
 
     setLayoutProps({
         breadcrumbs: [
@@ -163,15 +248,23 @@ export default function CoachesEdit({
     });
 
     const [pickedMember, setPickedMember] = useState<MemberOption | null>(coachToMemberOption(coach));
+    const [pendingSportRemovalIndex, setPendingSportRemovalIndex] = useState<number | null>(null);
 
     const { data, setData, patch, errors, processing } = useForm<FormData>({
         full_name: coach.full_name,
         pno: coach.pno ?? '',
         mobile: coach.mobile ?? '',
+        blood_group: coach.blood_group ?? '',
         nis_certified: coach.nis_certified,
         member_id: coach.member_id,
         display_name: coach.display_name ?? '',
         designation: coach.designation ?? '',
+        rank_master_id: coach.rank_master_id ? String(coach.rank_master_id) : '',
+        designation_master_id: coach.designation_master_id ? String(coach.designation_master_id) : '',
+        tier_master_id: coach.tier_master_id ? String(coach.tier_master_id) : '',
+        nis_master_id: coach.nis_master_id ? String(coach.nis_master_id) : '',
+        district_id: coach.district_id ? String(coach.district_id) : '',
+        unit_id: coach.unit_id ? String(coach.unit_id) : '',
         email: coach.email ?? '',
         gender: coach.gender ?? '',
         date_of_birth: coach.date_of_birth ?? '',
@@ -190,7 +283,6 @@ export default function CoachesEdit({
             member_id: member?.id ?? null,
             full_name: prev.full_name || (member?.full_name ?? ''),
             pno: prev.pno || (member?.pno ?? ''),
-            designation: prev.designation,
         }));
     }
 
@@ -234,7 +326,9 @@ export default function CoachesEdit({
             {
                 id: '',
                 sport_id: '',
+                level_master_id: '',
                 level: '',
+                sport_event: '',
                 is_primary: false,
                 effective_from: '',
                 effective_to: '',
@@ -257,9 +351,20 @@ export default function CoachesEdit({
         );
     }
 
+    function patchSportField(index: number, patch: Partial<Omit<SportRow, 'id'>>): void {
+        setData(
+            'sports',
+            data.sports.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+        );
+    }
+
     const linkedMemberSummary = pickedMember
-        ? [pickedMember.member_code, pickedMember.full_name, pickedMember.pno].filter(Boolean).join(' · ')
+        ? [pickedMember.full_name, pickedMember.pno].filter(Boolean).join(' · ')
         : '';
+    const pendingSportRemoval = pendingSportRemovalIndex !== null ? data.sports[pendingSportRemovalIndex] : null;
+    const pendingSportRemovalLabel = pendingSportRemoval
+        ? sportItems.find((item) => item.value === pendingSportRemoval.sport_id)?.label ?? t('this sport specialization')
+        : t('this sport specialization');
     const profileTitle = data.display_name || data.full_name || coach.full_name;
     const profileSubtitle = [data.designation, data.pno].filter(Boolean).join(' · ');
     const selectedSportsCount = data.sports.filter((sport) => sport.sport_id).length;
@@ -269,6 +374,10 @@ export default function CoachesEdit({
     const hasCertificationErrors = errorKeys.some((field) => field.startsWith('certifications.'));
     const hasSportErrors = errorKeys.some((field) => field.startsWith('sports.'));
     const hasMemberErrors = errorKeys.includes('member_id');
+
+    function protectedSportForRow(sportId: string): ProtectedSport | undefined {
+        return protectedSports.find((sport) => String(sport.sport_id) === sportId);
+    }
 
     return (
         <>
@@ -394,14 +503,95 @@ export default function CoachesEdit({
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="designation">{t('Designation')}</Label>
-                                <Input
-                                    id="designation"
-                                    value={data.designation}
-                                    onChange={(e) => setData('designation', e.target.value)}
-                                    maxLength={255}
+                                <Label htmlFor="blood_group">{t('Blood group')}</Label>
+                                <Combobox
+                                    id="blood_group"
+                                    value={data.blood_group}
+                                    onValueChange={(v) => setData('blood_group', v)}
+                                    items={bloodGroupItems}
+                                    placeholder={t('Select blood group')}
+                                    searchPlaceholder={t('Search blood groups…')}
                                 />
-                                <InputError message={errors.designation} />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="unit_id">{t('Unit')}</Label>
+                                <Combobox
+                                    id="unit_id"
+                                    value={data.unit_id}
+                                    onValueChange={(v) => {
+                                        setData('unit_id', v);
+                                        const selected = units.find((unit) => String(unit.id) === v);
+                                        const district = districts.find((item) => item.id === selected?.district_id);
+                                        setData('district_id', district ? String(district.id) : '');
+                                    }}
+                                    items={unitItems}
+                                    placeholder={t('Select unit')}
+                                    searchPlaceholder={t('Search units…')}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="district_id">{t('District')}</Label>
+                                <Combobox
+                                    id="district_id"
+                                    value={data.district_id}
+                                    onValueChange={(v) => setData('district_id', v)}
+                                    items={districtItems}
+                                    placeholder={t('Select district')}
+                                    searchPlaceholder={t('Search districts…')}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="rank_master_id">{t('Rank')}</Label>
+                                <Combobox
+                                    id="rank_master_id"
+                                    value={data.rank_master_id}
+                                    onValueChange={(v) => setData('rank_master_id', v)}
+                                    items={rankItems}
+                                    placeholder={t('Select rank')}
+                                    searchPlaceholder={t('Search ranks…')}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="designation_master_id">{t('Designation')}</Label>
+                                <Combobox
+                                    id="designation_master_id"
+                                    value={data.designation_master_id}
+                                    onValueChange={(v) => setData('designation_master_id', v)}
+                                    items={designationItems}
+                                    placeholder={t('Select designation')}
+                                    searchPlaceholder={t('Search designations…')}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="tier_master_id">{t('Tier / level')}</Label>
+                                <Combobox
+                                    id="tier_master_id"
+                                    value={data.tier_master_id}
+                                    onValueChange={(v) => setData('tier_master_id', v)}
+                                    items={tierItems}
+                                    placeholder={t('Select tier / level')}
+                                    searchPlaceholder={t('Search tiers…')}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="nis_master_id">{t('NIS info')}</Label>
+                                <Combobox
+                                    id="nis_master_id"
+                                    value={data.nis_master_id}
+                                    onValueChange={(v) => setData('nis_master_id', v)}
+                                    items={nisItems}
+                                    placeholder={t('Select NIS info')}
+                                    searchPlaceholder={t('Search NIS info…')}
+                                />
                             </div>
                         </div>
 
@@ -446,7 +636,7 @@ export default function CoachesEdit({
                                     <SelectContent>
                                         {genders.map((value) => (
                                             <SelectItem key={value} value={value}>
-                                                {t(value)}
+                                                {GENDER_OPTIONS.find((option) => option.value === value)?.label ?? value}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -607,26 +797,51 @@ export default function CoachesEdit({
                             </div>
                         ) : data.sports.map((sport, index) => (
                             <div key={`${sport.id}-${index}`} className="space-y-4 rounded-lg border bg-muted/25 p-4">
+                                {(() => {
+                                    const protectedSport = protectedSportForRow(sport.sport_id);
+                                    const isProtected = !!protectedSport;
+
+                                    return (
+                                        <>
                                 <div className="grid gap-2 sm:grid-cols-2">
                                     <div className="grid gap-2">
                                         <Label>{t('Sport')}</Label>
-                                        <Select value={sport.sport_id} onValueChange={(v) => setSportField(index, 'sport_id', v)}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={t('Select sport')} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {sports.map((option) => (
-                                                    <SelectItem key={option.id} value={String(option.id)}>
-                                                        {option.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Combobox
+                                            value={sport.sport_id}
+                                            onValueChange={(v) => setSportField(index, 'sport_id', v)}
+                                            items={sportItems}
+                                            placeholder={t('Select sport')}
+                                            searchPlaceholder={t('Search sports…')}
+                                            disabled={isProtected}
+                                        />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label>{t('Level')}</Label>
-                                        <Input value={sport.level} onChange={(e) => setSportField(index, 'level', e.target.value)} />
+                                        <Label>{t('Tier / level')}</Label>
+                                        <Combobox
+                                            value={sport.level_master_id}
+                                            onValueChange={(v) => {
+                                                const selected = tierItems.find((item) => item.value === v);
+                                                patchSportField(index, {
+                                                    level_master_id: v,
+                                                    level: selected?.label ?? '',
+                                                });
+                                            }}
+                                            items={tierItems}
+                                            placeholder={t('Select tier / level')}
+                                            searchPlaceholder={t('Search tiers…')}
+                                            disabled={isProtected}
+                                        />
                                     </div>
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label>{t('Sport event / discipline')}</Label>
+                                    <Input
+                                        value={sport.sport_event}
+                                        onChange={(e) => setSportField(index, 'sport_event', e.target.value)}
+                                        placeholder={t('e.g. 100m, freestyle, kata')}
+                                        disabled={isProtected}
+                                    />
                                 </div>
 
                                 <div className="grid gap-2 sm:grid-cols-3">
@@ -635,6 +850,7 @@ export default function CoachesEdit({
                                         <DatePicker
                                             value={sport.effective_from}
                                             onChange={(value) => setSportField(index, 'effective_from', value)}
+                                            disabled={isProtected}
                                         />
                                     </div>
                                     <div className="grid gap-2">
@@ -642,6 +858,7 @@ export default function CoachesEdit({
                                         <DatePicker
                                             value={sport.effective_to}
                                             onChange={(value) => setSportField(index, 'effective_to', value)}
+                                            disabled={isProtected}
                                         />
                                     </div>
                                     <div className="grid gap-2">
@@ -650,16 +867,29 @@ export default function CoachesEdit({
                                             <Checkbox
                                                 checked={sport.is_primary}
                                                 onCheckedChange={(checked) => setSportField(index, 'is_primary', !!checked)}
+                                                disabled={isProtected}
                                             />
                                             <span className="text-sm text-muted-foreground">{t('Mark as primary')}</span>
                                         </div>
                                     </div>
                                 </div>
+                                {protectedSport ? (
+                                    <p className="text-sm text-amber-700 dark:text-amber-300">{protectedSport.message}</p>
+                                ) : null}
                                 <div className="flex justify-end">
-                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeSport(index)}>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setPendingSportRemovalIndex(index)}
+                                        disabled={isProtected}
+                                    >
                                         {t('Remove')}
                                     </Button>
                                 </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         ))}
                                 </TabsContent>
@@ -702,6 +932,31 @@ export default function CoachesEdit({
                     </div>
                 </form>
             </div>
+
+            <AlertDialog open={pendingSportRemovalIndex !== null} onOpenChange={(open) => !open && setPendingSportRemovalIndex(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t('Remove sport specialization?')}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t('This will remove :sport from the coach profile. Existing protected sports cannot be removed.').replace(':sport', pendingSportRemovalLabel)}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (pendingSportRemovalIndex !== null) {
+                                    removeSport(pendingSportRemovalIndex);
+                                }
+
+                                setPendingSportRemovalIndex(null);
+                            }}
+                        >
+                            {t('Remove')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

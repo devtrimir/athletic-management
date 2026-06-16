@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Check, ChevronDown, Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Download, Eye, IdCard, Info, MapPinned, Plus, Printer, Search, ShieldCheck, UserCheck, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
@@ -29,6 +29,9 @@ type Member = {
     pno: string | null;
     full_name: string;
     rank: string | null;
+    designation?: string | null;
+    gender?: string | null;
+    blood_group?: string | null;
     player_category: string;
     player_level: string;
     current_status: string;
@@ -144,6 +147,19 @@ function localeName(entity: { name: string }, locale: string): string {
 
 function postingLocation(member: Member): string | null {
     return member.posting_district?.name ?? member.current_unit?.name ?? null;
+}
+
+function genderLabel(value: string | null | undefined, t: (key: string) => string): string {
+    switch (value) {
+        case 'M':
+            return t('Male');
+        case 'F':
+            return t('Female');
+        case 'O':
+            return t('Other gender');
+        default:
+            return value ?? '';
+    }
 }
 
 function sportSummary(sport: Member['playable_sports'][number]): string {
@@ -893,11 +909,13 @@ next.add(id);
                                 </TableHead>
                                 <TableHead>{t('Sr no')}</TableHead>
                                 <TableHead>{t('Name')}</TableHead>
-                                <TableHead>{t('PNO')}</TableHead>
+                                <TableHead className="hidden md:table-cell">{t('PNO')}</TableHead>
+                                <TableHead className="hidden md:table-cell">{t('Blood group')}</TableHead>
+                                <TableHead className="hidden lg:table-cell">{t('Gender')}</TableHead>
                                 <TableHead>{t('Playable sports')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
-                                <TableHead>{t('Posting unit / district')}</TableHead>
+                                <TableHead>{t('Location')}</TableHead>
                                 <TableHead>{t('Status')}</TableHead>
                                 <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
                             </TableRow>
@@ -915,8 +933,8 @@ next.add(id);
                                 members.data.map((member, index) => (
                                     <TableRow
                                         key={member.id}
+                                        className="group cursor-pointer transition-colors hover:bg-muted/30 data-[selected]:bg-primary/5"
                                         data-selected={selectedIds.has(member.id) || undefined}
-                                        className="cursor-pointer data-[selected]:bg-primary/5"
                                         onClick={() => router.visit(MemberController.show.url(member.id))}
                                     >
                                         <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
@@ -930,17 +948,45 @@ next.add(id);
                                             {(members.from ?? 1) + index}
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex min-w-0 items-center gap-2">
+                                            <div className="flex min-w-56 items-center gap-2 overflow-hidden whitespace-nowrap">
                                                 {member.rank && (
-                                                    <span className="shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-muted-foreground">
+                                                    <span className="inline-flex shrink-0 items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-sky-700 dark:text-sky-300">
                                                         {member.rank}
                                                     </span>
                                                 )}
-                                                <span className="truncate font-medium">{member.full_name ?? '—'}</span>
+                                                <span className="truncate font-semibold text-foreground">{member.full_name}</span>
+                                                <div className="flex shrink-0 items-center gap-1.5">
+                                                    {member.designation && (
+                                                        <span className="truncate text-xs font-medium text-amber-700 dark:text-amber-300">
+                                                            {member.designation}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {member.pno ?? <span className="select-none text-border">—</span>}
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                                            {member.pno ? (
+                                                <div className="flex items-center gap-2">
+                                                    <IdCard className="h-4 w-4 text-sky-600 dark:text-sky-300" />
+                                                    <span>{member.pno}</span>
+                                                </div>
+                                            ) : null}
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                                            {member.blood_group ? (
+                                                <div className="flex items-center gap-2">
+                                                    <ShieldCheck className="h-4 w-4 text-rose-600 dark:text-rose-300" />
+                                                    <span>{member.blood_group}</span>
+                                                </div>
+                                            ) : null}
+                                        </TableCell>
+                                        <TableCell className="hidden lg:table-cell text-muted-foreground">
+                                            {member.gender ? (
+                                                <div className="flex items-center gap-2">
+                                                    <UserCheck className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-300" />
+                                                    <span>{genderLabel(member.gender, t)}</span>
+                                                </div>
+                                            ) : null}
                                         </TableCell>
                                         <TableCell>
                                             <SportCell member={member} />
@@ -956,15 +1002,20 @@ next.add(id);
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {postingLocation(member) ?? <span className="select-none text-border">—</span>}
+                                            {postingLocation(member) ? (
+                                                <div className="flex items-center gap-2">
+                                                    <MapPinned className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                                                    <span>{postingLocation(member)}</span>
+                                                </div>
+                                            ) : null}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={STATUS_VARIANT[member.current_status] ?? 'outline'}>
                                                 {t(member.current_status)}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="w-0" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex items-center">
+                                        <TableCell className="w-0 text-right" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-end">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"

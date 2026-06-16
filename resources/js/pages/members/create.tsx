@@ -60,7 +60,7 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
         ],
     });
 
-    const { data, setData, post, errors, processing } = useForm<FormData>({
+    const { data, setData, post, transform, errors, processing } = useForm<FormData>({
         pno: '',
         full_name: '',
         father_name: '',
@@ -87,8 +87,23 @@ export default function MembersCreate({ districts, units, sports, ranks, designa
         team_since: '',
     });
 
+    function normalizedPlayableSports() {
+        return data.playable_sports
+            .filter((sport) => sport.sport_id !== '')
+            .map((sport) => ({
+                ...sport,
+                role: sport.role.trim(),
+                sport_event: sport.sport_event.trim(),
+                notes: sport.notes.trim(),
+            }));
+    }
+
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        transform((payload) => ({
+            ...payload,
+            playable_sports: normalizedPlayableSports(),
+        }));
         post(storeMember.url());
     }
 

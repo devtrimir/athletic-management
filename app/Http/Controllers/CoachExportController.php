@@ -51,6 +51,13 @@ class CoachExportController extends Controller
             $coaches = QueryBuilder::for(Coach::class)
                 ->allowedFilters([
                     AllowedFilter::exact('nis_certified'),
+                    AllowedFilter::exact('blood_group'),
+                    AllowedFilter::exact('district_id'),
+                    AllowedFilter::exact('unit_id'),
+                    AllowedFilter::exact('nis_master_id'),
+                    AllowedFilter::exact('tier_master_id'),
+                    AllowedFilter::exact('rank_master_id'),
+                    AllowedFilter::exact('designation_master_id'),
                     AllowedFilter::exact('coach_status'),
                     AllowedFilter::partial('designation', 'designation'),
                     AllowedFilter::partial('email', 'email'),

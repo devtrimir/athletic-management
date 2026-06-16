@@ -20,6 +20,7 @@ use App\Models\Participation;
 use App\Models\PromotionEvidence;
 use App\Models\Rank;
 use App\Models\Sport;
+use App\Models\SportSession;
 use App\Models\TeamMember;
 use App\Models\Unit;
 use App\Services\AuditLogBuilder;
@@ -135,6 +136,10 @@ class MemberController extends Controller
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'sessions' => SportSession::select(['id', 'name', 'is_current'])
+                ->orderByDesc('start_year')
+                ->orderByDesc('id')
+                ->get(),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
@@ -366,7 +371,7 @@ class MemberController extends Controller
                     'session' => $tm->session ? ['id' => $tm->session->id, 'name' => $tm->session->name] : null,
                 ])),
             'legacyAchievements' => Inertia::defer(fn () => $member->legacyAchievements()
-                ->with('benefits')
+                ->with(['benefits', 'session:id,name'])
                 ->orderBy('period')
                 ->orderBy('sort_order')
                 ->orderBy('event_date')
@@ -374,6 +379,10 @@ class MemberController extends Controller
                 ->map(fn ($la) => [
                     'id' => $la->id,
                     'period' => $la->period,
+                    'session' => $la->session ? [
+                        'id' => $la->session->id,
+                        'name' => $la->session->name,
+                    ] : null,
                     'level' => $la->level,
                     'competition_details' => $la->competition_details,
                     'event_date' => $la->event_date?->toDateString(),
@@ -381,7 +390,9 @@ class MemberController extends Controller
                     'sport_discipline' => $la->sport_discipline,
                     'event' => $la->event,
                     'medal_type' => $la->medal_type,
+                    'position' => $la->position,
                     'sort_order' => $la->sort_order,
+                    'remarks' => $la->remarks,
                     'benefits' => $la->benefits->map(fn ($b) => [
                         'id' => $b->id,
                         'benefit_type' => $b->benefit_type,

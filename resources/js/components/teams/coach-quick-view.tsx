@@ -19,9 +19,21 @@ type CertificationItem = { id: number; name: string; certificate_type: string | 
 type SportItem = { id: number; name: string; is_primary: boolean; level: string | null; effective_from: string | null; effective_to: string | null; notes: string | null };
 type AssignmentHistoryItem = { id: number; role: string; team_name: string | null; session_name: string | null; is_current: boolean; assigned_at: string | null; removed_at: string | null; notes: string | null };
 
+function genderLabel(gender: string | null, t: (key: string) => string): string {
+    switch (gender) {
+        case 'M':
+            return t('Male');
+        case 'F':
+            return t('Female');
+        case 'O':
+            return t('Other gender');
+        default:
+            return gender ?? '';
+    }
+}
+
 type MemberRecord = {
     id: number;
-    member_code: string;
     full_name: string;
     father_name: string | null;
     rank: string | null;
@@ -158,7 +170,7 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     <h2>${t('Contact')}</h2>
     ${row(t('Mobile'), data.mobile)}
     ${row(t('Date of birth'), data.date_of_birth)}
-    ${row(t('Gender'), data.gender ? t(data.gender) : null)}
+    ${row(t('Gender'), genderLabel(data.gender, t) || null)}
     ${row(t('Address'), data.address)}
     ${row(t('Bio'), data.bio)}
     ${data.certifications.length ? `<h2>${t('Certifications')}</h2>
@@ -174,13 +186,12 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     <h2>${t('Personal')}</h2>
     ${row(t("Father's name"), m.father_name)}
     ${row(t('Date of birth'), m.dob)}
-    ${row(t('Gender'), m.gender ? t(m.gender) : null)}
+    ${row(t('Gender'), genderLabel(m.gender, t) || null)}
     ${row(t('Blood group'), m.blood_group)}
     ${row(t('Caste'), m.caste)}
     ${row(t('Mobile'), m.mobile)}
     ${row(t('Home district'), m.home_district?.name)}
     <h2>${t('Service')}</h2>
-    ${row(t('Code'), m.member_code)}
     ${row(t('Rank'), m.rank ? t(m.rank) : null)}
     ${row(t('Current unit'), m.current_unit?.name)}
     ${row(t('Joining date'), m.joining_date)}
@@ -272,9 +283,6 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                                     <span className="text-xs text-muted-foreground">{data.display_name}</span>
                                 ) : null}
                                 {data.pno && <span className="font-mono text-xs text-muted-foreground">{data.pno}</span>}
-                                {data.member?.member_code && (
-                                    <span className="font-mono text-xs text-muted-foreground">· {data.member.member_code}</span>
-                                )}
                                 {data.designation && <span className="text-xs text-muted-foreground">{data.designation}</span>}
                                 {data.member?.rank && <span className="text-xs font-medium">{t(data.member.rank)}</span>}
                                 <Badge variant={data.nis_certified ? 'default' : 'secondary'} className="ml-auto">
@@ -308,7 +316,7 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                                 <InfoRow label={t('Display name')} value={data.display_name} />
                                 <InfoRow label={t('Designation')} value={data.designation} />
                                 <InfoRow label={t('Email')} value={data.email} />
-                                <InfoRow label={t('Gender')} value={data.gender ? t(data.gender) : null} />
+                                <InfoRow label={t('Gender')} value={genderLabel(data.gender, t) || null} />
                                 <InfoRow label={t('Date of birth')} value={data.date_of_birth} />
                                 <InfoRow label={t('Coach status')} value={data.coach_status ? t(data.coach_status) : null} />
                                 <InfoRow label={t('Address')} value={data.address} />
@@ -409,7 +417,7 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                                     <Section title={t('Personal')}>
                                         <InfoRow label={t("Father's name")} value={data.member.father_name} />
                                         <InfoRow label={t('Date of birth')} value={data.member.dob} />
-                                        <InfoRow label={t('Gender')} value={data.member.gender ? t(data.member.gender) : null} />
+                                        <InfoRow label={t('Gender')} value={genderLabel(data.member.gender, t) || null} />
                                         <InfoRow label={t('Blood group')} value={data.member.blood_group} />
                                         <InfoRow label={t('Caste')} value={data.member.caste} />
                                         <InfoRow label={t('Home district')} value={data.member.home_district?.name} />

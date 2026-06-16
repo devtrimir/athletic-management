@@ -18,7 +18,9 @@ use Illuminate\Support\Carbon;
  * @property int $coach_id
  * @property int $sport_id
  * @property bool $is_primary
+ * @property int|null $level_master_id
  * @property string|null $level
+ * @property string|null $sport_event
  * @property Carbon|null $effective_from
  * @property Carbon|null $effective_to
  * @property string|null $notes
@@ -26,12 +28,15 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  * @property-read Coach $coach
  * @property-read Sport $sport
+ * @property-read TournamentTier|null $levelMaster
  */
 #[Fillable([
     'coach_id',
     'sport_id',
     'is_primary',
+    'level_master_id',
     'level',
+    'sport_event',
     'effective_from',
     'effective_to',
     'notes',
@@ -42,7 +47,7 @@ class CoachSport extends Pivot
     /** @use HasFactory<CoachSportFactory> */
     use Auditable, HasFactory;
 
-    public bool $incrementing = true;
+    public $incrementing = true;
 
     /**
      * @return array<string, string>
@@ -54,6 +59,11 @@ class CoachSport extends Pivot
             'effective_from' => 'date',
             'effective_to' => 'date',
         ];
+    }
+
+    public function levelMaster(): BelongsTo
+    {
+        return $this->belongsTo(TournamentTier::class, 'level_master_id');
     }
 
     /** @return BelongsTo<Coach, $this> */

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\DesignationController;
 use App\Http\Controllers\Settings\DistrictController;
+use App\Http\Controllers\Settings\NisMasterController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\RankController;
 use App\Http\Controllers\Settings\RoleController;
@@ -55,6 +56,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/tournament-tiers', TournamentTierController::class)
         ->except(['show'])
         ->names('tournament-tiers');
+
+    Route::resource('settings/nis-masters', NisMasterController::class)
+        ->except(['show'])
+        ->names('nis-masters');
 
     Route::resource('settings/ranks', RankController::class)
         ->except(['show'])

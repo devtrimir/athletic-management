@@ -106,7 +106,7 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
         ],
     });
 
-    const { data, setData, patch, errors, processing } = useForm<FormData>({
+    const { data, setData, patch, transform, errors, processing } = useForm<FormData>({
         pno: member.pno ?? '',
         full_name: member.full_name,
         father_name: member.father_name ?? '',
@@ -159,8 +159,23 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
 
     const designationLabel = t('Designation');
 
+    function normalizedPlayableSports() {
+        return data.playable_sports
+            .filter((sport) => sport.sport_id !== '')
+            .map((sport) => ({
+                ...sport,
+                role: sport.role.trim(),
+                sport_event: sport.sport_event.trim(),
+                notes: sport.notes.trim(),
+            }));
+    }
+
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        transform((payload) => ({
+            ...payload,
+            playable_sports: normalizedPlayableSports(),
+        }));
         patch(update.url(member));
     }
 

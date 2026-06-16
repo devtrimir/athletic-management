@@ -2,11 +2,22 @@ import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
 import { Award, Dumbbell, IdCard, Link2, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import { index as coachesIndex, store as storeCoach } from '@/actions/App/Http/Controllers/CoachController';
+import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import type { MemberOption } from '@/components/member-picker';
 import { MemberPicker } from '@/components/member-picker';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -17,6 +28,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type SportOption = { id: number; name: string };
+type NisMasterOption = { id: number; code: string; name: string; short_name: string | null };
+type RankOption = { id: number; code: string; name: string; short_name: string | null };
+type DesignationOption = { id: number; code: string; name: string; short_name: string | null };
+type TierOption = { id: number; code: string; label_hi: string; label_en: string; weight: number; label?: string };
+type ComboboxItem = { value: string; label: string };
+const GENDER_OPTIONS: ComboboxItem[] = [
+    { value: 'M', label: 'Male' },
+    { value: 'F', label: 'Female' },
+    { value: 'O', label: 'Other gender' },
+];
 
 type CertificationRow = {
     name: string;
@@ -29,7 +50,9 @@ type CertificationRow = {
 
 type SportRow = {
     sport_id: string;
+    level_master_id: string;
     level: string;
+    sport_event: string;
     is_primary: boolean;
     effective_from: string;
     effective_to: string;
@@ -40,10 +63,17 @@ type FormData = {
     full_name: string;
     pno: string;
     mobile: string;
+    blood_group: string;
     nis_certified: boolean;
     member_id: number | null;
     display_name: string;
     designation: string;
+    rank_master_id: string;
+    designation_master_id: string;
+    tier_master_id: string;
+    nis_master_id: string;
+    district_id: string;
+    unit_id: string;
     email: string;
     gender: string;
     date_of_birth: string;
@@ -57,14 +87,58 @@ type FormData = {
 
 export default function CoachesCreate({
     sports,
+    districts,
+    units,
+    ranks,
+    designations,
+    tiers,
+    nisMasters,
     coachStatuses,
     genders,
 }: {
     sports: SportOption[];
+    districts: { id: number; name: string }[];
+    units: { id: number; name: string; district_id: number | null }[];
+    ranks: RankOption[];
+    designations: DesignationOption[];
+    tiers: TierOption[];
+    nisMasters: NisMasterOption[];
     coachStatuses: string[];
     genders: string[];
 }) {
     const { t } = useTranslation();
+    const bloodGroupItems: ComboboxItem[] = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((group) => ({
+        value: group,
+        label: group,
+    }));
+    const unitItems: ComboboxItem[] = units.map((unit) => ({
+        value: String(unit.id),
+        label: unit.name,
+    }));
+    const districtItems: ComboboxItem[] = districts.map((district) => ({
+        value: String(district.id),
+        label: district.name,
+    }));
+    const rankItems: ComboboxItem[] = ranks.map((master) => ({
+        value: String(master.id),
+        label: master.short_name ? `${master.name} (${master.short_name})` : master.name,
+    }));
+    const designationItems: ComboboxItem[] = designations.map((master) => ({
+        value: String(master.id),
+        label: master.short_name ? `${master.name} (${master.short_name})` : master.name,
+    }));
+    const tierItems: ComboboxItem[] = tiers.map((master) => ({
+        value: String(master.id),
+        label: master.label ?? master.label_en ?? master.label_hi,
+    }));
+    const nisItems: ComboboxItem[] = nisMasters.map((master) => ({
+        value: String(master.id),
+        label: master.short_name ? `${master.name} (${master.short_name})` : master.name,
+    }));
+    const sportItems: ComboboxItem[] = sports.map((sport) => ({
+        value: String(sport.id),
+        label: sport.name,
+    }));
 
     setLayoutProps({
         breadcrumbs: [
@@ -74,15 +148,23 @@ export default function CoachesCreate({
     });
 
     const [pickedMember, setPickedMember] = useState<MemberOption | null>(null);
+    const [pendingSportRemovalIndex, setPendingSportRemovalIndex] = useState<number | null>(null);
 
     const { data, setData, post, errors, processing } = useForm<FormData>({
         full_name: '',
         pno: '',
         mobile: '',
+        blood_group: '',
         nis_certified: false,
         member_id: null,
         display_name: '',
         designation: '',
+        rank_master_id: '',
+        designation_master_id: '',
+        tier_master_id: '',
+        nis_master_id: '',
+        district_id: '',
+        unit_id: '',
         email: '',
         gender: '',
         date_of_birth: '',
@@ -101,7 +183,6 @@ export default function CoachesCreate({
             member_id: member?.id ?? null,
             full_name: prev.full_name || (member?.full_name ?? ''),
             pno: prev.pno || (member?.pno ?? ''),
-            designation: prev.designation,
         }));
     }
 
@@ -115,7 +196,7 @@ export default function CoachesCreate({
             return '';
         }
 
-        return [member.member_code, member.full_name, member.pno].filter(Boolean).join(' · ');
+        return [member.full_name, member.pno].filter(Boolean).join(' · ');
     }
 
     function addCertification(): void {
@@ -151,7 +232,9 @@ export default function CoachesCreate({
             ...data.sports,
             {
                 sport_id: '',
+                level_master_id: '',
                 level: '',
+                sport_event: '',
                 is_primary: false,
                 effective_from: '',
                 effective_to: '',
@@ -174,10 +257,21 @@ export default function CoachesCreate({
         );
     }
 
+    function patchSportField(index: number, patch: Partial<SportRow>): void {
+        setData(
+            'sports',
+            data.sports.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+        );
+    }
+
     const profileTitle = data.display_name || data.full_name || t('New coach profile');
     const profileSubtitle = [data.designation, data.pno].filter(Boolean).join(' · ');
     const selectedSportsCount = data.sports.filter((sport) => sport.sport_id).length;
     const completedCertificationsCount = data.certifications.filter((certification) => certification.name.trim() !== '').length;
+    const pendingSportRemoval = pendingSportRemovalIndex !== null ? data.sports[pendingSportRemovalIndex] : null;
+    const pendingSportRemovalLabel = pendingSportRemoval
+        ? sportItems.find((item) => item.value === pendingSportRemoval.sport_id)?.label ?? t('this sport specialization')
+        : t('this sport specialization');
     const errorKeys = Object.keys(errors);
     const hasProfileErrors = ['full_name', 'pno', 'mobile', 'designation', 'email', 'coach_status', 'gender', 'date_of_birth', 'display_name', 'address', 'bio', 'nis_certified'].some((field) => errorKeys.includes(field));
     const hasCertificationErrors = errorKeys.some((field) => field.startsWith('certifications.'));
@@ -308,14 +402,98 @@ export default function CoachesCreate({
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="designation">{t('Designation')}</Label>
-                                <Input
-                                    id="designation"
-                                    value={data.designation}
-                                    onChange={(e) => setData('designation', e.target.value)}
-                                    maxLength={255}
+                                <Label htmlFor="blood_group">{t('Blood group')}</Label>
+                                <Combobox
+                                    id="blood_group"
+                                    value={data.blood_group}
+                                    onValueChange={(v) => setData('blood_group', v)}
+                                    items={bloodGroupItems}
+                                    placeholder={t('Select blood group')}
+                                    searchPlaceholder={t('Search blood groups…')}
                                 />
-                                <InputError message={errors.designation} />
+                                <InputError message={errors.blood_group} />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="unit_id">{t('Unit')}</Label>
+                                <Combobox
+                                    id="unit_id"
+                                    value={data.unit_id}
+                                    onValueChange={(v) => {
+                                        setData('unit_id', v);
+                                        const selected = units.find((unit) => String(unit.id) === v);
+                                        const district = districts.find((item) => item.id === selected?.district_id);
+                                        setData('district_id', district ? String(district.id) : '');
+                                    }}
+                                    items={unitItems}
+                                    placeholder={t('Select unit')}
+                                    searchPlaceholder={t('Search units…')}
+                                />
+                                <InputError message={errors.unit_id} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="district_id">{t('District')}</Label>
+                                <Combobox
+                                    id="district_id"
+                                    value={data.district_id}
+                                    onValueChange={(v) => setData('district_id', v)}
+                                    items={districtItems}
+                                    placeholder={t('Select district')}
+                                    searchPlaceholder={t('Search districts…')}
+                                />
+                                <InputError message={errors.district_id} />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="rank_master_id">{t('Rank')}</Label>
+                                <Combobox
+                                    id="rank_master_id"
+                                    value={data.rank_master_id}
+                                    onValueChange={(v) => setData('rank_master_id', v)}
+                                    items={rankItems}
+                                    placeholder={t('Select rank')}
+                                    searchPlaceholder={t('Search ranks…')}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="designation_master_id">{t('Designation')}</Label>
+                                <Combobox
+                                    id="designation_master_id"
+                                    value={data.designation_master_id}
+                                    onValueChange={(v) => setData('designation_master_id', v)}
+                                    items={designationItems}
+                                    placeholder={t('Select designation')}
+                                    searchPlaceholder={t('Search designations…')}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="tier_master_id">{t('Tier / level')}</Label>
+                                <Combobox
+                                    id="tier_master_id"
+                                    value={data.tier_master_id}
+                                    onValueChange={(v) => setData('tier_master_id', v)}
+                                    items={tierItems}
+                                    placeholder={t('Select tier / level')}
+                                    searchPlaceholder={t('Search tiers…')}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="nis_master_id">{t('NIS info')}</Label>
+                                <Combobox
+                                    id="nis_master_id"
+                                    value={data.nis_master_id}
+                                    onValueChange={(v) => setData('nis_master_id', v)}
+                                    items={nisItems}
+                                    placeholder={t('Select NIS info')}
+                                    searchPlaceholder={t('Search NIS info…')}
+                                />
                             </div>
                         </div>
 
@@ -363,7 +541,7 @@ export default function CoachesCreate({
                                     <SelectContent>
                                         {genders.map((value) => (
                                             <SelectItem key={value} value={value}>
-                                                {t(value)}
+                                                {GENDER_OPTIONS.find((option) => option.value === value)?.label ?? value}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -527,26 +705,39 @@ export default function CoachesCreate({
                                 <div className="grid gap-2 sm:grid-cols-2">
                                     <div className="grid gap-2">
                                         <Label>{t('Sport')}</Label>
-                                        <Select value={sport.sport_id} onValueChange={(v) => setSportField(index, 'sport_id', v)}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={t('Select sport')} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {sports.map((option) => (
-                                                    <SelectItem key={option.id} value={String(option.id)}>
-                                                        {option.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>{t('Level')}</Label>
-                                        <Input
-                                            value={sport.level}
-                                            onChange={(e) => setSportField(index, 'level', e.target.value)}
+                                        <Combobox
+                                            value={sport.sport_id}
+                                            onValueChange={(v) => setSportField(index, 'sport_id', v)}
+                                            items={sportItems}
+                                            placeholder={t('Select sport')}
+                                            searchPlaceholder={t('Search sports…')}
                                         />
                                     </div>
+                                    <div className="grid gap-2">
+                                        <Label>{t('Tier / level')}</Label>
+                                        <Combobox
+                                            value={sport.level_master_id}
+                                            onValueChange={(v) => {
+                                                const selected = tierItems.find((item) => item.value === v);
+                                                patchSportField(index, {
+                                                    level_master_id: v,
+                                                    level: selected?.label ?? '',
+                                                });
+                                            }}
+                                            items={tierItems}
+                                            placeholder={t('Select tier / level')}
+                                            searchPlaceholder={t('Search tiers…')}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label>{t('Sport event / discipline')}</Label>
+                                    <Input
+                                        value={sport.sport_event}
+                                        onChange={(e) => setSportField(index, 'sport_event', e.target.value)}
+                                        placeholder={t('e.g. 100m, freestyle, kata')}
+                                    />
                                 </div>
 
                                 <div className="grid gap-2 sm:grid-cols-3">
@@ -576,7 +767,7 @@ export default function CoachesCreate({
                                     </div>
                                 </div>
                                 <div className="flex justify-end">
-                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeSport(index)}>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => setPendingSportRemovalIndex(index)}>
                                         {t('Remove')}
                                     </Button>
                                 </div>
@@ -629,6 +820,31 @@ export default function CoachesCreate({
                     </div>
                 </form>
             </div>
+
+            <AlertDialog open={pendingSportRemovalIndex !== null} onOpenChange={(open) => !open && setPendingSportRemovalIndex(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t('Remove sport specialization?')}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t('This will remove :sport from the coach profile before saving.').replace(':sport', pendingSportRemovalLabel)}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (pendingSportRemovalIndex !== null) {
+                                    removeSport(pendingSportRemovalIndex);
+                                }
+
+                                setPendingSportRemovalIndex(null);
+                            }}
+                        >
+                            {t('Remove')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }
