@@ -19,7 +19,9 @@ import { useTranslation } from '@/hooks/use-translation';
 const ALL_COLUMNS = [
     { key: 'pno', label: 'PNO' },
     { key: 'full_name', label: 'Name' },
+    { key: 'designation', label: 'Designation' },
     { key: 'mobile', label: 'Mobile' },
+    { key: 'coach_status', label: 'Status' },
     { key: 'nis_certified', label: 'NIS Certified' },
     { key: 'linked_member', label: 'Linked Member Code' },
 ] as const;
@@ -43,7 +45,10 @@ type Coach = {
     id: number;
     full_name: string;
     pno: string | null;
+    designation: string | null;
     mobile: string | null;
+    email: string | null;
+    coach_status: string | null;
     nis_certified: boolean;
     member: LinkedMember | null;
 };
@@ -58,18 +63,41 @@ type PaginatedCoaches = {
     to: number | null;
 };
 
+type SportOption = {
+    id: number;
+    name: string;
+};
+
 type Filters = {
     q?: string;
     has_member?: string;
     nis_certified?: string;
+    coach_status?: string;
+    designation?: string;
+    email?: string;
+    gender?: string;
+    has_certification?: string;
+    certification_name?: string;
+    certification_type?: string;
+    sport_id?: string;
+    has_active_assignment?: string;
+    assignment_role?: string;
 };
 
 export default function CoachesIndex({
     coaches,
     filters,
+    sports,
+    certificateTypes,
+    coachStatuses,
+    genders,
 }: {
     coaches: PaginatedCoaches;
     filters: Filters;
+    sports: SportOption[];
+    certificateTypes: string[];
+    coachStatuses: string[];
+    genders: string[];
 }) {
     const { t } = useTranslation();
 
@@ -87,6 +115,16 @@ export default function CoachesIndex({
                 q: query || undefined,
                 has_member: filters.has_member,
                 nis_certified: filters.nis_certified,
+                coach_status: filters.coach_status,
+                designation: filters.designation,
+                email: filters.email,
+                gender: filters.gender,
+                has_certification: filters.has_certification,
+                certification_name: filters.certification_name,
+                certification_type: filters.certification_type,
+                sport_id: filters.sport_id,
+                has_active_assignment: filters.has_active_assignment,
+                assignment_role: filters.assignment_role,
             };
             const merged: Filters = { ...current, ...patch };
 
@@ -104,12 +142,66 @@ export default function CoachesIndex({
                 clean['filter[nis_certified]'] = merged.nis_certified;
             }
 
+            if (merged.coach_status) {
+                clean['filter[coach_status]'] = merged.coach_status;
+            }
+
+            if (merged.designation) {
+                clean['filter[designation]'] = merged.designation;
+            }
+
+            if (merged.email) {
+                clean['filter[email]'] = merged.email;
+            }
+
+            if (merged.gender) {
+                clean['filter[gender]'] = merged.gender;
+            }
+
+            if (merged.has_certification) {
+                clean['filter[has_certification]'] = merged.has_certification;
+            }
+
+            if (merged.certification_name) {
+                clean['filter[certification_name]'] = merged.certification_name;
+            }
+
+            if (merged.certification_type) {
+                clean['filter[certification_type]'] = merged.certification_type;
+            }
+
+            if (merged.sport_id) {
+                clean['filter[sport_id]'] = merged.sport_id;
+            }
+
+            if (merged.has_active_assignment) {
+                clean['filter[has_active_assignment]'] = merged.has_active_assignment;
+            }
+
+            if (merged.assignment_role) {
+                clean['filter[assignment_role]'] = merged.assignment_role;
+            }
+
             router.get(CoachController.index.url(), clean, {
                 preserveState: true,
                 replace: true,
             });
         },
-        [query, filters.has_member, filters.nis_certified],
+        [
+            query,
+            filters.has_member,
+            filters.nis_certified,
+            filters.coach_status,
+            filters.designation,
+            filters.email,
+            filters.gender,
+            filters.has_certification,
+            filters.certification_name,
+            filters.certification_type,
+            filters.sport_id,
+            filters.has_active_assignment,
+            filters.assignment_role,
+        ],
     );
 
     useEffect(() => {
@@ -130,7 +222,7 @@ export default function CoachesIndex({
     }, [query]);
 
     function coachDisplayName(coach: Coach): string {
-        return [coach.member?.rank, coach.full_name].filter(Boolean).join(' ');
+        return [coach.designation, coach.full_name].filter(Boolean).join(' / ') || coach.full_name;
     }
 
     function linkedMemberDisplay(coach: Coach): string {
@@ -150,6 +242,10 @@ export default function CoachesIndex({
     function exportValue(coach: Coach, key: string): string {
         if (key === 'nis_certified') {
             return coach.nis_certified ? t('NIS Certified') : '';
+        }
+
+        if (key === 'coach_status') {
+            return coach.coach_status ? t(coach.coach_status) : '';
         }
 
         if (key === 'linked_member') {
@@ -213,6 +309,46 @@ export default function CoachesIndex({
             if (filters.nis_certified) {
                 params.append('filter[nis_certified]', filters.nis_certified);
             }
+
+            if (filters.coach_status) {
+                params.append('filter[coach_status]', filters.coach_status);
+            }
+
+            if (filters.designation) {
+                params.append('filter[designation]', filters.designation);
+            }
+
+            if (filters.email) {
+                params.append('filter[email]', filters.email);
+            }
+
+            if (filters.gender) {
+                params.append('filter[gender]', filters.gender);
+            }
+
+            if (filters.has_certification) {
+                params.append('filter[has_certification]', filters.has_certification);
+            }
+
+            if (filters.certification_name) {
+                params.append('filter[certification_name]', filters.certification_name);
+            }
+
+            if (filters.certification_type) {
+                params.append('filter[certification_type]', filters.certification_type);
+            }
+
+            if (filters.sport_id) {
+                params.append('filter[sport_id]', filters.sport_id);
+            }
+
+            if (filters.has_active_assignment) {
+                params.append('filter[has_active_assignment]', filters.has_active_assignment);
+            }
+
+            if (filters.assignment_role) {
+                params.append('filter[assignment_role]', filters.assignment_role);
+            }
         }
 
         for (const col of selectedColumns) {
@@ -239,7 +375,21 @@ export default function CoachesIndex({
         win.document.close();
     }
 
-    const hasActiveFilters = !!(filters.q || filters.has_member || filters.nis_certified);
+    const hasActiveFilters = !!(
+        filters.q ||
+        filters.has_member ||
+        filters.nis_certified ||
+        filters.coach_status ||
+        filters.designation ||
+        filters.email ||
+        filters.gender ||
+        filters.has_certification ||
+        filters.certification_name ||
+        filters.certification_type ||
+        filters.sport_id ||
+        filters.has_active_assignment ||
+        filters.assignment_role
+    );
 
     return (
         <>
@@ -308,21 +458,141 @@ export default function CoachesIndex({
                             </SelectContent>
                         </Select>
 
-                        {hasActiveFilters && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    setQuery('');
-                                    setSelectedIds(new Set());
-                                    router.get(CoachController.index.url(), {}, { preserveState: false, replace: true });
-                                }}
-                            >
-                                <X className="mr-1.5 h-4 w-4" />
-                                {t('Clear filters')}
-                            </Button>
-                        )}
+                        <Select
+                            value={filters.coach_status ?? 'all'}
+                            onValueChange={(v) => applyFilters({ coach_status: v === 'all' ? undefined : v })}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('All statuses')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('All statuses')}</SelectItem>
+                                {coachStatuses.map((status) => (
+                                    <SelectItem key={status} value={status}>
+                                        {t(status)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            value={filters.gender ?? 'all'}
+                            onValueChange={(v) => applyFilters({ gender: v === 'all' ? undefined : v })}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('All genders')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('All genders')}</SelectItem>
+                                {genders.map((gender) => (
+                                    <SelectItem key={gender} value={gender}>
+                                        {t(gender)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            value={filters.has_certification ?? 'all'}
+                            onValueChange={(v) => applyFilters({ has_certification: v === 'all' ? undefined : v })}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('All certifications')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('All certifications')}</SelectItem>
+                                <SelectItem value="true">{t('Has certification')}</SelectItem>
+                                <SelectItem value="false">{t('No certification')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Input
+                            placeholder={t('Designation contains…')}
+                            value={filters.designation ?? ''}
+                            onChange={(e) => applyFilters({ designation: e.target.value || undefined })}
+                        />
+
+                        <Input
+                            placeholder={t('Email contains…')}
+                            value={filters.email ?? ''}
+                            onChange={(e) => applyFilters({ email: e.target.value || undefined })}
+                        />
+
+                        <Input
+                            placeholder={t('Certification name')}
+                            value={filters.certification_name ?? ''}
+                            onChange={(e) => applyFilters({ certification_name: e.target.value || undefined })}
+                        />
+
+                        <Select
+                            value={filters.certification_type ?? 'all'}
+                            onValueChange={(v) => applyFilters({ certification_type: v === 'all' ? undefined : v })}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('All cert types')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('All cert types')}</SelectItem>
+                                {certificateTypes.map((certType) => (
+                                    <SelectItem key={certType} value={certType}>
+                                        {t(certType)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            value={filters.sport_id ?? 'all'}
+                            onValueChange={(v) => applyFilters({ sport_id: v === 'all' ? undefined : v })}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('All sports')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('All sports')}</SelectItem>
+                                {sports.map((sport) => (
+                                    <SelectItem key={sport.id} value={sport.id.toString()}>
+                                        {sport.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            value={filters.has_active_assignment ?? 'all'}
+                            onValueChange={(v) => applyFilters({ has_active_assignment: v === 'all' ? undefined : v })}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('Any assignment state')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('Any assignment state')}</SelectItem>
+                                <SelectItem value="true">{t('Has active assignment')}</SelectItem>
+                                <SelectItem value="false">{t('No active assignment')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Input
+                            placeholder={t('Current assignment role')}
+                            value={filters.assignment_role ?? ''}
+                            onChange={(e) => applyFilters({ assignment_role: e.target.value || undefined })}
+                        />
                     </div>
+
+                    {hasActiveFilters && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setQuery('');
+                                setSelectedIds(new Set());
+                                router.get(CoachController.index.url(), {}, { preserveState: false, replace: true });
+                            }}
+                        >
+                            <X className="mr-1.5 h-4 w-4" />
+                            {t('Clear filters')}
+                        </Button>
+                    )}
                 </div>
 
                 <div className="overflow-hidden rounded-xl border">
@@ -344,7 +614,9 @@ export default function CoachesIndex({
                                 </TableHead>
                                 <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('PNO')}</TableHead>
+                                <TableHead>{t('Designation')}</TableHead>
                                 <TableHead>{t('Mobile')}</TableHead>
+                                <TableHead>{t('Status')}</TableHead>
                                 <TableHead>{t('NIS')}</TableHead>
                                 <TableHead>{t('Linked member')}</TableHead>
                                 <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
@@ -353,7 +625,7 @@ export default function CoachesIndex({
                         <TableBody>
                             {coaches.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
                                         {hasActiveFilters ? t('No coaches match your filters.') : t('No coaches yet.')}
                                     </TableCell>
                                 </TableRow>
@@ -369,7 +641,9 @@ export default function CoachesIndex({
                                         </TableCell>
                                         <TableCell className="font-medium">{coachDisplayName(coach)}</TableCell>
                                         <TableCell className="text-muted-foreground">{coach.pno ?? ''}</TableCell>
+                                        <TableCell className="text-muted-foreground">{coach.designation ?? ''}</TableCell>
                                         <TableCell className="text-muted-foreground">{coach.mobile ?? ''}</TableCell>
+                                        <TableCell className="text-muted-foreground">{coach.coach_status ? t(coach.coach_status) : ''}</TableCell>
                                         <TableCell>{coach.nis_certified ? <Badge>{t('NIS')}</Badge> : ''}</TableCell>
                                         <TableCell className="text-muted-foreground">{linkedMemberDisplay(coach)}</TableCell>
                                         <TableCell className="w-0">
@@ -494,17 +768,17 @@ function ExportDialog({
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {ALL_COLUMNS.map((col) => (
                             <div key={col.key} className="flex items-center gap-2">
-                                    <Checkbox
-                                        id={`col-${col.key}`}
-                                        checked={selectedColumns.includes(col.key)}
-                                        onCheckedChange={(checked) =>
-                                            setSelectedColumns((prev) =>
-                                                checked
-                                                    ? prev.includes(col.key) ? prev : [...prev, col.key]
-                                                    : prev.filter((k) => k !== col.key),
-                                            )
-                                        }
-                                    />
+                                <Checkbox
+                                    id={`col-${col.key}`}
+                                    checked={selectedColumns.includes(col.key)}
+                                    onCheckedChange={(checked) =>
+                                        setSelectedColumns((prev) =>
+                                            checked
+                                                ? prev.includes(col.key) ? prev : [...prev, col.key]
+                                                : prev.filter((k) => k !== col.key),
+                                        )
+                                    }
+                                />
                                 <Label htmlFor={`col-${col.key}`}>{t(col.label)}</Label>
                             </div>
                         ))}

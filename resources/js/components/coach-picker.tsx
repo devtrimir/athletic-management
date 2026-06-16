@@ -18,6 +18,9 @@ export type CoachOption = {
     full_name: string;
     pno: string | null;
     nis_certified: boolean;
+    designation?: string | null;
+    mobile?: string | null;
+    coach_status?: string | null;
 };
 
 type SearchResponse = {
@@ -28,12 +31,13 @@ type SearchResponse = {
 interface CoachPickerProps {
     value: CoachOption | null;
     onChange: (coach: CoachOption | null) => void;
+    sportId?: number | null;
     placeholder?: string;
     disabled?: boolean;
     id?: string;
 }
 
-export function CoachPicker({ value, onChange, placeholder, disabled = false, id }: CoachPickerProps) {
+export function CoachPicker({ value, onChange, sportId = null, placeholder, disabled = false, id }: CoachPickerProps) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<CoachOption[]>([]);
@@ -55,7 +59,13 @@ export function CoachPicker({ value, onChange, placeholder, disabled = false, id
 
             timerRef.current = setTimeout(() => {
                 cancel();
-                get(CoachSearchController.url({ query: { q } }), {
+                const queryParams: { q: string; sport_id?: number } = { q };
+
+                if (sportId) {
+                    queryParams.sport_id = sportId;
+                }
+
+                get(CoachSearchController.url({ query: queryParams }), {
                     onSuccess: (res) => {
                         const response = res as unknown as SearchResponse;
                         setResults(response?.data ?? []);
@@ -64,7 +74,7 @@ export function CoachPicker({ value, onChange, placeholder, disabled = false, id
                 });
             }, 300);
         },
-        [cancel, get],
+        [cancel, get, sportId],
     );
 
     const displayValue = (coach: CoachOption | null) => {
@@ -72,7 +82,17 @@ export function CoachPicker({ value, onChange, placeholder, disabled = false, id
             return '';
         }
 
-        return coach.pno ? `${coach.full_name} · ${coach.pno}` : coach.full_name;
+        const suffix = [];
+
+        if (coach.pno) {
+            suffix.push(coach.pno);
+        }
+
+        if (coach.designation) {
+            suffix.push(coach.designation);
+        }
+
+        return suffix.length > 0 ? `${coach.full_name} · ${suffix.join(' · ')}` : coach.full_name;
     };
 
     return (

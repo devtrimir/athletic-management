@@ -1436,7 +1436,6 @@ export default function TeamsShow({
                 open={addCoachOpen}
                 onOpenChange={setAddCoachOpen}
                 team={team}
-                sessions={sessions}
             />
             <CloneTeamDialog
                 open={cloneOpen}

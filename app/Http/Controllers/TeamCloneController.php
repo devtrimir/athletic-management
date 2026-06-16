@@ -16,7 +16,7 @@ use Inertia\Inertia;
 
 class TeamCloneController extends Controller
 {
-    public function __invoke(CloneTeamRequest $request, Team $team, TeamRosterService $roster): RedirectResponse
+    public function __invoke(CloneTeamRequest $request, Team $team): RedirectResponse
     {
         Gate::authorize('update', $team);
 
@@ -25,14 +25,19 @@ class TeamCloneController extends Controller
         $memberRowIds = $data['member_ids'] ?? [];
         $coachRowIds = $data['coach_ids'] ?? [];
 
-        DB::transaction(function () use ($request, $team, $targetSessionId, $memberRowIds, $coachRowIds, $roster): void {
+        DB::transaction(function () use ($request, $team, $targetSessionId, $memberRowIds, $coachRowIds): void {
             $skippedMembers = 0;
             if (! empty($memberRowIds)) {
                 $rows = TeamMember::whereIn('id', $memberRowIds)
                     ->where('team_id', $team->id)
                     ->get();
 
-                $result = $roster->carryForwardMembers($team, $rows, $targetSessionId, (int) $request->user()->id);
+                $result = (new TeamRosterService)->carryForwardMembers(
+                    $team,
+                    $rows,
+                    $targetSessionId,
+                    (int) $request->user()->id,
+                );
                 $skippedMembers = $result['skipped'];
 
                 if ($skippedMembers > 0) {
@@ -51,16 +56,18 @@ class TeamCloneController extends Controller
             if (! empty($coachRowIds)) {
                 $rows = CoachAssignment::whereIn('id', $coachRowIds)
                     ->where('team_id', $team->id)
+                    ->where('is_current', true)
                     ->get(['coach_id', 'role']);
 
-                $conflictCoachIds = CoachAssignment::where('session_id', $targetSessionId)
+                $existingCoachIds = CoachAssignment::where('session_id', $targetSessionId)
+                    ->where('is_current', true)
                     ->whereIn('coach_id', $rows->pluck('coach_id'))
                     ->pluck('coach_id')
                     ->flip();
 
                 $insertRows = [];
                 foreach ($rows as $row) {
-                    if ($conflictCoachIds->has($row->coach_id)) {
+                    if ($existingCoachIds->has($row->coach_id)) {
                         $skippedCoaches++;
 
                         continue;
@@ -71,6 +78,8 @@ class TeamCloneController extends Controller
                         'coach_id' => $row->coach_id,
                         'session_id' => $targetSessionId,
                         'role' => $row->role,
+                        'assigned_at' => now(),
+                        'is_current' => true,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];

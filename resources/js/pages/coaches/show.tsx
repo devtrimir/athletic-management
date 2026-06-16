@@ -4,9 +4,9 @@ import { useMemo, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { destroy, edit as editCoach, index as coachesIndex } from '@/actions/App/Http/Controllers/CoachController';
 import { show as exportCoach } from '@/actions/App/Http/Controllers/CoachExportController';
-import { show as showTeam } from '@/actions/App/Http/Controllers/TeamController';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,23 +14,6 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
-
-const ALL_COLUMNS = [
-    { key: 'pno', label: 'PNO' },
-    { key: 'full_name', label: 'Name' },
-    { key: 'mobile', label: 'Mobile' },
-    { key: 'nis_certified', label: 'NIS Certified' },
-    { key: 'linked_member', label: 'Linked Member Code' },
-] as const;
-
-type Coach = {
-    id: number;
-    full_name: string;
-    pno: string | null;
-    mobile: string | null;
-    nis_certified: boolean;
-    member?: LinkedMember | null;
-};
 
 type LinkedMember = {
     id: number;
@@ -41,30 +24,86 @@ type LinkedMember = {
     mobile: string | null;
 };
 
-type CoachTeamRow = {
+type CoachCertification = {
     id: number;
-    role: string | null;
-    team: { id: number; name: string } | null;
-    sport: { id: number; name: string } | null;
-    session: { id: number; name: string } | null;
+    name: string;
+    certificate_type: string | null;
+    issuer: string | null;
+    issued_at: string | null;
+    expired_at: string | null;
+    attachment_path: string | null;
 };
 
-type ExportMode = 'print' | 'download';
+type CoachSport = {
+    id: number;
+    name: string;
+    is_primary: boolean;
+    level: string | null;
+    effective_from: string | null;
+    effective_to: string | null;
+    notes: string | null;
+};
+
+type CoachAssignment = {
+    id: number;
+    role: string;
+    team_name: string | null;
+    session_name: string | null;
+    is_current: boolean;
+    assigned_at: string | null;
+    removed_at: string | null;
+    notes: string | null;
+};
+
+type Coach = {
+    id: number;
+    full_name: string;
+    display_name: string | null;
+    designation: string | null;
+    email: string | null;
+    gender: string | null;
+    date_of_birth: string | null;
+    coach_status: string | null;
+    bio: string | null;
+    address: string | null;
+    pno: string | null;
+    mobile: string | null;
+    nis_certified: boolean;
+    photo_path: string | null;
+    member?: LinkedMember | null;
+    certifications: CoachCertification[];
+    sports: CoachSport[];
+    assignment_history: CoachAssignment[];
+};
+
+const ALL_COLUMNS = [
+    { key: 'pno', label: 'PNO' },
+    { key: 'full_name', label: 'Name' },
+    { key: 'display_name', label: 'Display Name' },
+    { key: 'designation', label: 'Designation' },
+    { key: 'mobile', label: 'Mobile' },
+    { key: 'nis_certified', label: 'NIS Certified' },
+    { key: 'linked_member', label: 'Linked Member Code' },
+] as const;
+
+const BASE_STATUS_STYLES: Record<string, 'default' | 'outline' | 'secondary' | 'destructive'> = {
+    ACTIVE: 'default',
+    INACTIVE: 'outline',
+    RETIRED: 'secondary',
+};
 
 export default function CoachesShow({
     coach,
-    coachTeams,
     auditLog,
 }: {
     coach: Coach;
-    coachTeams?: CoachTeamRow[];
     auditLog?: AuditEntry[];
 }) {
     const { t } = useTranslation();
 
     const [exportOpen, setExportOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
-    const [exportMode, setExportMode] = useState<ExportMode>('download');
+    const [exportMode, setExportMode] = useState<'print' | 'download'>('download');
 
     const linkedMember = coach.member ?? null;
 
@@ -140,13 +179,23 @@ export default function CoachesShow({
         </div>
     );
 
+    const assignmentRows = coach.assignment_history?.length > 0
+        ? coach.assignment_history
+        : [];
+
     return (
         <>
             <Head title={coach.full_name} />
 
             <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4">
-                    <h1 className="text-2xl font-bold tracking-tight">{coach.full_name}</h1>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            {coach.full_name}
+                        </h1>
+                        {coach.display_name ? <p className="text-sm text-muted-foreground">{coach.display_name}</p> : null}
+                    </div>
+
                     <div className="flex gap-2 shrink-0">
                         <Button variant="outline" size="sm" onClick={() => {
                             setExportMode('print');
@@ -171,35 +220,37 @@ export default function CoachesShow({
                     </div>
                 </div>
 
-                <Tabs defaultValue="overview">
+                <div className="rounded-xl border bg-card p-6">
+                    <div className="flex flex-wrap gap-2">
+                        {coach.nis_certified ? <Badge>{t('NIS Certified')}</Badge> : <Badge variant="outline">{t('Not NIS Certified')}</Badge>}
+                        {coach.coach_status ? <Badge variant={BASE_STATUS_STYLES[coach.coach_status] ?? 'outline'}>{t(coach.coach_status)}</Badge> : null}
+                        {coach.designation ? <Badge variant="outline">{coach.designation}</Badge> : null}
+                    </div>
+                </div>
+
+                <Tabs defaultValue="profile">
                     <TabsList>
-                        <TabsTrigger
-                            value="overview"
-                        >
-                            {t('Overview')}
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="assignments"
-                        >
-                            {t('Assignments')}
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="changelog"
-                        >
-                            {t('Change log')}
-                        </TabsTrigger>
+                        <TabsTrigger value="profile">{t('Profile')}</TabsTrigger>
+                        <TabsTrigger value="certifications">{t('Certifications')}</TabsTrigger>
+                        <TabsTrigger value="sports">{t('Sports')}</TabsTrigger>
+                        <TabsTrigger value="assignments">{t('Assignment history')}</TabsTrigger>
+                        <TabsTrigger value="changelog">{t('Change log')}</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="overview">
+                    <TabsContent value="profile">
                         <div className="space-y-4">
                             <div className="rounded-xl border bg-card p-6">
                                 <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                                    {detail(t('Display name'), coach.display_name ?? '')}
+                                    {detail(t('Designation'), coach.designation ?? '')}
+                                    {detail(t('Email'), coach.email ?? '')}
+                                    {detail(t('Gender'), coach.gender ?? '')}
+                                    {detail(t('Date of birth'), coach.date_of_birth ?? '')}
+                                    {detail(t('Address'), coach.address ?? '')}
+                                    {detail(t('Status'), coach.coach_status ?? '')}
                                     {detail(t('PNO'), coach.pno ?? '')}
                                     {detail(t('Mobile'), coach.mobile ?? '')}
-                                    {detail(
-                                        t('NIS'),
-                                        coach.nis_certified ? t('NIS certified') : t('Not NIS certified'),
-                                    )}
+                                    {detail(t('NIS'), coach.nis_certified ? t('Certified') : t('Not certified'))}
                                 </dl>
                             </div>
 
@@ -220,51 +271,104 @@ export default function CoachesShow({
                         </div>
                     </TabsContent>
 
+                    <TabsContent value="certifications">
+                        <div className="rounded-xl border bg-card">
+                            {coach.certifications.length === 0 ? (
+                                <p className="p-4 text-sm text-muted-foreground">{t('No certifications yet.')}</p>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>{t('Name')}</TableHead>
+                                            <TableHead>{t('Type')}</TableHead>
+                                            <TableHead>{t('Issuer')}</TableHead>
+                                            <TableHead>{t('Issued')}</TableHead>
+                                            <TableHead>{t('Expired')}</TableHead>
+                                            <TableHead>{t('Attachment')}</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {coach.certifications.map((certification) => (
+                                            <TableRow key={certification.id}>
+                                                <TableCell className="font-medium">{certification.name}</TableCell>
+                                                <TableCell>{certification.certificate_type ?? ''}</TableCell>
+                                                <TableCell>{certification.issuer ?? ''}</TableCell>
+                                                <TableCell>{certification.issued_at ?? ''}</TableCell>
+                                                <TableCell>{certification.expired_at ?? ''}</TableCell>
+                                            <TableCell>{certification.attachment_path ?? ''}</TableCell>
+                                        </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="sports">
+                        <div className="rounded-xl border bg-card">
+                            {coach.sports.length === 0 ? (
+                                <p className="p-4 text-sm text-muted-foreground">{t('No sports specialization yet.')}</p>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>{t('Sport')}</TableHead>
+                                            <TableHead>{t('Primary')}</TableHead>
+                                            <TableHead>{t('Level')}</TableHead>
+                                            <TableHead>{t('From')}</TableHead>
+                                            <TableHead>{t('To')}</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {coach.sports.map((sport) => (
+                                            <TableRow key={sport.id}>
+                                                <TableCell className="font-medium">{sport.name}</TableCell>
+                                                <TableCell>{sport.is_primary ? t('Yes') : t('No')}</TableCell>
+                                                <TableCell>{sport.level ?? ''}</TableCell>
+                                                <TableCell>{sport.effective_from ?? ''}</TableCell>
+                                                <TableCell>{sport.effective_to ?? ''}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </div>
+                    </TabsContent>
+
                     <TabsContent value="assignments">
                         <div className="rounded-xl border bg-card">
-                            <Deferred
-                                data="coachTeams"
-                                fallback={
-                                    <div className="space-y-2 p-4">
-                                        {[1, 2, 3].map((n) => (
-                                            <div key={n} className="h-10 w-full animate-pulse rounded bg-muted" />
-                                        ))}
-                                    </div>
-                                }
-                            >
+                            <Deferred data="auditLog">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>{t('Team')}</TableHead>
-                                            <TableHead>{t('Sport')}</TableHead>
                                             <TableHead>{t('Session')}</TableHead>
                                             <TableHead>{t('Role')}</TableHead>
+                                            <TableHead>{t('Current')}</TableHead>
+                                            <TableHead>{t('Assigned')}</TableHead>
+                                            <TableHead>{t('Removed')}</TableHead>
+                                            <TableHead>{t('Notes')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {(coachTeams ?? []).length === 0 ? (
+                                        {assignmentRows.length > 0 ? (
+                                            assignmentRows.map((assignment) => (
+                                                <TableRow key={assignment.id}>
+                                                    <TableCell>{assignment.team_name ?? ''}</TableCell>
+                                                    <TableCell>{assignment.session_name ?? ''}</TableCell>
+                                                    <TableCell>{assignment.role}</TableCell>
+                                                    <TableCell>{assignment.is_current ? t('Current') : t('Historical')}</TableCell>
+                                                    <TableCell>{assignment.assigned_at ?? ''}</TableCell>
+                                                    <TableCell>{assignment.removed_at ?? ''}</TableCell>
+                                                    <TableCell>{assignment.notes ?? ''}</TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : (
                                             <TableRow>
-                                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                                <TableCell colSpan={7} className="text-center text-muted-foreground">
                                                     {t('No assignments yet.')}
                                                 </TableCell>
                                             </TableRow>
-                                        ) : (
-                                            (coachTeams ?? []).map((row) => (
-                                                <TableRow key={row.id}>
-                                                    <TableCell className="font-medium">
-                                                        {row.team ? (
-                                                            <Link href={showTeam.url(row.team)} className="hover:underline">
-                                                                {row.team.name}
-                                                            </Link>
-                                                        ) : (
-                                                            ''
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>{row.sport?.name ?? ''}</TableCell>
-                                                    <TableCell>{row.session?.name ?? ''}</TableCell>
-                                                    <TableCell>{row.role ?? ''}</TableCell>
-                                                </TableRow>
-                                            ))
                                         )}
                                     </TableBody>
                                 </Table>
@@ -322,7 +426,7 @@ function ExportDialog({
     onPrimaryExport: () => void;
     onPrint: () => void;
     onDownload: () => void;
-    exportMode: ExportMode;
+    exportMode: 'print' | 'download';
     t: (key: string) => string;
 }) {
     const isPrintPrimary = exportMode === 'print';
@@ -341,72 +445,44 @@ function ExportDialog({
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {ALL_COLUMNS.map((col) => (
                             <div key={col.key} className="flex items-center gap-2">
-                                    <Checkbox
-                                        id={`coach-${col.key}`}
-                                        checked={selectedColumns.includes(col.key)}
-                                        onCheckedChange={(checked) =>
-                                            setSelectedColumns((previous) =>
-                                                checked
-                                                    ? previous.includes(col.key)
-                                                        ? previous
-                                                        : [...previous, col.key]
-                                                    : previous.filter((k) => k !== col.key),
-                                            )
-                                        }
-                                    />
+                                <Checkbox
+                                    id={`coach-${col.key}`}
+                                    checked={selectedColumns.includes(col.key)}
+                                    onCheckedChange={(checked) =>
+                                        setSelectedColumns((previous) =>
+                                            checked ? (previous.includes(col.key) ? previous : [...previous, col.key]) : previous.filter((k) => k !== col.key),
+                                        )
+                                    }
+                                />
                                 <Label htmlFor={`coach-${col.key}`}>{t(col.label)}</Label>
                             </div>
                         ))}
                     </div>
                 </div>
-                <DialogFooter className="gap-2">
+                <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         {t('Cancel')}
                     </Button>
                     <Button
-                        variant={isPrintPrimary ? 'outline' : 'default'}
+                        variant="outline"
                         disabled={selectedColumns.length === 0}
                         onClick={() => {
-                            onPrimaryExport();
+                            onPrint();
                             onOpenChange(false);
                         }}
                     >
-                        {isPrintPrimary ? (
-                            <>
-                                <Printer className="mr-1.5 h-4 w-4" />
-                                {t('Print')}
-                            </>
-                        ) : (
-                            <>
-                                <Download className="mr-1.5 h-4 w-4" />
-                                {t('Download Excel')}
-                            </>
-                        )}
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        {isPrintPrimary ? t('Print') : t('Print preview')}
                     </Button>
                     <Button
-                        variant={isPrintPrimary ? 'default' : 'outline'}
                         disabled={selectedColumns.length === 0}
                         onClick={() => {
-                            if (isPrintPrimary) {
-                                onDownload();
-                            } else {
-                                onPrint();
-                            }
-
+                            onDownload();
                             onOpenChange(false);
                         }}
                     >
-                        {isPrintPrimary ? (
-                            <>
-                                <Download className="mr-1.5 h-4 w-4" />
-                                {t('Download Excel')}
-                            </>
-                        ) : (
-                            <>
-                                <Printer className="mr-1.5 h-4 w-4" />
-                                {t('Print')}
-                            </>
-                        )}
+                        <Download className="mr-1.5 h-4 w-4" />
+                        {t('Download Excel')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -28,6 +28,26 @@ class CoachPolicy
         return $user->can('coaches.update');
     }
 
+    public function updateProfile(User $user, mixed $coach): bool
+    {
+        return $user->can('coaches.update');
+    }
+
+    public function updateAssignments(User $user, mixed $coach): bool
+    {
+        return $user->can('coaches.update');
+    }
+
+    public function updateCertifications(User $user, mixed $coach): bool
+    {
+        return $user->can('coaches.update');
+    }
+
+    public function updateSports(User $user, mixed $coach): bool
+    {
+        return $user->can('coaches.update');
+    }
+
     public function delete(User $user, mixed $coach): bool
     {
         return $user->can('coaches.delete');

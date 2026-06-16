@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\Coach;
+use App\Models\CoachAssignment;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Sport;
@@ -12,7 +13,6 @@ use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\Unit;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Seeds real UP Police coach data from COACH.csv.
@@ -314,17 +314,21 @@ class CoachSeeder extends Seeder
      */
     private function upsertAssignment(int $teamId, int $coachId, int $sessionId, string $role): void
     {
-        DB::table('coach_assignments')->upsert(
+        CoachAssignment::query()->updateOrCreate(
             [
                 'team_id' => $teamId,
                 'coach_id' => $coachId,
                 'session_id' => $sessionId,
                 'role' => $role,
+            ],
+            [
+                'is_current' => true,
+                'assigned_at' => now(),
+                'removed_at' => null,
+                'notes' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
-            uniqueBy: ['team_id', 'coach_id', 'role'],
-            update: ['session_id', 'updated_at'],
         );
     }
 
