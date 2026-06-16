@@ -226,16 +226,55 @@ test('show returns coach resource in Inertia props', function () {
         );
 });
 
-test('show deferred member prop is absent from initial response', function () {
+test('show returns linked member data with coach in initial payload', function () {
     $user = coachUser('coaches.view');
-    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id, 'rank' => 'INS', 'mobile' => '9000000000']);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'full_name' => 'Coach Example',
+    ]);
 
     $this->actingAs($user)
         ->get(route('coaches.show', $coach))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('coaches/show')
-            ->missing('member')
+            ->has('coach.member', fn ($payload) => $payload
+                ->where('id', $member->id)
+                ->where('full_name', $member->full_name)
+                ->where('rank', 'INS')
+                ->where('mobile', '9000000000')
+                ->etc()
+            )
+        );
+});
+
+test('index includes linked-member details in each row', function () {
+    $user = coachUser('coaches.view');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_code' => 'M100',
+        'pno' => '1001',
+        'rank' => 'INS',
+        'mobile' => '9999999999',
+    ]);
+    Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'full_name' => 'Coach Example',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/index')
+            ->where('coaches.data.0.full_name', 'Coach Example')
+            ->where('coaches.data.0.member.id', $member->id)
+            ->where('coaches.data.0.member.member_code', 'M100')
+            ->where('coaches.data.0.member.mobile', '9999999999')
+            ->where('coaches.data.0.member.rank', 'INS')
         );
 });
 

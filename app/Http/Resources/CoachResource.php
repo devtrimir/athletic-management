@@ -29,6 +29,7 @@ class CoachResource extends JsonResource
                 'full_name' => $this->member->full_name,
                 'pno' => $this->member->pno,
                 'rank' => $this->member->rank,
+                'mobile' => $this->member->mobile,
             ]),
         ];
     }

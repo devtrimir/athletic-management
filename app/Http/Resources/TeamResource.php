@@ -32,6 +32,7 @@ class TeamResource extends JsonResource
             'current_incharge_since' => $this->current_incharge_since,
             'has_current_incharge' => $this->has_current_incharge,
             'players_count' => $this->whenCounted('teamMembers'),
+            'removed_players_count' => $this->whenCounted('teamMemberMovements'),
             'coaches_count' => $this->whenCounted('coachAssignments'),
             'sport' => $this->whenLoaded('sport', fn () => [
                 'id' => $this->sport->id,

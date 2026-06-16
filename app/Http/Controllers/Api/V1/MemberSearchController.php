@@ -24,13 +24,16 @@ class MemberSearchController extends Controller
             'q' => ['required', 'string', 'min:1', 'max:100'],
             'player_category' => ['nullable', 'string', 'in:GD,SPORTS_QUOTA'],
             'player_level' => ['nullable', 'string', 'in:ZONAL,NATIONAL,INTERNATIONAL,AIPSC'],
-            'current_status' => ['nullable', 'string', 'in:ACTIVE,RESIGNED,DISMISSED'],
+            'current_status' => ['nullable', 'string', 'in:ACTIVE,RESIGNED,DISMISSED,DECEASED,RETIRED'],
             'sport_id' => ['nullable', 'integer', Rule::exists('sports', 'id')->where('organization_id', (int) $request->user()->organization_id)],
             'available_for_team_id' => ['nullable', 'integer', Rule::exists('teams', 'id')->where('organization_id', (int) $request->user()->organization_id)],
+            'available_for_session_id' => ['nullable', 'integer', Rule::exists('sport_sessions', 'id')->where('organization_id', (int) $request->user()->organization_id)],
+            'historical' => ['nullable', 'boolean'],
         ]);
 
         $orgId = (int) $request->user()->organization_id;
         $team = null;
+        $historical = (bool) ($validated['historical'] ?? false);
 
         if (! empty($validated['available_for_team_id'])) {
             $team = Team::query()
@@ -41,9 +44,9 @@ class MemberSearchController extends Controller
         $filters = array_filter([
             'player_category' => $validated['player_category'] ?? null,
             'player_level' => $validated['player_level'] ?? null,
-            'current_status' => $team ? 'ACTIVE' : ($validated['current_status'] ?? null),
+            'current_status' => $team && ! $historical ? 'ACTIVE' : ($validated['current_status'] ?? null),
             'sport_id' => $team?->sport_id ?? ($validated['sport_id'] ?? null),
-            'available_session_id' => $team?->session_id,
+            'available_session_id' => $validated['available_for_session_id'] ?? $team?->session_id,
             'available_sport_id' => $team?->sport_id,
         ]);
 

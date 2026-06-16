@@ -62,7 +62,6 @@ class StoreTeamRequest extends FormRequest
                 Rule::unique('teams', 'name')
                     ->where('organization_id', $orgId)
                     ->where('sport_id', (int) $this->input('sport_id'))
-                    ->where('session_id', (int) $this->input('session_id'))
                     ->where('location_type', (string) $locationType)
                     ->where(
                         $locationType === 'unit' ? 'unit_id' : 'district_id',

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { index as coachesIndex, show as showCoach, update } from '@/actions/App/Http/Controllers/CoachController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
-import type { MemberOption} from '@/components/member-picker';
+import type { MemberOption } from '@/components/member-picker';
 import { MemberPicker } from '@/components/member-picker';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -24,6 +24,7 @@ type Coach = {
         full_name: string;
         pno: string | null;
         rank: string | null;
+        mobile: string | null;
         player_category: string;
         player_level: string;
         current_status: string;
@@ -48,6 +49,14 @@ function coachMemberToOption(m: NonNullable<Coach['member']>): MemberOption {
         player_level: m.player_level,
         current_status: m.current_status,
     };
+}
+
+function linkedMemberText(member: MemberOption | null): string {
+    if (!member) {
+        return '';
+    }
+
+    return [member.member_code, member.full_name, member.pno].filter(Boolean).join(' · ');
 }
 
 export default function CoachesEdit({ coach }: { coach: Coach }) {
@@ -83,6 +92,8 @@ export default function CoachesEdit({ coach }: { coach: Coach }) {
         patch(update.url(coach));
     }
 
+    const linkedMemberSummary = linkedMemberText(pickedMember);
+
     return (
         <>
             <Head title={t('Edit coach')} />
@@ -91,7 +102,7 @@ export default function CoachesEdit({ coach }: { coach: Coach }) {
             <div className="space-y-6">
                 <Heading variant="small" title={t('Edit coach')} description={coach.full_name} />
 
-                <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+                <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
                     {/* Coach details */}
                     <div className="rounded-xl border bg-card p-6 space-y-5">
                         <h3 className="text-sm font-medium text-muted-foreground">{t('Coach details')}</h3>
@@ -165,6 +176,8 @@ export default function CoachesEdit({ coach }: { coach: Coach }) {
                             />
                             <InputError message={errors.member_id} />
                         </div>
+
+                        <p className="text-xs text-muted-foreground">{linkedMemberSummary}</p>
                     </div>
 
                     <div className="flex items-center gap-3">

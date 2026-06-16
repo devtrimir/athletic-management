@@ -143,7 +143,7 @@ test('cannot assign an incharge to an inactive team', function (): void {
             'full_name' => 'Inactive Team Officer',
             'pno' => '1234567890',
         ])
-        ->assertSessionHasErrors(['team']);
+        ->assertSessionHasErrors(['team'], null, 'assignIncharge');
 });
 
 test('cannot assign an incharge without pno', function (): void {
@@ -155,7 +155,7 @@ test('cannot assign an incharge without pno', function (): void {
             'full_name' => 'No Pno Officer',
             'pno' => '',
         ])
-        ->assertSessionHasErrors(['pno']);
+        ->assertSessionHasErrors(['pno'], null, 'assignIncharge');
 });
 
 test('cannot assign a current incharge to another team until removed', function (): void {
@@ -178,7 +178,7 @@ test('cannot assign a current incharge to another team until removed', function 
             'full_name' => 'Shared Officer',
             'pno' => '1111111111',
         ])
-        ->assertSessionHasErrors(['pno']);
+        ->assertSessionHasErrors(['pno'], null, 'assignIncharge');
 
     $this->assertDatabaseMissing('team_incharge_assignments', [
         'team_id' => $secondTeam->id,
@@ -218,7 +218,7 @@ test('cannot change a team incharge to someone currently assigned on another tea
             'pno' => '3333333333',
             'removal_reason' => 'Rotation',
         ])
-        ->assertSessionHasErrors(['pno']);
+        ->assertSessionHasErrors(['pno'], null, 'changeIncharge');
 
     $this->assertDatabaseMissing('team_incharge_assignments', [
         'team_id' => $secondTeam->id,
@@ -247,5 +247,5 @@ test('cannot change to the same current incharge pno', function (): void {
             'pno' => '4444444444',
             'removal_reason' => 'Rotation',
         ])
-        ->assertSessionHasErrors(['pno']);
+        ->assertSessionHasErrors(['pno'], null, 'changeIncharge');
 });

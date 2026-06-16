@@ -135,6 +135,7 @@ class MemberSearchService
                     ->join('teams as t', 't.id', '=', 'tm.team_id')
                     ->whereColumn('tm.member_id', 'members.id')
                     ->where('tm.session_id', $filters['available_session_id'])
+                    ->whereNull('tm.left_on')
                     ->where('t.sport_id', $filters['available_sport_id'])
                     ->whereNull('t.deleted_at');
             });
@@ -191,6 +192,7 @@ class MemberSearchService
                 INNER JOIN teams t ON t.id = tm.team_id
                 WHERE tm.member_id = {$alias}.id
                   AND tm.session_id = ?
+                  AND tm.left_on IS NULL
                   AND t.sport_id = ?
                   AND t.deleted_at IS NULL
             )";

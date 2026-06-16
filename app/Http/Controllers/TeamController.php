@@ -10,12 +10,15 @@ use App\Http\Requests\Teams\StoreTeamRequest;
 use App\Http\Requests\Teams\UpdateTeamRequest;
 use App\Http\Resources\TeamResource;
 use App\Models\CoachAssignment;
+use App\Models\Designation;
 use App\Models\District;
+use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
 use App\Models\TeamMember;
+use App\Models\TeamMemberMovement;
 use App\Models\Unit;
 use App\Services\AuditLogBuilder;
 use Illuminate\Database\Eloquent\Collection;
@@ -38,10 +41,11 @@ class TeamController extends Controller
         $defaultSessionId = SportSession::where('organization_id', $orgId)
             ->where('is_current', true)
             ->value('id');
+        $selectedSessionId = (int) ($request->input('filter.session_id') ?: $defaultSessionId ?: 0);
 
         $teams = QueryBuilder::for(Team::class)
             ->allowedFilters([
-                AllowedFilter::exact('session_id'),
+                AllowedFilter::callback('session_id', fn ($query, $value): null => null),
                 AllowedFilter::exact('sport_id'),
                 AllowedFilter::exact('district_id'),
                 AllowedFilter::exact('unit_id'),
@@ -51,7 +55,12 @@ class TeamController extends Controller
                     $term = '%'.mb_strtolower((string) $value).'%';
                     $query->where(function ($q) use ($term) {
                         $q->whereRaw('LOWER(name) LIKE ?', [$term])
-                            ->orWhereRaw('LOWER(COALESCE(in_charge, \'\')) LIKE ?', [$term]);
+                            ->orWhereRaw('LOWER(COALESCE(in_charge, \'\')) LIKE ?', [$term])
+                            ->orWhereHas('currentInchargeAssignment', function ($assignmentQuery) use ($term): void {
+                                $assignmentQuery
+                                    ->whereRaw('LOWER(full_name) LIKE ?', [$term])
+                                    ->orWhereRaw('LOWER(COALESCE(pno, \'\')) LIKE ?', [$term]);
+                            });
                     });
                 }),
                 AllowedFilter::callback('pno', function ($query, $value) {
@@ -71,24 +80,45 @@ class TeamController extends Controller
             ->allowedSorts(['name', 'created_at'])
             ->defaultSort('name')
             ->withCount([
-                'teamMembers as players_count',
-                'teamMembers as captains_count' => fn ($query) => $query->where('role', 'CAPTAIN'),
-                'teamMembers as reserves_count' => fn ($query) => $query->where('role', 'RESERVE'),
-                'coachAssignments as coaches_count',
+                'teamMembers as players_count' => fn ($query) => $query
+                    ->where('session_id', $selectedSessionId)
+                    ->whereNull('left_on'),
+                'teamMembers as male_players_count' => fn ($query) => $query->whereHas(
+                    'member',
+                    fn ($memberQuery) => $memberQuery->where('gender', 'M')
+                )->where('session_id', $selectedSessionId)->whereNull('left_on'),
+                'teamMembers as female_players_count' => fn ($query) => $query->whereHas(
+                    'member',
+                    fn ($memberQuery) => $memberQuery->where('gender', 'F')
+                )->where('session_id', $selectedSessionId)->whereNull('left_on'),
+                'teamMembers as captains_count' => fn ($query) => $query
+                    ->where('session_id', $selectedSessionId)
+                    ->whereNull('left_on')
+                    ->where('role', 'CAPTAIN'),
+                'teamMembers as reserves_count' => fn ($query) => $query
+                    ->where('session_id', $selectedSessionId)
+                    ->whereNull('left_on')
+                    ->where('role', 'RESERVE'),
+                'teamMemberMovements as removed_players_count' => fn ($query) => $query
+                    ->where('session_id', $selectedSessionId)
+                    ->where('action', 'REMOVED'),
+                'coachAssignments as coaches_count' => fn ($query) => $query->where('session_id', $selectedSessionId),
             ])
-            ->with(['sport:id,name', 'session:id,name', 'district:id,name', 'unit:id,name,district_id'])
+            ->with([
+                'sport:id,name',
+                'session:id,name',
+                'district:id,name',
+                'unit:id,name,district_id',
+                'currentInchargeAssignment',
+            ])
             ->when(
                 ! $request->has('filter.is_active'),
                 fn ($q) => $q->where('is_active', true)
             )
-            ->when(
-                ! $request->has('filter.session_id') && $defaultSessionId,
-                fn ($q) => $q->where('session_id', $defaultSessionId)
-            )
             ->paginate(25)
             ->withQueryString();
 
-        $sessions = SportSession::select(['id', 'name'])
+        $sessions = SportSession::select(['id', 'name', 'is_current'])
             ->where('organization_id', $orgId)
             ->orderBy('name')
             ->get();
@@ -107,8 +137,11 @@ class TeamController extends Controller
 
         return Inertia::render('teams/index', [
             'teams' => $teams,
-            'filters' => $request->query('filter', []),
+            'filters' => array_merge($request->query('filter', []), [
+                'session_id' => $selectedSessionId > 0 ? (string) $selectedSessionId : null,
+            ]),
             'defaultSessionId' => $defaultSessionId,
+            'selectedSessionId' => $selectedSessionId > 0 ? $selectedSessionId : null,
             'sessions' => $sessions,
             'sports' => $sports,
             'districts' => $districts,
@@ -153,20 +186,36 @@ class TeamController extends Controller
 
         $orgId = (int) $request->user()->organization_id;
 
-        $sessions = SportSession::select(['id', 'name'])
+        $sessions = SportSession::select(['id', 'name', 'is_current'])
             ->where('organization_id', $orgId)
             ->orderBy('name')
             ->get();
+        $defaultSessionId = $sessions->firstWhere('is_current', true)?->id
+            ?? SportSession::where('organization_id', $orgId)->where('is_current', true)->value('id')
+            ?? $team->session_id;
+        $selectedSessionId = (int) ($request->input('filter.session_id') ?: $defaultSessionId);
 
         return Inertia::render('teams/show', [
             'team' => (new TeamResource($team))->resolve(),
             'sessions' => $sessions,
+            'selectedSessionId' => $selectedSessionId,
             'counts' => Inertia::defer(fn () => [
-                'players_count' => $team->teamMembers()->count(),
-                'coaches_count' => $team->coachAssignments()->count(),
+                'players_count' => $team->teamMembers()
+                    ->where('session_id', $selectedSessionId)
+                    ->whereNull('left_on')
+                    ->count(),
+                'coaches_count' => $team->coachAssignments()
+                    ->where('session_id', $selectedSessionId)
+                    ->count(),
             ]),
             'members' => Inertia::defer(fn () => $team->teamMembers()
-                ->with(['member:id,full_name,member_code,pno', 'session:id,name'])
+                ->with([
+                    'member:id,full_name,member_code,pno,rank,designation,mobile,current_unit_id',
+                    'member.currentUnit:id,name',
+                    'session:id,name',
+                ])
+                ->where('session_id', $selectedSessionId)
+                ->whereNull('left_on')
                 ->orderBy('id')
                 ->get()
                 ->map(fn ($tm) => [
@@ -179,6 +228,46 @@ class TeamController extends Controller
                         'full_name' => $tm->member->full_name,
                         'member_code' => $tm->member->member_code,
                         'pno' => $tm->member->pno,
+                        'rank' => $tm->member->rank,
+                        'designation' => $tm->member->designation,
+                        'mobile' => $tm->member->mobile,
+                        'current_unit' => $tm->member->currentUnit ? [
+                            'id' => $tm->member->currentUnit->id,
+                            'name' => $tm->member->currentUnit->name,
+                        ] : null,
+                    ] : null,
+                    'session' => $tm->session ? [
+                        'id' => $tm->session->id,
+                        'name' => $tm->session->name,
+                    ] : null,
+                ])),
+            'removedMembers' => Inertia::defer(fn () => $team->teamMembers()
+                ->with([
+                    'member:id,full_name,member_code,pno,rank,designation,mobile,current_unit_id',
+                    'member.currentUnit:id,name',
+                    'session:id,name',
+                ])
+                ->where('session_id', $selectedSessionId)
+                ->whereNotNull('left_on')
+                ->orderByDesc('left_on')
+                ->get()
+                ->map(fn ($tm) => [
+                    'id' => $tm->id,
+                    'role' => $tm->role,
+                    'joined_on' => $tm->joined_on?->toDateString(),
+                    'left_on' => $tm->left_on?->toDateString(),
+                    'member' => $tm->member ? [
+                        'id' => $tm->member->id,
+                        'full_name' => $tm->member->full_name,
+                        'member_code' => $tm->member->member_code,
+                        'pno' => $tm->member->pno,
+                        'rank' => $tm->member->rank,
+                        'designation' => $tm->member->designation,
+                        'mobile' => $tm->member->mobile,
+                        'current_unit' => $tm->member->currentUnit ? [
+                            'id' => $tm->member->currentUnit->id,
+                            'name' => $tm->member->currentUnit->name,
+                        ] : null,
                     ] : null,
                     'session' => $tm->session ? [
                         'id' => $tm->session->id,
@@ -187,6 +276,7 @@ class TeamController extends Controller
                 ])),
             'coaches' => Inertia::defer(fn () => $team->coachAssignments()
                 ->with(['coach:id,full_name,pno', 'session:id,name'])
+                ->where('session_id', $selectedSessionId)
                 ->orderBy('id')
                 ->get()
                 ->map(fn ($ca) => [
@@ -200,6 +290,33 @@ class TeamController extends Controller
                     'session' => $ca->session ? [
                         'id' => $ca->session->id,
                         'name' => $ca->session->name,
+                    ] : null,
+                ])),
+            'memberMovements' => Inertia::defer(fn () => TeamMemberMovement::query()
+                ->where('team_id', $team->id)
+                ->where('session_id', $selectedSessionId)
+                ->with(['member:id,full_name,member_code,pno', 'createdBy:id,name'])
+                ->latest()
+                ->limit(100)
+                ->get()
+                ->map(fn (TeamMemberMovement $movement) => [
+                    'id' => $movement->id,
+                    'action' => $movement->action,
+                    'role' => $movement->role,
+                    'effective_on' => $movement->effective_on?->toDateString(),
+                    'reason' => $movement->reason,
+                    'source' => $movement->source,
+                    'batch_uuid' => $movement->batch_uuid,
+                    'created_at' => $movement->created_at?->toDateTimeString(),
+                    'member' => $movement->member ? [
+                        'id' => $movement->member->id,
+                        'full_name' => $movement->member->full_name,
+                        'member_code' => $movement->member->member_code,
+                        'pno' => $movement->member->pno,
+                    ] : null,
+                    'created_by' => $movement->createdBy ? [
+                        'id' => $movement->createdBy->id,
+                        'name' => $movement->createdBy->name,
                     ] : null,
                 ])),
             'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forTeam($team)),
@@ -234,6 +351,9 @@ class TeamController extends Controller
                         'name' => $assignment->removedBy->name,
                     ] : null,
                 ])),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')
+                ->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
     }
 

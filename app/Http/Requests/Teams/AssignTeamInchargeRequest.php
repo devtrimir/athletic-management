@@ -6,8 +6,10 @@ namespace App\Http\Requests\Teams;
 
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
+use Illuminate\Foundation\Http\Attributes\ErrorBag;
 use Illuminate\Foundation\Http\FormRequest;
 
+#[ErrorBag('assignIncharge')]
 class AssignTeamInchargeRequest extends FormRequest
 {
     public function authorize(): bool

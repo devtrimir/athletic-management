@@ -10,11 +10,13 @@ use App\Models\Role;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
+use App\Models\TeamInchargeAssignment;
 use App\Models\TeamMember;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 uses(RefreshDatabase::class);
 
@@ -75,19 +77,35 @@ test('teams index includes roster role counts for software listing context', fun
 
     TeamMember::factory()->create([
         'team_id' => $team->id,
-        'member_id' => Member::factory()->create(['organization_id' => $user->organization_id])->id,
+        'member_id' => Member::factory()->create([
+            'organization_id' => $user->organization_id,
+            'gender' => 'M',
+        ])->id,
         'session_id' => $session->id,
         'role' => 'PLAYER',
     ]);
     TeamMember::factory()->captain()->create([
         'team_id' => $team->id,
-        'member_id' => Member::factory()->create(['organization_id' => $user->organization_id])->id,
+        'member_id' => Member::factory()->create([
+            'organization_id' => $user->organization_id,
+            'gender' => 'F',
+        ])->id,
         'session_id' => $session->id,
     ]);
     TeamMember::factory()->reserve()->create([
         'team_id' => $team->id,
-        'member_id' => Member::factory()->create(['organization_id' => $user->organization_id])->id,
+        'member_id' => Member::factory()->create([
+            'organization_id' => $user->organization_id,
+            'gender' => 'F',
+        ])->id,
         'session_id' => $session->id,
+    ]);
+    TeamInchargeAssignment::factory()->create([
+        'team_id' => $team->id,
+        'full_name' => 'Inspector Meera Singh',
+        'pno' => '1234567890',
+        'rank' => 'Inspector',
+        'designation' => 'Team Incharge',
     ]);
 
     $this->actingAs($user)
@@ -97,10 +115,110 @@ test('teams index includes roster role counts for software listing context', fun
             ->component('teams/index')
             ->where('teams.data.0.id', $team->id)
             ->where('teams.data.0.players_count', 3)
+            ->where('teams.data.0.male_players_count', 1)
+            ->where('teams.data.0.female_players_count', 2)
             ->where('teams.data.0.captains_count', 1)
             ->where('teams.data.0.reserves_count', 1)
+            ->where('teams.data.0.current_incharge_assignment.full_name', 'Inspector Meera Singh')
+            ->where('teams.data.0.current_incharge_assignment.pno', '1234567890')
             ->etc()
         );
+});
+
+test('teams index roster counts follow selected session without duplicating team rows', function (): void {
+    $user = teamIndexUser('teams.view');
+    $currentSession = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'is_current' => true,
+    ]);
+    $oldSession = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'is_current' => false,
+    ]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $oldSession->id,
+    ]);
+
+    TeamMember::factory()->count(2)->create([
+        'team_id' => $team->id,
+        'session_id' => $currentSession->id,
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'session_id' => $oldSession->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('teams.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('selectedSessionId', $currentSession->id)
+            ->where('teams.data.0.id', $team->id)
+            ->where('teams.data.0.players_count', 2)
+            ->etc()
+        );
+
+    $this->actingAs($user)
+        ->get(route('teams.index', ['filter' => ['session_id' => $oldSession->id]]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('selectedSessionId', $oldSession->id)
+            ->where('teams.data.0.id', $team->id)
+            ->where('teams.data.0.players_count', 1)
+            ->etc()
+        );
+});
+
+test('teams export supports redesigned listing columns', function (): void {
+    Excel::fake();
+
+    $user = teamIndexUser('teams.view');
+    $session = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'is_current' => true,
+    ]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+    ]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => Member::factory()->create([
+            'organization_id' => $user->organization_id,
+            'gender' => 'M',
+        ])->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => Member::factory()->create([
+            'organization_id' => $user->organization_id,
+            'gender' => 'F',
+        ])->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
+    ]);
+    TeamInchargeAssignment::factory()->create([
+        'team_id' => $team->id,
+        'full_name' => 'Inspector Meera Singh',
+        'pno' => '1234567890',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('teams.export', [
+            'columns' => [
+                'posting',
+                'in_charge',
+                'incharge_pno',
+                'male_players_count',
+                'female_players_count',
+            ],
+        ]));
+
+    Excel::assertDownloaded('teams-'.now()->format('Y-m-d').'.xlsx');
 });
 
 test('can create a district based team', function (): void {

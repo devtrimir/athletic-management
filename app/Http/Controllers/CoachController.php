@@ -9,7 +9,6 @@ use App\Http\Requests\Coaches\UpdateCoachRequest;
 use App\Http\Resources\CoachResource;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
-use App\Models\Member;
 use App\Services\AuditLogBuilder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,7 +38,7 @@ class CoachController extends Controller
             ])
             ->allowedSorts(['full_name', 'pno', 'created_at'])
             ->defaultSort('full_name')
-            ->with('member:id,member_code,full_name,pno,rank')
+            ->with('member:id,member_code,full_name,pno,rank,mobile')
             ->paginate(25)
             ->withQueryString();
 
@@ -74,12 +73,10 @@ class CoachController extends Controller
     {
         Gate::authorize('view', $coach);
 
+        $coach->loadMissing('member:id,member_code,full_name,pno,rank,mobile');
+
         return Inertia::render('coaches/show', [
             'coach' => (new CoachResource($coach))->resolve(),
-            'member' => Inertia::defer(fn () => $coach->member_id
-                ? Member::withoutGlobalScopes()->find($coach->member_id, ['id', 'member_code', 'full_name', 'full_name', 'pno', 'rank', 'mobile'])
-                : null
-            ),
             'coachTeams' => Inertia::defer(fn () => CoachAssignment::where('coach_id', $coach->id)
                 ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
                 ->orderByDesc('id')
@@ -100,7 +97,7 @@ class CoachController extends Controller
         Gate::authorize('update', $coach);
 
         return Inertia::render('coaches/edit', [
-            'coach' => $coach->load('member:id,member_code,full_name,full_name,pno,rank,player_category,player_level,current_status'),
+            'coach' => $coach->load('member:id,member_code,full_name,pno,rank,mobile,player_category,player_level,current_status'),
         ]);
     }
 

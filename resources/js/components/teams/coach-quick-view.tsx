@@ -96,15 +96,15 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     const m = data.member;
 
     const statusRows = m?.status_history.map(
-        (h) => `<tr><td>${h.effective_on}</td><td>${t(h.status)}</td><td>${h.reason ?? '—'}</td></tr>`,
+        (h) => `<tr><td>${h.effective_on}</td><td>${t(h.status)}</td><td>${h.reason ?? ''}</td></tr>`,
     ).join('') ?? '';
 
     const teamRows = m?.team_history.map(
-        (th) => `<tr><td>${th.team_name ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${th.joined_on ?? '—'}</td><td>${th.left_on ?? t('Present')}</td></tr>`,
+        (th) => `<tr><td>${th.team_name ?? ''}</td><td>${th.session_name ?? ''}</td><td>${t(th.role)}</td><td>${th.joined_on ?? ''}</td><td>${th.left_on ?? ''}</td></tr>`,
     ).join('') ?? '';
 
     const achievementRows = m?.achievements.map(
-        (a) => `<tr><td>${t(a.level)}</td><td>${a.competition_details}</td><td>${a.event ?? '—'}</td><td>${a.medal_type ? t(a.medal_type) : '—'}</td><td>${a.event_date ?? '—'}</td></tr>`,
+        (a) => `<tr><td>${t(a.level)}</td><td>${a.competition_details}</td><td>${a.event ?? ''}</td><td>${a.medal_type ? t(a.medal_type) : ''}</td><td>${a.event_date ?? ''}</td></tr>`,
     ).join('') ?? '';
 
     return `<!DOCTYPE html><html><head>
@@ -317,11 +317,11 @@ return;
                                                 <TableBody>
                                                     {data.member.team_history.map((th, i) => (
                                                         <TableRow key={i}>
-                                                            <TableCell className="font-medium">{th.team_name ?? '—'}</TableCell>
-                                                            <TableCell className="text-xs">{th.session_name ?? '—'}</TableCell>
+                                                            <TableCell className="font-medium">{th.team_name ?? ''}</TableCell>
+                                                            <TableCell className="text-xs">{th.session_name ?? ''}</TableCell>
                                                             <TableCell className="text-xs">{t(th.role)}</TableCell>
-                                                            <TableCell className="font-mono text-xs">{th.joined_on ?? '—'}</TableCell>
-                                                            <TableCell className="font-mono text-xs">{th.left_on ?? t('Present')}</TableCell>
+                                                            <TableCell className="font-mono text-xs">{th.joined_on ?? ''}</TableCell>
+                                                            <TableCell className="font-mono text-xs">{th.left_on ?? ''}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -346,11 +346,11 @@ return;
                                                         <TableRow key={i}>
                                                             <TableCell className="whitespace-nowrap text-xs font-medium">{t(a.level)}</TableCell>
                                                             <TableCell className="text-xs">{a.competition_details}</TableCell>
-                                                            <TableCell className="text-xs">{a.event ?? '—'}</TableCell>
+                                                            <TableCell className="text-xs">{a.event ?? ''}</TableCell>
                                                             <TableCell className={`text-xs font-semibold ${MEDAL_COLOR[a.medal_type ?? ''] ?? ''}`}>
-                                                                {a.medal_type ? t(a.medal_type) : '—'}
+                                                                {a.medal_type ? t(a.medal_type) : ''}
                                                             </TableCell>
-                                                            <TableCell className="font-mono text-xs">{a.event_date ?? '—'}</TableCell>
+                                                            <TableCell className="font-mono text-xs">{a.event_date ?? ''}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>

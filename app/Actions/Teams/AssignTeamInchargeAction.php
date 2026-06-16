@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 class AssignTeamInchargeAction
 {
     /**
-     * @param array{full_name:string,pno:string,rank?:string|null,designation?:string|null,mobile?:string|null,email?:string|null,assigned_at?:string|null,assignment_reason?:string|null,remarks?:string|null} $data
+     * @param  array{full_name:string,pno:string,rank?:string|null,designation?:string|null,mobile?:string|null,email?:string|null,assigned_at?:string|null,assignment_reason?:string|null,remarks?:string|null}  $data
      */
     public function __invoke(Team $team, array $data, User $actor): TeamInchargeAssignment
     {
@@ -36,7 +36,7 @@ class AssignTeamInchargeAction
             if ($existingAssignment !== null) {
                 throw ValidationException::withMessages([
                     'pno' => __('The selected incharge is already assigned to another team.'),
-                ]);
+                ])->errorBag('assignIncharge');
             }
 
             $assignment = TeamInchargeAssignment::create([

@@ -217,11 +217,10 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <Tabs defaultValue="personal">
                         <div className="rounded-xl border bg-card overflow-hidden">
-                            <div className="border-b px-2">
-                                <TabsList className="h-auto rounded-none bg-transparent gap-0 p-0">
+                            <div className="overflow-x-auto">
+                                <TabsList className="px-2">
                                     <TabsTrigger
                                         value="personal"
-                                        className="relative rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none"
                                     >
                                         {t('Personal information')}
                                         {hasPersonalErrors && (
@@ -230,7 +229,6 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
                                     </TabsTrigger>
                                     <TabsTrigger
                                         value="service"
-                                        className="relative rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none"
                                     >
                                         {t('Service information')}
                                         {hasServiceErrors && (
@@ -239,7 +237,6 @@ export default function MembersEdit({ member, districts, units, sports, ranks, d
                                     </TabsTrigger>
                                     <TabsTrigger
                                         value="sports"
-                                        className="relative rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none"
                                     >
                                         {t('Player information')}
                                         {hasSportsErrors && (

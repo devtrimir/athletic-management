@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { index as coachesIndex, store as storeCoach } from '@/actions/App/Http/Controllers/CoachController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
-import type { MemberOption} from '@/components/member-picker';
+import type { MemberOption } from '@/components/member-picker';
 import { MemberPicker } from '@/components/member-picker';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -54,15 +54,23 @@ export default function CoachesCreate() {
         post(storeCoach.url());
     }
 
+    function linkedMemberSummary(member: MemberOption | null): string {
+        if (!member) {
+            return '';
+        }
+
+        return [member.member_code, member.full_name, member.pno].filter(Boolean).join(' · ');
+    }
+
     return (
         <>
             <Head title={t('New coach')} />
             <h1 className="sr-only">{t('New coach')}</h1>
 
             <div className="space-y-6">
-                <Heading variant="small" title={t('New coach')} description={t('Add a new coach to the team')} />
+                <Heading variant="small" title={t('New coach')} description={t('Create a coach profile for quick team assignments.')} />
 
-                <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+                <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
                     {/* Coach details */}
                     <div className="rounded-xl border bg-card p-6 space-y-5">
                         <h3 className="text-sm font-medium text-muted-foreground">{t('Coach details')}</h3>
@@ -123,7 +131,7 @@ export default function CoachesCreate() {
                     <div className="rounded-xl border bg-card p-6 space-y-4">
                         <div>
                             <h3 className="text-sm font-medium text-muted-foreground">{t('Linked member')}</h3>
-                            <p className="mt-1 text-xs text-muted-foreground">{t('Link this coach to a member record (optional)')}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{t('Link this coach to a member record (optional).')}</p>
                         </div>
 
                         <div className="grid gap-2">
@@ -136,6 +144,10 @@ export default function CoachesCreate() {
                             />
                             <InputError message={errors.member_id} />
                         </div>
+
+                        <p className="text-xs text-muted-foreground">
+                            {linkedMemberSummary(pickedMember)}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3">

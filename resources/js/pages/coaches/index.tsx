@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState   } from 'react';
-import type {Dispatch, SetStateAction} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachExportController';
 import Heading from '@/components/heading';
@@ -36,6 +36,7 @@ type LinkedMember = {
     full_name: string;
     pno: string | null;
     rank: string | null;
+    mobile: string | null;
 };
 
 type Coach = {
@@ -92,16 +93,16 @@ export default function CoachesIndex({
             const clean: Record<string, string> = {};
 
             if (merged.q) {
-clean['filter[q]'] = merged.q;
-}
+                clean['filter[q]'] = merged.q;
+            }
 
             if (merged.has_member) {
-clean['filter[has_member]'] = merged.has_member;
-}
+                clean['filter[has_member]'] = merged.has_member;
+            }
 
             if (merged.nis_certified) {
-clean['filter[nis_certified]'] = merged.nis_certified;
-}
+                clean['filter[nis_certified]'] = merged.nis_certified;
+            }
 
             router.get(CoachController.index.url(), clean, {
                 preserveState: true,
@@ -113,8 +114,8 @@ clean['filter[nis_certified]'] = merged.nis_certified;
 
     useEffect(() => {
         if (debounceRef.current) {
-clearTimeout(debounceRef.current);
-}
+            clearTimeout(debounceRef.current);
+        }
 
         debounceRef.current = setTimeout(() => {
             applyFilters({ q: query || undefined });
@@ -122,11 +123,43 @@ clearTimeout(debounceRef.current);
 
         return () => {
             if (debounceRef.current) {
-clearTimeout(debounceRef.current);
-}
+                clearTimeout(debounceRef.current);
+            }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
+
+    function coachDisplayName(coach: Coach): string {
+        return [coach.member?.rank, coach.full_name].filter(Boolean).join(' ');
+    }
+
+    function linkedMemberDisplay(coach: Coach): string {
+        const pieces: string[] = [];
+
+        if (coach.member?.member_code) {
+            pieces.push(coach.member.member_code);
+        }
+
+        if (coach.member?.full_name) {
+            pieces.push(coach.member.full_name);
+        }
+
+        return pieces.join(' · ');
+    }
+
+    function exportValue(coach: Coach, key: string): string {
+        if (key === 'nis_certified') {
+            return coach.nis_certified ? t('NIS Certified') : '';
+        }
+
+        if (key === 'linked_member') {
+            return linkedMemberDisplay(coach);
+        }
+
+        const raw = (coach as Record<string, unknown>)[key];
+
+        return raw === null || raw === '' || raw === undefined ? '' : String(raw);
+    }
 
     function toggleRow(id: number) {
         setSelectedIds((prev) => {
@@ -145,6 +178,7 @@ clearTimeout(debounceRef.current);
     function togglePage() {
         const pageIds = coaches.data.map((c) => c.id);
         const allSelected = pageIds.every((id) => selectedIds.has(id));
+
         setSelectedIds((prev) => {
             const next = new Set(prev);
 
@@ -169,16 +203,16 @@ clearTimeout(debounceRef.current);
             }
         } else {
             if (filters.q) {
-params.append('filter[q]', filters.q);
-}
+                params.append('filter[q]', filters.q);
+            }
 
             if (filters.has_member) {
-params.append('filter[has_member]', filters.has_member);
-}
+                params.append('filter[has_member]', filters.has_member);
+            }
 
             if (filters.nis_certified) {
-params.append('filter[nis_certified]', filters.nis_certified);
-}
+                params.append('filter[nis_certified]', filters.nis_certified);
+            }
         }
 
         for (const col of selectedColumns) {
@@ -192,32 +226,14 @@ params.append('filter[nis_certified]', filters.nis_certified);
         const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
         const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
         const bodyRows = coaches.data
-            .map(
-                (coach) =>
-                    `<tr>${cols
-                        .map((c) => {
-                            let v: string;
-
-                            if (c.key === 'nis_certified') {
-v = coach.nis_certified ? t('NIS Certified') : t('Not NIS Certified');
-} else if (c.key === 'linked_member') {
-v = coach.member?.member_code ?? '\u2014';
-} else {
-                                const raw = (coach as Record<string, unknown>)[c.key];
-                                v = raw != null && raw !== '' ? String(raw) : '\u2014';
-                            }
-
-                            return `<td>${v}</td>`;
-                        })
-                        .join('')}</tr>`,
-            )
+            .map((coach) => `<tr>${cols.map((c) => `<td>${exportValue(coach, c.key)}</td>`).join('')}</tr>`)
             .join('');
         const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Coaches')}</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Coaches')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
         const win = window.open('', '_blank', 'width=900,height=700');
 
         if (!win) {
-return;
-}
+            return;
+        }
 
         win.document.write(html);
         win.document.close();
@@ -229,12 +245,12 @@ return;
         <>
             <Head title={t('Coaches')} />
 
-            <div className="space-y-4">
+            <div className="space-y-5">
                 <div className="flex items-start justify-between gap-4">
                     <Heading
                         variant="small"
                         title={t('Coaches')}
-                        description={t('Manage coaching staff')}
+                        description={t('Review linked members and roster exports.')}
                     />
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
@@ -252,66 +268,63 @@ return;
                     </div>
                 </div>
 
-                {/* Filter bar */}
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative max-w-xs flex-1">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder={t('Search coaches…')}
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            className="pl-8"
-                        />
-                    </div>
+                <div className="rounded-xl border bg-card p-4">
+                    <div className="grid gap-3 md:grid-cols-[1fr_220px_220px_auto]">
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder={t('Search coaches…')}
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                className="pl-8"
+                            />
+                        </div>
 
-                    <Select
-                        value={filters.has_member ?? 'all'}
-                        onValueChange={(v) =>
-                            applyFilters({ has_member: v === 'all' ? undefined : v })
-                        }
-                    >
-                        <SelectTrigger className="w-40">
-                            <SelectValue placeholder={t('All coaches')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">{t('All coaches')}</SelectItem>
-                            <SelectItem value="true">{t('Linked to member')}</SelectItem>
-                            <SelectItem value="false">{t('Standalone')}</SelectItem>
-                        </SelectContent>
-                    </Select>
-
-                    <Select
-                        value={filters.nis_certified ?? 'all'}
-                        onValueChange={(v) =>
-                            applyFilters({ nis_certified: v === 'all' ? undefined : v })
-                        }
-                    >
-                        <SelectTrigger className="w-40">
-                            <SelectValue placeholder={t('All NIS')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">{t('All NIS')}</SelectItem>
-                            <SelectItem value="1">{t('NIS certified')}</SelectItem>
-                            <SelectItem value="0">{t('Not NIS certified')}</SelectItem>
-                        </SelectContent>
-                    </Select>
-
-                    {hasActiveFilters && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                setQuery('');
-                                router.get(CoachController.index.url(), {}, { preserveState: false, replace: true });
-                            }}
+                        <Select
+                            value={filters.has_member ?? 'all'}
+                            onValueChange={(v) => applyFilters({ has_member: v === 'all' ? undefined : v })}
                         >
-                            <X className="mr-1.5 h-4 w-4" />
-                            {t('Clear filters')}
-                        </Button>
-                    )}
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('All coaches')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('All coaches')}</SelectItem>
+                                <SelectItem value="true">{t('Linked to member')}</SelectItem>
+                                <SelectItem value="false">{t('Standalone')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            value={filters.nis_certified ?? 'all'}
+                            onValueChange={(v) => applyFilters({ nis_certified: v === 'all' ? undefined : v })}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={t('All NIS')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('All NIS')}</SelectItem>
+                                <SelectItem value="1">{t('NIS certified')}</SelectItem>
+                                <SelectItem value="0">{t('Not NIS certified')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {hasActiveFilters && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    setQuery('');
+                                    setSelectedIds(new Set());
+                                    router.get(CoachController.index.url(), {}, { preserveState: false, replace: true });
+                                }}
+                            >
+                                <X className="mr-1.5 h-4 w-4" />
+                                {t('Clear filters')}
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
-                {/* Table */}
                 <div className="overflow-hidden rounded-xl border">
                     <Table>
                         <TableHeader>
@@ -331,6 +344,7 @@ return;
                                 </TableHead>
                                 <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('PNO')}</TableHead>
+                                <TableHead>{t('Mobile')}</TableHead>
                                 <TableHead>{t('NIS')}</TableHead>
                                 <TableHead>{t('Linked member')}</TableHead>
                                 <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
@@ -339,10 +353,8 @@ return;
                         <TableBody>
                             {coaches.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                                        {hasActiveFilters
-                                            ? t('No coaches match your filters.')
-                                            : t('No coaches yet.')}
+                                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                                        {hasActiveFilters ? t('No coaches match your filters.') : t('No coaches yet.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -355,28 +367,11 @@ return;
                                                 aria-label={t('Select row')}
                                             />
                                         </TableCell>
-                                        <TableCell className="font-medium">{coach.full_name}</TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {coach.pno ?? <span className="select-none text-border">—</span>}
-                                        </TableCell>
-                                        <TableCell>
-                                            {coach.nis_certified ? (
-                                                <Badge variant="default">{t('NIS')}</Badge>
-                                            ) : (
-                                                <span className="select-none text-border">—</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {coach.member ? (
-                                                <span className="font-mono text-xs">
-                                                    {coach.member.member_code}
-                                                    {' · '}
-                                                    {coach.member.full_name}
-                                                </span>
-                                            ) : (
-                                                <span className="select-none text-border">—</span>
-                                            )}
-                                        </TableCell>
+                                        <TableCell className="font-medium">{coachDisplayName(coach)}</TableCell>
+                                        <TableCell className="text-muted-foreground">{coach.pno ?? ''}</TableCell>
+                                        <TableCell className="text-muted-foreground">{coach.mobile ?? ''}</TableCell>
+                                        <TableCell>{coach.nis_certified ? <Badge>{t('NIS')}</Badge> : ''}</TableCell>
+                                        <TableCell className="text-muted-foreground">{linkedMemberDisplay(coach)}</TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center">
                                                 <Button
@@ -384,8 +379,9 @@ return;
                                                     size="icon"
                                                     title={t('Quick info')}
                                                     onClick={(e) => {
- e.stopPropagation(); setQuickViewId(coach.id);
-}}
+                                                        e.stopPropagation();
+                                                        setQuickViewId(coach.id);
+                                                    }}
                                                 >
                                                     <Info className="h-4 w-4" />
                                                 </Button>
@@ -403,7 +399,6 @@ return;
                     </Table>
                 </div>
 
-                {/* Pagination */}
                 {coaches.last_page > 1 && (
                     <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
                         <span>
@@ -453,11 +448,7 @@ return;
                 t={t}
             />
 
-            <CoachQuickView
-                coachId={quickViewId}
-                open={quickViewId !== null}
-                onClose={() => setQuickViewId(null)}
-            />
+            <CoachQuickView coachId={quickViewId} open={quickViewId !== null} onClose={() => setQuickViewId(null)} />
         </>
     );
 }
@@ -500,20 +491,20 @@ function ExportDialog({
                 </DialogHeader>
                 <div className="min-h-0 flex-1 overflow-y-auto py-2">
                     <p className="mb-3 text-sm font-medium">{t('Select columns to export')}</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {ALL_COLUMNS.map((col) => (
                             <div key={col.key} className="flex items-center gap-2">
-                                <Checkbox
-                                    id={`col-${col.key}`}
-                                    checked={selectedColumns.includes(col.key)}
-                                    onCheckedChange={(checked) =>
-                                        setSelectedColumns((prev) =>
-                                            checked
-                                                ? [...prev, col.key]
-                                                : prev.filter((k) => k !== col.key),
-                                        )
-                                    }
-                                />
+                                    <Checkbox
+                                        id={`col-${col.key}`}
+                                        checked={selectedColumns.includes(col.key)}
+                                        onCheckedChange={(checked) =>
+                                            setSelectedColumns((prev) =>
+                                                checked
+                                                    ? prev.includes(col.key) ? prev : [...prev, col.key]
+                                                    : prev.filter((k) => k !== col.key),
+                                            )
+                                        }
+                                    />
                                 <Label htmlFor={`col-${col.key}`}>{t(col.label)}</Label>
                             </div>
                         ))}

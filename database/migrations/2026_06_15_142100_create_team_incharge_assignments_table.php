@@ -30,7 +30,7 @@ return new class extends Migration
         Schema::create('team_incharge_assignments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('team_id')->constrained('teams')->cascadeOnDelete();
-            $table->foreignId('incharge_id')->constrained('members')->cascadeOnDelete();
+            $table->unsignedBigInteger('incharge_id')->nullable();
             $table->string('full_name');
             $table->string('pno', 20)->nullable();
             $table->string('rank', 100)->nullable();
@@ -99,10 +99,6 @@ return new class extends Migration
         Schema::table('team_incharge_assignments', function (Blueprint $table) {
             if (! $this->foreignKeyExists('team_incharge_assignments_team_id_foreign')) {
                 $table->foreign('team_id')->references('id')->on('teams')->cascadeOnDelete();
-            }
-
-            if (! $this->foreignKeyExists('team_incharge_assignments_incharge_id_foreign')) {
-                $table->foreign('incharge_id')->references('id')->on('members')->cascadeOnDelete();
             }
 
             if (! $this->foreignKeyExists('team_incharge_assignments_assigned_by_foreign')) {

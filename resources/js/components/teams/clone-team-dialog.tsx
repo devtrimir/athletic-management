@@ -88,8 +88,8 @@ reset();
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle>{t('Clone team to session')}</DialogTitle>
-                    <DialogDescription>{t('Players or coaches already in another team for the chosen session will be skipped.')}</DialogDescription>
+                    <DialogTitle>{t('Carry roster forward')}</DialogTitle>
+                    <DialogDescription>{t('Selected players and coaches will be copied to this team for the chosen session. Conflicts will be skipped.')}</DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
@@ -220,7 +220,7 @@ reset();
                             {t('Cancel')}
                         </Button>
                         <Button type="submit" size="sm" disabled={processing || !data.session_id || !loaded}>
-                            {t('Clone')}
+                            {t('Carry forward')}
                         </Button>
                     </DialogFooter>
                 </form>

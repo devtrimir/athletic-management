@@ -175,6 +175,30 @@ test('team availability search returns only active playable available members', 
         ->and($response->json('data.0.id'))->toBe($available->id);
 });
 
+test('historical team availability search includes inactive playable members', function () {
+    $user = searchUser('members.view');
+    $org = Organization::find($user->organization_id);
+    $team = Team::factory()->forOrganization($org)->create();
+
+    $inactive = Member::factory()->create([
+        'organization_id' => $org->id,
+        'full_name' => 'राम पुराना',
+        'current_status' => 'RETIRED',
+    ]);
+    $inactive->playableSports()->sync([$team->sport_id]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.search.members', [
+            'q' => 'राम',
+            'available_for_team_id' => $team->id,
+            'historical' => '1',
+        ]))
+        ->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1)
+        ->and($response->json('data.0.id'))->toBe($inactive->id);
+});
+
 // ---------------------------------------------------------------------------
 // MemberSearchService::normalize unit-style tests
 // ---------------------------------------------------------------------------

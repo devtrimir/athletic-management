@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Requests\Teams;
 
 use App\Models\Team;
+use Illuminate\Foundation\Http\Attributes\ErrorBag;
 use Illuminate\Foundation\Http\FormRequest;
 
+#[ErrorBag('removeIncharge')]
 class RemoveTeamInchargeRequest extends FormRequest
 {
     public function authorize(): bool
