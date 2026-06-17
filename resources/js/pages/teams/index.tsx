@@ -775,7 +775,7 @@ export default function TeamsIndex({
                                 <TableHead>{t('In-charge')}</TableHead>
                                 <TableHead>{t('Players')}</TableHead>
                                 <TableHead>{t('Staff')}</TableHead>
-                                <TableHead className="w-0 text-right">
+                                <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
                                     {t('Actions')}
                                 </TableHead>
                             </TableRow>
@@ -994,7 +994,7 @@ export default function TeamsIndex({
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="w-0">
+                                            <TableCell className="sticky right-0 z-10 w-0 bg-card">
                                                 <div className="flex items-center justify-end">
                                                     <Button
                                                         variant="ghost"

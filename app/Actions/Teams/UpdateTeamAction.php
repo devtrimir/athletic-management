@@ -28,8 +28,8 @@ class UpdateTeamAction
             [$unitId, $districtId] = $this->resolveLocation(
                 $team->organization_id,
                 $data['location_type'],
-                $data['unit_id'] ?? null,
-                $data['district_id'] ?? null,
+                $this->toNullableInt($data['unit_id'] ?? null),
+                $this->toNullableInt($data['district_id'] ?? null),
             );
 
             $team->update([
@@ -44,6 +44,15 @@ class UpdateTeamAction
 
             return $team->fresh(['sport', 'session', 'unit', 'district']);
         });
+    }
+
+    private function toNullableInt(int|string|null $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     /**

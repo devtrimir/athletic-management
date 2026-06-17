@@ -293,6 +293,17 @@ class CoachController extends Controller
                 'member:id,member_code,full_name,pno,rank,mobile',
                 'district:id,name',
                 'unit:id,name',
+                'sports' => fn ($q) => $q
+                    ->select('sports.id', 'sports.name')
+                    ->withPivot([
+                        'is_primary',
+                        'level_master_id',
+                        'level',
+                        'sport_event',
+                        'effective_from',
+                        'effective_to',
+                        'notes',
+                    ]),
             ])
             ->withCount(['assignmentHistory as assignments_count' => fn ($q) => $q->current()])
             ->paginate(25)

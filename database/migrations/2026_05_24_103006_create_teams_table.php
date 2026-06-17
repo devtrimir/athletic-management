@@ -16,11 +16,11 @@ return new class extends Migration
             $table->foreignId('sport_id')->constrained('sports');
             $table->foreignId('session_id')->constrained('sport_sessions');
             $table->foreignId('unit_id')->nullable()->constrained('units')->nullOnDelete();
-            $table->string('location_type', 20)->default('unit')->after('session_id');
-            $table->foreignId('district_id')->nullable()->after('location_type')->constrained('districts')->nullOnDelete();
+            $table->string('location_type', 20)->default('unit');
+            $table->foreignId('district_id')->nullable()->constrained('districts')->nullOnDelete();
             $table->string('name');
             $table->string('in_charge')->nullable();
-            $table->boolean('is_active')->default(true)->after('in_charge');
+            $table->boolean('is_active')->default(true);
 
             $table->softDeletes();
             $table->timestamps();

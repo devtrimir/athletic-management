@@ -13,6 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useSidebar } from '@/components/ui/sidebar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
@@ -55,6 +56,26 @@ type Coach = {
     district?: { id: number; name: string } | null;
     unit?: { id: number; name: string } | null;
     member: LinkedMember | null;
+    sports?: {
+        id: number;
+        name: string;
+        is_primary?: boolean;
+        level_master_id?: number | null;
+        level?: string | null;
+        sport_event?: string | null;
+        effective_from?: string | null;
+        effective_to?: string | null;
+        notes?: string | null;
+        pivot?: {
+            is_primary?: boolean;
+            level_master_id?: number | null;
+            level?: string | null;
+            sport_event?: string | null;
+            effective_from?: string | null;
+            effective_to?: string | null;
+            notes?: string | null;
+        };
+    }[];
 };
 
 type PaginatedCoaches = {
@@ -208,6 +229,78 @@ function SearchableOptionList({
                 </CommandGroup>
             </CommandList>
         </Command>
+    );
+}
+
+function CoachSportCell({ coach }: { coach: Coach }) {
+    const { t } = useTranslation();
+    const { isMobile, state } = useSidebar();
+    const playableSports = coach.sports ?? [];
+
+    if (playableSports.length === 0) {
+        return null;
+    }
+
+    const primary = playableSports[0];
+    const primaryLabel = [
+        primary.name,
+        primary.sport_event ?? primary.pivot?.sport_event,
+        primary.level ?? primary.pivot?.level,
+        primary.notes ?? primary.pivot?.notes,
+    ]
+        .filter(Boolean)
+        .join(' · ');
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className="inline-flex max-w-44 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-accent"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <span className="truncate">{primaryLabel}</span>
+                    {playableSports.length > 1 && (
+                        <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[10px]">
+                            +{playableSports.length - 1}
+                        </Badge>
+                    )}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-3" onClick={(e) => e.stopPropagation()}>
+                <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">{t('Playable sports')}</p>
+                    <ul className="mt-1 space-y-2 text-sm">
+                        {playableSports.map((sport) => (
+                            <li key={sport.id} className="space-y-0.5">
+                                <p className="font-medium">{sport.name}</p>
+                                <div className="space-y-0.5 text-xs text-muted-foreground">
+                                    {(sport.sport_event ?? sport.pivot?.sport_event) ? (
+                                        <p>
+                                            <span className="font-medium text-foreground">{t('Event')}:</span>{' '}
+                                            {sport.sport_event ?? sport.pivot?.sport_event}
+                                        </p>
+                                    ) : null}
+                                    {(sport.level ?? sport.pivot?.level) ? (
+                                        <p>
+                                            <span className="font-medium text-foreground">{t('Level')}:</span> {sport.level ?? sport.pivot?.level}
+                                        </p>
+                                    ) : null}
+                                    {(sport.notes ?? sport.pivot?.notes) ? (
+                                        <p>
+                                            <span className="font-medium text-foreground">{t('Notes')}:</span> {sport.notes ?? sport.pivot?.notes}
+                                        </p>
+                                    ) : null}
+                                    {!(sport.sport_event ?? sport.pivot?.sport_event) &&
+                                        !(sport.level ?? sport.pivot?.level) &&
+                                        !(sport.notes ?? sport.pivot?.notes) && null}
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </PopoverContent>
+        </Popover>
     );
 }
 
@@ -592,29 +685,30 @@ export default function CoachesIndex({
             <Head title={t('Coaches')} />
 
             <div className="space-y-5">
-                <div className="flex items-start justify-between gap-4">
-                    <Heading
-                        variant="small"
-                        title={t('Coaches')}
-                        description={t('Review linked members and roster exports.')}
-                    />
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
-                            <Download className="mr-1.5 h-4 w-4" />
-                            {selectedIds.size > 0
-                                ? t('Export :n selected').replace(':n', String(selectedIds.size))
-                                : t('Export coaches')}
-                        </Button>
-                        <Button asChild size="sm">
-                            <Link href={CoachController.create.url()}>
-                                <Plus className="mr-1.5 h-4 w-4" />
-                                {t('New coach')}
-                            </Link>
-                        </Button>
+                <div className="sticky top-0 z-40 space-y-5 bg-card/95 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/85">
+                    <div className="flex items-start justify-between gap-4">
+                        <Heading
+                            variant="small"
+                            title={t('Coaches')}
+                            description={t('Review linked members and roster exports.')}
+                        />
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                                <Download className="mr-1.5 h-4 w-4" />
+                                {selectedIds.size > 0
+                                    ? t('Export :n selected').replace(':n', String(selectedIds.size))
+                                    : t('Export coaches')}
+                            </Button>
+                            <Button asChild size="sm">
+                                <Link href={CoachController.create.url()}>
+                                    <Plus className="mr-1.5 h-4 w-4" />
+                                    {t('New coach')}
+                                </Link>
+                            </Button>
+                        </div>
                     </div>
-                </div>
 
-                <div className="space-y-3 rounded-xl border bg-card p-4">
+                    <div className="space-y-3 rounded-xl border bg-card p-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="relative w-full lg:max-w-md">
                             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -765,13 +859,11 @@ export default function CoachesIndex({
                     </div>
                 </div>
 
-                <div className="overflow-hidden rounded-xl border">
-                    <div className="overflow-x-auto">
-                        <div className="min-w-[980px]">
-                        <Table>
+                <div className="rounded-xl border bg-card">
+                        <Table className="min-w-[980px] border-separate border border-border/60 [&_th]:border-r [&_th]:border-b [&_th]:border-border/45 [&_td]:border-r [&_td]:border-b [&_td]:border-border/45">
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                    <TableHead className="w-0">
+                                    <TableHead className="sticky left-0 z-40 w-[56px] min-w-[56px] max-w-[56px] bg-card px-2">
                                         <Checkbox
                                             checked={
                                                 coaches.data.length > 0 && coaches.data.every((c) => selectedIds.has(c.id))
@@ -784,22 +876,27 @@ export default function CoachesIndex({
                                             aria-label={t('Select all on page')}
                                         />
                                     </TableHead>
-                                    <TableHead className="w-16 text-center">{t('S.No.')}</TableHead>
+                                    <TableHead className="sticky left-[56px] z-30 w-[72px] min-w-[72px] max-w-[72px] bg-card px-2 text-center">
+                                        {t('S.No.')}
+                                    </TableHead>
                                     <TableHead>{t('Coach')}</TableHead>
                                     <TableHead className="hidden md:table-cell">{t('PNO')}</TableHead>
                                     <TableHead className="hidden md:table-cell">{t('Blood group')}</TableHead>
                                     <TableHead className="hidden lg:table-cell">{t('Gender')}</TableHead>
+                                    <TableHead>{t('Playable sports')}</TableHead>
                                     <TableHead>{t('Location')}</TableHead>
                                     <TableHead className="w-28">{t('Status')}</TableHead>
                                     <TableHead className="hidden lg:table-cell">{t('Contact')}</TableHead>
                                     <TableHead>{t('Credentials')}</TableHead>
-                                    <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                    <TableHead className="sticky right-0 z-20 w-0 bg-background text-right">
+                                        {t('Actions')}
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {coaches.data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={11} className="py-12 text-center text-muted-foreground">
+                                        <TableCell colSpan={12} className="py-12 text-center text-muted-foreground">
                                             {hasActiveFilters ? t('No coaches match your filters.') : t('No coaches yet.')}
                                         </TableCell>
                                     </TableRow>
@@ -813,7 +910,7 @@ export default function CoachesIndex({
                                                     className="group cursor-pointer transition-colors hover:bg-muted/30"
                                                     onClick={() => setQuickViewId(coach.id)}
                                                 >
-                                                <TableCell className="w-0">
+                                                <TableCell className="sticky left-0 z-40 w-[56px] min-w-[56px] max-w-[56px] bg-card px-2 group-hover:bg-muted/30">
                                                     <Checkbox
                                                         checked={selectedIds.has(coach.id)}
                                                         onCheckedChange={() => toggleRow(coach.id)}
@@ -821,7 +918,7 @@ export default function CoachesIndex({
                                                         aria-label={t('Select row')}
                                                     />
                                                 </TableCell>
-                                                <TableCell className="text-center text-sm font-semibold text-muted-foreground tabular-nums">
+                                                <TableCell className="sticky left-[56px] z-30 w-[72px] min-w-[72px] max-w-[72px] bg-card px-2 text-center text-sm font-semibold text-muted-foreground tabular-nums group-hover:bg-muted/30">
                                                     {serialNumber}
                                                 </TableCell>
                                                 <TableCell>
@@ -860,6 +957,9 @@ export default function CoachesIndex({
                                                             <span>{genderLabel(coach.gender)}</span>
                                                         </div>
                                                     ) : null}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <CoachSportCell coach={coach} />
                                                 </TableCell>
                                                 <TableCell>
                                                     {coachLocation(coach) ? (
@@ -905,7 +1005,7 @@ export default function CoachesIndex({
                                                         </div>
                                                     ) : null}
                                                 </TableCell>
-                                                <TableCell className="w-0 text-right">
+                                                <TableCell className="sticky right-0 z-10 w-0 bg-background text-right group-hover:bg-muted/30">
                                                     <div className="flex items-center justify-end">
                                                         <Button
                                                             variant="ghost"
@@ -934,12 +1034,12 @@ export default function CoachesIndex({
                                 )}
                             </TableBody>
                         </Table>
-                        </div>
                     </div>
-                </div>
 
                 {coaches.last_page > 1 && (
-                    <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+                    <div
+                        className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground"
+                    >
                         <span>
                             {coaches.from !== null
                                 ? t('Showing :from–:to of :total')
@@ -948,7 +1048,7 @@ export default function CoachesIndex({
                                     .replace(':total', String(coaches.total))
                                 : ''}
                         </span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 overflow-x-auto">
                             {coaches.links.map((link, i) =>
                                 link.url ? (
                                     <Button
@@ -973,6 +1073,7 @@ export default function CoachesIndex({
                         </div>
                     </div>
                 )}
+            </div>
             </div>
 
             <ExportDialog

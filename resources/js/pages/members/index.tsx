@@ -91,7 +91,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'dob', label: 'Date of birth' },
     { key: 'rank', label: 'Rank' },
     { key: 'mobile', label: 'Mobile' },
-    { key: 'current_status', label: 'Status' },
+    { key: 'designation', label: 'Designation' },
     { key: 'player_category', label: 'Category' },
     { key: 'player_level', label: 'Level' },
     { key: 'unit', label: 'Unit' },
@@ -100,14 +100,12 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
-    { key: 'designation', label: 'Designation' },
     { key: 'appointment', label: 'Appointment' },
     { key: 'playable_sports', label: 'Playable sports' },
     { key: 'promotion_date', label: 'Promotion date' },
     { key: 'team_since', label: 'Team since' },
 ];
 
-const STATUS_OPTIONS = ['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'] as const;
 const CATEGORY_OPTIONS = ['GD', 'SPORTS_QUOTA'] as const;
 const LEVEL_OPTIONS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'] as const;
 const GENDER_OPTIONS: { value: string; label: string }[] = [
@@ -116,14 +114,6 @@ const GENDER_OPTIONS: { value: string; label: string }[] = [
     { value: 'O', label: 'Other gender' },
 ];
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
-
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    ACTIVE: 'default',
-    RESIGNED: 'outline',
-    DISMISSED: 'destructive',
-    DECEASED: 'secondary',
-    RETIRED: 'secondary',
-};
 
 const CATEGORY_BADGE_CLASS: Record<string, string> = {
     GD: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
@@ -502,7 +492,7 @@ export default function MembersIndex({
     }, [query]);
 
     const activeFilterCount = [
-        filters.current_status, filters.player_category, filters.player_level,
+        filters.player_category, filters.player_level,
         filters.rank, filters.designation, filters.current_unit_id, filters.home_district_id, filters.posting_district_id, filters.gender,
         filters.blood_group, selectedSportIds.length > 0 ? 'sports' : undefined,
         filters.joining_year_from, filters.joining_year_to,
@@ -683,19 +673,6 @@ next.add(id);
                             className="h-8 pl-8 text-sm"
                         />
                     </div>
-
-                    {/* Status */}
-                    <FilterPill
-                        label={t('Status')}
-                        activeLabel={filters.current_status ? t(filters.current_status) : undefined}
-                        onClear={() => applyFilters({ current_status: undefined })}
-                    >
-                        <OptionList
-                            options={STATUS_OPTIONS.map((s) => ({ value: s, label: t(s) }))}
-                            value={filters.current_status}
-                            onSelect={(v) => applyFilters({ current_status: v })}
-                        />
-                    </FilterPill>
 
                     {/* Category */}
                     <FilterPill
@@ -895,7 +872,7 @@ next.add(id);
                 )}
 
                 {/* Table */}
-                <div className="overflow-hidden rounded-xl border">
+                <div className="overflow-x-auto rounded-xl border bg-card">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -916,8 +893,10 @@ next.add(id);
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
                                 <TableHead>{t('Location')}</TableHead>
-                                <TableHead>{t('Status')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead>{t('Designation')}</TableHead>
+                                <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1009,12 +988,10 @@ next.add(id);
                                                 </div>
                                             ) : null}
                                         </TableCell>
-                                        <TableCell>
-                                            <Badge variant={STATUS_VARIANT[member.current_status] ?? 'outline'}>
-                                                {t(member.current_status)}
-                                            </Badge>
+                                        <TableCell className="text-muted-foreground">
+                                            {member.designation ?? '—'}
                                         </TableCell>
-                                        <TableCell className="w-0 text-right" onClick={(e) => e.stopPropagation()}>
+                                        <TableCell className="sticky right-0 z-10 w-0 bg-card text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end">
                                                 <Button
                                                     variant="ghost"

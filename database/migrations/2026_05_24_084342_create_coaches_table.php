@@ -116,15 +116,27 @@ return new class extends Migration
             }
 
             if (! Schema::hasColumn('coaches', 'tier_master_id')) {
-                $table->foreignId('tier_master_id')->nullable()->after('nis_master_id')->constrained('tournament_tiers')->nullOnDelete();
+                if (Schema::hasTable('tournament_tiers')) {
+                    $table->foreignId('tier_master_id')->nullable()->after('nis_master_id')->constrained('tournament_tiers')->nullOnDelete();
+                } else {
+                    $table->unsignedBigInteger('tier_master_id')->nullable()->after('nis_master_id');
+                }
             }
 
             if (! Schema::hasColumn('coaches', 'rank_master_id')) {
-                $table->foreignId('rank_master_id')->nullable()->after('tier_master_id')->constrained('ranks')->nullOnDelete();
+                if (Schema::hasTable('ranks')) {
+                    $table->foreignId('rank_master_id')->nullable()->after('tier_master_id')->constrained('ranks')->nullOnDelete();
+                } else {
+                    $table->unsignedBigInteger('rank_master_id')->nullable()->after('tier_master_id');
+                }
             }
 
             if (! Schema::hasColumn('coaches', 'designation_master_id')) {
-                $table->foreignId('designation_master_id')->nullable()->after('rank_master_id')->constrained('designations')->nullOnDelete();
+                if (Schema::hasTable('designations')) {
+                    $table->foreignId('designation_master_id')->nullable()->after('rank_master_id')->constrained('designations')->nullOnDelete();
+                } else {
+                    $table->unsignedBigInteger('designation_master_id')->nullable()->after('rank_master_id');
+                }
             }
 
             if (! $this->hasIndex('coaches', 'coaches_nis_masters_idx')) {
@@ -158,22 +170,30 @@ return new class extends Migration
 
         Schema::table('coaches', function (Blueprint $table): void {
             if (Schema::hasColumn('coaches', 'tier_master_id') && ! $this->foreignKeyExists('coaches_tier_master_id_foreign')) {
-                $table->foreign('tier_master_id')->references('id')->on('tournament_tiers')->nullOnDelete();
+                if (Schema::hasTable('tournament_tiers')) {
+                    $table->foreign('tier_master_id')->references('id')->on('tournament_tiers')->nullOnDelete();
+                }
             }
 
             if (Schema::hasColumn('coaches', 'rank_master_id') && ! $this->foreignKeyExists('coaches_rank_master_id_foreign')) {
-                $table->foreign('rank_master_id')->references('id')->on('ranks')->nullOnDelete();
+                if (Schema::hasTable('ranks')) {
+                    $table->foreign('rank_master_id')->references('id')->on('ranks')->nullOnDelete();
+                }
             }
 
             if (
                 Schema::hasColumn('coaches', 'designation_master_id')
                 && ! $this->foreignKeyExists('coaches_designation_master_id_foreign')
             ) {
-                $table->foreign('designation_master_id')->references('id')->on('designations')->nullOnDelete();
+                if (Schema::hasTable('designations')) {
+                    $table->foreign('designation_master_id')->references('id')->on('designations')->nullOnDelete();
+                }
             }
 
             if (Schema::hasColumn('coaches', 'nis_master_id') && ! $this->foreignKeyExists('coaches_nis_master_id_foreign')) {
-                $table->foreign('nis_master_id')->references('id')->on('nis_masters')->nullOnDelete();
+                if (Schema::hasTable('nis_masters')) {
+                    $table->foreign('nis_master_id')->references('id')->on('nis_masters')->nullOnDelete();
+                }
             }
         });
     }

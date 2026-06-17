@@ -28,8 +28,8 @@ class CreateTeamAction
             [$unitId, $districtId] = $this->resolveLocation(
                 $organizationId,
                 $data['location_type'],
-                $data['unit_id'] ?? null,
-                $data['district_id'] ?? null,
+                $this->toNullableInt($data['unit_id'] ?? null),
+                $this->toNullableInt($data['district_id'] ?? null),
             );
 
             return Team::create([
@@ -44,6 +44,15 @@ class CreateTeamAction
                 'is_active' => $data['is_active'] ?? true,
             ]);
         });
+    }
+
+    private function toNullableInt(int|string|null $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     /**

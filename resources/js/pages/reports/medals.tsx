@@ -1644,8 +1644,8 @@ return `≤ ${to}`;
 
                         {/* Pagination */}
                         {detailData !== null && detailData.last_page > 1 && (
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">
+                            <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                                <span>
                                     {t('Showing :from–:to of :total')
                                         .replace(':from', String(detailData.from ?? 0))
                                         .replace(':to', String(detailData.to ?? 0))
@@ -1672,7 +1672,7 @@ return `≤ ${to}`;
                                                     type="button"
                                                     onClick={() => setPage(p as number)}
                                                     className={[
-                                                        'h-7 min-w-7 rounded border px-1.5',
+                                                        'h-8 min-w-8 rounded border px-2',
                                                         page === p
                                                             ? 'border-primary bg-primary text-primary-foreground'
                                                             : 'border-input bg-background hover:bg-accent',

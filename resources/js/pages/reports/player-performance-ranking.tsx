@@ -1012,7 +1012,7 @@ export default function PlayerPerformanceRanking({
                 </div>
 
                 {data.pagination.last_page > 1 && (
-                    <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+                    <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
                         <span>
                             {data.pagination.from !== null
                                 ? t('Showing :from–:to of :total')
