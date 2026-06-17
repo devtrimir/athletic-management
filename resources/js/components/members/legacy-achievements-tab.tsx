@@ -60,6 +60,7 @@ type Props = {
     member: { id: number };
     sessions: Array<{ id: number; name: string; is_current?: boolean }>;
     legacyAchievements: LegacyAchievement[] | undefined;
+    showActions?: boolean;
 };
 
 const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
@@ -99,21 +100,30 @@ function formatReadableDate(value: string | null): string | null {
     }).format(date);
 }
 
-function AddAchievementDialog({
+export function AddAchievementDialog({
     member,
     period,
     sessions,
+    triggerLabel,
+    triggerVariant = 'outline',
+    subjectName,
 }: {
     member: { id: number };
     period: 'PRE_RECRUITMENT' | 'POST_RECRUITMENT';
     sessions: Array<{ id: number; name: string; is_current?: boolean }>;
+    triggerLabel?: string;
+    triggerVariant?: 'default' | 'outline' | 'ghost';
+    subjectName?: string;
 }) {
     const { t } = useTranslation();
-    const [open, setOpen] = useState(false);
-    const dialogTitle =
+    const baseDialogTitle =
         period === 'PRE_RECRUITMENT'
             ? t('Add pre-recruitment legacy achievement')
             : t('Add post-recruitment legacy achievement');
+    const [open, setOpen] = useState(false);
+    const dialogTitle = subjectName
+        ? `${baseDialogTitle} - ${subjectName}`
+        : baseDialogTitle;
     const form = useForm({
         period,
         session_id: '',
@@ -157,9 +167,9 @@ function AddAchievementDialog({
             }}
         >
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant={triggerVariant} size="sm">
                     <Plus className="size-4 mr-1" />
-                    {t('Add achievement')}
+                    {triggerLabel ?? t('Add achievement')}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg" aria-describedby={undefined}>
@@ -949,11 +959,13 @@ function PeriodSection({
     achievements,
     member,
     sessions,
+    showActions,
 }: {
     period: 'PRE_RECRUITMENT' | 'POST_RECRUITMENT';
     achievements: LegacyAchievement[];
     member: { id: number };
     sessions: Array<{ id: number; name: string; is_current?: boolean }>;
+    showActions: boolean;
 }) {
     const { t } = useTranslation();
 
@@ -963,11 +975,13 @@ function PeriodSection({
                 <h4 className="text-sm font-semibold">
                     {period === 'PRE_RECRUITMENT' ? t('Pre-recruitment') : t('Post-recruitment')}
                 </h4>
-                <AddAchievementDialog
-                    member={member}
-                    period={period}
-                    sessions={sessions}
-                />
+                {showActions ? (
+                    <AddAchievementDialog
+                        member={member}
+                        period={period}
+                        sessions={sessions}
+                    />
+                ) : null}
             </div>
 
             {achievements.length === 0 ? (
@@ -988,23 +1002,53 @@ function PeriodSection({
     );
 }
 
-export function LegacyAchievementsTab({ member, sessions, legacyAchievements }: Props) {
+export function LegacyAchievementsTab({ member, sessions, legacyAchievements, showActions = true }: Props) {
+    const { t } = useTranslation();
     const preRecruitment = (legacyAchievements ?? []).filter((a) => a.period === 'PRE_RECRUITMENT');
     const postRecruitment = (legacyAchievements ?? []).filter((a) => a.period === 'POST_RECRUITMENT');
 
     return (
         <div className="space-y-4">
+            {showActions ? (
+                <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 className="text-sm font-medium">
+                            {t('Legacy achievements')}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                            {t('Add old achievement records for the selected coached member.')}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <AddAchievementDialog
+                            member={member}
+                            period="PRE_RECRUITMENT"
+                            sessions={sessions}
+                            triggerLabel={t('Add pre-recruitment achievement')}
+                            triggerVariant="default"
+                        />
+                        <AddAchievementDialog
+                            member={member}
+                            period="POST_RECRUITMENT"
+                            sessions={sessions}
+                            triggerLabel={t('Add post-recruitment achievement')}
+                        />
+                    </div>
+                </div>
+            ) : null}
             <PeriodSection
                 period="PRE_RECRUITMENT"
                 achievements={preRecruitment}
                 member={member}
                 sessions={sessions}
+                showActions={showActions}
             />
             <PeriodSection
                 period="POST_RECRUITMENT"
                 achievements={postRecruitment}
                 member={member}
                 sessions={sessions}
+                showActions={showActions}
             />
         </div>
     );

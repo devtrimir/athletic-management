@@ -46,7 +46,7 @@ class AchievementBenefitController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Benefit recorded.')]);
 
-        return to_route('members.show', $member);
+        return $this->redirectAfterMutation($member);
     }
 
     public function update(UpdateAchievementBenefitRequest $request, AchievementBenefit $benefit): RedirectResponse
@@ -67,7 +67,7 @@ class AchievementBenefitController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Benefit updated.')]);
 
-        return to_route('members.show', $member);
+        return $this->redirectAfterMutation($member);
     }
 
     public function destroy(AchievementBenefit $benefit): RedirectResponse
@@ -79,6 +79,17 @@ class AchievementBenefitController extends Controller
         $benefit->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Benefit removed.')]);
+
+        return $this->redirectAfterMutation($member);
+    }
+
+    private function redirectAfterMutation(Member $member): RedirectResponse
+    {
+        $path = parse_url((string) request()->headers->get('referer', ''), PHP_URL_PATH);
+
+        if (is_string($path) && str_starts_with($path, '/coaches/')) {
+            return back();
+        }
 
         return to_route('members.show', $member);
     }

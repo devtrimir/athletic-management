@@ -43,7 +43,6 @@ class UpdateCoachRequest extends FormRequest
             'bio' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'address' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'photo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->where('organization_id', $orgId)],
 
             'certifications' => ['sometimes', 'nullable', 'array'],
             'certifications.*.id' => ['sometimes', 'integer'],

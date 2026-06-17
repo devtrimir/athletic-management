@@ -1,4 +1,10 @@
-import { Deferred, Head, Link, router, setLayoutProps } from '@inertiajs/react';
+import {
+    Deferred,
+    Head,
+    Link,
+    router,
+    setLayoutProps,
+} from '@inertiajs/react';
 import { ArrowLeft, Camera, Download, Printer, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react';
@@ -49,14 +55,6 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
-
-type LinkedMember = {
-    id: number;
-    full_name: string;
-    pno: string | null;
-    rank: string | null;
-    mobile: string | null;
-};
 
 type CoachCertification = {
     id: number;
@@ -120,7 +118,6 @@ type Coach = {
     mobile: string | null;
     nis_certified: boolean;
     photo_path: string | null;
-    member?: LinkedMember | null;
     certifications: CoachCertification[];
     sports: CoachSport[];
     assignment_history: CoachAssignment[];
@@ -211,8 +208,6 @@ export default function CoachesShow({
         'download',
     );
     const photoInputRef = useRef<HTMLInputElement | null>(null);
-
-    const linkedMember = coach.member ?? null;
 
     setLayoutProps({
         breadcrumbs: [
@@ -531,36 +526,6 @@ export default function CoachesShow({
                                     )}
                                 </dl>
                             </div>
-
-                            <div className="rounded-xl border bg-card p-6">
-                                <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-                                    {t('Linked member')}
-                                </h3>
-                                {linkedMember ? (
-                                    <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                                        {detail(
-                                            t('Name'),
-                                            linkedMember.full_name ?? '',
-                                        )}
-                                        {detail(
-                                            t('PNO'),
-                                            linkedMember.pno ?? '',
-                                        )}
-                                        {detail(
-                                            t('Rank'),
-                                            linkedMember.rank ?? '',
-                                        )}
-                                        {detail(
-                                            t('Mobile'),
-                                            linkedMember.mobile ?? '',
-                                        )}
-                                    </dl>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                        {t('No linked member.')}
-                                    </p>
-                                )}
-                            </div>
                         </div>
                     </TabsContent>
 
@@ -769,9 +734,7 @@ export default function CoachesShow({
                     <TabsContent value="achievements">
                         <EmptyCoachTab
                             title={t('Achievements')}
-                            message={t(
-                                'No achievement credits or legacy achievements recorded yet.',
-                            )}
+                            message={t('No coach achievements recorded yet.')}
                         />
                     </TabsContent>
 
@@ -785,9 +748,7 @@ export default function CoachesShow({
                     <TabsContent value="promotions">
                         <EmptyCoachTab
                             title={t('Promotions, Rewards and Benefits')}
-                            message={t(
-                                'No promotions, rewards, or benefit ledger entries recorded yet.',
-                            )}
+                            message={t('No coach promotions or rewards recorded yet.')}
                         />
                     </TabsContent>
 

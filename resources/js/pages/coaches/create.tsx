@@ -1,13 +1,11 @@
 import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
-import { Award, Dumbbell, IdCard, Link2, UserRound } from 'lucide-react';
+import { Award, Dumbbell, IdCard, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import { index as coachesIndex, store as storeCoach } from '@/actions/App/Http/Controllers/CoachController';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
-import type { MemberOption } from '@/components/member-picker';
-import { MemberPicker } from '@/components/member-picker';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -65,7 +63,6 @@ type FormData = {
     mobile: string;
     blood_group: string;
     nis_certified: boolean;
-    member_id: number | null;
     display_name: string;
     designation: string;
     rank_master_id: string;
@@ -147,7 +144,6 @@ export default function CoachesCreate({
         ],
     });
 
-    const [pickedMember, setPickedMember] = useState<MemberOption | null>(null);
     const [pendingSportRemovalIndex, setPendingSportRemovalIndex] = useState<number | null>(null);
 
     const { data, setData, post, errors, processing } = useForm<FormData>({
@@ -156,7 +152,6 @@ export default function CoachesCreate({
         mobile: '',
         blood_group: '',
         nis_certified: false,
-        member_id: null,
         display_name: '',
         designation: '',
         rank_master_id: '',
@@ -176,27 +171,9 @@ export default function CoachesCreate({
         sports: [],
     });
 
-    function handleMemberChange(member: MemberOption | null): void {
-        setPickedMember(member);
-        setData((prev) => ({
-            ...prev,
-            member_id: member?.id ?? null,
-            full_name: prev.full_name || (member?.full_name ?? ''),
-            pno: prev.pno || (member?.pno ?? ''),
-        }));
-    }
-
     function handleSubmit(e: React.FormEvent): void {
         e.preventDefault();
         post(storeCoach.url());
-    }
-
-    function linkedMemberSummary(member: MemberOption | null): string {
-        if (!member) {
-            return '';
-        }
-
-        return [member.full_name, member.pno].filter(Boolean).join(' · ');
     }
 
     function addCertification(): void {
@@ -276,7 +253,6 @@ export default function CoachesCreate({
     const hasProfileErrors = ['full_name', 'pno', 'mobile', 'designation', 'email', 'coach_status', 'gender', 'date_of_birth', 'display_name', 'address', 'bio', 'nis_certified'].some((field) => errorKeys.includes(field));
     const hasCertificationErrors = errorKeys.some((field) => field.startsWith('certifications.'));
     const hasSportErrors = errorKeys.some((field) => field.startsWith('sports.'));
-    const hasMemberErrors = errorKeys.includes('member_id');
 
     return (
         <>
@@ -341,10 +317,6 @@ export default function CoachesCreate({
                                             </span>
                                         )}
                                         {hasSportErrors && <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />}
-                                    </TabsTrigger>
-                                    <TabsTrigger value="member">
-                                        {t('Linked member')}
-                                        {hasMemberErrors && <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />}
                                     </TabsTrigger>
                                 </TabsList>
                             </div>
@@ -775,32 +747,6 @@ export default function CoachesCreate({
                         ))}
                                 </TabsContent>
 
-                                <TabsContent value="member" className="mt-0 space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600">
-                                <Link2 className="h-4 w-4" />
-                            </div>
-                            <div>
-                            <h3 className="text-sm font-semibold">{t('Linked member')}</h3>
-                            <p className="mt-1 text-xs text-muted-foreground">{t('Link this coach to a member record (optional).')}</p>
-                            </div>
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="member_id">{t('Member')}</Label>
-                            <MemberPicker
-                                id="member_id"
-                                value={pickedMember}
-                                onChange={handleMemberChange}
-                                placeholder={t('Search by name or PNO…')}
-                            />
-                            <InputError message={errors.member_id} />
-                        </div>
-
-                        <p className="text-xs text-muted-foreground">
-                            {linkedMemberSummary(pickedMember)}
-                        </p>
-                                </TabsContent>
                             </div>
                         </div>
                     </Tabs>

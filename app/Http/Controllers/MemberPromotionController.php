@@ -44,7 +44,7 @@ class MemberPromotionController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion recorded.')]);
 
-        return to_route('members.show', $member);
+        return $this->redirectAfterMutation($member);
     }
 
     public function update(UpdateMemberPromotionRequest $request, Member $member, MemberPromotion $promotion): RedirectResponse
@@ -72,7 +72,7 @@ class MemberPromotionController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion updated.')]);
 
-        return to_route('members.show', $member);
+        return $this->redirectAfterMutation($member);
     }
 
     public function destroy(Member $member, MemberPromotion $promotion): RedirectResponse
@@ -85,6 +85,17 @@ class MemberPromotionController extends Controller
         $this->syncMemberPromotionDate($member);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion removed.')]);
+
+        return $this->redirectAfterMutation($member);
+    }
+
+    private function redirectAfterMutation(Member $member): RedirectResponse
+    {
+        $path = parse_url((string) request()->headers->get('referer', ''), PHP_URL_PATH);
+
+        if (is_string($path) && str_starts_with($path, '/coaches/')) {
+            return back();
+        }
 
         return to_route('members.show', $member);
     }

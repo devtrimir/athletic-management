@@ -42,7 +42,6 @@ class StoreCoachRequest extends FormRequest
             'bio' => ['nullable', 'string', 'max:4000'],
             'address' => ['nullable', 'string', 'max:4000'],
             'photo_path' => ['nullable', 'string', 'max:255'],
-            'member_id' => ['nullable', 'integer', Rule::exists('members', 'id')->where('organization_id', $orgId)],
 
             'certifications' => ['nullable', 'array'],
             'certifications.*.id' => ['sometimes', 'integer'],
