@@ -27,6 +27,9 @@ return new class extends Migration
             $table->string('venue', 255)->nullable();     // स्थान
             $table->string('sport_discipline', 100)->nullable(); // खेल विधा (free text – pre-system)
             $table->string('event', 100)->nullable();     // इवेन्ट / वेट कैटेगरी
+            $table->unsignedSmallInteger('position')->nullable();
+            $table->text('remarks')->nullable();
+            $table->foreignId('session_id')->nullable()->constrained('sport_sessions')->nullOnDelete();
 
             $table->enum('medal_type', ['GOLD', 'SILVER', 'BRONZE', 'MERIT', 'CERTIFICATE'])->nullable();
 

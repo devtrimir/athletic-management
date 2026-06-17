@@ -12,6 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasTable('team_incharge_assignments')) {
+            if (! $this->isMySqlDriver()) {
+                return;
+            }
+
             $this->repairExistingTable();
 
             return;
@@ -113,6 +117,10 @@ return new class extends Migration
 
     private function hasGeneratedCurrentTeamId(): bool
     {
+        if (! $this->isMySqlDriver()) {
+            return false;
+        }
+
         $column = DB::table('information_schema.columns')
             ->select('generation_expression')
             ->whereRaw('table_schema = schema()')
@@ -134,6 +142,10 @@ return new class extends Migration
 
     private function indexExists(string $indexName): bool
     {
+        if (! $this->isMySqlDriver()) {
+            return false;
+        }
+
         return DB::table('information_schema.statistics')
             ->whereRaw('table_schema = schema()')
             ->where('table_name', 'team_incharge_assignments')
@@ -143,11 +155,20 @@ return new class extends Migration
 
     private function foreignKeyExists(string $constraintName): bool
     {
+        if (! $this->isMySqlDriver()) {
+            return false;
+        }
+
         return DB::table('information_schema.table_constraints')
             ->whereRaw('table_schema = schema()')
             ->where('table_name', 'team_incharge_assignments')
             ->where('constraint_name', $constraintName)
             ->where('constraint_type', 'FOREIGN KEY')
             ->exists();
+    }
+
+    private function isMySqlDriver(): bool
+    {
+        return in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true);
     }
 };

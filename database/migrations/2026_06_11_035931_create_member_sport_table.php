@@ -17,6 +17,8 @@ return new class extends Migration
             $table->foreignId('sport_id')->constrained()->cascadeOnDelete();
             $table->string('role')->nullable();
             $table->string('position')->nullable();
+            $table->string('performance_grade')->nullable();
+            $table->string('sport_event')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
 

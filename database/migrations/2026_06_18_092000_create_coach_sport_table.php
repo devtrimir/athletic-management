@@ -17,6 +17,8 @@ return new class extends Migration
             $table->foreignId('sport_id')->constrained('sports')->cascadeOnDelete();
             $table->boolean('is_primary')->default(false);
             $table->string('level')->nullable();
+            $table->foreignId('level_master_id')->nullable()->constrained('tournament_tiers')->nullOnDelete();
+            $table->string('sport_event')->nullable();
             $table->date('effective_from')->nullable();
             $table->date('effective_to')->nullable();
             $table->text('notes')->nullable();
@@ -26,6 +28,9 @@ return new class extends Migration
             $table->index('coach_id');
             $table->index('sport_id');
             $table->index('is_primary');
+            $table->index('level_master_id');
+            $table->index(['level_master_id', 'sport_event'], 'coach_sport_level_event_idx');
+            $table->index(['coach_id', 'sport_id', 'is_primary'], 'coach_sport_lookup_idx');
         });
     }
 
