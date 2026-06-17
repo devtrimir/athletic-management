@@ -74,15 +74,6 @@ type PaginationLink = {
     active: boolean;
 };
 
-type LinkedMember = {
-    id: number;
-    member_code: string;
-    full_name: string;
-    pno: string | null;
-    rank: string | null;
-    mobile: string | null;
-};
-
 type Coach = {
     id: number;
     full_name: string;
@@ -96,7 +87,6 @@ type Coach = {
     nis_certified: boolean;
     district?: { id: number; name: string } | null;
     unit?: { id: number; name: string } | null;
-    member: LinkedMember | null;
     sports?: {
         id: number;
         name: string;
@@ -136,7 +126,6 @@ type SportOption = {
 
 type Filters = {
     q?: string;
-    has_member?: string;
     nis_certified?: string;
     blood_group?: string;
     district_id?: string;
@@ -433,7 +422,6 @@ export default function CoachesIndex({
         (patch: Partial<Filters>) => {
             const current: Filters = {
                 q: query || undefined,
-                has_member: filters.has_member,
                 nis_certified: filters.nis_certified,
                 blood_group: filters.blood_group,
                 district_id: filters.district_id,
@@ -452,10 +440,6 @@ export default function CoachesIndex({
 
             if (merged.q) {
                 clean['filter[q]'] = merged.q;
-            }
-
-            if (merged.has_member) {
-                clean['filter[has_member]'] = merged.has_member;
             }
 
             if (merged.nis_certified) {
@@ -510,7 +494,6 @@ export default function CoachesIndex({
         },
         [
             query,
-            filters.has_member,
             filters.nis_certified,
             filters.blood_group,
             filters.district_id,
@@ -635,10 +618,6 @@ export default function CoachesIndex({
                 params.append('filter[q]', filters.q);
             }
 
-            if (filters.has_member) {
-                params.append('filter[has_member]', filters.has_member);
-            }
-
             if (filters.nis_certified) {
                 params.append('filter[nis_certified]', filters.nis_certified);
             }
@@ -725,7 +704,6 @@ export default function CoachesIndex({
 
     const hasActiveFilters = !!(
         filters.q ||
-        filters.has_member ||
         filters.nis_certified ||
         filters.blood_group ||
         filters.district_id ||
@@ -739,10 +717,6 @@ export default function CoachesIndex({
         filters.has_active_assignment
     );
 
-    const memberOptions = [
-        { value: 'true', label: t('Linked to member') },
-        { value: 'false', label: t('Standalone') },
-    ];
     const nisOptions = [
         { value: '1', label: t('NIS certified') },
         { value: '0', label: t('Not NIS certified') },
@@ -797,7 +771,6 @@ export default function CoachesIndex({
         { value: 'false', label: t('No active assignment') },
     ];
     const activeFilterCount = [
-        filters.has_member,
         filters.nis_certified,
         filters.coach_status,
         filters.designation,
@@ -839,7 +812,7 @@ export default function CoachesIndex({
                             variant="small"
                             title={t('Coaches')}
                             description={t(
-                                'Review linked members and roster exports.',
+                                'Review coach profiles, assignments, and roster exports.',
                             )}
                         />
                         <div className="flex gap-2">
@@ -901,25 +874,6 @@ export default function CoachesIndex({
                         </div>
 
                         <div className="flex flex-wrap gap-2">
-                            <FilterPill
-                                label={t('Member')}
-                                activeLabel={optionLabel(
-                                    memberOptions,
-                                    filters.has_member,
-                                )}
-                                onClear={() =>
-                                    applyFilters({ has_member: undefined })
-                                }
-                            >
-                                <OptionList
-                                    options={memberOptions}
-                                    value={filters.has_member}
-                                    onSelect={(value) =>
-                                        applyFilters({ has_member: value })
-                                    }
-                                />
-                            </FilterPill>
-
                             <FilterPill
                                 label={t('NIS')}
                                 activeLabel={optionLabel(

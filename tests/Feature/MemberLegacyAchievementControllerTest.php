@@ -84,6 +84,27 @@ test('member legacy achievement can be stored for pre or post recruitment histor
         ->and($achievement->remarks)->toBe('Recorded from legacy register.');
 });
 
+test('member legacy achievement created from coach page redirects back to coach', function (): void {
+    $user = legacyAchievementUser('members.manageLegacyAchievements');
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->from('/coaches/123')
+        ->actingAs($user)
+        ->post(route('members.legacy-achievements.store', $member), [
+            'period' => 'PRE_RECRUITMENT',
+            'level' => 'NATIONAL',
+            'competition_details' => 'National Police Games',
+            'event_date' => '2018-09-14',
+            'venue' => 'Lucknow',
+            'sport_discipline' => 'Athletics',
+            'event' => '100m Sprint',
+            'medal_type' => 'GOLD',
+            'position' => 1,
+            'remarks' => 'Recorded from coach profile.',
+        ])
+        ->assertRedirect('/coaches/123');
+});
+
 test('member legacy achievement store validates required tournament fields', function (): void {
     $user = legacyAchievementUser('members.manageLegacyAchievements');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);

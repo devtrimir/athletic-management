@@ -272,13 +272,6 @@ class CoachController extends Controller
                         $query->whereDoesntHave('currentAssignments');
                     }
                 }),
-                AllowedFilter::callback('has_member', function (Builder $query, mixed $value): void {
-                    if ($value === 'true' || $value === true) {
-                        $query->whereNotNull('member_id');
-                    } elseif ($value === 'false' || $value === false) {
-                        $query->whereNull('member_id');
-                    }
-                }),
                 AllowedFilter::callback('q', function (Builder $query, mixed $value): void {
                     $term = '%'.mb_strtolower(trim((string) $value)).'%';
 
@@ -293,7 +286,6 @@ class CoachController extends Controller
             ->allowedSorts(['full_name', 'pno', 'coach_status', 'designation', 'created_at'])
             ->defaultSort('full_name')
             ->with([
-                'member:id,member_code,full_name,pno,rank,mobile',
                 'district:id,name',
                 'unit:id,name',
                 'sports' => fn ($q) => $q
@@ -395,7 +387,6 @@ class CoachController extends Controller
             'tierMaster:id,code,label_hi,label_en,weight',
             'rankMaster:id,code,name,short_name',
             'designationMaster:id,code,name,short_name',
-            'member:id,member_code,full_name,pno,rank,designation,mobile,home_unit_id',
             'aliases:id,coach_id,alias,source',
             'statusHistory' => fn ($q) => $q
                 ->with('recorder:id,name')
@@ -410,10 +401,8 @@ class CoachController extends Controller
             'sports' => fn ($q) => $q->withPivot(['is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes']),
         ]);
 
-        $coachResource = (new CoachResource($coach))->resolve();
-
         return Inertia::render('coaches/show', [
-            'coach' => $coachResource,
+            'coach' => (new CoachResource($coach))->resolve(),
             'coachTeams' => Inertia::defer(fn () => $coach->assignmentHistory
                 ->map(fn (CoachAssignment $ca) => [
                     'id' => $ca->id,
@@ -448,7 +437,6 @@ class CoachController extends Controller
 
         return Inertia::render('coaches/edit', [
             'coach' => $coach
-                ->load('member:id,member_code,full_name,pno,rank,mobile,player_category,player_level,current_status')
                 ->loadMissing([
                     'certifications',
                     'sports' => fn ($q) => $q->select('sports.id', 'sports.name')->withPivot([

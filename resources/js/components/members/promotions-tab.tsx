@@ -168,6 +168,7 @@ type Props = {
     legacyAchievements: LegacyAchievement[] | undefined;
     achievements: LiveAchievement[];
     onSaved: () => void;
+    showActions?: boolean;
 };
 
 function evidenceKey(type: string, id: number): string {
@@ -700,7 +701,7 @@ function InlineRankDialog({
     );
 }
 
-function PromotionDialog({
+export function PromotionDialog({
     memberId,
     memberRank,
     ranks,
@@ -709,6 +710,8 @@ function PromotionDialog({
     achievements,
     promotion,
     onSaved,
+    subjectName,
+    triggerLabel,
 }: {
     memberId: number;
     memberRank: string | null;
@@ -718,6 +721,8 @@ function PromotionDialog({
     achievements: LiveAchievement[];
     promotion?: PromotionRow;
     onSaved: () => void;
+    subjectName?: string;
+    triggerLabel?: string;
 }) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
@@ -1006,14 +1011,18 @@ function PromotionDialog({
                 ) : (
                     <Button size="sm">
                         <Plus className="mr-1.5 size-3.5" />
-                        {t('Add promotion')}
+                        {triggerLabel ?? t('Add promotion')}
                     </Button>
                 )}
             </DialogTrigger>
             <DialogContent className="max-w-2xl" aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>
-                        {promotion ? t('Edit promotion') : t('Add promotion')}
+                        {subjectName
+                            ? `${promotion ? t('Edit promotion') : t('Add promotion')} - ${subjectName}`
+                            : promotion
+                              ? t('Edit promotion')
+                              : t('Add promotion')}
                     </DialogTitle>
                 </DialogHeader>
                 <form className="space-y-4" onSubmit={handleSubmit}>
@@ -1310,12 +1319,16 @@ function PromotionDialog({
     );
 }
 
-function CashRewardDialog({
+export function CashRewardDialog({
     participations,
     onSaved,
+    subjectName,
+    triggerLabel,
 }: {
     participations: ParticipationGroup[];
     onSaved: () => void;
+    subjectName?: string;
+    triggerLabel?: string;
 }) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
@@ -1469,12 +1482,16 @@ function CashRewardDialog({
             <DialogTrigger asChild>
                 <Button type="button" variant="outline" size="sm">
                     <Plus className="mr-1.5 size-3.5" />
-                    {t('Cash reward')}
+                    {triggerLabel ?? t('Add cash reward')}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-xl" aria-describedby={undefined}>
                 <DialogHeader>
-                    <DialogTitle>{t('Cash reward')}</DialogTitle>
+                    <DialogTitle>
+                        {subjectName
+                            ? `${t('Cash reward')} - ${subjectName}`
+                            : t('Cash reward')}
+                    </DialogTitle>
                 </DialogHeader>
 
                 <form className="space-y-4" onSubmit={handleSubmit}>
@@ -1815,6 +1832,7 @@ export function PromotionsTab({
     legacyAchievements = [],
     achievements,
     onSaved,
+    showActions = true,
 }: Props) {
     const { t } = useTranslation();
     function evidenceSummary(evidence: PromotionEvidence): string {
@@ -1986,7 +2004,7 @@ export function PromotionsTab({
 
     return (
         <div className="space-y-4 rounded-xl border bg-card p-6">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h3 className="text-sm font-medium">
                         {t('Promotions & rewards')}
@@ -2003,21 +2021,23 @@ export function PromotionsTab({
                         )}
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <CashRewardDialog
-                        participations={participations}
-                        onSaved={onSaved}
-                    />
-                    <PromotionDialog
-                        memberId={memberId}
-                        memberRank={memberRank}
-                        ranks={ranks}
-                        participations={participations}
-                        legacyAchievements={legacyAchievements}
-                        achievements={achievements}
-                        onSaved={onSaved}
-                    />
-                </div>
+                {showActions ? (
+                    <div className="flex flex-wrap gap-2">
+                        <CashRewardDialog
+                            participations={participations}
+                            onSaved={onSaved}
+                        />
+                        <PromotionDialog
+                            memberId={memberId}
+                            memberRank={memberRank}
+                            ranks={ranks}
+                            participations={participations}
+                            legacyAchievements={legacyAchievements}
+                            achievements={achievements}
+                            onSaved={onSaved}
+                        />
+                    </div>
+                ) : null}
             </div>
 
             {(promotions ?? []).length === 0 ? (

@@ -229,6 +229,21 @@ test('member promotion records evidence and appears in database', function () {
     expect($promotion?->evidences()->count())->toBe(3);
 });
 
+test('member promotion created from coach page redirects back to coach', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    [, $toRank] = promotionRanks($member->organization);
+
+    $this->from('/coaches/123')
+        ->actingAs($user)
+        ->post(route('members.promotions.store', $member), [
+            'promotion_date' => now()->toDateString(),
+            'to_rank' => $toRank->code,
+            'reason' => 'Promoted from coach profile.',
+        ])
+        ->assertRedirect('/coaches/123');
+});
+
 test('member promotion updates cash reward fields', function () {
     $user = promotionUser();
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
@@ -300,6 +315,24 @@ test('cash reward validation explains when selected event has no achievement', f
     $response->assertInvalid([
         'benefitable_type' => 'Cash reward can only be added for an event that has a recorded achievement.',
     ]);
+});
+
+test('achievement benefit created from coach page redirects back to coach', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    [$legacy] = promotionFixtures($member);
+
+    $this->from('/coaches/123')
+        ->actingAs($user)
+        ->post(route('achievement-benefits.store'), [
+            'benefitable_type' => 'member_legacy_achievement',
+            'benefitable_id' => $legacy->id,
+            'benefit_type' => 'CASH_AWARD',
+            'cash_amount' => '5000.00',
+            'benefit_date' => '2026-02-01',
+            'order_reference' => 'REWARD-100',
+        ])
+        ->assertRedirect('/coaches/123');
 });
 
 test('member promotion accepts uploaded order documents', function () {

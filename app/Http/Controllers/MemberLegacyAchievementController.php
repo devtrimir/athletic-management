@@ -31,7 +31,7 @@ class MemberLegacyAchievementController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Legacy achievement added.')]);
 
-        return to_route('members.show', $member);
+        return $this->redirectAfterMutation($member);
     }
 
     public function update(UpdateLegacyAchievementRequest $request, Member $member, MemberLegacyAchievement $legacyAchievement): RedirectResponse
@@ -52,7 +52,7 @@ class MemberLegacyAchievementController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Legacy achievement updated.')]);
 
-        return to_route('members.show', $member);
+        return $this->redirectAfterMutation($member);
     }
 
     public function destroy(Member $member, MemberLegacyAchievement $legacyAchievement): RedirectResponse
@@ -64,6 +64,17 @@ class MemberLegacyAchievementController extends Controller
         $legacyAchievement->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Legacy achievement removed.')]);
+
+        return $this->redirectAfterMutation($member);
+    }
+
+    private function redirectAfterMutation(Member $member): RedirectResponse
+    {
+        $path = parse_url((string) request()->headers->get('referer', ''), PHP_URL_PATH);
+
+        if (is_string($path) && str_starts_with($path, '/coaches/')) {
+            return back();
+        }
 
         return to_route('members.show', $member);
     }

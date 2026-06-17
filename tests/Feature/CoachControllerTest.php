@@ -73,30 +73,6 @@ test('index only shows coaches from own org', function () {
         ->assertInertia(fn ($page) => $page->where('coaches.total', 0));
 });
 
-test('index filter has_member=true returns only linked coaches', function () {
-    $user = coachUser('coaches.view');
-    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
-    Coach::factory()->create(['organization_id' => $user->organization_id, 'member_id' => $member->id]);
-    Coach::factory()->standalone()->create(['organization_id' => $user->organization_id]);
-
-    $this->actingAs($user)
-        ->get(route('coaches.index', ['filter' => ['has_member' => 'true']]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('coaches.total', 1));
-});
-
-test('index filter has_member=false returns only standalone coaches', function () {
-    $user = coachUser('coaches.view');
-    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
-    Coach::factory()->create(['organization_id' => $user->organization_id, 'member_id' => $member->id]);
-    Coach::factory()->standalone()->create(['organization_id' => $user->organization_id]);
-
-    $this->actingAs($user)
-        ->get(route('coaches.index', ['filter' => ['has_member' => 'false']]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('coaches.total', 1));
-});
-
 test('index filter nis_certified=1 returns only certified coaches', function () {
     $user = coachUser('coaches.view');
     Coach::factory()->nisCertified()->create(['organization_id' => $user->organization_id]);
@@ -154,7 +130,7 @@ test('store creates a standalone coach', function () {
     ]);
 });
 
-test('store creates a linked coach', function () {
+test('store ignores submitted member_id because coach members come from team assignments', function () {
     $user = coachUser('coaches.create');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
 
@@ -168,7 +144,7 @@ test('store creates a linked coach', function () {
 
     $this->assertDatabaseHas('coaches', [
         'full_name' => 'राम प्रसाद',
-        'member_id' => $member->id,
+        'member_id' => null,
         'organization_id' => $user->organization_id,
     ]);
 });
@@ -226,13 +202,10 @@ test('show returns coach resource in Inertia props', function () {
         );
 });
 
-test('show returns linked member data with coach in initial payload', function () {
+test('show does not expose member achievement or promotion props on coach profile', function () {
     $user = coachUser('coaches.view');
-    $member = Member::factory()->create(['organization_id' => $user->organization_id, 'rank' => 'INS', 'mobile' => '9000000000']);
     $coach = Coach::factory()->create([
         'organization_id' => $user->organization_id,
-        'member_id' => $member->id,
-        'full_name' => 'Coach Example',
     ]);
 
     $this->actingAs($user)
@@ -240,41 +213,10 @@ test('show returns linked member data with coach in initial payload', function (
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('coaches/show')
-            ->has('coach.member', fn ($payload) => $payload
-                ->where('id', $member->id)
-                ->where('full_name', $member->full_name)
-                ->where('rank', 'INS')
-                ->where('mobile', '9000000000')
-                ->etc()
-            )
-        );
-});
-
-test('index includes linked-member details in each row', function () {
-    $user = coachUser('coaches.view');
-    $member = Member::factory()->create([
-        'organization_id' => $user->organization_id,
-        'member_code' => 'M100',
-        'pno' => '1001',
-        'rank' => 'INS',
-        'mobile' => '9999999999',
-    ]);
-    Coach::factory()->create([
-        'organization_id' => $user->organization_id,
-        'member_id' => $member->id,
-        'full_name' => 'Coach Example',
-    ]);
-
-    $this->actingAs($user)
-        ->get(route('coaches.index'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('coaches/index')
-            ->where('coaches.data.0.full_name', 'Coach Example')
-            ->where('coaches.data.0.member.id', $member->id)
-            ->where('coaches.data.0.member.member_code', 'M100')
-            ->where('coaches.data.0.member.mobile', '9999999999')
-            ->where('coaches.data.0.member.rank', 'INS')
+            ->missing('coachedMembers')
+            ->missing('coachedMemberHistory')
+            ->missing('ranks')
+            ->missing('sessions')
         );
 });
 
@@ -337,6 +279,29 @@ test('update persists changed fields and redirects', function () {
     expect($coach->fresh()->nis_certified)->toBeTrue();
 });
 
+test('update ignores submitted member_id because coach members come from team assignments', function () {
+    $user = coachUser('coaches.update');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+    ]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => null,
+        'full_name' => 'पुराना नाम',
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('coaches.update', $coach), [
+            'full_name' => 'नया नाम',
+            'member_id' => $member->id,
+        ])
+        ->assertRedirect(route('coaches.show', $coach));
+
+    expect($coach->fresh())
+        ->full_name->toBe('नया नाम')
+        ->member_id->toBeNull();
+});
+
 // ---------------------------------------------------------------------------
 // destroy
 // ---------------------------------------------------------------------------
@@ -356,30 +321,4 @@ test('destroy soft-deletes coach and redirects to index', function () {
         ->assertRedirect(route('coaches.index'));
 
     $this->assertSoftDeleted('coaches', ['id' => $coach->id]);
-});
-
-// ---------------------------------------------------------------------------
-// T10 — name independence: updating a linked coach's name must not mutate
-//         the linked member record
-// ---------------------------------------------------------------------------
-
-test('updating linked coach name does not mutate member full_name', function () {
-    $user = coachUser('coaches.update');
-    $member = Member::factory()->create([
-        'organization_id' => $user->organization_id,
-        'full_name' => 'मूल सदस्य नाम',
-    ]);
-    $coach = Coach::factory()->create([
-        'organization_id' => $user->organization_id,
-        'member_id' => $member->id,
-        'full_name' => 'मूल सदस्य नाम',
-    ]);
-
-    $this->actingAs($user)
-        ->patch(route('coaches.update', $coach), [
-            'full_name' => 'बदला हुआ नाम',
-        ]);
-
-    expect($member->fresh()->full_name)->toBe('मूल सदस्य नाम');
-    expect($coach->fresh()->full_name)->toBe('बदला हुआ नाम');
 });

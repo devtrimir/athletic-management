@@ -1,5 +1,5 @@
 import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
-import { Award, Dumbbell, IdCard, Link2, UserRound } from 'lucide-react';
+import { Award, Dumbbell, IdCard, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import {
     index as coachesIndex,
@@ -10,8 +10,6 @@ import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
-import type { MemberOption } from '@/components/member-picker';
-import { MemberPicker } from '@/components/member-picker';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -77,7 +75,6 @@ type Coach = {
     pno: string | null;
     mobile: string | null;
     nis_certified: boolean;
-    member_id: number | null;
     display_name: string | null;
     designation: string | null;
     email: string | null;
@@ -115,14 +112,6 @@ type Coach = {
         };
         name: string;
     }>;
-    member?: {
-        id: number;
-        member_code: string;
-        full_name: string;
-        pno: string | null;
-        rank: string | null;
-        mobile: string | null;
-    } | null;
 };
 
 type CertificationRow = {
@@ -160,7 +149,6 @@ type FormData = {
     mobile: string;
     blood_group: string;
     nis_certified: boolean;
-    member_id: number | null;
     display_name: string;
     designation: string;
     rank_master_id: string;
@@ -206,22 +194,6 @@ function coachToSportRows(coach: Coach): SportRow[] {
         effective_to: sport.pivot.effective_to ?? '',
         notes: sport.pivot.notes ?? '',
     }));
-}
-
-function coachToMemberOption(coach: Coach): MemberOption | null {
-    if (!coach.member) {
-        return null;
-    }
-
-    return {
-        id: coach.member.id,
-        member_code: '',
-        pno: coach.member.pno,
-        full_name: coach.member.full_name,
-        player_category: '',
-        player_level: '',
-        current_status: '',
-    };
 }
 
 export default function CoachesEdit({
@@ -306,9 +278,6 @@ export default function CoachesEdit({
         ],
     });
 
-    const [pickedMember, setPickedMember] = useState<MemberOption | null>(
-        coachToMemberOption(coach),
-    );
     const [pendingSportRemovalIndex, setPendingSportRemovalIndex] = useState<
         number | null
     >(null);
@@ -319,7 +288,6 @@ export default function CoachesEdit({
         mobile: coach.mobile ?? '',
         blood_group: coach.blood_group ?? '',
         nis_certified: coach.nis_certified,
-        member_id: coach.member_id,
         display_name: coach.display_name ?? '',
         designation: coach.designation ?? '',
         rank_master_id: coach.rank_master_id
@@ -344,16 +312,6 @@ export default function CoachesEdit({
         certifications: coachToCertificationRows(coach),
         sports: coachToSportRows(coach),
     });
-
-    function handleMemberChange(member: MemberOption | null): void {
-        setPickedMember(member);
-        setData((prev) => ({
-            ...prev,
-            member_id: member?.id ?? null,
-            full_name: prev.full_name || (member?.full_name ?? ''),
-            pno: prev.pno || (member?.pno ?? ''),
-        }));
-    }
 
     function handleSubmit(e: React.FormEvent): void {
         e.preventDefault();
@@ -444,9 +402,6 @@ export default function CoachesEdit({
         );
     }
 
-    const linkedMemberSummary = pickedMember
-        ? [pickedMember.full_name, pickedMember.pno].filter(Boolean).join(' · ')
-        : '';
     const pendingSportRemoval =
         pendingSportRemovalIndex !== null
             ? data.sports[pendingSportRemovalIndex]
@@ -487,7 +442,6 @@ export default function CoachesEdit({
     const hasSportErrors = errorKeys.some((field) =>
         field.startsWith('sports.'),
     );
-    const hasMemberErrors = errorKeys.includes('member_id');
 
     function protectedSportForRow(sportId: string): ProtectedSport | undefined {
         return protectedSports.find(
@@ -570,12 +524,6 @@ export default function CoachesEdit({
                                             </span>
                                         )}
                                         {hasSportErrors && (
-                                            <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />
-                                        )}
-                                    </TabsTrigger>
-                                    <TabsTrigger value="member">
-                                        {t('Linked member')}
-                                        {hasMemberErrors && (
                                             <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />
                                         )}
                                     </TabsTrigger>
@@ -1496,45 +1444,6 @@ export default function CoachesEdit({
                                     )}
                                 </TabsContent>
 
-                                <TabsContent
-                                    value="member"
-                                    className="mt-0 space-y-4"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600">
-                                            <Link2 className="h-4 w-4" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-sm font-semibold">
-                                                {t('Linked member')}
-                                            </h3>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {t(
-                                                    'Link this coach to a member record (optional)',
-                                                )}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="member_id">
-                                            {t('Member')}
-                                        </Label>
-                                        <MemberPicker
-                                            id="member_id"
-                                            value={pickedMember}
-                                            onChange={handleMemberChange}
-                                            placeholder={t(
-                                                'Search by name or PNO…',
-                                            )}
-                                        />
-                                        <InputError
-                                            message={errors.member_id}
-                                        />
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        {linkedMemberSummary}
-                                    </p>
-                                </TabsContent>
                             </div>
                         </div>
                     </Tabs>
