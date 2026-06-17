@@ -588,6 +588,9 @@ export default function TournamentsShow({
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
+                                            <TableHead className="w-16">
+                                                {t('S.No.')}
+                                            </TableHead>
                                             <TableHead>
                                                 {t('Event details')}
                                             </TableHead>
@@ -607,7 +610,7 @@ export default function TournamentsShow({
                                         {(events ?? []).length === 0 ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={5}
+                                                    colSpan={6}
                                                     className="py-12 text-center text-muted-foreground"
                                                 >
                                                     {t('No events yet.')}
@@ -617,7 +620,7 @@ export default function TournamentsShow({
                                             <>
                                                 <TableRow className="bg-primary/5 hover:bg-primary/5">
                                                     <TableCell
-                                                        colSpan={5}
+                                                        colSpan={6}
                                                         className="border-l-4 border-primary py-3 font-medium"
                                                     >
                                                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -661,106 +664,14 @@ export default function TournamentsShow({
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
-                                                {(events ?? []).map((ev) => (
-                                                    <TableRow key={ev.id}>
-                                                        <TableCell>
-                                                            <div className="space-y-1">
-                                                                <Link
-                                                                    href={showEvent.url(
-                                                                        {
-                                                                            tournament:
-                                                                                tournament.id,
-                                                                            event: ev.id,
-                                                                        },
-                                                                    )}
-                                                                    className="font-medium hover:underline"
-                                                                >
-                                                                    {ev.name}
-                                                                </Link>
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    {ev.discipline ? (
-                                                                        <span
-                                                                            className={eventBadgeClass(
-                                                                                'detail',
-                                                                            )}
-                                                                        >
-                                                                            {
-                                                                                ev.discipline
-                                                                            }
-                                                                        </span>
-                                                                    ) : null}
-                                                                    {ev.weight_category ? (
-                                                                        <span
-                                                                            className={eventBadgeClass(
-                                                                                'detail',
-                                                                            )}
-                                                                        >
-                                                                            {
-                                                                                ev.weight_category
-                                                                            }
-                                                                        </span>
-                                                                    ) : null}
-                                                                    {!ev.discipline &&
-                                                                    !ev.weight_category ? (
-                                                                        <span className="text-xs text-muted-foreground">
-                                                                            —
-                                                                        </span>
-                                                                    ) : null}
-                                                                </div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {ev.sport ? (
-                                                                <span
-                                                                    className={eventBadgeClass(
-                                                                        'sport',
-                                                                    )}
-                                                                >
-                                                                    <Dumbbell className="h-3.5 w-3.5" />
-                                                                    {
-                                                                        ev.sport
-                                                                            .name
-                                                                    }
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    —
-                                                                </span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <span
-                                                                className={eventBadgeClass(
-                                                                    'class',
-                                                                )}
-                                                            >
-                                                                {t(
-                                                                    ev.gender_class,
-                                                                )}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <span
-                                                                className={eventBadgeClass(
-                                                                    'count',
-                                                                )}
-                                                            >
-                                                                <Users className="h-3.5 w-3.5" />
-                                                                {
-                                                                    ev.participations_count
-                                                                }
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="sticky right-0 z-10 w-0 bg-card">
-                                                            <div className="flex items-center justify-end gap-1">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    title={t(
-                                                                        'View',
-                                                                    )}
-                                                                    asChild
-                                                                >
+                                                {(events ?? []).map(
+                                                    (ev, index) => (
+                                                        <TableRow key={ev.id}>
+                                                            <TableCell className="w-16 text-xs text-muted-foreground tabular-nums">
+                                                                {index + 1}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="space-y-1">
                                                                     <Link
                                                                         href={showEvent.url(
                                                                             {
@@ -769,58 +680,158 @@ export default function TournamentsShow({
                                                                                 event: ev.id,
                                                                             },
                                                                         )}
+                                                                        className="font-medium hover:underline"
                                                                     >
-                                                                        <Eye className="h-4 w-4 text-sky-600" />
-                                                                        <span className="sr-only">
-                                                                            {t(
-                                                                                'View',
-                                                                            )}
-                                                                        </span>
+                                                                        {
+                                                                            ev.name
+                                                                        }
                                                                     </Link>
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    title={t(
-                                                                        'Edit event',
+                                                                    <div className="flex flex-wrap gap-1.5">
+                                                                        {ev.discipline ? (
+                                                                            <span
+                                                                                className={eventBadgeClass(
+                                                                                    'detail',
+                                                                                )}
+                                                                            >
+                                                                                {
+                                                                                    ev.discipline
+                                                                                }
+                                                                            </span>
+                                                                        ) : null}
+                                                                        {ev.weight_category ? (
+                                                                            <span
+                                                                                className={eventBadgeClass(
+                                                                                    'detail',
+                                                                                )}
+                                                                            >
+                                                                                {
+                                                                                    ev.weight_category
+                                                                                }
+                                                                            </span>
+                                                                        ) : null}
+                                                                        {!ev.discipline &&
+                                                                        !ev.weight_category ? (
+                                                                            <span className="text-xs text-muted-foreground">
+                                                                                —
+                                                                            </span>
+                                                                        ) : null}
+                                                                    </div>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {ev.sport ? (
+                                                                    <span
+                                                                        className={eventBadgeClass(
+                                                                            'sport',
+                                                                        )}
+                                                                    >
+                                                                        <Dumbbell className="h-3.5 w-3.5" />
+                                                                        {
+                                                                            ev
+                                                                                .sport
+                                                                                .name
+                                                                        }
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-xs text-muted-foreground">
+                                                                        —
+                                                                    </span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <span
+                                                                    className={eventBadgeClass(
+                                                                        'class',
                                                                     )}
-                                                                    onClick={() =>
-                                                                        setEditingEvent(
-                                                                            ev,
-                                                                        )
-                                                                    }
                                                                 >
-                                                                    <Pencil className="h-4 w-4 text-amber-600" />
-                                                                    <span className="sr-only">
-                                                                        {t(
+                                                                    {t(
+                                                                        ev.gender_class,
+                                                                    )}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                <span
+                                                                    className={eventBadgeClass(
+                                                                        'count',
+                                                                    )}
+                                                                >
+                                                                    <Users className="h-3.5 w-3.5" />
+                                                                    {
+                                                                        ev.participations_count
+                                                                    }
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell className="sticky right-0 z-10 w-0 bg-card">
+                                                                <div className="flex items-center justify-end gap-1">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        title={t(
+                                                                            'View',
+                                                                        )}
+                                                                        asChild
+                                                                    >
+                                                                        <Link
+                                                                            href={showEvent.url(
+                                                                                {
+                                                                                    tournament:
+                                                                                        tournament.id,
+                                                                                    event: ev.id,
+                                                                                },
+                                                                            )}
+                                                                        >
+                                                                            <Eye className="h-4 w-4 text-sky-600" />
+                                                                            <span className="sr-only">
+                                                                                {t(
+                                                                                    'View',
+                                                                                )}
+                                                                            </span>
+                                                                        </Link>
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        title={t(
                                                                             'Edit event',
                                                                         )}
-                                                                    </span>
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                    title={t(
-                                                                        'Delete event',
-                                                                    )}
-                                                                    onClick={() =>
-                                                                        setDeletingEvent(
-                                                                            ev,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                    <span className="sr-only">
-                                                                        {t(
+                                                                        onClick={() =>
+                                                                            setEditingEvent(
+                                                                                ev,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Pencil className="h-4 w-4 text-amber-600" />
+                                                                        <span className="sr-only">
+                                                                            {t(
+                                                                                'Edit event',
+                                                                            )}
+                                                                        </span>
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                        title={t(
                                                                             'Delete event',
                                                                         )}
-                                                                    </span>
-                                                                </Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
+                                                                        onClick={() =>
+                                                                            setDeletingEvent(
+                                                                                ev,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                        <span className="sr-only">
+                                                                            {t(
+                                                                                'Delete event',
+                                                                            )}
+                                                                        </span>
+                                                                    </Button>
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ),
+                                                )}
                                             </>
                                         )}
                                     </TableBody>
