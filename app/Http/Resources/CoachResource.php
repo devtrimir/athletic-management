@@ -19,18 +19,106 @@ class CoachResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'full_name_hi' => $this->full_name_hi,
-            'full_name_en' => $this->full_name_en,
+            'full_name' => $this->full_name,
+            'display_name' => $this->display_name,
+            'designation' => $this->designation,
+            'blood_group' => $this->blood_group,
+            'email' => $this->email,
+            'gender' => $this->gender,
+            'date_of_birth' => $this->date_of_birth?->toDateString(),
+            'coach_status' => $this->coach_status,
+            'bio' => $this->bio,
+            'address' => $this->address,
+            'photo_path' => $this->photo_path,
             'pno' => $this->pno,
             'mobile' => $this->mobile,
             'nis_certified' => $this->nis_certified,
+            'district_id' => $this->district_id,
+            'unit_id' => $this->unit_id,
+            'district' => $this->whenLoaded('district', fn () => [
+                'id' => $this->district->id,
+                'name' => $this->district->name,
+            ]),
+            'unit' => $this->whenLoaded('unit', fn () => [
+                'id' => $this->unit->id,
+                'name' => $this->unit->name,
+            ]),
+            'nis_master_id' => $this->nis_master_id,
+            'tier_master_id' => $this->tier_master_id,
+            'rank_master_id' => $this->rank_master_id,
+            'designation_master_id' => $this->designation_master_id,
+            'profile_status_badge' => $this->profile_status_badge,
             'member' => $this->whenLoaded('member', fn () => [
                 'id' => $this->member->id,
                 'member_code' => $this->member->member_code,
-                'full_name_hi' => $this->member->full_name_hi,
+                'full_name' => $this->member->full_name,
                 'pno' => $this->member->pno,
                 'rank' => $this->member->rank,
+                'mobile' => $this->member->mobile,
             ]),
+            'aliases' => $this->whenLoaded('aliases', fn () => $this->aliases
+                ->map(fn ($alias) => [
+                    'id' => $alias->id,
+                    'alias' => $alias->alias,
+                    'source' => $alias->source,
+                ])
+                ->values()),
+            'status_history' => $this->whenLoaded('statusHistory', fn () => $this->statusHistory
+                ->map(fn ($history) => [
+                    'id' => $history->id,
+                    'status' => $history->status,
+                    'effective_on' => $history->effective_on->toDateString(),
+                    'reason' => $history->reason,
+                    'recorded_by_name' => $history->recorder?->name,
+                ])
+                ->values()),
+            'certifications' => $this->whenLoaded('certifications', fn () => $this->certifications
+                ->map(fn ($cert) => [
+                    'id' => $cert->id,
+                    'name' => $cert->name,
+                    'certificate_type' => $cert->certificate_type,
+                    'issuer' => $cert->issuer,
+                    'issued_at' => $cert->issued_at?->toDateString(),
+                    'expired_at' => $cert->expired_at?->toDateString(),
+                    'attachment_path' => $cert->attachment_path,
+                    'metadata' => $cert->metadata,
+                ])
+                ->values()),
+            'sports' => $this->whenLoaded('sports', fn () => $this->sports
+                ->map(fn ($sport) => [
+                    'id' => $sport->id,
+                    'name' => $sport->name,
+                    'is_primary' => (bool) $sport->pivot?->is_primary,
+                    'level_master_id' => $sport->pivot?->level_master_id,
+                    'level' => $sport->pivot?->level,
+                    'sport_event' => $sport->pivot?->sport_event,
+                    'effective_from' => $sport->pivot?->effective_from?->toDateString(),
+                    'effective_to' => $sport->pivot?->effective_to?->toDateString(),
+                    'notes' => $sport->pivot?->notes,
+                ])
+                ->values()),
+            'assignment_history' => $this->whenLoaded('assignmentHistory', fn () => $this->assignmentHistory
+                ->map(fn ($assignment) => [
+                    'id' => $assignment->id,
+                    'role' => $assignment->role,
+                    'is_current' => (bool) $assignment->is_current,
+                    'assigned_at' => $assignment->assigned_at?->toDateTimeString(),
+                    'removed_at' => $assignment->removed_at?->toDateTimeString(),
+                    'notes' => $assignment->notes,
+                    'team' => $assignment->team ? [
+                        'id' => $assignment->team->id,
+                        'name' => $assignment->team->name,
+                    ] : null,
+                    'sport' => $assignment->team && $assignment->team->sport ? [
+                        'id' => $assignment->team->sport->id,
+                        'name' => $assignment->team->sport->name,
+                    ] : null,
+                    'session' => $assignment->session ? [
+                        'id' => $assignment->session->id,
+                        'name' => $assignment->session->name,
+                    ] : null,
+                ])
+                ->values()),
         ];
     }
 }

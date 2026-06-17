@@ -9,7 +9,7 @@ uses(RefreshDatabase::class);
 
 test('units table has expected columns', function (): void {
     expect(Schema::hasColumns('units', [
-        'id', 'organization_id', 'name_hi', 'name_en',
+        'id', 'organization_id', 'name', 'name',
         'unit_type', 'commandant', 'district_id',
         'created_at', 'updated_at',
     ]))->toBeTrue();
@@ -18,7 +18,7 @@ test('units table has expected columns', function (): void {
 test('unit factory creates a record with correct attributes', function (): void {
     $unit = Unit::factory()->create();
 
-    expect($unit->name_hi)->toBeString()->not->toBeEmpty()
+    expect($unit->name)->toBeString()->not->toBeEmpty()
         ->and($unit->unit_type)->toBeIn(['PAC', 'GRP', 'DISTRICT', 'HQ', 'OTHER'])
         ->and($unit->commandant)->toBeNull()
         ->and($unit->district_id)->toBeNull();

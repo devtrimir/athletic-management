@@ -24,7 +24,7 @@ class MemberStatusHistoryFactory extends Factory
             'member_id' => Member::factory(),
             'status' => fake()->randomElement(['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED']),
             'effective_on' => fake()->dateTimeBetween('-5 years', 'now'),
-            'reason_hi' => fake()->optional(0.6)->sentence(),
+            'reason' => fake()->optional(0.6)->sentence(),
             'recorded_by' => null,
         ];
     }

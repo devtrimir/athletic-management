@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exports\ReportExport;
+use App\Models\CoachAssignment;
 use App\Models\SportSession;
 use App\Models\Team;
+use App\Models\TeamMember;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -18,13 +23,65 @@ class TeamExportController extends Controller
 {
     /** @var array<string, string> */
     private const COLUMN_LABELS = [
-        'name_hi' => 'Team Name (Hindi)',
+        'serial_no' => 'S.No.',
+        'name' => 'Team Name',
         'session' => 'Session',
         'sport' => 'Sport',
+        'posting' => 'Posting / District',
+        'location_type' => 'Location Type',
+        'district' => 'District',
         'unit' => 'Unit',
-        'in_charge_hi' => 'In-Charge',
+        'is_active' => 'Status',
+        'in_charge' => 'In-Charge',
+        'incharge_pno' => 'In-Charge PNO',
+        'incharge_rank' => 'In-Charge Rank',
+        'incharge_designation' => 'In-Charge Designation',
+        'incharge_mobile' => 'In-Charge Mobile',
+        'incharge_email' => 'In-Charge Email',
+        'incharge_assigned_at' => 'In-Charge Assigned On',
         'players_count' => 'Players',
+        'male_players_count' => 'Male Players',
+        'female_players_count' => 'Female Players',
+        'captains_count' => 'Captains',
+        'reserves_count' => 'Reserves',
         'coaches_count' => 'Coaches',
+    ];
+
+    /** @var array<string, string> */
+    private const MEMBER_COLUMN_LABELS = [
+        'member_code' => 'Member Code',
+        'member_pno' => 'Member PNO',
+        'member_name' => 'Member Name',
+        'member_father_name' => "Father's Name",
+        'member_gender' => 'Gender',
+        'member_rank' => 'Member Rank',
+        'member_designation' => 'Member Designation',
+        'member_mobile' => 'Member Mobile',
+        'member_team_role' => 'Team Role',
+        'member_team_session' => 'Team Session',
+        'member_joined_on' => 'Joined On',
+        'member_left_on' => 'Left On',
+        'member_category' => 'Category',
+        'member_level' => 'Level',
+        'member_status' => 'Member Status',
+        'member_current_unit' => 'Current Unit',
+        'member_posting_district' => 'Posting District',
+    ];
+
+    /** @var array<string, string> */
+    private const COACH_COLUMN_LABELS = [
+        'coach_name' => 'Coach Name',
+        'coach_pno' => 'Coach PNO',
+        'coach_mobile' => 'Coach Mobile',
+        'nis_certified' => 'NIS Certified',
+        'coach_role' => 'Coach Role',
+        'coach_session' => 'Coach Session',
+    ];
+
+    /** @var array<string, string> */
+    private const ROSTER_COLUMN_LABELS = [
+        'roster_type' => 'Roster Type',
+        'roster_no' => 'Roster S.No.',
     ];
 
     public function index(Request $request): BinaryFileResponse
@@ -36,6 +93,18 @@ class TeamExportController extends Controller
         $defaultSessionId = SportSession::where('organization_id', $orgId)
             ->where('is_current', true)
             ->value('id');
+        /** @var int|null $resolvedSessionId */
+        $sessionFilterBucket = $request->query('filter');
+        $sessionFilterRaw = is_array($sessionFilterBucket)
+            ? $sessionFilterBucket['session_id'] ?? null
+            : $request->query('filter.session_id');
+
+        if ($sessionFilterRaw !== null) {
+            $sessionFilterValue = (int) $sessionFilterRaw;
+            $resolvedSessionId = $sessionFilterValue > 0 ? (int) $sessionFilterValue : $defaultSessionId;
+        } else {
+            $resolvedSessionId = null;
+        }
 
         /** @var array<int, string> $columns */
         $columns = $request->query('columns', array_keys(self::COLUMN_LABELS));
@@ -45,22 +114,29 @@ class TeamExportController extends Controller
 
         if (! empty($ids)) {
             $teams = Team::whereIn('id', array_map('intval', $ids))
-                ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-                ->with(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])
-                ->orderBy('name_hi')
+                ->withCount($this->teamCountColumns($resolvedSessionId))
+                ->with($this->teamExportRelations($resolvedSessionId))
+                ->orderBy('name')
                 ->get();
         } else {
             $teams = QueryBuilder::for(Team::class)
                 ->allowedFilters([
                     AllowedFilter::exact('session_id'),
                     AllowedFilter::exact('sport_id'),
+                    AllowedFilter::exact('district_id'),
                     AllowedFilter::exact('unit_id'),
-                    AllowedFilter::partial('q', 'name_hi'),
+                    AllowedFilter::exact('location_type'),
+                    AllowedFilter::exact('is_active'),
+                    AllowedFilter::partial('q', 'name'),
                 ])
-                ->allowedSorts(['name_hi', 'created_at'])
-                ->defaultSort('name_hi')
-                ->withCount(['teamMembers as players_count', 'coachAssignments as coaches_count'])
-                ->with(['sport:id,name_hi,name_en', 'session:id,name', 'unit:id,name_hi'])
+                ->allowedSorts(['name', 'created_at'])
+                ->defaultSort('name')
+                ->withCount($this->teamCountColumns($resolvedSessionId))
+                ->with($this->teamExportRelations($resolvedSessionId))
+                ->when(
+                    ! $request->has('filter.is_active'),
+                    fn ($q) => $q->where('is_active', true)
+                )
                 ->when(
                     ! $request->has('filter.session_id') && $defaultSessionId,
                     fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -68,26 +144,376 @@ class TeamExportController extends Controller
                 ->get();
         }
 
-        $validColumns = array_intersect($columns, array_keys(self::COLUMN_LABELS));
-        $headings = array_map(fn (string $col) => self::COLUMN_LABELS[$col], $validColumns);
+        $validColumns = array_values(array_intersect($columns, array_keys(self::COLUMN_LABELS)));
 
-        $rows = $teams->map(function (Team $team) use ($validColumns) {
-            $row = [];
-            foreach ($validColumns as $col) {
-                $row[$col] = match ($col) {
-                    'session' => $team->session?->name,
-                    'sport' => $team->sport?->name_hi,
-                    'unit' => $team->unit?->name_hi,
-                    default => $team->{$col},
-                };
-            }
+        if ($validColumns === []) {
+            $validColumns = array_keys(self::COLUMN_LABELS);
+        }
 
-            return $row;
-        });
+        $headings = [
+            ...array_map(fn (string $col): string => $this->translateText(self::COLUMN_LABELS[$col]), $validColumns),
+            ...$this->translatedLabels(self::ROSTER_COLUMN_LABELS),
+            ...$this->translatedLabels(self::MEMBER_COLUMN_LABELS),
+            ...$this->translatedLabels(self::COACH_COLUMN_LABELS),
+        ];
+
+        [$rows, $mergeRanges] = $this->buildRowsAndMerges($teams->values(), $validColumns);
 
         return Excel::download(
-            new ReportExport($rows, array_values($headings), 'Teams'),
+            new ReportExport($rows, array_values($headings), 'Teams', $mergeRanges),
             'teams-'.now()->format('Y-m-d').'.xlsx',
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function teamCountColumns(?int $sessionId = null): array
+    {
+        return [
+            'teamMembers as players_count' => fn ($query) => $query
+                ->when(
+                    $sessionId !== null,
+                    fn ($q) => $q->where('session_id', $sessionId),
+                )
+                ->whereNull('left_on'),
+            'teamMembers as male_players_count' => fn ($query) => $query->whereHas(
+                'member',
+                fn ($memberQuery) => $memberQuery->where('gender', 'M')
+            )
+                ->when(
+                    $sessionId !== null,
+                    fn ($q) => $q->where('session_id', $sessionId),
+                )
+                ->whereNull('left_on'),
+            'teamMembers as female_players_count' => fn ($query) => $query->whereHas(
+                'member',
+                fn ($memberQuery) => $memberQuery->where('gender', 'F')
+            )
+                ->when(
+                    $sessionId !== null,
+                    fn ($q) => $q->where('session_id', $sessionId),
+                )
+                ->whereNull('left_on'),
+            'teamMembers as captains_count' => fn ($query) => $query
+                ->when(
+                    $sessionId !== null,
+                    fn ($q) => $q->where('session_id', $sessionId),
+                )
+                ->whereNull('left_on')
+                ->where('role', 'CAPTAIN'),
+            'teamMembers as reserves_count' => fn ($query) => $query
+                ->when(
+                    $sessionId !== null,
+                    fn ($q) => $q->where('session_id', $sessionId),
+                )
+                ->whereNull('left_on')
+                ->where('role', 'RESERVE'),
+            'coachAssignments as coaches_count' => fn ($query) => $query->when(
+                $sessionId !== null,
+                fn ($q) => $q->where('session_id', $sessionId),
+            ),
+        ];
+    }
+
+    /**
+     * @return array<int|string, mixed>
+     */
+    private function teamExportRelations(?int $sessionId = null): array
+    {
+        return [
+            'sport:id,name',
+            'session:id,name',
+            'district:id,name',
+            'unit:id,name,district_id',
+            'currentInchargeAssignment',
+            'teamMembers' => fn ($query) => $query
+                ->when(
+                    $sessionId !== null,
+                    fn ($q) => $q->where('session_id', $sessionId),
+                )
+                ->with([
+                    'member:id,member_code,pno,full_name,father_name,gender,rank,designation,mobile,player_category,player_level,current_status,current_unit_id,posting_district_id',
+                    'member.currentUnit:id,name',
+                    'member.postingDistrict:id,name',
+                    'session:id,name',
+                ])
+                ->orderBy('id'),
+            'coachAssignments' => fn ($query) => $query
+                ->when(
+                    $sessionId !== null,
+                    fn ($q) => $q->where('session_id', $sessionId),
+                )
+                ->with([
+                    'coach:id,full_name,pno,mobile,nis_certified',
+                    'session:id,name',
+                ])
+                ->orderBy('id'),
+        ];
+    }
+
+    private function teamColumnValue(Team $team, string $column, int $serialNumber): mixed
+    {
+        return match ($column) {
+            'serial_no' => $serialNumber,
+            'session' => $team->session?->name,
+            'sport' => $team->sport?->name,
+            'posting' => $team->location_label,
+            'location_type' => $this->translateText($team->location_type === 'unit' ? 'Unit' : 'District'),
+            'district' => $team->district?->name,
+            'unit' => $team->unit?->name,
+            'is_active' => $this->translateText($team->is_active ? 'Active' : 'Inactive'),
+            'in_charge' => $team->currentInchargeAssignment?->full_name ?? $team->in_charge,
+            'incharge_pno' => $team->currentInchargeAssignment?->pno,
+            'incharge_rank' => $team->currentInchargeAssignment?->rank,
+            'incharge_designation' => $team->currentInchargeAssignment?->designation,
+            'incharge_mobile' => $team->currentInchargeAssignment?->mobile,
+            'incharge_email' => $team->currentInchargeAssignment?->email,
+            'incharge_assigned_at' => $this->formatDate($team->currentInchargeAssignment?->assigned_at),
+            default => $team->getAttribute($column),
+        };
+    }
+
+    /**
+     * @param  Collection<int, Team>  $teams
+     * @param  array<int, string>  $validColumns
+     * @return array{0: Collection<int, array<string, mixed>>, 1: array<int, string>}
+     */
+    private function buildRowsAndMerges(Collection $teams, array $validColumns): array
+    {
+        $rows = collect();
+        $mergeRanges = [];
+        $worksheetRow = 2;
+
+        foreach ($teams as $index => $team) {
+            $teamRows = $this->teamRosterRows($team, $validColumns, $index + 1);
+            $rowCount = count($teamRows);
+
+            foreach ($teamRows as $teamRow) {
+                $rows->push($teamRow);
+            }
+
+            if ($rowCount > 1) {
+                $mergeRanges = [
+                    ...$mergeRanges,
+                    ...$this->teamMergeRanges($worksheetRow, $worksheetRow + $rowCount - 1, count($validColumns)),
+                ];
+            }
+
+            $worksheetRow += $rowCount;
+        }
+
+        return [$rows, $mergeRanges];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function teamMergeRanges(int $startRow, int $endRow, int $teamColumnCount): array
+    {
+        $ranges = [];
+
+        for ($column = 1; $column <= $teamColumnCount; $column++) {
+            $letter = Coordinate::stringFromColumnIndex($column);
+            $ranges[] = "{$letter}{$startRow}:{$letter}{$endRow}";
+        }
+
+        return $ranges;
+    }
+
+    /**
+     * @param  array<int, string>  $validColumns
+     * @return array<int, array<string, mixed>>
+     */
+    private function teamRosterRows(Team $team, array $validColumns, int $serialNumber): array
+    {
+        $teamValues = $this->teamRowValues($team, $validColumns, $serialNumber);
+        $emptyTeamValues = $this->emptyTeamRowValues($validColumns);
+        $rows = [];
+        $rosterNumber = 1;
+
+        foreach ($team->teamMembers as $teamMember) {
+            $rows[] = array_merge(
+                $rows === [] ? $teamValues : $emptyTeamValues,
+                [
+                    'roster_type' => $this->translateText('Member'),
+                    'roster_no' => $rosterNumber,
+                ],
+                $this->memberRowValues($teamMember),
+                $this->emptyCoachRowValues(),
+            );
+
+            $rosterNumber++;
+        }
+
+        foreach ($team->coachAssignments as $coachAssignment) {
+            $rows[] = array_merge(
+                $rows === [] ? $teamValues : $emptyTeamValues,
+                [
+                    'roster_type' => $this->translateText('Coach'),
+                    'roster_no' => $rosterNumber,
+                ],
+                $this->emptyMemberRowValues(),
+                $this->coachRowValues($coachAssignment),
+            );
+
+            $rosterNumber++;
+        }
+
+        if ($rows === []) {
+            return [
+                array_merge(
+                    $teamValues,
+                    [
+                        'roster_type' => null,
+                        'roster_no' => null,
+                    ],
+                    $this->emptyMemberRowValues(),
+                    $this->emptyCoachRowValues(),
+                ),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<int, string>  $validColumns
+     * @return array<string, mixed>
+     */
+    private function teamRowValues(Team $team, array $validColumns, int $serialNumber): array
+    {
+        $row = [];
+
+        foreach ($validColumns as $col) {
+            $row[$col] = $this->teamColumnValue($team, $col, $serialNumber);
+        }
+
+        return $row;
+    }
+
+    /**
+     * @param  array<int, string>  $validColumns
+     * @return array<string, mixed>
+     */
+    private function emptyTeamRowValues(array $validColumns): array
+    {
+        return array_fill_keys($validColumns, null);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function memberRowValues(TeamMember $teamMember): array
+    {
+        if ($teamMember->member === null) {
+            return $this->emptyMemberRowValues();
+        }
+
+        $member = $teamMember->member;
+
+        return [
+            'member_code' => $member->member_code,
+            'member_pno' => $member->pno,
+            'member_name' => $member->full_name,
+            'member_father_name' => $member->father_name,
+            'member_gender' => $this->genderLabel($member->gender),
+            'member_rank' => $member->rank,
+            'member_designation' => $member->designation,
+            'member_mobile' => $member->mobile,
+            'member_team_role' => $this->translatedValue($teamMember->role),
+            'member_team_session' => $teamMember->session?->name,
+            'member_joined_on' => $this->formatDate($teamMember->joined_on),
+            'member_left_on' => $this->formatDate($teamMember->left_on),
+            'member_category' => $this->translatedValue($member->player_category),
+            'member_level' => $this->translatedValue($member->player_level),
+            'member_status' => $this->translatedValue($member->current_status),
+            'member_current_unit' => $member->currentUnit?->name,
+            'member_posting_district' => $member->postingDistrict?->name,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function coachRowValues(CoachAssignment $coachAssignment): array
+    {
+        if ($coachAssignment->coach === null) {
+            return $this->emptyCoachRowValues();
+        }
+
+        $coach = $coachAssignment->coach;
+
+        return [
+            'coach_name' => $coach->full_name,
+            'coach_pno' => $coach->pno,
+            'coach_mobile' => $coach->mobile,
+            'nis_certified' => $this->translateText($coach->nis_certified ? 'Yes' : 'No'),
+            'coach_role' => $this->translatedValue($coachAssignment->role),
+            'coach_session' => $coachAssignment->session?->name,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyMemberRowValues(): array
+    {
+        return array_fill_keys(array_keys(self::MEMBER_COLUMN_LABELS), null);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyCoachRowValues(): array
+    {
+        return array_fill_keys(array_keys(self::COACH_COLUMN_LABELS), null);
+    }
+
+    private function formatDate(?CarbonInterface $value): ?string
+    {
+        return $value?->format('d M Y');
+    }
+
+    /**
+     * @param  array<string, string>  $labels
+     * @return array<int, string>
+     */
+    private function translatedLabels(array $labels): array
+    {
+        return array_map(
+            fn (string $label): string => $this->translateText($label),
+            array_values($labels),
+        );
+    }
+
+    private function genderLabel(?string $gender): ?string
+    {
+        if ($gender === null || trim($gender) === '') {
+            return null;
+        }
+
+        return match (strtoupper($gender)) {
+            'M', 'MALE' => $this->translateText('Male'),
+            'F', 'FEMALE' => $this->translateText('Female'),
+            'O', 'OTHER' => $this->translateText('Other'),
+            default => $this->translatedValue($gender),
+        };
+    }
+
+    private function translatedValue(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return $value;
+        }
+
+        return $this->translateText($value);
+    }
+
+    private function translateText(string $value): string
+    {
+        $translated = __($value);
+
+        return is_string($translated) ? $translated : $value;
     }
 }

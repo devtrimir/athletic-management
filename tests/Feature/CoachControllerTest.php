@@ -133,7 +133,7 @@ test('user with coaches.create sees create form', function () {
 
 test('user without coaches.create gets 403 on store', function () {
     $this->actingAs(coachUser())
-        ->post(route('coaches.store'), ['full_name_hi' => 'राम'])
+        ->post(route('coaches.store'), ['full_name' => 'राम'])
         ->assertForbidden();
 });
 
@@ -142,13 +142,13 @@ test('store creates a standalone coach', function () {
 
     $this->actingAs($user)
         ->post(route('coaches.store'), [
-            'full_name_hi' => 'राम प्रसाद',
+            'full_name' => 'राम प्रसाद',
             'nis_certified' => false,
         ])
         ->assertRedirect();
 
     $this->assertDatabaseHas('coaches', [
-        'full_name_hi' => 'राम प्रसाद',
+        'full_name' => 'राम प्रसाद',
         'member_id' => null,
         'organization_id' => $user->organization_id,
     ]);
@@ -160,23 +160,23 @@ test('store creates a linked coach', function () {
 
     $this->actingAs($user)
         ->post(route('coaches.store'), [
-            'full_name_hi' => 'राम प्रसाद',
+            'full_name' => 'राम प्रसाद',
             'nis_certified' => false,
             'member_id' => $member->id,
         ])
         ->assertRedirect();
 
     $this->assertDatabaseHas('coaches', [
-        'full_name_hi' => 'राम प्रसाद',
+        'full_name' => 'राम प्रसाद',
         'member_id' => $member->id,
         'organization_id' => $user->organization_id,
     ]);
 });
 
-test('store requires full_name_hi', function () {
+test('store requires full_name', function () {
     $this->actingAs(coachUser('coaches.create'))
         ->post(route('coaches.store'), [])
-        ->assertSessionHasErrors('full_name_hi');
+        ->assertSessionHasErrors('full_name');
 });
 
 test('store rejects duplicate pno within the same org', function () {
@@ -185,7 +185,7 @@ test('store rejects duplicate pno within the same org', function () {
 
     $this->actingAs($user)
         ->post(route('coaches.store'), [
-            'full_name_hi' => 'राम',
+            'full_name' => 'राम',
             'pno' => '1234567890',
         ])
         ->assertSessionHasErrors('pno');
@@ -217,8 +217,7 @@ test('show returns coach resource in Inertia props', function () {
             ->component('coaches/show')
             ->has('coach', fn ($c) => $c
                 ->has('id')
-                ->has('full_name_hi')
-                ->has('full_name_en')
+                ->has('full_name')
                 ->has('pno')
                 ->has('mobile')
                 ->has('nis_certified')
@@ -227,16 +226,55 @@ test('show returns coach resource in Inertia props', function () {
         );
 });
 
-test('show deferred member prop is absent from initial response', function () {
+test('show returns linked member data with coach in initial payload', function () {
     $user = coachUser('coaches.view');
-    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id, 'rank' => 'INS', 'mobile' => '9000000000']);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'full_name' => 'Coach Example',
+    ]);
 
     $this->actingAs($user)
         ->get(route('coaches.show', $coach))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('coaches/show')
-            ->missing('member')
+            ->has('coach.member', fn ($payload) => $payload
+                ->where('id', $member->id)
+                ->where('full_name', $member->full_name)
+                ->where('rank', 'INS')
+                ->where('mobile', '9000000000')
+                ->etc()
+            )
+        );
+});
+
+test('index includes linked-member details in each row', function () {
+    $user = coachUser('coaches.view');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_code' => 'M100',
+        'pno' => '1001',
+        'rank' => 'INS',
+        'mobile' => '9999999999',
+    ]);
+    Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'full_name' => 'Coach Example',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/index')
+            ->where('coaches.data.0.full_name', 'Coach Example')
+            ->where('coaches.data.0.member.id', $member->id)
+            ->where('coaches.data.0.member.member_code', 'M100')
+            ->where('coaches.data.0.member.mobile', '9999999999')
+            ->where('coaches.data.0.member.rank', 'INS')
         );
 });
 
@@ -276,7 +314,7 @@ test('user without coaches.update gets 403 on update', function () {
     $user = coachUser();
     $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
     $this->actingAs($user)
-        ->patch(route('coaches.update', $coach), ['full_name_hi' => 'नया नाम'])
+        ->patch(route('coaches.update', $coach), ['full_name' => 'नया नाम'])
         ->assertForbidden();
 });
 
@@ -284,18 +322,18 @@ test('update persists changed fields and redirects', function () {
     $user = coachUser('coaches.update');
     $coach = Coach::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'पुराना नाम',
+        'full_name' => 'पुराना नाम',
         'nis_certified' => false,
     ]);
 
     $this->actingAs($user)
         ->patch(route('coaches.update', $coach), [
-            'full_name_hi' => 'नया नाम',
+            'full_name' => 'नया नाम',
             'nis_certified' => true,
         ])
         ->assertRedirect(route('coaches.show', $coach));
 
-    expect($coach->fresh()->full_name_hi)->toBe('नया नाम');
+    expect($coach->fresh()->full_name)->toBe('नया नाम');
     expect($coach->fresh()->nis_certified)->toBeTrue();
 });
 
@@ -325,23 +363,23 @@ test('destroy soft-deletes coach and redirects to index', function () {
 //         the linked member record
 // ---------------------------------------------------------------------------
 
-test('updating linked coach name does not mutate member full_name_hi', function () {
+test('updating linked coach name does not mutate member full_name', function () {
     $user = coachUser('coaches.update');
     $member = Member::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'मूल सदस्य नाम',
+        'full_name' => 'मूल सदस्य नाम',
     ]);
     $coach = Coach::factory()->create([
         'organization_id' => $user->organization_id,
         'member_id' => $member->id,
-        'full_name_hi' => 'मूल सदस्य नाम',
+        'full_name' => 'मूल सदस्य नाम',
     ]);
 
     $this->actingAs($user)
         ->patch(route('coaches.update', $coach), [
-            'full_name_hi' => 'बदला हुआ नाम',
+            'full_name' => 'बदला हुआ नाम',
         ]);
 
-    expect($member->fresh()->full_name_hi)->toBe('मूल सदस्य नाम');
-    expect($coach->fresh()->full_name_hi)->toBe('बदला हुआ नाम');
+    expect($member->fresh()->full_name)->toBe('मूल सदस्य नाम');
+    expect($coach->fresh()->full_name)->toBe('बदला हुआ नाम');
 });

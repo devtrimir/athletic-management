@@ -181,14 +181,14 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 ## Phase 4 — Teams, Team-Members, Coach-Assignments
 
 ### Schema
-- [x] **P4-T01** Migration: `teams` + unique composite + soft-delete
-- [x] **P4-T02** Migration: `team_members` + unique `(team_id, member_id)`
+- [x] **P4-T01** Migration: `teams` master table + soft-delete (team identity is now session-independent; `session_id` remains legacy compatibility)
+- [x] **P4-T02** Migration: `team_members` session roster rows + unique `(team_id, member_id, session_id)`
 - [x] **P4-T03** Migration: `coach_assignments` + unique `(team_id, coach_id, role)`
 
 ### Backend
 - [x] **P4-T04** `TeamPolicy`
 - [x] **P4-T05** Form Requests + `TeamController` (Inertia CRUD with embedded counts)
-- [x] **P4-T06** `TeamMemberController` (bulk add by IDs, remove)
+- [x] **P4-T06** `TeamMemberController` (strict add by IDs, audited remove, historical backfill)
 - [x] **P4-T07** `TeamCoachController` (add / remove)
 - [x] **P4-T08** API: `GET /api/v1/members/{member}/teams`, `GET /api/v1/coaches/{coach}/teams`
 
@@ -206,8 +206,10 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] **P4-T17** Teams export FE: bulk-select + Export dialog in `teams/index.tsx`
 
 ### UX Improvements — Team Show Page
-- [~] **P4-T18** Backend: fix `(member_id, session_id)` + `(coach_id, session_id)` unique constraints; cross-session validation in `TeamMemberController` + `TeamCoachController`; new `TeamCloneController` + `CloneTeamRequest`; bilingual error messages; Pest Feature tests
+- [~] **P4-T18** Backend: same-sport/session validation; stable-team carry-forward; `TeamCloneController` + `CloneTeamRequest`; movement tracking; bilingual error messages; Pest Feature tests
 - [ ] **P4-T19** Frontend: `AddMemberDialog`, `AddCoachDialog`, `CloneTeamDialog` components; inline filter pills on Players/Coaches tabs; `teams/show.tsx` refactor; keyboard shortcuts (⌘⇧M / ⌘⇧H / ⌘D); bilingual UI strings
+- [~] **P4-T20** Roster backfill backend: `TeamRosterService`, movement metadata, backfill preview/apply endpoints, audited removal request, historical member search mode, Pest coverage
+- [~] **P4-T21** Roster backfill frontend: Team Show audited remove modal, historical backfill dialog, removed-roster section, movement source/reason display, Wayfinder refresh
 
 ---
 
@@ -257,6 +259,20 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 
 ### PR 4 — Frontend: Member Media tab `feat/p5m-t04-member-media-tab`
 - [ ] **P5M-T04** New **"मीडिया"** tab in `Members/Show.tsx` — lazy-loaded via `useHttp`; accordion grouped by tournament → event; thumbnail grid per event; lightbox on click; download + delete actions; animated skeleton empty-state while loading — all strings via `t()`
+
+---
+
+## Phase 7N — Single Name Field Cleanup
+
+See [phases/P07N-name-field-cleanup.md](phases/P07N-name-field-cleanup.md) for the full breakdown.
+
+- [~] **P7N-T01** Phase docs + journal bootstrap
+- [ ] **P7N-T02** Core schema migration for neutral domain names
+- [ ] **P7N-T03** Backend models, requests, resources, controllers, and API payloads
+- [ ] **P7N-T04** Seeders, factories, and master data CSV cleanup
+- [ ] **P7N-T05** Reports, exports, and search cleanup
+- [ ] **P7N-T06** React/Inertia frontend neutral-name field cleanup
+- [ ] **P7N-T07** Final compatibility removal and verification sweep
 
 ### PR 5 — Tests `feat/p5m-t05-tests`
 - [ ] **P5M-T05** Pest Feature: upload happy path (jpeg/png/webp), type rejection (PDF → 422), size rejection (> 10 MB → 422), max-count rejection (> 20 → 422), cross-org 403, `media:delete` gating (viewer → 403), media retrieval grouped by member endpoint

@@ -22,12 +22,11 @@ class StoreSportRequest extends FormRequest
         $orgId = (int) $this->user()->organization_id;
 
         return [
-            'name_hi' => ['required', 'string', 'max:100'],
-            'name_en' => [
+            'name' => [
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('sports', 'name_en')->where('organization_id', $orgId),
+                Rule::unique('sports', 'name')->where('organization_id', $orgId),
             ],
             'category' => ['required', 'string', Rule::in(['INDIVIDUAL', 'TEAM', 'COMBAT', 'WATER'])],
         ];

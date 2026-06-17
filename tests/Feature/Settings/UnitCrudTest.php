@@ -62,13 +62,13 @@ test('create page redirects guest', function (): void {
 test('store creates unit and redirects', function (): void {
     $this->actingAs($this->admin)
         ->post(route('units.store'), [
-            'name_hi' => 'प्रथम वाहिनी पीएसी',
-            'name_en' => '1st Battalion PAC',
+            'name' => 'प्रथम वाहिनी पीएसी',
+            'name' => '1st Battalion PAC',
             'unit_type' => 'PAC',
         ])
         ->assertRedirect(route('units.index'));
 
-    expect(Unit::where('name_en', '1st Battalion PAC')
+    expect(Unit::where('name', '1st Battalion PAC')
         ->where('organization_id', $this->org->id)
         ->exists())->toBeTrue();
 });
@@ -78,15 +78,15 @@ test('store creates unit with district', function (): void {
 
     $this->actingAs($this->admin)
         ->post(route('units.store'), [
-            'name_hi' => 'जिला पुलिस',
-            'name_en' => 'District Police',
+            'name' => 'जिला पुलिस',
+            'name' => 'District Police',
             'unit_type' => 'DISTRICT',
             'commandant' => 'SP Singh',
             'district_id' => $district->id,
         ])
         ->assertRedirect(route('units.index'));
 
-    $unit = Unit::where('name_en', 'District Police')->first();
+    $unit = Unit::where('name', 'District Police')->first();
     expect($unit->district_id)->toBe($district->id);
     expect($unit->commandant)->toBe('SP Singh');
 });
@@ -94,14 +94,14 @@ test('store creates unit with district', function (): void {
 test('store validates required fields', function (): void {
     $this->actingAs($this->admin)
         ->post(route('units.store'), [])
-        ->assertSessionHasErrors(['name_hi', 'name_en', 'unit_type']);
+        ->assertSessionHasErrors(['name', 'name', 'unit_type']);
 });
 
 test('store validates unit_type enum', function (): void {
     $this->actingAs($this->admin)
         ->post(route('units.store'), [
-            'name_hi' => 'टेस्ट',
-            'name_en' => 'Test',
+            'name' => 'टेस्ट',
+            'name' => 'Test',
             'unit_type' => 'INVALID',
         ])
         ->assertSessionHasErrors(['unit_type']);
@@ -110,8 +110,8 @@ test('store validates unit_type enum', function (): void {
 test('store validates district_id exists', function (): void {
     $this->actingAs($this->admin)
         ->post(route('units.store'), [
-            'name_hi' => 'टेस्ट',
-            'name_en' => 'Test',
+            'name' => 'टेस्ट',
+            'name' => 'Test',
             'unit_type' => 'PAC',
             'district_id' => 99999,
         ])
@@ -126,8 +126,8 @@ test('store returns 403 for user without permission', function (): void {
 
     $this->actingAs($user)
         ->post(route('units.store'), [
-            'name_hi' => 'प्रथम वाहिनी',
-            'name_en' => '1st Battalion',
+            'name' => 'प्रथम वाहिनी',
+            'name' => '1st Battalion',
             'unit_type' => 'PAC',
         ])
         ->assertForbidden();
@@ -156,19 +156,19 @@ test('edit page redirects guest', function (): void {
 test('update saves changes and redirects', function (): void {
     $unit = Unit::factory()->create([
         'organization_id' => $this->org->id,
-        'name_en' => '1st Battalion',
+        'name' => '1st Battalion',
         'unit_type' => 'PAC',
     ]);
 
     $this->actingAs($this->admin)
         ->patch(route('units.update', $unit), [
-            'name_hi' => 'प्रथम वाहिनी',
-            'name_en' => '1st Battalion Updated',
+            'name' => 'प्रथम वाहिनी',
+            'name' => '1st Battalion Updated',
             'unit_type' => 'HQ',
         ])
         ->assertRedirect(route('units.index'));
 
-    expect($unit->refresh()->name_en)->toBe('1st Battalion Updated');
+    expect($unit->refresh()->name)->toBe('1st Battalion Updated');
     expect($unit->refresh()->unit_type)->toBe('HQ');
 });
 
@@ -177,7 +177,7 @@ test('update validates required fields', function (): void {
 
     $this->actingAs($this->admin)
         ->patch(route('units.update', $unit), [])
-        ->assertSessionHasErrors(['name_hi', 'name_en', 'unit_type']);
+        ->assertSessionHasErrors(['name', 'name', 'unit_type']);
 });
 
 test('update returns 404 for unit in another org', function (): void {
@@ -192,8 +192,8 @@ test('update returns 404 for unit in another org', function (): void {
 
     $this->actingAs($user)
         ->patch(route('units.update', $unit), [
-            'name_hi' => 'टेस्ट',
-            'name_en' => 'Test',
+            'name' => 'टेस्ट',
+            'name' => 'Test',
             'unit_type' => 'PAC',
         ])
         ->assertNotFound();

@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Storage;
  * @property string $original_name
  * @property string $mime_type
  * @property int $size_bytes
- * @property string|null $caption_hi
+ * @property string|null $caption
  * @property int $uploaded_by
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -43,7 +43,7 @@ use Illuminate\Support\Facades\Storage;
     'original_name',
     'mime_type',
     'size_bytes',
-    'caption_hi',
+    'caption',
     'uploaded_by',
 ])]
 #[ObservedBy([AuditObserver::class])]

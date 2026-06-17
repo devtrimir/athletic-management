@@ -12,9 +12,8 @@ import { useTranslation } from '@/hooks/use-translation';
 type Rank = {
     id: number;
     code: string;
-    name_en: string;
+    name: string;
     short_name: string | null;
-    name_hi: string | null;
     rank_order: number;
     cadre_type: string | null;
     is_gazetted: boolean;
@@ -34,7 +33,7 @@ export default function Index({ ranks }: { ranks: Rank[] }) {
                 return true;
             }
 
-            return [rank.code, rank.name_en, rank.short_name ?? '', rank.name_hi ?? '', rank.cadre_type ?? '']
+            return [rank.code, rank.name, rank.short_name ?? '', rank.cadre_type ?? '']
                 .some((value) => value.toLowerCase().includes(q));
         });
     }, [ranks, query]);
@@ -85,8 +84,7 @@ export default function Index({ ranks }: { ranks: Rank[] }) {
                                 <TableRow key={rank.id}>
                                     <TableCell className="font-mono text-xs">{rank.code}</TableCell>
                                     <TableCell>
-                                        <div className="font-medium">{rank.name_en}</div>
-                                        {rank.name_hi && <div className="text-xs text-muted-foreground">{rank.name_hi}</div>}
+                                        <div className="font-medium">{rank.name}</div>
                                     </TableCell>
                                     <TableCell>{rank.short_name ?? '—'}</TableCell>
                                     <TableCell>{rank.rank_order}</TableCell>

@@ -38,8 +38,8 @@ class MemberAchievementsController extends Controller
         )
             ->with([
                 'participation.session:id,name',
-                'participation.event:id,tournament_id,name_hi',
-                'participation.event.tournament:id,name_hi,tier_id',
+                'participation.event:id,tournament_id,name',
+                'participation.event.tournament:id,name,tier_id',
                 'participation.event.tournament.tier:id,code,weight',
                 'benefits',
             ])
@@ -63,7 +63,7 @@ class MemberAchievementsController extends Controller
             ],
             'tournament' => [
                 'id' => $a->participation->event->tournament->id,
-                'name_hi' => $a->participation->event->tournament->name_hi,
+                'name' => $a->participation->event->tournament->name,
                 'tier_code' => $a->participation->event->tournament->tier->code ?? null,
                 'tier_weight' => $a->participation->event->tournament->tier->weight ?? null,
                 'date_from' => $a->participation->event->tournament->date_from?->toDateString(),
@@ -72,7 +72,7 @@ class MemberAchievementsController extends Controller
             ],
             'event' => [
                 'id' => $a->participation->event->id,
-                'name_hi' => $a->participation->event->name_hi,
+                'name' => $a->participation->event->name,
             ],
             'benefits' => $a->benefits->map(fn ($b) => [
                 'id' => $b->id,

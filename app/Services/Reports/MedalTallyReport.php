@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
+use App\Support\Reports\MedalsFilters;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -17,33 +18,33 @@ class MedalTallyReport
      * Returns one row per tier that has at least one achievement, with medal
      * counts keyed by type (GOLD/SILVER/BRONZE/MERIT) and a nested tier object.
      *
-     * @param  array{year_from: int|null, year_to: int|null, sport_id: int|null, unit_id: int|null, tier_id: int|null}  $filters
+     * @param  array{year_from: int|null, year_to: int|null, session_id?: int|null, sport_id: int|null, unit_id: int|null, tier_id: int|null}  $filters
      * @return Collection<int, array{tier: array{code: string, label: string, weight: int}, GOLD: int, SILVER: int, BRONZE: int, MERIT: int}>
      */
     public function run(int $orgId, array $filters): Collection
     {
-        $yearFrom = $filters['year_from'] ?? null;
-        $yearTo = $filters['year_to'] ?? null;
-        $sportId = $filters['sport_id'] ?? null;
-        $unitId = $filters['unit_id'] ?? null;
-        $tierId = $filters['tier_id'] ?? null;
+        $benefitSub = DB::table('achievement_benefits')
+            ->where('benefitable_type', 'App\\Models\\Achievement')
+            ->select([
+                'benefitable_id',
+                'benefit_type',
+                'benefit_date',
+                'order_reference',
+            ]);
 
-        $rows = DB::table('achievements as a')
+        $query = DB::table('achievements as a')
             ->join('participations as p', 'p.id', '=', 'a.participation_id')
+            ->join('members as m', 'm.id', '=', 'p.member_id')
             ->join('events as e', 'e.id', '=', 'p.event_id')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
             ->join('tournament_tiers as tt', 'tt.id', '=', 't.tier_id')
+            ->leftJoinSub($benefitSub, 'ab', 'ab.benefitable_id', '=', 'a.id')
             ->select('tt.id', 'tt.code', 'tt.label_hi', 'tt.label_en', 'tt.weight', 'a.medal_type', DB::raw('COUNT(*) as cnt'))
             ->where('t.organization_id', $orgId)
             ->whereNull('t.deleted_at')
-            ->when($yearFrom, fn ($q) => $q->whereYear('t.date_from', '>=', $yearFrom))
-            ->when($yearTo, fn ($q) => $q->whereYear('t.date_from', '<=', $yearTo))
-            ->when($sportId, fn ($q) => $q->where('e.sport_id', $sportId))
-            ->when($tierId, fn ($q) => $q->where('t.tier_id', $tierId))
-            ->when($unitId, fn ($q) => $q
-                ->join('members as m', 'm.id', '=', 'p.member_id')
-                ->where('m.current_unit_id', $unitId)
-            )
+            ->whereNull('m.deleted_at');
+
+        $rows = MedalsFilters::apply($query, $filters)
             ->groupBy('tt.id', 'tt.code', 'tt.label_hi', 'tt.label_en', 'tt.weight', 'a.medal_type')
             ->orderByDesc('tt.weight')
             ->get();

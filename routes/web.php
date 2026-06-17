@@ -2,8 +2,11 @@
 
 use App\Http\Controllers\AchievementBenefitController;
 use App\Http\Controllers\Api\V1\MemberAuditLogController;
+use App\Http\Controllers\CoachAliasController;
 use App\Http\Controllers\CoachController;
 use App\Http\Controllers\CoachExportController;
+use App\Http\Controllers\CoachPhotoController;
+use App\Http\Controllers\CoachStatusController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventParticipantController;
@@ -23,6 +26,7 @@ use App\Http\Controllers\TeamCloneController;
 use App\Http\Controllers\TeamCoachController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamExportController;
+use App\Http\Controllers\TeamInchargeController;
 use App\Http\Controllers\TeamMemberController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentExportController;
@@ -41,6 +45,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('coaches/export', [CoachExportController::class, 'index'])->name('coaches.export');
     Route::resource('coaches', CoachController::class);
     Route::get('coaches/{coach}/export', [CoachExportController::class, 'show'])->name('coaches.export.show');
+    Route::post('coaches/{coach}/status', [CoachStatusController::class, 'store'])->name('coaches.status.store');
+    Route::post('coaches/{coach}/aliases', [CoachAliasController::class, 'store'])->name('coaches.aliases.store');
+    Route::delete('coaches/{coach}/aliases/{alias}', [CoachAliasController::class, 'destroy'])->name('coaches.aliases.destroy');
+    Route::post('coaches/{coach}/photo', [CoachPhotoController::class, 'store'])->name('coaches.photo.store');
+    Route::delete('coaches/{coach}/photo', [CoachPhotoController::class, 'destroy'])->name('coaches.photo.destroy');
     Route::get('teams/export', [TeamExportController::class, 'index'])->name('teams.export');
     Route::resource('teams', TeamController::class);
     Route::get('tournaments/export', [TournamentExportController::class, 'index'])->name('tournaments.export');
@@ -66,6 +75,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('tournaments.events.participants.update')->scopeBindings();
     Route::delete('tournaments/{tournament}/events/{event}/participants/{participation}', [EventParticipantController::class, 'destroy'])
         ->name('tournaments.events.participants.destroy')->scopeBindings();
+    Route::post('teams/{team}/members/backfill/preview', [TeamMemberController::class, 'previewBackfill'])->name('teams.members.backfill.preview');
+    Route::post('teams/{team}/members/backfill', [TeamMemberController::class, 'backfill'])->name('teams.members.backfill');
     Route::post('teams/{team}/members', [TeamMemberController::class, 'store'])->name('teams.members.store');
     Route::delete('teams/{team}/members/bulk', [TeamMemberController::class, 'bulkDestroy'])->name('teams.members.bulkDestroy');
     Route::patch('teams/{team}/memberships/{teamMember}', [TeamMemberController::class, 'update'])->name('teams.members.update');
@@ -73,6 +84,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('teams/{team}/coaches', [TeamCoachController::class, 'store'])->name('teams.coaches.store');
     Route::delete('teams/{team}/coaches/bulk', [TeamCoachController::class, 'bulkDestroy'])->name('teams.coaches.bulkDestroy');
     Route::delete('teams/{team}/coaches/{coach}', [TeamCoachController::class, 'destroy'])->name('teams.coaches.destroy');
+    Route::post('teams/{team}/incharge', [TeamInchargeController::class, 'store'])->name('teams.incharge.store');
+    Route::patch('teams/{team}/incharge', [TeamInchargeController::class, 'update'])->name('teams.incharge.update');
+    Route::delete('teams/{team}/incharge', [TeamInchargeController::class, 'destroy'])->name('teams.incharge.destroy');
     Route::post('teams/{team}/clone', TeamCloneController::class)->name('teams.clone');
     Route::post('members/{member}/status', [MemberStatusController::class, 'store'])->name('members.status.store');
     Route::post('members/{member}/aliases', [MemberAliasController::class, 'store'])->name('members.aliases.store');

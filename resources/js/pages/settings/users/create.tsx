@@ -27,7 +27,8 @@ type FormData = {
 };
 
 export default function Create({ roles }: { roles: Role[] }) {
-    const { t } = useTranslation();
+    const { locale, t } = useTranslation();
+    const roleName = (role: Role) => (locale === 'hi' ? role.name_hi : role.name_en) || role.name_hi || role.name_en || role.code;
 
     setLayoutProps({
         breadcrumbs: [
@@ -149,8 +150,8 @@ export default function Create({ roles }: { roles: Role[] }) {
                                             onCheckedChange={() => toggleRole(role.id)}
                                         />
                                         <Label htmlFor={`role-${role.id}`} className="cursor-pointer font-normal">
-                                            {role.name_en}
-                                            <span className="ml-1.5 text-muted-foreground">({role.name_hi})</span>
+                                            {roleName(role)}
+                                            <span className="ml-1.5 text-muted-foreground">({role.code})</span>
                                         </Label>
                                     </div>
                                 ))}

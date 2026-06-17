@@ -7,7 +7,9 @@ namespace App\Services;
 use App\Models\Achievement;
 use App\Models\AuditLog;
 use App\Models\Coach;
+use App\Models\CoachAlias;
 use App\Models\CoachAssignment;
+use App\Models\CoachStatusHistory;
 use App\Models\District;
 use App\Models\Member;
 use App\Models\MemberLegacyAchievement;
@@ -41,7 +43,7 @@ class AuditLogBuilder
         $playableSportIds = $member->playableSports()->pluck('sports.id');
 
         $participations = Participation::where('member_id', $member->id)
-            ->with(['event:id,name_hi,tournament_id', 'event.tournament:id,name_hi'])
+            ->with(['event:id,name,tournament_id', 'event.tournament:id,name'])
             ->get();
         $participationIds = $participations->pluck('id');
         $achievementIds = $participationIds->isNotEmpty()
@@ -114,18 +116,18 @@ class AuditLogBuilder
         $allLogs = $logs->unique('id')->sortByDesc('at')->values();
 
         // ─── Label maps ───────────────────────────────────────────────────
-        $sportMap = Sport::pluck('name_hi', 'id');
-        $unitMap = Unit::pluck('name_hi', 'id');
-        $districtMap = District::pluck('name_hi', 'id');
+        $sportMap = Sport::pluck('name', 'id');
+        $unitMap = Unit::pluck('name', 'id');
+        $districtMap = District::pluck('name', 'id');
         $userMap = User::pluck('name', 'id');
-        $teamMap = Team::pluck('name_hi', 'id');
+        $teamMap = Team::pluck('name', 'id');
         $sessionMap = SportSession::pluck('name', 'id');
 
         $eventLabelMap = $participations->mapWithKeys(fn (Participation $p) => [
-            $p->event_id => $p->event->name_hi.' · '.$p->event->tournament?->name_hi,
+            $p->event_id => $p->event->name.' · '.$p->event->tournament?->name,
         ]);
         $participationLabelMap = $participations->mapWithKeys(fn (Participation $p) => [
-            $p->id => $p->event->name_hi.' · '.$p->event->tournament?->name_hi,
+            $p->id => $p->event->name.' · '.$p->event->tournament?->name,
         ]);
         $achievementLabelMap = $achievementIds->isNotEmpty()
             ? Achievement::whereIn('id', $achievementIds)
@@ -134,8 +136,8 @@ class AuditLogBuilder
                 ->mapWithKeys(fn (Achievement $achievement) => [
                     $achievement->id => collect([
                         $achievement->medal_type,
-                        $achievement->participation?->event?->name_hi,
-                        $achievement->participation?->event?->tournament?->name_hi,
+                        $achievement->participation?->event?->name,
+                        $achievement->participation?->event?->tournament?->name,
                         $achievement->position ? '#'.$achievement->position : null,
                     ])->filter()->join(' · '),
                 ])
@@ -199,9 +201,8 @@ class AuditLogBuilder
 
         $fieldLabelMap = [
             'Member' => [
-                'full_name_hi' => 'Name (Hindi)',
-                'full_name_en' => 'Name (English)',
-                'father_name_hi' => "Father's name",
+                'full_name' => 'Name',
+                'father_name' => "Father's name",
                 'pno' => 'PNO',
                 'rank' => 'Rank',
                 'designation' => 'Designation',
@@ -230,11 +231,11 @@ class AuditLogBuilder
             'MemberStatusHistory' => [
                 'status' => 'Status',
                 'effective_on' => 'Effective on',
-                'reason_hi' => 'Reason',
+                'reason' => 'Reason',
                 'recorded_by' => 'Recorded by',
             ],
             'NameAlias' => [
-                'alias_hi' => 'Alias',
+                'alias' => 'Alias',
                 'source' => 'Source',
             ],
             'TeamMember' => [
@@ -384,12 +385,12 @@ class AuditLogBuilder
 
         $allLogs = $logs->unique('id')->sortByDesc('at')->values();
 
-        $sportMap = Sport::pluck('name_hi', 'id');
-        $unitMap = Unit::pluck('name_hi', 'id');
+        $sportMap = Sport::pluck('name', 'id');
+        $unitMap = Unit::pluck('name', 'id');
         $sessionMap = SportSession::pluck('name', 'id');
         $userMap = User::pluck('name', 'id');
-        $memberMap = Member::withoutGlobalScopes()->pluck('full_name_hi', 'id');
-        $coachMap = Coach::withoutGlobalScopes()->pluck('full_name_hi', 'id');
+        $memberMap = Member::withoutGlobalScopes()->pluck('full_name', 'id');
+        $coachMap = Coach::withoutGlobalScopes()->pluck('full_name', 'id');
 
         $subjectMap = [
             'Team' => 'Team',
@@ -399,11 +400,11 @@ class AuditLogBuilder
 
         $fieldLabelMap = [
             'Team' => [
-                'name_hi' => 'Name',
+                'name' => 'Name',
                 'sport_id' => 'Sport',
                 'session_id' => 'Session',
                 'unit_id' => 'Unit',
-                'in_charge_hi' => 'In-charge',
+                'in_charge' => 'In-charge',
             ],
             'TeamMember' => [
                 'member_id' => 'Player',
@@ -456,8 +457,31 @@ class AuditLogBuilder
     public function forCoach(Coach $coach): array
     {
         $coachAssignmentIds = CoachAssignment::where('coach_id', $coach->id)->pluck('id');
+        $coachAliasIds = CoachAlias::where('coach_id', $coach->id)->pluck('id');
+        $coachStatusHistoryIds = CoachStatusHistory::where('coach_id', $coach->id)->pluck('id');
 
         $logs = AuditLog::where('entity', 'Coach')->where('entity_id', $coach->id)->get();
+
+        foreach ([
+            ['entity' => 'CoachAlias', 'ids' => $coachAliasIds],
+            ['entity' => 'CoachStatusHistory', 'ids' => $coachStatusHistoryIds],
+        ] as ['entity' => $entity, 'ids' => $ids]) {
+            $logs = $logs->merge(
+                AuditLog::where('entity', $entity)
+                    ->whereIn('action', ['created', 'deleted'])
+                    ->whereRaw("JSON_EXTRACT(diff, '$.coach_id') = ?", [$coach->id])
+                    ->get()
+            );
+
+            if ($ids->isNotEmpty()) {
+                $logs = $logs->merge(
+                    AuditLog::where('entity', $entity)
+                        ->where('action', 'updated')
+                        ->whereIn('entity_id', $ids)
+                        ->get()
+                );
+            }
+        }
 
         $logs = $logs->merge(
             AuditLog::where('entity', 'CoachAssignment')
@@ -478,22 +502,35 @@ class AuditLogBuilder
 
         $sessionMap = SportSession::pluck('name', 'id');
         $userMap = User::pluck('name', 'id');
-        $teamMap = Team::pluck('name_hi', 'id');
-        $memberMap = Member::withoutGlobalScopes()->pluck('full_name_hi', 'id');
+        $teamMap = Team::pluck('name', 'id');
+        $memberMap = Member::withoutGlobalScopes()->pluck('full_name', 'id');
 
         $subjectMap = [
             'Coach' => 'Coach',
+            'CoachAlias' => 'Alias',
+            'CoachStatusHistory' => 'Status',
             'CoachAssignment' => 'Team assignment',
         ];
 
         $fieldLabelMap = [
             'Coach' => [
-                'full_name_hi' => 'Name (Hindi)',
-                'full_name_en' => 'Name (English)',
+                'full_name' => 'Name',
                 'pno' => 'PNO',
                 'mobile' => 'Mobile',
                 'nis_certified' => 'NIS certified',
                 'member_id' => 'Linked member',
+                'coach_status' => 'Status',
+                'photo_path' => 'Photo',
+            ],
+            'CoachAlias' => [
+                'alias' => 'Alias',
+                'source' => 'Source',
+            ],
+            'CoachStatusHistory' => [
+                'status' => 'Status',
+                'effective_on' => 'Effective on',
+                'reason' => 'Reason',
+                'recorded_by' => 'Recorded by',
             ],
             'CoachAssignment' => [
                 'team_id' => 'Team',
@@ -504,11 +541,13 @@ class AuditLogBuilder
 
         $hiddenFields = [
             'Coach' => ['id', 'organization_id', 'deleted_at'],
+            'CoachAlias' => ['id', 'coach_id', 'alias_normalized'],
+            'CoachStatusHistory' => ['id', 'coach_id'],
             'CoachAssignment' => ['id', 'coach_id'],
         ];
 
         $resolve = function (string $entity, string $field, mixed $value, array $diff = []) use (
-            $sessionMap, $teamMap, $memberMap
+            $sessionMap, $teamMap, $memberMap, $userMap
         ): ?string {
             if ($value === null) {
                 return null;
@@ -518,6 +557,7 @@ class AuditLogBuilder
                 $field === 'session_id' => $sessionMap->get((int) $value) ?? (string) $value,
                 $field === 'team_id' => $teamMap->get((int) $value) ?? (string) $value,
                 $field === 'member_id' => $memberMap->get((int) $value) ?? (string) $value,
+                $field === 'recorded_by' => $userMap->get((int) $value) ?? (string) $value,
                 default => (string) $value,
             };
         };

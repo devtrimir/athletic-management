@@ -10,25 +10,25 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
 
-type Session = { id: number; name: string };
-type Team = { id: number; session: Session | null };
+type Team = {
+    id: number;
+    sport: { id: number; name: string } | null;
+};
 
 interface Props {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     team: Team;
-    sessions: Session[];
 }
 
 const COACH_ROLES = ['HEAD', 'ASSISTANT'] as const;
 
-export function AddCoachDialog({ open, onOpenChange, team, sessions }: Props) {
+export function AddCoachDialog({ open, onOpenChange, team }: Props) {
     const { t } = useTranslation();
     const [pickedCoach, setPickedCoach] = useState<CoachOption | null>(null);
 
     const { data, setData, post, errors, processing, reset } = useForm({
         coach_id: '',
-        session_id: team.session ? String(team.session.id) : '',
         role: 'ASSISTANT',
     });
 
@@ -68,28 +68,16 @@ export function AddCoachDialog({ open, onOpenChange, team, sessions }: Props) {
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid gap-2">
                         <Label htmlFor="dlg-add-coach">{t('Coach')}</Label>
-                        <CoachPicker id="dlg-add-coach" value={pickedCoach} onChange={handleCoachChange} />
+                        <CoachPicker
+                            id="dlg-add-coach"
+                            value={pickedCoach}
+                            onChange={handleCoachChange}
+                            sportId={team.sport?.id}
+                        />
                         <InputError message={errors.coach_id} />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="dlg-add-coach-session">{t('Session')}</Label>
-                            <Select value={data.session_id} onValueChange={(v) => setData('session_id', v)}>
-                                <SelectTrigger id="dlg-add-coach-session" className="w-full">
-                                    <SelectValue placeholder={t('Select session')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sessions.map((s) => (
-                                        <SelectItem key={s.id} value={String(s.id)}>
-                                            {s.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError message={errors.session_id} />
-                        </div>
-
+                    <div className="grid gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="dlg-add-coach-role">{t('Role')}</Label>
                             <Select value={data.role} onValueChange={(v) => setData('role', v)}>

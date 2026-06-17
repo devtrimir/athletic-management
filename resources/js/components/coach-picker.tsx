@@ -15,10 +15,12 @@ import { cn } from '@/lib/utils';
 
 export type CoachOption = {
     id: number;
-    full_name_hi: string;
-    full_name_en: string | null;
+    full_name: string;
     pno: string | null;
     nis_certified: boolean;
+    designation?: string | null;
+    mobile?: string | null;
+    coach_status?: string | null;
 };
 
 type SearchResponse = {
@@ -29,16 +31,17 @@ type SearchResponse = {
 interface CoachPickerProps {
     value: CoachOption | null;
     onChange: (coach: CoachOption | null) => void;
+    sportId?: number | null;
     placeholder?: string;
     disabled?: boolean;
     id?: string;
 }
 
-export function CoachPicker({ value, onChange, placeholder, disabled = false, id }: CoachPickerProps) {
+export function CoachPicker({ value, onChange, sportId = null, placeholder, disabled = false, id }: CoachPickerProps) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<CoachOption[]>([]);
-    const timerRef = useRef<ReturnType<typeof setTimeout>>();
+    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const { get, cancel, processing } = useHttp<Record<string, never>, SearchResponse>({});
 
     const handleInputChange = useCallback(
@@ -56,7 +59,13 @@ export function CoachPicker({ value, onChange, placeholder, disabled = false, id
 
             timerRef.current = setTimeout(() => {
                 cancel();
-                get(CoachSearchController.url({ query: { q } }), {
+                const queryParams: { q: string; sport_id?: number } = { q };
+
+                if (sportId) {
+                    queryParams.sport_id = sportId;
+                }
+
+                get(CoachSearchController.url({ query: queryParams }), {
                     onSuccess: (res) => {
                         const response = res as unknown as SearchResponse;
                         setResults(response?.data ?? []);
@@ -65,7 +74,7 @@ export function CoachPicker({ value, onChange, placeholder, disabled = false, id
                 });
             }, 300);
         },
-        [cancel, get],
+        [cancel, get, sportId],
     );
 
     const displayValue = (coach: CoachOption | null) => {
@@ -73,7 +82,17 @@ export function CoachPicker({ value, onChange, placeholder, disabled = false, id
             return '';
         }
 
-        return coach.pno ? `${coach.full_name_hi} · ${coach.pno}` : coach.full_name_hi;
+        const suffix = [];
+
+        if (coach.pno) {
+            suffix.push(coach.pno);
+        }
+
+        if (coach.designation) {
+            suffix.push(coach.designation);
+        }
+
+        return suffix.length > 0 ? `${coach.full_name} · ${suffix.join(' · ')}` : coach.full_name;
     };
 
     return (
@@ -128,16 +147,13 @@ export function CoachPicker({ value, onChange, placeholder, disabled = false, id
                                         />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-medium">{coach.full_name_hi}</span>
+                                                <span className="font-medium">{coach.full_name}</span>
                                                 {coach.pno && (
                                                     <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
                                                         {coach.pno}
                                                     </span>
                                                 )}
                                             </div>
-                                            {coach.full_name_en && (
-                                                <p className="text-muted-foreground truncate text-xs">{coach.full_name_en}</p>
-                                            )}
                                         </div>
                                     </div>
                                 )}

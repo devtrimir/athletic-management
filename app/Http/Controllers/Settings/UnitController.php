@@ -23,7 +23,7 @@ class UnitController extends Controller
 
         $units = Unit::with('district')
             ->where('organization_id', $request->user()->organization_id)
-            ->orderBy('name_en')
+            ->orderBy('name')
             ->get();
 
         return Inertia::render('settings/units/index', [
@@ -35,7 +35,7 @@ class UnitController extends Controller
     {
         Gate::authorize('create', Unit::class);
 
-        $districts = District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']);
+        $districts = District::orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('settings/units/create', [
             'districts' => $districts,
@@ -60,7 +60,7 @@ class UnitController extends Controller
     {
         Gate::authorize('update', $unit);
 
-        $districts = District::orderBy('name_en')->get(['id', 'name_hi', 'name_en']);
+        $districts = District::orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('settings/units/edit', [
             'unit' => $unit,

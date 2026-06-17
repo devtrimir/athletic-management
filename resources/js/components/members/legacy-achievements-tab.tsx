@@ -7,6 +7,7 @@ import {
 } from '@/actions/App/Http/Controllers/AchievementBenefitController';
 import {
     store as storeAchievement,
+    update as updateAchievement,
     destroy as destroyAchievement,
 } from '@/actions/App/Http/Controllers/MemberLegacyAchievementController';
 import { DatePicker } from '@/components/date-picker';
@@ -41,6 +42,7 @@ type Benefit = {
 type LegacyAchievement = {
     id: number;
     period: string;
+    session: { id: number; name: string } | null;
     level: string;
     competition_details: string;
     event_date: string | null;
@@ -48,12 +50,15 @@ type LegacyAchievement = {
     sport_discipline: string | null;
     event: string | null;
     medal_type: string | null;
+    position: number | null;
     sort_order: number | null;
+    remarks: string | null;
     benefits: Benefit[];
 };
 
 type Props = {
     member: { id: number };
+    sessions: Array<{ id: number; name: string; is_current?: boolean }>;
     legacyAchievements: LegacyAchievement[] | undefined;
 };
 
@@ -76,17 +81,42 @@ const BENEFIT_TYPES = [
     'OTHER',
 ] as const;
 
+function formatReadableDate(value: string | null): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    }).format(date);
+}
+
 function AddAchievementDialog({
     member,
     period,
+    sessions,
 }: {
     member: { id: number };
     period: 'PRE_RECRUITMENT' | 'POST_RECRUITMENT';
+    sessions: Array<{ id: number; name: string; is_current?: boolean }>;
 }) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
+    const dialogTitle =
+        period === 'PRE_RECRUITMENT'
+            ? t('Add pre-recruitment legacy achievement')
+            : t('Add post-recruitment legacy achievement');
     const form = useForm({
         period,
+        session_id: '',
         level: '',
         competition_details: '',
         event_date: '',
@@ -94,11 +124,19 @@ function AddAchievementDialog({
         sport_discipline: '',
         event: '',
         medal_type: '',
+        position: '',
+        remarks: '',
     });
+    const dialogOpen = open || Object.keys(form.errors).length > 0;
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         form.post(storeAchievement.url(member), {
+            preserveScroll: true,
+            preserveState: true,
+            onError: () => {
+                setOpen(true);
+            },
             onSuccess: () => {
                 setOpen(false);
                 form.reset();
@@ -108,7 +146,16 @@ function AddAchievementDialog({
     }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={dialogOpen}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (!nextOpen) {
+                    form.clearErrors();
+                }
+            }}
+        >
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                     <Plus className="size-4 mr-1" />
@@ -117,100 +164,183 @@ function AddAchievementDialog({
             </DialogTrigger>
             <DialogContent className="max-w-lg" aria-describedby={undefined}>
                 <DialogHeader>
-                    <DialogTitle>{t('Add achievement')}</DialogTitle>
+                    <DialogTitle>{dialogTitle}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-                    <div className="grid gap-2">
-                        <Label>
-                            {t('Level')} <span className="text-destructive">*</span>
-                        </Label>
-                        <Select value={form.data.level} onValueChange={(v) => form.setData('level', v)}>
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('Select level')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {LEVELS.map((l) => (
-                                    <SelectItem key={l} value={l}>
-                                        {t(l)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <InputError message={form.errors.level} />
-                    </div>
+                    <div className="space-y-4 rounded-xl border p-4">
+                        <div>
+                            <h4 className="text-sm font-semibold">
+                                {t('Tournament information')}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                                {t('Keep the old competition details lightweight and record only what is available.')}
+                            </p>
+                        </div>
 
-                    <div className="grid gap-2">
-                        <Label>
-                            {t('Competition details')} <span className="text-destructive">*</span>
-                        </Label>
-                        <Textarea
-                            value={form.data.competition_details}
-                            onChange={(e) => form.setData('competition_details', e.target.value)}
-                            rows={3}
-                        />
-                        <InputError message={form.errors.competition_details} />
-                    </div>
+                        {period === 'POST_RECRUITMENT' ? (
+                            <div className="grid gap-2">
+                                <Label>{t('Session')}</Label>
+                                <Select
+                                    value={form.data.session_id || '__none__'}
+                                    onValueChange={(v) => form.setData('session_id', v === '__none__' ? '' : v)}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder={t('Guess from event date or choose session')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">
+                                            {t('Guess from event date')}
+                                        </SelectItem>
+                                        {sessions.map((session) => (
+                                            <SelectItem key={session.id} value={String(session.id)}>
+                                                {session.name}
+                                                {session.is_current ? ` · ${t('Current')}` : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={form.errors.session_id} />
+                            </div>
+                        ) : null}
 
-                    <div className="grid gap-5 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label>{t('Sport discipline')}</Label>
+                            <Label>
+                                {t('Level')} <span className="text-destructive">*</span>
+                            </Label>
+                            <Select value={form.data.level} onValueChange={(v) => form.setData('level', v)}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={t('Select level')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {LEVELS.map((l) => (
+                                        <SelectItem key={l} value={l}>
+                                            {t(l)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={form.errors.level} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>
+                                {t('Tournament / competition details')} <span className="text-destructive">*</span>
+                            </Label>
+                            <Textarea
+                                value={form.data.competition_details}
+                                onChange={(e) => form.setData('competition_details', e.target.value)}
+                                rows={3}
+                            />
+                            <InputError message={form.errors.competition_details} />
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Event date')}</Label>
+                                <DatePicker
+                                    value={form.data.event_date}
+                                    onChange={(v) => form.setData('event_date', v)}
+                                />
+                                <InputError message={form.errors.event_date} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Venue')}</Label>
+                                <Input
+                                    value={form.data.venue}
+                                    onChange={(e) => form.setData('venue', e.target.value)}
+                                    maxLength={255}
+                                />
+                                <InputError message={form.errors.venue} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 rounded-xl border p-4">
+                        <div>
+                            <h4 className="text-sm font-semibold">
+                                {t('Event information')}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                                {t('Use simple event details so old records can be added without extra effort.')}
+                            </p>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Sport discipline')}</Label>
+                                <Input
+                                    value={form.data.sport_discipline}
+                                    onChange={(e) => form.setData('sport_discipline', e.target.value)}
+                                    maxLength={100}
+                                    placeholder={t('e.g. Athletics')}
+                                />
+                                <InputError message={form.errors.sport_discipline} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Event name')}</Label>
+                                <Input
+                                    value={form.data.event}
+                                    onChange={(e) => form.setData('event', e.target.value)}
+                                    maxLength={100}
+                                    placeholder={t('e.g. 100m Sprint')}
+                                />
+                                <InputError message={form.errors.event} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 rounded-xl border p-4">
+                        <div>
+                            <h4 className="text-sm font-semibold">
+                                {t('Achievement information')}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                                {t('Record only the result that is available for this legacy achievement.')}
+                            </p>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>{t('Medal')}</Label>
+                            <Select
+                                value={form.data.medal_type || '__none__'}
+                                onValueChange={(v) => form.setData('medal_type', v === '__none__' ? '' : v)}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={t('Select medal')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">{t('No medal')}</SelectItem>
+                                    {MEDALS.map((m) => (
+                                        <SelectItem key={m} value={m}>
+                                            {t(m)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={form.errors.medal_type} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>{t('Position')}</Label>
                             <Input
-                                value={form.data.sport_discipline}
-                                onChange={(e) => form.setData('sport_discipline', e.target.value)}
-                                maxLength={100}
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={form.data.position}
+                                onChange={(e) => form.setData('position', e.target.value)}
                             />
-                            <InputError message={form.errors.sport_discipline} />
+                            <InputError message={form.errors.position} />
                         </div>
-                        <div className="grid gap-2">
-                            <Label>{t('Event')}</Label>
-                            <Input
-                                value={form.data.event}
-                                onChange={(e) => form.setData('event', e.target.value)}
-                                maxLength={100}
-                            />
-                            <InputError message={form.errors.event} />
-                        </div>
-                    </div>
 
-                    <div className="grid gap-5 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label>{t('Event date')}</Label>
-                            <DatePicker
-                                value={form.data.event_date}
-                                onChange={(v) => form.setData('event_date', v)}
+                            <Label>{t('Remarks')}</Label>
+                            <Textarea
+                                value={form.data.remarks}
+                                onChange={(e) => form.setData('remarks', e.target.value)}
+                                rows={3}
                             />
-                            <InputError message={form.errors.event_date} />
+                            <InputError message={form.errors.remarks} />
                         </div>
-                        <div className="grid gap-2">
-                            <Label>{t('Venue')}</Label>
-                            <Input
-                                value={form.data.venue}
-                                onChange={(e) => form.setData('venue', e.target.value)}
-                                maxLength={255}
-                            />
-                            <InputError message={form.errors.venue} />
-                        </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label>{t('Medal')}</Label>
-                        <Select
-                            value={form.data.medal_type || '__none__'}
-                            onValueChange={(v) => form.setData('medal_type', v === '__none__' ? '' : v)}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('Select medal')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="__none__">{t('No medal')}</SelectItem>
-                                {MEDALS.map((m) => (
-                                    <SelectItem key={m} value={m}>
-                                        {t(m)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <InputError message={form.errors.medal_type} />
                     </div>
 
                     <div className="flex justify-end gap-2 pt-2">
@@ -241,10 +371,16 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
         order_reference: '',
         remarks: '',
     });
+    const dialogOpen = open || Object.keys(form.errors).length > 0;
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         form.post(storeBenefit.url(), {
+            preserveScroll: true,
+            preserveState: true,
+            onError: () => {
+                setOpen(true);
+            },
             onSuccess: () => {
                 setOpen(false);
                 form.reset();
@@ -260,7 +396,16 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
     const isCash = form.data.benefit_type === 'CASH_AWARD';
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={dialogOpen}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (!nextOpen) {
+                    form.clearErrors();
+                }
+            }}
+        >
             <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-xs h-7">
                     <Plus className="size-3 mr-1" />
@@ -374,7 +519,292 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
     );
 }
 
-function AchievementRow({ achievement, member }: { achievement: LegacyAchievement; member: { id: number } }) {
+function EditAchievementDialog({
+    achievement,
+    member,
+    sessions,
+}: {
+    achievement: LegacyAchievement;
+    member: { id: number };
+    sessions: Array<{ id: number; name: string; is_current?: boolean }>;
+}) {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const form = useForm({
+        period: achievement.period,
+        session_id: achievement.session ? String(achievement.session.id) : '',
+        level: achievement.level,
+        competition_details: achievement.competition_details,
+        event_date: achievement.event_date ?? '',
+        venue: achievement.venue ?? '',
+        sport_discipline: achievement.sport_discipline ?? '',
+        event: achievement.event ?? '',
+        medal_type: achievement.medal_type ?? '',
+        position: achievement.position ? String(achievement.position) : '',
+        remarks: achievement.remarks ?? '',
+    });
+    const dialogOpen = open || Object.keys(form.errors).length > 0;
+
+    function resetForm(): void {
+        form.setData({
+            period: achievement.period,
+            session_id: achievement.session ? String(achievement.session.id) : '',
+            level: achievement.level,
+            competition_details: achievement.competition_details,
+            event_date: achievement.event_date ?? '',
+            venue: achievement.venue ?? '',
+            sport_discipline: achievement.sport_discipline ?? '',
+            event: achievement.event ?? '',
+            medal_type: achievement.medal_type ?? '',
+            position: achievement.position ? String(achievement.position) : '',
+            remarks: achievement.remarks ?? '',
+        });
+    }
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        form.patch(updateAchievement.url(member, achievement), {
+            preserveScroll: true,
+            preserveState: true,
+            onError: () => {
+                setOpen(true);
+            },
+            onSuccess: () => {
+                setOpen(false);
+                form.clearErrors();
+            },
+        });
+    }
+
+    return (
+        <Dialog
+            open={dialogOpen}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (!nextOpen) {
+                    form.clearErrors();
+                    resetForm();
+                }
+            }}
+        >
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                    {t('Edit')}
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg" aria-describedby={undefined}>
+                <DialogHeader>
+                    <DialogTitle>{t('Edit legacy achievement')}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="mt-2 space-y-4">
+                    <div className="space-y-4 rounded-xl border p-4">
+                        <div>
+                            <h4 className="text-sm font-semibold">
+                                {t('Tournament information')}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                                {t('Keep the old competition details lightweight and record only what is available.')}
+                            </p>
+                        </div>
+
+                        {form.data.period === 'POST_RECRUITMENT' ? (
+                            <div className="grid gap-2">
+                                <Label>{t('Session')}</Label>
+                                <Select
+                                    value={form.data.session_id || '__none__'}
+                                    onValueChange={(v) => form.setData('session_id', v === '__none__' ? '' : v)}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder={t('Guess from event date or choose session')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">
+                                            {t('Guess from event date')}
+                                        </SelectItem>
+                                        {sessions.map((session) => (
+                                            <SelectItem key={session.id} value={String(session.id)}>
+                                                {session.name}
+                                                {session.is_current ? ` · ${t('Current')}` : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={form.errors.session_id} />
+                            </div>
+                        ) : null}
+
+                        <div className="grid gap-2">
+                            <Label>
+                                {t('Level')} <span className="text-destructive">*</span>
+                            </Label>
+                            <Select value={form.data.level} onValueChange={(v) => form.setData('level', v)}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={t('Select level')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {LEVELS.map((l) => (
+                                        <SelectItem key={l} value={l}>
+                                            {t(l)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={form.errors.level} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>
+                                {t('Tournament / competition details')} <span className="text-destructive">*</span>
+                            </Label>
+                            <Textarea
+                                value={form.data.competition_details}
+                                onChange={(e) => form.setData('competition_details', e.target.value)}
+                                rows={3}
+                            />
+                            <InputError message={form.errors.competition_details} />
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Event date')}</Label>
+                                <DatePicker
+                                    value={form.data.event_date}
+                                    onChange={(v) => form.setData('event_date', v)}
+                                />
+                                <InputError message={form.errors.event_date} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Venue')}</Label>
+                                <Input
+                                    value={form.data.venue}
+                                    onChange={(e) => form.setData('venue', e.target.value)}
+                                    maxLength={255}
+                                />
+                                <InputError message={form.errors.venue} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 rounded-xl border p-4">
+                        <div>
+                            <h4 className="text-sm font-semibold">
+                                {t('Event information')}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                                {t('Use simple event details so old records can be added without extra effort.')}
+                            </p>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Sport discipline')}</Label>
+                                <Input
+                                    value={form.data.sport_discipline}
+                                    onChange={(e) => form.setData('sport_discipline', e.target.value)}
+                                    maxLength={100}
+                                    placeholder={t('e.g. Athletics')}
+                                />
+                                <InputError message={form.errors.sport_discipline} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Event name')}</Label>
+                                <Input
+                                    value={form.data.event}
+                                    onChange={(e) => form.setData('event', e.target.value)}
+                                    maxLength={100}
+                                    placeholder={t('e.g. 100m Sprint')}
+                                />
+                                <InputError message={form.errors.event} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 rounded-xl border p-4">
+                        <div>
+                            <h4 className="text-sm font-semibold">
+                                {t('Achievement information')}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                                {t('Record only the result that is available for this legacy achievement.')}
+                            </p>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>{t('Medal')}</Label>
+                            <Select
+                                value={form.data.medal_type || '__none__'}
+                                onValueChange={(v) => form.setData('medal_type', v === '__none__' ? '' : v)}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={t('Select medal')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">{t('No medal')}</SelectItem>
+                                    {MEDALS.map((m) => (
+                                        <SelectItem key={m} value={m}>
+                                            {t(m)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={form.errors.medal_type} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>{t('Position')}</Label>
+                            <Input
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={form.data.position}
+                                onChange={(e) => form.setData('position', e.target.value)}
+                            />
+                            <InputError message={form.errors.position} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>{t('Remarks')}</Label>
+                            <Textarea
+                                value={form.data.remarks}
+                                onChange={(e) => form.setData('remarks', e.target.value)}
+                                rows={3}
+                            />
+                            <InputError message={form.errors.remarks} />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setOpen(false);
+                                form.clearErrors();
+                                resetForm();
+                            }}
+                        >
+                            {t('Cancel')}
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            {t('Update achievement')}
+                        </Button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function AchievementRow({
+    achievement,
+    member,
+    sessions,
+}: {
+    achievement: LegacyAchievement;
+    member: { id: number };
+    sessions: Array<{ id: number; name: string; is_current?: boolean }>;
+}) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
 
@@ -406,7 +836,10 @@ function AchievementRow({ achievement, member }: { achievement: LegacyAchievemen
                             <p className="text-sm font-medium leading-tight">{achievement.competition_details}</p>
                             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span>{t(achievement.level)}</span>
-                                {achievement.event_date && <span>{achievement.event_date}</span>}
+                                {achievement.session && <span>{achievement.session.name}</span>}
+                                {achievement.event_date && (
+                                    <span>{formatReadableDate(achievement.event_date)}</span>
+                                )}
                                 {achievement.sport_discipline && <span>{achievement.sport_discipline}</span>}
                                 {achievement.event && <span>{achievement.event}</span>}
                                 {achievement.venue && <span>{achievement.venue}</span>}
@@ -415,10 +848,15 @@ function AchievementRow({ achievement, member }: { achievement: LegacyAchievemen
                     </button>
                 </CollapsibleTrigger>
                 <div className="flex items-center gap-2 shrink-0">
+                    <EditAchievementDialog
+                        achievement={achievement}
+                        member={member}
+                        sessions={sessions}
+                    />
                     {achievement.medal_type && (
                         <Badge variant={MEDAL_VARIANT[achievement.medal_type] ?? 'outline'}>
                             {t(achievement.medal_type)}
-                        </Badge>
+                                </Badge>
                     )}
                     <Button
                         variant="ghost"
@@ -462,7 +900,9 @@ function AchievementRow({ achievement, member }: { achievement: LegacyAchievemen
                                             <p className="text-muted-foreground">₹{b.cash_amount}</p>
                                         )}
                                         {b.benefit_date && (
-                                            <p className="text-muted-foreground">{b.benefit_date}</p>
+                                            <p className="text-muted-foreground">
+                                                {formatReadableDate(b.benefit_date)}
+                                            </p>
                                         )}
                                         {b.order_reference && (
                                             <p className="text-muted-foreground">{b.order_reference}</p>
@@ -483,6 +923,21 @@ function AchievementRow({ achievement, member }: { achievement: LegacyAchievemen
                             ))}
                         </div>
                     )}
+
+                    {achievement.position || achievement.remarks ? (
+                        <div className="space-y-1 rounded-md bg-muted/40 px-3 py-2 text-xs">
+                            {achievement.position ? (
+                                <p className="text-muted-foreground">
+                                    {t('Position')}: #{achievement.position}
+                                </p>
+                            ) : null}
+                            {achievement.remarks ? (
+                                <p className="text-muted-foreground">
+                                    {achievement.remarks}
+                                </p>
+                            ) : null}
+                        </div>
+                    ) : null}
                 </div>
             </CollapsibleContent>
         </Collapsible>
@@ -493,10 +948,12 @@ function PeriodSection({
     period,
     achievements,
     member,
+    sessions,
 }: {
     period: 'PRE_RECRUITMENT' | 'POST_RECRUITMENT';
     achievements: LegacyAchievement[];
     member: { id: number };
+    sessions: Array<{ id: number; name: string; is_current?: boolean }>;
 }) {
     const { t } = useTranslation();
 
@@ -506,7 +963,11 @@ function PeriodSection({
                 <h4 className="text-sm font-semibold">
                     {period === 'PRE_RECRUITMENT' ? t('Pre-recruitment') : t('Post-recruitment')}
                 </h4>
-                <AddAchievementDialog member={member} period={period} />
+                <AddAchievementDialog
+                    member={member}
+                    period={period}
+                    sessions={sessions}
+                />
             </div>
 
             {achievements.length === 0 ? (
@@ -514,7 +975,12 @@ function PeriodSection({
             ) : (
                 <div className="divide-y">
                     {achievements.map((a) => (
-                        <AchievementRow key={a.id} achievement={a} member={member} />
+                        <AchievementRow
+                            key={a.id}
+                            achievement={a}
+                            member={member}
+                            sessions={sessions}
+                        />
                     ))}
                 </div>
             )}
@@ -522,14 +988,24 @@ function PeriodSection({
     );
 }
 
-export function LegacyAchievementsTab({ member, legacyAchievements }: Props) {
+export function LegacyAchievementsTab({ member, sessions, legacyAchievements }: Props) {
     const preRecruitment = (legacyAchievements ?? []).filter((a) => a.period === 'PRE_RECRUITMENT');
     const postRecruitment = (legacyAchievements ?? []).filter((a) => a.period === 'POST_RECRUITMENT');
 
     return (
         <div className="space-y-4">
-            <PeriodSection period="PRE_RECRUITMENT" achievements={preRecruitment} member={member} />
-            <PeriodSection period="POST_RECRUITMENT" achievements={postRecruitment} member={member} />
+            <PeriodSection
+                period="PRE_RECRUITMENT"
+                achievements={preRecruitment}
+                member={member}
+                sessions={sessions}
+            />
+            <PeriodSection
+                period="POST_RECRUITMENT"
+                achievements={postRecruitment}
+                member={member}
+                sessions={sessions}
+            />
         </div>
     );
 }

@@ -1,11 +1,29 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
+import {
+    CalendarDays,
+    Download,
+    Eye,
+    IdCard,
+    Info,
+    Mail,
+    MapPin,
+    Phone,
+    Plus,
+    Printer,
+    Search,
+    ShieldCheck,
+    Trophy,
+    UserCheck,
+    Users,
+    X,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import Heading from '@/components/heading';
 import { TeamQuickView } from '@/components/teams/team-quick-view';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -36,12 +54,25 @@ import {
 import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
-    { key: 'name_hi', label: 'Team Name (Hindi)' },
-    { key: 'session', label: 'Session' },
+    { key: 'serial_no', label: 'S.No.' },
+    { key: 'name', label: 'Team Name' },
     { key: 'sport', label: 'Sport' },
+    { key: 'session', label: 'Session' },
+    { key: 'posting', label: 'Posting / District' },
+    { key: 'location_type', label: 'Location Type' },
+    { key: 'district', label: 'District' },
     { key: 'unit', label: 'Unit' },
-    { key: 'in_charge_hi', label: 'In-Charge' },
+    { key: 'is_active', label: 'Status' },
+    { key: 'in_charge', label: 'In-Charge' },
+    { key: 'incharge_pno', label: 'In-Charge PNO' },
+    { key: 'incharge_rank', label: 'In-Charge Rank' },
+    { key: 'incharge_designation', label: 'In-Charge Designation' },
+    { key: 'incharge_mobile', label: 'In-Charge Mobile' },
+    { key: 'incharge_email', label: 'In-Charge Email' },
+    { key: 'incharge_assigned_at', label: 'In-Charge Assigned On' },
     { key: 'players_count', label: 'Players' },
+    { key: 'male_players_count', label: 'Male Players' },
+    { key: 'female_players_count', label: 'Female Players' },
     { key: 'captains_count', label: 'Captains' },
     { key: 'reserves_count', label: 'Reserves' },
     { key: 'coaches_count', label: 'Coaches' },
@@ -53,17 +84,38 @@ type PaginationLink = {
     active: boolean;
 };
 
+type CurrentInchargeAssignment = {
+    id: number;
+    full_name: string;
+    pno: string | null;
+    rank: string | null;
+    designation: string | null;
+    mobile: string | null;
+    email: string | null;
+    assigned_at: string | null;
+    assignment_reason: string | null;
+    remarks: string | null;
+} | null;
+
 type Team = {
     id: number;
-    name_hi: string;
-    in_charge_hi: string | null;
+    name: string;
+    in_charge: string | null;
+    location_type: 'unit' | 'district';
+    location_label: string | null;
+    is_active: boolean;
     players_count: number;
+    removed_players_count: number;
+    male_players_count: number;
+    female_players_count: number;
     captains_count: number;
     reserves_count: number;
     coaches_count: number;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
-    unit: { id: number; name_hi: string } | null;
+    district: { id: number; name: string } | null;
+    unit: { id: number; name: string } | null;
+    current_incharge_assignment?: CurrentInchargeAssignment;
 };
 
 type PaginatedTeams = {
@@ -81,23 +133,29 @@ type Filters = {
     pno?: string;
     session_id?: string;
     sport_id?: string;
+    district_id?: string;
     unit_id?: string;
+    location_type?: string;
 };
 
 type RefItem = { id: number; name: string };
-type UnitItem = { id: number; name_hi: string };
+type UnitItem = { id: number; name: string };
 
 export default function TeamsIndex({
     teams,
     filters,
+    selectedSessionId,
     sessions,
     sports,
+    districts,
     units,
 }: {
     teams: PaginatedTeams;
     filters: Filters;
+    selectedSessionId: number | null;
     sessions: RefItem[];
     sports: RefItem[];
+    districts: RefItem[];
     units: UnitItem[];
 }) {
     const { t } = useTranslation();
@@ -105,6 +163,13 @@ export default function TeamsIndex({
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [exportOpen, setExportOpen] = useState(false);
     const [quickViewId, setQuickViewId] = useState<number | null>(null);
+    const [quickViewSessionId, setQuickViewSessionId] = useState<string | null>(null);
+    const [quickViewSessionName, setQuickViewSessionName] = useState<string | null>(
+        null,
+    );
+    const [quickViewHistoricalSession, setQuickViewHistoricalSession] =
+        useState(false);
+    const [inchargeTeam, setInchargeTeam] = useState<Team | null>(null);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
@@ -115,13 +180,15 @@ export default function TeamsIndex({
     const pnoDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const applyFilters = useCallback(
-        (patch: Partial<Filters>) => {
+        (patch: Partial<Filters>, preserveState = true) => {
             const current: Filters = {
                 q: query || undefined,
                 pno: pnoQuery || undefined,
                 session_id: filters.session_id,
                 sport_id: filters.sport_id,
+                district_id: filters.district_id,
                 unit_id: filters.unit_id,
+                location_type: filters.location_type,
             };
             const merged: Filters = { ...current, ...patch };
 
@@ -147,8 +214,16 @@ export default function TeamsIndex({
                 clean['filter[unit_id]'] = merged.unit_id;
             }
 
+            if (merged.district_id) {
+                clean['filter[district_id]'] = merged.district_id;
+            }
+
+            if (merged.location_type) {
+                clean['filter[location_type]'] = merged.location_type;
+            }
+
             router.get(TeamController.index.url(), clean, {
-                preserveState: true,
+                preserveState,
                 replace: true,
             });
         },
@@ -157,7 +232,9 @@ export default function TeamsIndex({
             pnoQuery,
             filters.session_id,
             filters.sport_id,
+            filters.district_id,
             filters.unit_id,
+            filters.location_type,
         ],
     );
 
@@ -228,7 +305,137 @@ export default function TeamsIndex({
     }
 
     function openQuickView(teamId: number) {
+        const sessionId = filters.session_id ??
+            (selectedSessionId ? String(selectedSessionId) : null);
+        const sessionName = sessions.find(
+            (session) => String(session.id) === sessionId,
+        )?.name ?? null;
+
         setQuickViewId(teamId);
+        setQuickViewSessionId(sessionId);
+        setQuickViewSessionName(sessionName);
+        setQuickViewHistoricalSession(
+            selectedSessionId !== null &&
+                sessionId !== null &&
+                Number(sessionId) !== selectedSessionId,
+        );
+    }
+
+    function currentIncharge(team: Team): CurrentInchargeAssignment {
+        return team.current_incharge_assignment ?? null;
+    }
+
+    function inchargeName(team: Team): string | null {
+        return currentIncharge(team)?.full_name ?? team.in_charge;
+    }
+
+    function inchargePno(team: Team): string | null {
+        return currentIncharge(team)?.pno ?? null;
+    }
+
+    const selectedSession = sessions.find(
+        (session) => String(session.id) === filters.session_id,
+    ) ?? null;
+    const currentSession = selectedSessionId
+        ? sessions.find((session) => session.id === selectedSessionId)
+        : null;
+    const viewingArchivedSession =
+        selectedSessionId !== null &&
+        selectedSession !== null &&
+        selectedSession.id !== selectedSessionId;
+
+    function postingPrimary(team: Team): string | null {
+        if (team.location_type === 'unit') {
+            return team.unit?.name ?? team.location_label;
+        }
+
+        return team.district?.name ?? team.location_label;
+    }
+
+    function postingSecondary(team: Team): string | null {
+        if (team.location_type === 'unit') {
+            return team.district?.name ?? null;
+        }
+
+        return null;
+    }
+
+    function printValue(
+        team: Team,
+        column: string,
+        serialNumber: number,
+    ): string {
+        if (column === 'serial_no') {
+            return String(serialNumber);
+        }
+
+        if (column === 'session') {
+            return selectedSession?.name ?? '';
+        }
+
+        if (column === 'sport') {
+            return team.sport?.name ?? '';
+        }
+
+        if (column === 'posting') {
+            return (
+                [postingPrimary(team), postingSecondary(team)]
+                    .filter(Boolean)
+                    .join(' / ') || ''
+            );
+        }
+
+        if (column === 'location_type') {
+            return team.location_type === 'unit' ? t('Unit') : t('District');
+        }
+
+        if (column === 'district') {
+            return team.district?.name ?? '';
+        }
+
+        if (column === 'unit') {
+            return team.unit?.name ?? '';
+        }
+
+        if (column === 'is_active') {
+            return team.is_active ? t('Active') : t('Inactive');
+        }
+
+        if (column === 'in_charge') {
+            return inchargeName(team) ?? '';
+        }
+
+        if (column === 'incharge_pno') {
+            return inchargePno(team) ?? '';
+        }
+
+        if (column === 'incharge_rank') {
+            return currentIncharge(team)?.rank ?? '';
+        }
+
+        if (column === 'incharge_designation') {
+            return currentIncharge(team)?.designation ?? '';
+        }
+
+        if (column === 'incharge_mobile') {
+            return currentIncharge(team)?.mobile ?? '';
+        }
+
+        if (column === 'incharge_email') {
+            return currentIncharge(team)?.email ?? '';
+        }
+
+        if (column === 'incharge_assigned_at') {
+            return currentIncharge(team)?.assigned_at ?? '';
+        }
+
+        const raw = (team as Record<string, unknown>)[column];
+
+        return raw != null && raw !== '' ? String(raw) : '';
+    }
+
+    function dash() {
+        return <span className="text-border select-none" />;
     }
 
     function buildExportUrl(): string {
@@ -255,8 +462,16 @@ export default function TeamsIndex({
                 params.append('filter[sport_id]', filters.sport_id);
             }
 
+            if (filters.district_id) {
+                params.append('filter[district_id]', filters.district_id);
+            }
+
             if (filters.unit_id) {
                 params.append('filter[unit_id]', filters.unit_id);
+            }
+
+            if (filters.location_type) {
+                params.append('filter[location_type]', filters.location_type);
             }
         }
 
@@ -267,34 +482,31 @@ export default function TeamsIndex({
         return exportTeamsUrl.url() + '?' + params.toString();
     }
 
+    function teamShowUrl(teamId: number): string {
+        const url = TeamController.show.url(teamId);
+
+        if (!filters.session_id) {
+            return url;
+        }
+
+        return `${url}?filter[session_id]=${filters.session_id}`;
+    }
+
     function handlePrint() {
         const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
         const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
         const bodyRows = teams.data
             .map(
-                (team) =>
+                (team, index) =>
                     `<tr>${cols
-                        .map((c) => {
-                            let v: string;
-
-                            if (c.key === 'session') {
-                                v = team.session?.name ?? '\u2014';
-                            } else if (c.key === 'sport') {
-                                v = team.sport?.name ?? '\u2014';
-                            } else if (c.key === 'unit') {
-                                v = team.unit?.name_hi ?? '\u2014';
-                            } else {
-                                const raw = (team as Record<string, unknown>)[
-                                    c.key
-                                ];
-                                v =
-                                    raw != null && raw !== ''
-                                        ? String(raw)
-                                        : '\u2014';
-                            }
-
-                            return `<td>${v}</td>`;
-                        })
+                        .map(
+                            (c) =>
+                                `<td>${printValue(
+                                    team,
+                                    c.key,
+                                    (teams.from ?? 1) + index,
+                                )}</td>`,
+                        )
                         .join('')}</tr>`,
             )
             .join('');
@@ -312,9 +524,10 @@ export default function TeamsIndex({
     const hasActiveFilters = !!(
         filters.q ||
         filters.pno ||
-        filters.session_id ||
         filters.sport_id ||
-        filters.unit_id
+        filters.district_id ||
+        filters.unit_id ||
+        filters.location_type
     );
 
     return (
@@ -328,7 +541,30 @@ export default function TeamsIndex({
                         title={t('Teams')}
                         description={t('Manage teams')}
                     />
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
+                        <Select
+                            value={
+                                filters.session_id ??
+                                (selectedSessionId
+                                    ? String(selectedSessionId)
+                                    : '')
+                            }
+                            onValueChange={(v) =>
+                                applyFilters({ session_id: v }, false)
+                            }
+                        >
+                            <SelectTrigger className="w-48">
+                                <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                                <SelectValue placeholder={t('Session')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {sessions.map((s) => (
+                                    <SelectItem key={s.id} value={String(s.id)}>
+                                        {s.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <Button
                             variant="outline"
                             size="sm"
@@ -350,9 +586,25 @@ export default function TeamsIndex({
                         </Button>
                     </div>
                 </div>
+                {viewingArchivedSession && currentSession && selectedSession ? (
+                    <div className="rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/30 dark:text-amber-200">
+                        <div className="flex items-center gap-2">
+                            <CalendarDays className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                            <span className="font-medium">
+                                {t('Archived roster view')}
+                            </span>
+                            <span>·</span>
+                            <span>{selectedSession?.name}</span>
+                            <span>·</span>
+                            <span>
+                                {t('Current session')}: {currentSession.name}
+                            </span>
+                        </div>
+                    </div>
+                ) : null}
 
                 {/* Filter bar */}
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
                     <div className="relative w-52">
                         <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -372,29 +624,6 @@ export default function TeamsIndex({
                             className="pl-8 font-mono"
                         />
                     </div>
-
-                    <Select
-                        value={filters.session_id ?? 'all'}
-                        onValueChange={(v) =>
-                            applyFilters({
-                                session_id: v === 'all' ? undefined : v,
-                            })
-                        }
-                    >
-                        <SelectTrigger className="w-44">
-                            <SelectValue placeholder={t('All sessions')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">
-                                {t('All sessions')}
-                            </SelectItem>
-                            {sessions.map((s) => (
-                                <SelectItem key={s.id} value={String(s.id)}>
-                                    {s.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
 
                     <Select
                         value={filters.sport_id ?? 'all'}
@@ -420,6 +649,54 @@ export default function TeamsIndex({
                     </Select>
 
                     <Select
+                        value={filters.location_type ?? 'all'}
+                        onValueChange={(v) =>
+                            applyFilters({
+                                location_type: v === 'all' ? undefined : v,
+                            })
+                        }
+                    >
+                        <SelectTrigger className="w-44">
+                            <SelectValue placeholder={t('All locations')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">
+                                {t('All locations')}
+                            </SelectItem>
+                            <SelectItem value="unit">{t('Unit')}</SelectItem>
+                            <SelectItem value="district">
+                                {t('District')}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={filters.district_id ?? 'all'}
+                        onValueChange={(v) =>
+                            applyFilters({
+                                district_id: v === 'all' ? undefined : v,
+                            })
+                        }
+                    >
+                        <SelectTrigger className="w-44">
+                            <SelectValue placeholder={t('All districts')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">
+                                {t('All districts')}
+                            </SelectItem>
+                            {districts.map((district) => (
+                                <SelectItem
+                                    key={district.id}
+                                    value={String(district.id)}
+                                >
+                                    {district.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select
                         value={filters.unit_id ?? 'all'}
                         onValueChange={(v) =>
                             applyFilters({
@@ -436,7 +713,7 @@ export default function TeamsIndex({
                             </SelectItem>
                             {units.map((u) => (
                                 <SelectItem key={u.id} value={String(u.id)}>
-                                    {u.name_hi}
+                                    {u.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -466,10 +743,11 @@ export default function TeamsIndex({
                 </div>
 
                 {/* Table */}
-                <div className="overflow-hidden rounded-xl border">
-                    <Table>
+                <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+                    <div className="min-w-[1160px]">
+                        <Table>
                         <TableHeader>
-                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                <TableRow className="bg-muted/80 hover:bg-muted/90">
                                 <TableHead className="w-0">
                                     <Checkbox
                                         checked={
@@ -488,137 +766,275 @@ export default function TeamsIndex({
                                         aria-label={t('Select all on page')}
                                     />
                                 </TableHead>
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
-                                <TableHead>{t('Sport')}</TableHead>
-                                <TableHead>{t('Session')}</TableHead>
-                                <TableHead>{t('Unit')}</TableHead>
-                                <TableHead>{t('In-charge')}</TableHead>
-                                <TableHead>{t('Roster')}</TableHead>
-                                <TableHead className="text-right">
-                                    {t('Coaches')}
+                                <TableHead className="w-16 text-center">
+                                    {t('S.No.')}
                                 </TableHead>
-                                <TableHead className="w-0 text-right">
+                                <TableHead>{t('Team')}</TableHead>
+                                <TableHead className="w-24">{t('Status')}</TableHead>
+                                <TableHead>{t('Posting / District')}</TableHead>
+                                <TableHead>{t('In-charge')}</TableHead>
+                                <TableHead>{t('Players')}</TableHead>
+                                <TableHead>{t('Staff')}</TableHead>
+                                <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
                                     {t('Actions')}
                                 </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {teams.data.length === 0 ? (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={9}
-                                        className="py-12 text-center text-muted-foreground"
-                                    >
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={9}
+                                            className="py-12 text-center text-muted-foreground"
+                                        >
                                         {hasActiveFilters
                                             ? t('No teams match your filters.')
                                             : t('No teams yet.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                teams.data.map((team) => (
-                                    <TableRow
-                                        key={team.id}
-                                        className="cursor-pointer hover:bg-muted/40"
-                                        onClick={() => openQuickView(team.id)}
-                                    >
-                                        <TableCell className="w-0">
-                                            <Checkbox
-                                                checked={selectedIds.has(
-                                                    team.id,
-                                                )}
-                                                onCheckedChange={() =>
-                                                    toggleRow(team.id)
-                                                }
-                                                onClick={(event) =>
-                                                    event.stopPropagation()
-                                                }
-                                                aria-label={t('Select row')}
-                                            />
-                                        </TableCell>
-                                        <TableCell className="font-medium">
-                                            {team.name_hi}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {team.sport?.name ?? (
-                                                <span className="text-border select-none">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {team.session?.name ?? (
-                                                <span className="text-border select-none">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {team.unit?.name_hi ?? (
-                                                <span className="text-border select-none">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {team.in_charge_hi ?? (
-                                                <span className="text-border select-none">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium tabular-nums">
-                                                    {t('Players')}:{' '}
-                                                    {team.players_count}
-                                                </span>
-                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium tabular-nums">
-                                                    {t('Captains')}:{' '}
-                                                    {team.captains_count}
-                                                </span>
-                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium tabular-nums">
-                                                    {t('Reserves')}:{' '}
-                                                    {team.reserves_count}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium tabular-nums">
-                                            {team.coaches_count}
-                                        </TableCell>
-                                        <TableCell className="w-0">
-                                            <div className="flex items-center">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    title={t('Quick info')}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        openQuickView(team.id);
-                                                    }}
+                                teams.data.map((team, index) => {
+                                    const assignedIncharge =
+                                        currentIncharge(team);
+                                    const visibleIncharge = inchargeName(team);
+                                    const serialNumber =
+                                        (teams.from ?? 1) + index;
+
+                                    return (
+                                        <TableRow
+                                            key={team.id}
+                                            className="group cursor-pointer border-l-4 border-l-transparent transition-colors hover:border-l-primary/70 hover:bg-sky-50/60 dark:hover:bg-sky-950/20"
+                                            onClick={() =>
+                                                openQuickView(team.id)
+                                            }
+                                        >
+                                            <TableCell className="w-0">
+                                                <Checkbox
+                                                    checked={selectedIds.has(
+                                                        team.id,
+                                                    )}
+                                                    onCheckedChange={() =>
+                                                        toggleRow(team.id)
+                                                    }
+                                                    onClick={(event) =>
+                                                        event.stopPropagation()
+                                                    }
+                                                    aria-label={t('Select row')}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="text-center text-sm font-semibold text-muted-foreground tabular-nums">
+                                                {serialNumber}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="min-w-52 space-y-2">
+                                                    <div className="font-semibold text-foreground">
+                                                        {team.name}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-2 py-1 text-xs font-medium text-sky-700 dark:text-sky-300">
+                                                            <Trophy className="h-3.5 w-3.5" />
+                                                            {team.sport?.name ??
+                                                                ''}
+                                                        </span>
+                                                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                                                            <CalendarDays className="h-3.5 w-3.5" />
+                                                            {selectedSession
+                                                                ?.name ?? ''}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant={
+                                                        team.is_active
+                                                            ? 'default'
+                                                            : 'secondary'
+                                                    }
+                                                    className={
+                                                        team.is_active
+                                                            ? 'border border-emerald-300 bg-emerald-100/80 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200'
+                                                            : 'border border-amber-300 bg-amber-100/80 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200'
+                                                    }
                                                 >
-                                                    <Info className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    title={t('View')}
-                                                    asChild
-                                                >
-                                                    <Link
-                                                        href={TeamController.show.url(
-                                                            team.id,
-                                                        )}
+                                                    {team.is_active
+                                                        ? t('Active')
+                                                        : t('Inactive')}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="min-w-44 space-y-1.5">
+                                                    <div className="flex items-start gap-2">
+                                                        <MapPin className="mt-0.5 h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                                                        <div>
+                                                            <div className="font-medium">
+                                                                {postingPrimary(
+                                                                    team,
+                                                                ) ?? dash()}
+                                                            </div>
+                                                            {postingSecondary(
+                                                                team,
+                                                            ) && (
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    {t(
+                                                                        'District',
+                                                                    )}
+                                                                    :{' '}
+                                                                    {postingSecondary(
+                                                                        team,
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                                                     >
-                                                        <Eye className="h-4 w-4" />
-                                                    </Link>
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                                        {team.location_type ===
+                                                        'unit'
+                                                            ? t('Unit')
+                                                            : t('District')}
+                                                    </Badge>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {visibleIncharge ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        className="h-auto justify-start rounded-lg px-2 py-1 text-left hover:bg-indigo-500/10"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setInchargeTeam(
+                                                                team,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <div className="flex items-start gap-2">
+                                                            <UserCheck className="mt-0.5 h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                                                            <div>
+                                                                <div className="font-medium">
+                                                                    {
+                                                                        visibleIncharge
+                                                                    }
+                                                                </div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {assignedIncharge?.designation ??
+                                                                    assignedIncharge?.rank ??
+                                                                    t(
+                                                                        'View incharge details',
+                                                                    )}
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {inchargePno(team)
+                                                                    ? `${t('PNO')}: ${inchargePno(
+                                                                        team,
+                                                                    )}`
+                                                                    : ''}
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {assignedIncharge?.email
+                                                                    ? `${t('Email')}: ${assignedIncharge.email}`
+                                                                    : ''}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    </Button>
+                                                ) : (
+                                                    <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                                                        {t('Unassigned')}
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex min-w-44 flex-wrap gap-1.5">
+                                                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-500/10 px-2 py-1 text-xs font-medium text-slate-700 tabular-nums dark:text-slate-300">
+                                                        <Users className="h-3.5 w-3.5" />
+                                                        {t('Total')}:{' '}
+                                                        {team.players_count}
+                                                    </span>
+                                                    {team.removed_players_count >
+                                                        0 && (
+                                                        <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 tabular-nums dark:text-amber-300">
+                                                            {t('Removed')}:{' '}
+                                                            {
+                                                                team.removed_players_count
+                                                            }
+                                                        </span>
+                                                    )}
+                                                    <span className="inline-flex items-center rounded-md bg-blue-500/10 px-2 py-1 text-xs font-medium text-blue-700 tabular-nums dark:text-blue-300">
+                                                        {t('Male')}:{' '}
+                                                        {
+                                                            team.male_players_count
+                                                        }
+                                                    </span>
+                                                    <span className="inline-flex items-center rounded-md bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-700 tabular-nums dark:text-rose-300">
+                                                        {t('Female')}:{' '}
+                                                        {
+                                                            team.female_players_count
+                                                        }
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex min-w-40 flex-wrap gap-1.5">
+                                                    <span className="inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-2 py-1 text-xs font-medium text-violet-700 tabular-nums dark:text-violet-300">
+                                                        <ShieldCheck className="h-3.5 w-3.5" />
+                                                        {t('Coaches')}:{' '}
+                                                        {team.coaches_count}
+                                                    </span>
+                                                    <span className="inline-flex items-center rounded-md bg-orange-500/10 px-2 py-1 text-xs font-medium text-orange-700 tabular-nums dark:text-orange-300">
+                                                        {t('Captains')}:{' '}
+                                                        {team.captains_count}
+                                                    </span>
+                                                    <span className="inline-flex items-center rounded-md bg-teal-500/10 px-2 py-1 text-xs font-medium text-teal-700 tabular-nums dark:text-teal-300">
+                                                        {t('Reserves')}:{' '}
+                                                        {team.reserves_count}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="sticky right-0 z-10 w-0 bg-card">
+                                                <div className="flex items-center justify-end">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title={t('Quick info')}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openQuickView(
+                                                                team.id,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Info className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title={t('View')}
+                                                        asChild
+                                                    >
+                                                        <Link
+                                                            href={teamShowUrl(
+                                                                team.id,
+                                                            )}
+                                                            onClick={(event) =>
+                                                                event.stopPropagation()
+                                                            }
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Link>
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
                             )}
                         </TableBody>
                     </Table>
+                    </div>
                 </div>
 
                 {/* Pagination */}
@@ -682,10 +1098,23 @@ export default function TeamsIndex({
                 onPrint={handlePrint}
                 t={t}
             />
+            <InchargeDialog
+                team={inchargeTeam}
+                onClose={() => setInchargeTeam(null)}
+                t={t}
+            />
             <TeamQuickView
                 teamId={quickViewId}
                 open={quickViewId !== null}
-                onClose={() => setQuickViewId(null)}
+                sessionId={quickViewSessionId}
+                sessionName={quickViewSessionName}
+                historical={quickViewHistoricalSession}
+                onClose={() => {
+                    setQuickViewId(null);
+                    setQuickViewSessionId(null);
+                    setQuickViewSessionName(null);
+                    setQuickViewHistoricalSession(false);
+                }}
             />
         </>
     );
@@ -694,6 +1123,149 @@ export default function TeamsIndex({
 TeamsIndex.layout = {
     breadcrumbs: [{ title: 'Teams', href: TeamController.index.url() }],
 };
+
+function InchargeDialog({
+    team,
+    onClose,
+    t,
+}: {
+    team: Team | null;
+    onClose: () => void;
+    t: (key: string) => string;
+}) {
+    const assignment = team?.current_incharge_assignment ?? null;
+    const displayName = assignment?.full_name ?? team?.in_charge ?? null;
+
+    return (
+        <Dialog
+            open={team !== null}
+            onOpenChange={(open) => {
+                if (!open) {
+                    onClose();
+                }
+            }}
+        >
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{t('In-charge details')}</DialogTitle>
+                    <DialogDescription>
+                        {team?.name ?? t('Team')}
+                    </DialogDescription>
+                </DialogHeader>
+
+                {team && (
+                    <div className="space-y-4">
+                        <div className="rounded-lg border bg-indigo-50/70 dark:bg-slate-900">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-lg font-semibold">
+                                        {displayName ?? t('Unassigned')}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {assignment?.designation ??
+                                            assignment?.rank ??
+                                            ''}
+                                    </p>
+                                </div>
+                                <Badge className="bg-indigo-600 text-white">
+                                    {assignment ? t('Current') : t('Legacy')}
+                                </Badge>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="flex items-start gap-2 rounded-lg border p-3">
+                                <IdCard className="mt-0.5 h-4 w-4 text-sky-600 dark:text-sky-300" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('PNO')}
+                                    </p>
+                                    <p className="font-medium">
+                                        {assignment?.pno ?? ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-2 rounded-lg border p-3">
+                                <ShieldCheck className="mt-0.5 h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('Rank')}
+                                    </p>
+                                    <p className="font-medium">
+                                        {assignment?.rank ?? ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-2 rounded-lg border p-3">
+                                <Phone className="mt-0.5 h-4 w-4 text-orange-600 dark:text-orange-300" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('Mobile')}
+                                    </p>
+                                    <p className="font-medium">
+                                        {assignment?.mobile ?? ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-2 rounded-lg border p-3">
+                                <Mail className="mt-0.5 h-4 w-4 text-rose-600 dark:text-rose-300" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('Email')}
+                                    </p>
+                                    <p className="font-medium break-all">
+                                        {assignment?.email ?? ''}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-2 rounded-lg border p-3 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-muted-foreground">
+                                    {t('Assigned on')}
+                                </span>
+                                <span className="font-medium">
+                                    {assignment?.assigned_at ?? ''}
+                                </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                                <span className="text-muted-foreground">
+                                    {t('Reason')}
+                                </span>
+                                <span className="text-right font-medium">
+                                    {assignment?.assignment_reason ?? ''}
+                                </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                                <span className="text-muted-foreground">
+                                    {t('Remarks')}
+                                </span>
+                                <span className="text-right font-medium">
+                                    {assignment?.remarks ?? ''}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose}>
+                        {t('Close')}
+                    </Button>
+                    {team && (
+                        <Button asChild>
+                            <Link href={TeamController.show.url(team.id)}>
+                                <Eye className="mr-1.5 h-4 w-4" />
+                                {t('Open team')}
+                            </Link>
+                        </Button>
+                    )}
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 function ExportDialog({
     open,

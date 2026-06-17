@@ -71,11 +71,11 @@ test('known sports are present with correct data', function (): void {
 
     $hockey = sportsQuery()->where('slug', 'hockey')->first();
     expect($hockey)->not->toBeNull()
-        ->and($hockey->name_hi)->toBe('हॉकी')
+        ->and($hockey->name)->toBe('हॉकी')
         ->and($hockey->category)->toBe('TEAM');
 
     $boxing = sportsQuery()->where('slug', 'boxing')->first();
     expect($boxing)->not->toBeNull()
-        ->and($boxing->name_hi)->toBe('बॉक्सिंग')
+        ->and($boxing->name)->toBe('बॉक्सिंग')
         ->and($boxing->category)->toBe('COMBAT');
 });

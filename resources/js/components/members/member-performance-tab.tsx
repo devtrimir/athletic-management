@@ -36,10 +36,10 @@ type SessionSummaryRow = {
 type LedgerRow = {
     participation_id: number;
     session: { id: number | null; name: string | null };
-    sport: { id: number; name_hi: string; name_en: string } | null;
+    sport: { id: number; name: string } | null;
     tournament: {
         id: number;
-        name_hi: string;
+        name: string;
         date_from: string | null;
         tier: {
             id: number;
@@ -49,7 +49,7 @@ type LedgerRow = {
             weight: number;
         } | null;
     } | null;
-    event: { id: number; name_hi: string } | null;
+    event: { id: number; name: string } | null;
     achievement: {
         id: number;
         medal_type: string;
@@ -214,7 +214,7 @@ export function MemberPerformanceTab({
 
                 carry.push({
                     id: String(row.sport.id),
-                    name: row.sport.name_hi,
+                    name: row.sport.name,
                 });
 
                 return carry;
@@ -878,14 +878,14 @@ export function MemberPerformanceTab({
                                                     {row.session.name ?? '—'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {row.tournament?.name_hi ??
+                                                    {row.tournament?.name ??
                                                         '—'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {row.sport?.name_hi ?? '—'}
+                                                    {row.sport?.name ?? '—'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {row.event?.name_hi ?? '—'}
+                                                    {row.event?.name ?? '—'}
                                                 </TableCell>
                                                 <TableCell>
                                                     {medalLabel(row)}

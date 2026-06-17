@@ -22,7 +22,7 @@ test('coach_assignments table is created by migration', function () {
 test('coach_assignments table has all required columns', function () {
     $columns = [
         'id', 'team_id', 'coach_id', 'session_id',
-        'role', 'created_at', 'updated_at',
+        'role', 'assigned_at', 'removed_at', 'is_current', 'notes', 'created_at', 'updated_at',
     ];
 
     foreach ($columns as $column) {
@@ -31,7 +31,7 @@ test('coach_assignments table has all required columns', function () {
     }
 });
 
-test('duplicate team_id + coach_id + role is rejected', function () {
+test('duplicate team_id + coach_id + session_id current assignment is rejected', function () {
     $org = Organization::factory()->create();
     $sport = Sport::factory()->create(['organization_id' => $org->id]);
     $session = SportSession::factory()->create(['organization_id' => $org->id]);
@@ -55,11 +55,11 @@ test('duplicate team_id + coach_id + role is rejected', function () {
         'team_id' => $team->id,
         'coach_id' => $coach->id,
         'session_id' => $session->id,
-        'role' => 'HEAD',
+        'role' => 'ASSISTANT',
     ]))->toThrow(QueryException::class);
 });
 
-test('same coach can hold HEAD and ASSISTANT roles on same team', function () {
+test('same coach can hold different historical roles in same team when existing row is historical', function () {
     $org = Organization::factory()->create();
     $sport = Sport::factory()->create(['organization_id' => $org->id]);
     $session = SportSession::factory()->create(['organization_id' => $org->id]);
@@ -72,8 +72,20 @@ test('same coach can hold HEAD and ASSISTANT roles on same team', function () {
     ]);
     $coach = Coach::factory()->create(['organization_id' => $org->id]);
 
-    CoachAssignment::factory()->create(['team_id' => $team->id, 'coach_id' => $coach->id, 'session_id' => $session->id, 'role' => 'HEAD']);
-    CoachAssignment::factory()->create(['team_id' => $team->id, 'coach_id' => $coach->id, 'session_id' => $session->id, 'role' => 'ASSISTANT']);
+    CoachAssignment::factory()->create([
+        'team_id' => $team->id,
+        'coach_id' => $coach->id,
+        'session_id' => $session->id,
+        'role' => 'HEAD',
+        'is_current' => false,
+    ]);
+
+    CoachAssignment::factory()->create([
+        'team_id' => $team->id,
+        'coach_id' => $coach->id,
+        'session_id' => $session->id,
+        'role' => 'ASSISTANT',
+    ]);
 
     expect(CoachAssignment::where('coach_id', $coach->id)->count())->toBe(2);
 });

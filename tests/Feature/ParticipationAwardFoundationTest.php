@@ -59,3 +59,41 @@ test('player points config exposes initial scoring buckets', function (): void {
         ->and(config('player_points.tier_bonus.NATIONAL'))->toBe(6)
         ->and(config('player_points.awards.BEST_PLAYER'))->toBe(8);
 });
+
+test('player points client confirmation data mirrors config values', function (): void {
+    $rows = collect(array_map('str_getcsv', file(database_path('data/player_points.csv'))));
+    $header = $rows->shift();
+
+    $dataRows = $rows
+        ->map(fn (array $row): array => array_combine($header, $row))
+        ->values();
+
+    $points = $dataRows
+        ->mapWithKeys(fn (array $row): array => [
+            $row['category'].'.'.$row['code'] => (int) $row['points'],
+        ]);
+
+    expect($points->all())->toBe([
+        'participation.base_points' => config('player_points.participation.base_points'),
+        'medal.GOLD' => config('player_points.medals.GOLD'),
+        'medal.SILVER' => config('player_points.medals.SILVER'),
+        'medal.BRONZE' => config('player_points.medals.BRONZE'),
+        'medal.MERIT' => config('player_points.medals.MERIT'),
+        'tier_bonus.INTERNATIONAL' => config('player_points.tier_bonus.INTERNATIONAL'),
+        'tier_bonus.NATIONAL' => config('player_points.tier_bonus.NATIONAL'),
+        'tier_bonus.AIPSC' => config('player_points.tier_bonus.AIPSC'),
+        'tier_bonus.STATE' => config('player_points.tier_bonus.STATE'),
+        'tier_bonus.ZONAL' => config('player_points.tier_bonus.ZONAL'),
+        'tier_bonus.OTHER' => config('player_points.tier_bonus.OTHER'),
+        'award.BEST_PLAYER' => config('player_points.awards.BEST_PLAYER'),
+        'award.BEST_ATHLETE' => config('player_points.awards.BEST_ATHLETE'),
+        'award.BEST_GOALKEEPER' => config('player_points.awards.BEST_GOALKEEPER'),
+        'award.MAN_OF_THE_MATCH' => config('player_points.awards.MAN_OF_THE_MATCH'),
+        'award.COMMENDATION' => config('player_points.awards.COMMENDATION'),
+        'award.OTHER' => config('player_points.awards.OTHER'),
+    ]);
+
+    expect($dataRows)
+        ->each
+        ->toHaveKey('client_status', 'pending_client_confirmation');
+});

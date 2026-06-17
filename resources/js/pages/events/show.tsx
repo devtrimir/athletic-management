@@ -38,13 +38,13 @@ import { useTranslation } from '@/hooks/use-translation';
 // Types
 // ---------------------------------------------------------------------------
 
-type TournamentRef = { id: number; name_hi: string };
+type TournamentRef = { id: number; name: string };
 type Sport = { id: number; name: string };
 
 type EventProp = {
     id: number;
     sport_id: number | null;
-    name_hi: string;
+    name: string;
     discipline: string | null;
     weight_category: string | null;
     gender_class: string;
@@ -57,7 +57,7 @@ type ParticipationRow = {
     media_files_count: number;
     member: {
         id: number;
-        full_name_hi: string;
+        full_name: string;
         member_code: string;
         pno: string | null;
     } | null;
@@ -70,7 +70,7 @@ type ParticipationRow = {
 
 type EventForm = {
     sport_id: string;
-    name_hi: string;
+    name: string;
     discipline: string;
     weight_category: string;
     gender_class: string;
@@ -155,17 +155,17 @@ function EventFormFields({
             </div>
 
             <div className="grid gap-2 sm:col-span-2">
-                <Label htmlFor={`${idPrefix}_name_hi`}>
-                    {t('Event name (Hindi)')} <span className="text-destructive">*</span>
+                <Label htmlFor={`${idPrefix}_name`}>
+                    {t('Event name')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                    id={`${idPrefix}_name_hi`}
-                    value={data.name_hi}
-                    onChange={(e) => setData('name_hi', e.target.value)}
+                    id={`${idPrefix}_name`}
+                    value={data.name}
+                    onChange={(e) => setData('name', e.target.value)}
                     maxLength={255}
                     required
                 />
-                <InputError message={errors.name_hi} />
+                <InputError message={errors.name} />
             </div>
 
             <div className="grid gap-2">
@@ -213,7 +213,7 @@ function EditEventDialog({
     const { t } = useTranslation();
     const { data, setData, patch, errors, processing, reset } = useForm<EventForm>({
         sport_id: event.sport_id ? String(event.sport_id) : '',
-        name_hi: event.name_hi,
+        name: event.name,
         discipline: event.discipline ?? '',
         weight_category: event.weight_category ?? '',
         gender_class: event.gender_class,
@@ -234,7 +234,7 @@ function EditEventDialog({
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{t('Edit event')}</DialogTitle>
-                    <DialogDescription>{event.name_hi}</DialogDescription>
+                    <DialogDescription>{event.name}</DialogDescription>
                 </DialogHeader>
                 <form id="edit-event-form" onSubmit={handleSubmit}>
                     <EventFormFields
@@ -513,7 +513,7 @@ handleClose();
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{t('Add participant')}</DialogTitle>
-                    <DialogDescription>{event.name_hi}</DialogDescription>
+                    <DialogDescription>{event.name}</DialogDescription>
                 </DialogHeader>
 
                 <form id="add-participant-form" onSubmit={handleSubmit} className="space-y-5">
@@ -629,7 +629,7 @@ onClose();
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{t('Edit participant')}</DialogTitle>
-                    <DialogDescription>{participation?.member?.full_name_hi}</DialogDescription>
+                    <DialogDescription>{participation?.member?.full_name}</DialogDescription>
                 </DialogHeader>
                 <form id="edit-participant-form" onSubmit={handleSubmit}>
                     <ParticipantFormFields
@@ -735,7 +735,7 @@ return;
                             <TableRow key={p.id}>
                                 <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
                                 <TableCell>
-                                    <div className="text-sm font-medium">{p.member?.full_name_hi}</div>
+                                    <div className="text-sm font-medium">{p.member?.full_name}</div>
                                     <div className="text-muted-foreground text-xs">
                                         {p.member?.member_code}
                                         {p.member?.pno ? ` · ${p.member.pno}` : ''}
@@ -822,7 +822,7 @@ setDeletingParticipation(null);
             {mediaParticipation && (
                 <ParticipationMediaSheet
                     participationId={mediaParticipation.id}
-                    memberName={mediaParticipation.member?.full_name_hi ?? ''}
+                    memberName={mediaParticipation.member?.full_name ?? ''}
                     open={mediaParticipation !== null}
                     onOpenChange={(o) => {
  if (!o) {
@@ -870,8 +870,8 @@ export default function EventsShow({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Tournaments'), href: tournamentsIndex.url() },
-            { title: tournament.name_hi, href: showTournament.url(tournament.id) },
-            { title: event.name_hi },
+            { title: tournament.name, href: showTournament.url(tournament.id) },
+            { title: event.name },
         ],
     });
 
@@ -879,13 +879,13 @@ export default function EventsShow({
 
     return (
         <>
-            <Head title={event.name_hi} />
+            <Head title={event.name} />
 
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-2">
-                        <Heading variant="small" title={event.name_hi} />
+                        <Heading variant="small" title={event.name} />
                         <div className="flex flex-wrap gap-2">
                             {event.sport && <Badge variant="secondary">{event.sport.name}</Badge>}
                             <Badge variant="outline">{t(event.gender_class)}</Badge>

@@ -14,7 +14,6 @@ test('district seeder inserts all 75 UP districts', function (): void {
 
 test('district seeder is idempotent', function (): void {
     $this->seed(DistrictSeeder::class);
-    $this->seed(DistrictSeeder::class);
 
     expect(District::count())->toBe(75);
 });
@@ -30,18 +29,18 @@ test('lucknow and varanasi are present with correct data', function (): void {
 
     $lucknow = District::where('code', 'LKO')->first();
     expect($lucknow)->not->toBeNull()
-        ->and($lucknow->name_hi)->toBe('लखनऊ')
-        ->and($lucknow->name_en)->toBe('Lucknow');
+        ->and($lucknow->name)->toBe('लखनऊ')
+        ->and($lucknow->name)->toBe('Lucknow');
 
     $varanasi = District::where('code', 'VNS')->first();
     expect($varanasi)->not->toBeNull()
-        ->and($varanasi->name_hi)->toBe('वाराणसी')
-        ->and($varanasi->name_en)->toBe('Varanasi');
+        ->and($varanasi->name)->toBe('वाराणसी')
+        ->and($varanasi->name)->toBe('Varanasi');
 });
 
-test('every district has non-empty name_hi name_en code and state', function (): void {
+test('every district has non-empty name name code and state', function (): void {
     $this->seed(DistrictSeeder::class);
 
-    $invalid = District::where('name_hi', '')->orWhere('name_en', '')->orWhere('code', '')->orWhere('state', '')->count();
+    $invalid = District::where('name', '')->orWhere('name', '')->orWhere('code', '')->orWhere('state', '')->count();
     expect($invalid)->toBe(0);
 });

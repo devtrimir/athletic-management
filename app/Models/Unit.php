@@ -16,15 +16,14 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $organization_id
- * @property string $name_hi
- * @property string $name_en
+ * @property string $name
  * @property string $unit_type
  * @property string|null $commandant
  * @property int|null $district_id
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-#[Fillable(['organization_id', 'name_hi', 'name_en', 'unit_type', 'commandant', 'district_id'])]
+#[Fillable(['organization_id', 'name', 'unit_type', 'commandant', 'district_id'])]
 #[ObservedBy([AuditObserver::class])]
 class Unit extends Model
 {

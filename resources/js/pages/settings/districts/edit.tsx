@@ -9,8 +9,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type District = {
     id: number;
-    name_hi: string;
-    name_en: string;
+    name: string;
     state: string;
     code: string;
 };
@@ -24,7 +23,7 @@ export default function Edit({ district }: { district: District }) {
                 href: DistrictController.index.url(),
             },
             {
-                title: district.name_en,
+                title: district.name,
                 href: DistrictController.edit.url(district.id),
             },
         ],
@@ -32,14 +31,14 @@ export default function Edit({ district }: { district: District }) {
 
     return (
         <>
-            <Head title={`${t('Edit')} ${district.name_en}`} />
+            <Head title={`${t('Edit')} ${district.name}`} />
 
-            <h1 className="sr-only">{t('Edit')} {district.name_en}</h1>
+            <h1 className="sr-only">{t('Edit')} {district.name}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title={`${t('Edit')} ${district.name_en}`}
+                    title={`${t('Edit')} ${district.name}`}
                     description={t('Update district details')}
                 />
 
@@ -49,27 +48,15 @@ export default function Edit({ district }: { district: District }) {
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_hi">{t('Name (Hindi)')}</Label>
+                                        <Label htmlFor="name">{t('Name')}</Label>
                                         <Input
-                                            id="name_hi"
-                                            name="name_hi"
-                                            defaultValue={district.name_hi}
+                                            id="name"
+                                            name="name"
+                                            defaultValue={district.name}
                                             maxLength={100}
                                             required
                                         />
-                                        <InputError message={errors.name_hi} />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="name_en">{t('Name (English)')}</Label>
-                                        <Input
-                                            id="name_en"
-                                            name="name_en"
-                                            defaultValue={district.name_en}
-                                            maxLength={100}
-                                            required
-                                        />
-                                        <InputError message={errors.name_en} />
+                                        <InputError message={errors.name} />
                                     </div>
                                 </div>
 

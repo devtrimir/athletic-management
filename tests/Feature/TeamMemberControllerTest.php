@@ -6,6 +6,7 @@ use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\User;
@@ -96,7 +97,7 @@ test('add members inserts rows and redirects to teams.show', function (): void {
             'role' => 'PLAYER',
             'joined_on' => '2026-01-15',
         ])
-        ->assertRedirect(route('teams.show', $team));
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
 
     $this->assertDatabaseHas('team_members', [
         'team_id' => $team->id,
@@ -104,6 +105,61 @@ test('add members inserts rows and redirects to teams.show', function (): void {
         'session_id' => $team->session_id,
         'role' => 'PLAYER',
         'joined_on' => '2026-01-15 00:00:00',
+    ]);
+});
+
+test('same member can be added to same team in a later session', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $nextSession = SportSession::factory()->create(['organization_id' => $org->id]);
+    $member = playableMember($org, $team);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('teams.members.store', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $nextSession->id,
+            'role' => 'PLAYER',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $nextSession->id]]));
+
+    $this->assertDatabaseHas('team_members', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $nextSession->id,
+    ]);
+    $this->assertDatabaseCount('team_members', 2);
+});
+
+test('adding member records roster movement', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $member = playableMember($org, $team);
+
+    $this->actingAs($user)
+        ->post(route('teams.members.store', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $team->session_id,
+            'role' => 'CAPTAIN',
+            'joined_on' => '2026-01-15',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
+
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'action' => 'ADDED',
+        'role' => 'CAPTAIN',
+        'effective_on' => '2026-01-15 00:00:00',
+        'created_by' => $user->id,
     ]);
 });
 
@@ -179,7 +235,7 @@ test('only the duplicate index carries an error when adding a mixed list', funct
 // destroy
 // ---------------------------------------------------------------------------
 
-test('remove member deletes row and redirects to teams.show', function (): void {
+test('remove member marks row as left and records movement', function (): void {
     $user = teamUser('teams.update');
     $org = Organization::find($user->organization_id);
     $team = teamWithOrg($org);
@@ -192,13 +248,97 @@ test('remove member deletes row and redirects to teams.show', function (): void 
     ]);
 
     $this->actingAs($user)
-        ->delete(route('teams.members.destroy', [$team, $member]))
-        ->assertRedirect(route('teams.show', $team));
+        ->delete(route('teams.members.destroy', [$team, $member]), [
+            'session_id' => $team->session_id,
+            'left_on' => '2026-02-01',
+            'reason' => 'Moved out of roster',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
 
-    $this->assertDatabaseMissing('team_members', [
+    expect($row = TeamMember::where('team_id', $team->id)
+        ->where('member_id', $member->id)
+        ->where('session_id', $team->session_id)
+        ->first())->not->toBeNull()
+        ->and($row->left_on?->toDateString())->toBe('2026-02-01');
+
+    $this->assertDatabaseHas('team_member_movements', [
         'team_id' => $team->id,
         'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'action' => 'REMOVED',
+        'reason' => 'Moved out of roster',
+        'source' => 'manual',
     ]);
+});
+
+test('remove member requires audited date and reason', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $member = playableMember($org, $team);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('teams.members.destroy', [$team, $member]), [
+            'session_id' => $team->session_id,
+        ])
+        ->assertSessionHasErrors(['left_on', 'reason']);
+
+    $this->assertDatabaseHas('team_members', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'left_on' => null,
+    ]);
+});
+
+test('bulk remove members requires and records the same audited removal details', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $first = playableMember($org, $team);
+    $second = playableMember($org, $team);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $first->id,
+        'session_id' => $team->session_id,
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $second->id,
+        'session_id' => $team->session_id,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('teams.members.bulkDestroy', $team), [
+            'member_ids' => [$first->id, $second->id],
+            'session_id' => $team->session_id,
+            'left_on' => '2026-03-01',
+            'reason' => 'Session roster cleanup',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
+
+    foreach ([$first, $second] as $member) {
+        $this->assertDatabaseHas('team_members', [
+            'team_id' => $team->id,
+            'member_id' => $member->id,
+            'session_id' => $team->session_id,
+            'left_on' => '2026-03-01 00:00:00',
+        ]);
+        $this->assertDatabaseHas('team_member_movements', [
+            'team_id' => $team->id,
+            'member_id' => $member->id,
+            'session_id' => $team->session_id,
+            'action' => 'REMOVED',
+            'reason' => 'Session roster cleanup',
+        ]);
+    }
 });
 
 // ---------------------------------------------------------------------------
@@ -277,9 +417,10 @@ test('member can join another team in the same session for a different playable 
     $this->actingAs($user)
         ->post(route('teams.members.store', $team), [
             'member_ids' => [$member->id],
+            'session_id' => $team->session_id,
             'role' => 'PLAYER',
         ])
-        ->assertRedirect(route('teams.show', $team));
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
 
     $this->assertDatabaseHas('team_members', [
         'team_id' => $team->id,
@@ -297,6 +438,7 @@ test('member without target team sport is rejected', function (): void {
     $this->actingAs($user)
         ->post(route('teams.members.store', $team), [
             'member_ids' => [$member->id],
+            'session_id' => $team->session_id,
             'role' => 'PLAYER',
         ])
         ->assertSessionHasErrors(['member_ids.0']);
@@ -313,9 +455,188 @@ test('inactive member is rejected', function (): void {
     $this->actingAs($user)
         ->post(route('teams.members.store', $team), [
             'member_ids' => [$member->id],
+            'session_id' => $team->session_id,
             'role' => 'PLAYER',
         ])
         ->assertSessionHasErrors(['member_ids.0']);
+});
+
+test('historical backfill previews inactive playable member as warning', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $oldSession = SportSession::factory()->create(['organization_id' => $org->id]);
+    $member = playableMember($org, $team, ['current_status' => 'RETIRED']);
+
+    $this->actingAs($user)
+        ->postJson(route('teams.members.backfill.preview', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $oldSession->id,
+            'role' => 'PLAYER',
+            'joined_on' => '2024-01-01',
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('summary.warning', 1)
+        ->assertJsonPath('rows.0.status', 'warning')
+        ->assertJsonPath('rows.0.member_id', $member->id);
+});
+
+test('historical backfill applies inactive playable member and records movement metadata', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $oldSession = SportSession::factory()->create(['organization_id' => $org->id]);
+    $member = playableMember($org, $team, ['current_status' => 'RETIRED']);
+
+    $this->actingAs($user)
+        ->post(route('teams.members.backfill', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $oldSession->id,
+            'role' => 'PLAYER',
+            'joined_on' => '2024-01-01',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $oldSession->id]]));
+
+    $this->assertDatabaseHas('team_members', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $oldSession->id,
+        'joined_on' => '2024-01-01 00:00:00',
+        'left_on' => null,
+    ]);
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $oldSession->id,
+        'action' => 'ADDED',
+        'source' => 'backfill',
+    ]);
+});
+
+test('historical backfill blocks member missing the team sport', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $oldSession = SportSession::factory()->create(['organization_id' => $org->id]);
+    $member = Member::factory()->create(['organization_id' => $org->id, 'current_status' => 'RETIRED']);
+
+    $this->actingAs($user)
+        ->postJson(route('teams.members.backfill.preview', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $oldSession->id,
+            'role' => 'PLAYER',
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('summary.blocked', 1)
+        ->assertJsonPath('rows.0.status', 'blocked');
+
+    $this->actingAs($user)
+        ->post(route('teams.members.backfill', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $oldSession->id,
+            'role' => 'PLAYER',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $oldSession->id]]));
+
+    $this->assertDatabaseMissing('team_members', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $oldSession->id,
+    ]);
+});
+
+test('historical backfill with left date records add and remove movements', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $oldSession = SportSession::factory()->create(['organization_id' => $org->id]);
+    $member = playableMember($org, $team);
+
+    $this->actingAs($user)
+        ->post(route('teams.members.backfill', $team), [
+            'paste' => $member->member_code.', PLAYER, 2023-01-01, 2023-05-01, Old roster exit',
+            'session_id' => $oldSession->id,
+            'role' => 'PLAYER',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $oldSession->id]]));
+
+    $this->assertDatabaseHas('team_members', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $oldSession->id,
+        'joined_on' => '2023-01-01 00:00:00',
+        'left_on' => '2023-05-01 00:00:00',
+    ]);
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $oldSession->id,
+        'action' => 'ADDED',
+        'source' => 'backfill',
+    ]);
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $oldSession->id,
+        'action' => 'REMOVED',
+        'reason' => 'Old roster exit',
+        'source' => 'backfill',
+    ]);
+});
+
+test('historical backfill blocks same sport active conflict', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $oldSession = SportSession::factory()->create(['organization_id' => $org->id]);
+    $otherTeam = Team::factory()->forOrganization($org)->create([
+        'session_id' => $oldSession->id,
+        'sport_id' => $team->sport_id,
+    ]);
+    $member = playableMember($org, $team);
+
+    TeamMember::factory()->create([
+        'team_id' => $otherTeam->id,
+        'member_id' => $member->id,
+        'session_id' => $oldSession->id,
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('teams.members.backfill.preview', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $oldSession->id,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('summary.blocked', 1)
+        ->assertJsonPath('rows.0.status', 'blocked');
+});
+
+test('historical backfill is idempotent for already recorded roster rows', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $oldSession = SportSession::factory()->create(['organization_id' => $org->id]);
+    $member = playableMember($org, $team);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $oldSession->id,
+        'left_on' => '2023-05-01',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('teams.members.backfill', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $oldSession->id,
+            'role' => 'PLAYER',
+            'joined_on' => '2023-01-01',
+            'left_on' => '2023-05-01',
+            'reason' => 'Already imported',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $oldSession->id]]));
+
+    $this->assertDatabaseCount('team_members', 1);
 });
 
 test('membership row can update role and dates', function (): void {
@@ -336,7 +657,7 @@ test('membership row can update role and dates', function (): void {
             'joined_on' => '2026-01-01',
             'left_on' => '2026-02-01',
         ])
-        ->assertRedirect(route('teams.show', $team));
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
 
     $this->assertDatabaseHas('team_members', [
         'id' => $row->id,

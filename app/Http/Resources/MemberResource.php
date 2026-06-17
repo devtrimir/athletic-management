@@ -22,9 +22,8 @@ class MemberResource extends JsonResource
             'id' => $this->id,
             'member_code' => $this->member_code,
             'pno' => $this->pno,
-            'full_name_hi' => $this->full_name_hi,
-            'full_name_en' => $this->full_name_en,
-            'father_name_hi' => $this->father_name_hi,
+            'full_name' => $this->full_name,
+            'father_name' => $this->father_name,
             'rank' => $this->rank,
             'designation' => $this->designation,
             'gender' => $this->gender,
@@ -48,8 +47,8 @@ class MemberResource extends JsonResource
             'playable_sports' => $this->whenLoaded('playableSports', fn () => $this->playableSports
                 ->map(fn ($sport) => [
                     'id' => $sport->id,
-                    'name_hi' => $sport->name_hi,
-                    'name_en' => $sport->name_en ?? $sport->name_hi,
+                    'name' => $sport->name,
+                    'name' => $sport->name ?? $sport->name,
                     'role' => $sport->pivot?->role,
                     'position' => $sport->pivot?->position,
                     'sport_event' => $sport->pivot?->sport_event,
@@ -59,15 +58,15 @@ class MemberResource extends JsonResource
                 ->all()),
             'home_district' => $this->whenLoaded('homeDistrict', fn () => [
                 'id' => $this->homeDistrict->id,
-                'name_hi' => $this->homeDistrict->name_hi,
+                'name' => $this->homeDistrict->name,
             ]),
             'posting_district' => $this->whenLoaded('postingDistrict', fn () => $this->postingDistrict ? [
                 'id' => $this->postingDistrict->id,
-                'name_hi' => $this->postingDistrict->name_hi,
+                'name' => $this->postingDistrict->name,
             ] : null),
             'current_unit' => $this->whenLoaded('currentUnit', fn () => [
                 'id' => $this->currentUnit->id,
-                'name_hi' => $this->currentUnit->name_hi,
+                'name' => $this->currentUnit->name,
             ]),
         ];
     }

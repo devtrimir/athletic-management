@@ -14,8 +14,7 @@ return new class extends Migration
         Schema::create('units', function (Blueprint $table) {
             $table->id();
             $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
-            $table->string('name_hi');
-            $table->string('name_en');
+            $table->string('name');
             $table->enum('unit_type', ['PAC', 'GRP', 'DISTRICT', 'HQ', 'OTHER']);
             $table->string('commandant')->nullable();
             $table->foreignId('district_id')->nullable()->constrained('districts')->nullOnDelete();

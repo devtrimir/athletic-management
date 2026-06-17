@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AchievementHistoryController;
+use App\Http\Controllers\Api\V1\CoachAuditLogController;
 use App\Http\Controllers\Api\V1\CoachPreviewController;
 use App\Http\Controllers\Api\V1\CoachSearchController;
 use App\Http\Controllers\Api\V1\CoachTeamsController;
@@ -34,6 +35,7 @@ Route::middleware(['auth'])->prefix('v1')->name('v1.')->group(function () {
     Route::get('members/{member}/media', MemberMediaController::class)->name('members.media.index');
     Route::get('coaches/{coach}/preview', CoachPreviewController::class)->name('coaches.preview');
     Route::get('coaches/{coach}/teams', CoachTeamsController::class)->name('coaches.teams.index');
+    Route::get('coaches/{coach}/audit-log', CoachAuditLogController::class)->name('coaches.audit-log.index');
     Route::get('teams/{team}/preview', TeamPreviewController::class)->name('teams.preview');
     Route::get('tournament-tiers', [ReferenceDataController::class, 'tournamentTiers'])
         ->name('tournament-tiers.index');

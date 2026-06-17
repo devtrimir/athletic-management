@@ -10,7 +10,9 @@ use App\Models\CoachAssignment;
 use App\Models\Team;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class TeamCoachController extends Controller
@@ -20,43 +22,36 @@ class TeamCoachController extends Controller
         Gate::authorize('update', $team);
 
         $data = $request->validated();
+        $sessionId = (int) $team->session_id;
+        $coachId = (int) $data['coach_id'];
+        $normalizedRole = CoachAssignment::normalizeRole((string) $data['role']);
 
-        // Check: already on this team for this session.
-        $onThisTeam = CoachAssignment::where('team_id', $team->id)
-            ->where('coach_id', $data['coach_id'])
-            ->where('session_id', $data['session_id'])
-            ->exists();
+        DB::transaction(function () use ($team, $sessionId, $coachId, $normalizedRole): void {
+            $currentForCoach = CoachAssignment::where('coach_id', $coachId)
+                ->where('session_id', $sessionId)
+                ->where('is_current', true)
+                ->first();
 
-        if ($onThisTeam) {
-            return back()
-                ->withErrors(['coach_id' => __('This coach is already assigned to this team for this session.')])
-                ->withInput();
-        }
+            if ($currentForCoach !== null) {
+                if ($currentForCoach->team_id === $team->id && $currentForCoach->role === $normalizedRole) {
+                    throw ValidationException::withMessages([
+                        'coach_id' => [__('This coach is already assigned as this role for this session.')],
+                    ]);
+                }
+            }
 
-        // Check: already on ANY other team for this session (cross-team uniqueness).
-        $crossConflict = CoachAssignment::with(['team:id,name_hi', 'coach:id,full_name_hi'])
-            ->where('session_id', $data['session_id'])
-            ->where('coach_id', $data['coach_id'])
-            ->first();
+            // Keep assignment history for the same coach/session before creating a new row.
+            CoachAssignment::endActiveForCoachSession((int) $coachId, $sessionId);
 
-        if ($crossConflict) {
-            $teamName = (string) $crossConflict->team->name_hi;
-            $coachName = (string) $crossConflict->coach->full_name_hi;
-
-            return back()
-                ->withErrors(['coach_id' => __(':name is already assigned to team :team for this session.', [
-                    'name' => $coachName,
-                    'team' => $teamName,
-                ])])
-                ->withInput();
-        }
-
-        CoachAssignment::create([
-            'team_id' => $team->id,
-            'coach_id' => $data['coach_id'],
-            'role' => $data['role'],
-            'session_id' => $data['session_id'],
-        ]);
+            CoachAssignment::create([
+                'team_id' => $team->id,
+                'coach_id' => $coachId,
+                'role' => $normalizedRole,
+                'session_id' => $sessionId,
+                'assigned_at' => now(),
+                'is_current' => true,
+            ]);
+        });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach assigned to team.')]);
 
@@ -67,11 +62,15 @@ class TeamCoachController extends Controller
     {
         Gate::authorize('update', $team);
 
-        $ca = CoachAssignment::where('team_id', $team->id)
+        CoachAssignment::where('team_id', $team->id)
             ->where('coach_id', $coach->id)
-            ->first();
-
-        $ca?->delete();
+            ->where('is_current', true)
+            ->get()
+            ->each(fn (CoachAssignment $row) => $row->update([
+                'is_current' => false,
+                'removed_at' => now(),
+                'notes' => __('Removed from team.'),
+            ]));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach removed from team.')]);
 
@@ -89,10 +88,15 @@ class TeamCoachController extends Controller
 
         $rows = CoachAssignment::where('team_id', $team->id)
             ->whereIn('coach_id', $coachIds)
+            ->where('is_current', true)
             ->get();
 
         foreach ($rows as $row) {
-            $row->delete();
+            $row->update([
+                'is_current' => false,
+                'removed_at' => now(),
+                'notes' => __('Removed from team.'),
+            ]);
         }
 
         $deleted = $rows->count();

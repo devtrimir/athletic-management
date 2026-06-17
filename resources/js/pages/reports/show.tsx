@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useTranslation } from '@/hooks/use-translation';
 
 type Session = { id: number; name: string };
-type Sport = { id: number; name_hi: string };
+type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label: string };
-type Unit = { id: number; name_hi: string };
-type ReportMeta = { key: string; name_hi: string; name_en: string };
+type Unit = { id: number; name: string };
+type ReportMeta = { key: string; name: string };
 type Filters = Record<string, string | number | null>;
 
 const ALL = 'all';
@@ -31,15 +31,15 @@ return '';
     if (typeof val === 'object') {
         const obj = val as Record<string, unknown>;
 
-        // member-role pairs: { member: { full_name_hi, ... }, role, ... }
+        // member-role pairs: { member: { full_name, ... }, role, ... }
         if (typeof obj.member === 'object' && obj.member !== null) {
             const m = obj.member as Record<string, unknown>;
 
-            return String(m.full_name_hi ?? m.name_hi ?? m.name ?? '');
+            return String(m.full_name ?? m.name ?? m.name ?? '');
         }
 
         // standard display fields in priority order
-        const display = obj.name_hi ?? obj.full_name_hi ?? obj.name ?? obj.label ?? obj.code;
+        const display = obj.name ?? obj.full_name ?? obj.name ?? obj.label ?? obj.code;
 
         if (display !== undefined) {
 return String(display);
@@ -71,7 +71,7 @@ export default function ReportShow({
     const { t } = useTranslation();
 
     setLayoutProps({
-        breadcrumbs: [{ title: t('Reports'), href: ReportController.index().url }, { title: report.name_hi }],
+        breadcrumbs: [{ title: t('Reports'), href: ReportController.index().url }, { title: report.name }],
     });
 
     const [sessionId, setSessionId] = useState<string>(filters.session_id ? String(filters.session_id) : ALL);
@@ -105,10 +105,10 @@ params.unit_id = unitId;
 
     return (
         <>
-            <Head title={report.name_hi} />
+            <Head title={report.name} />
 
             <div className="px-4 py-6">
-                <Heading title={report.name_hi} description={report.name_en} />
+                <Heading title={report.name} description={report.name} />
 
                 {/* Filter bar — full UI built in P7-T14 */}
                 <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -137,7 +137,7 @@ params.unit_id = unitId;
                                 <SelectItem value={ALL}>{t('All Sports')}</SelectItem>
                                 {sports.map((s) => (
                                     <SelectItem key={s.id} value={String(s.id)}>
-                                        {s.name_hi}
+                                        {s.name}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -169,7 +169,7 @@ params.unit_id = unitId;
                                 <SelectItem value={ALL}>{t('All Units')}</SelectItem>
                                 {units.map((u) => (
                                     <SelectItem key={u.id} value={String(u.id)}>
-                                        {u.name_hi}
+                                        {u.name}
                                     </SelectItem>
                                 ))}
                             </SelectContent>

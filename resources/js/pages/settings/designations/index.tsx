@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
-type Rank = { code: string; name_en: string; };
-type Designation = { id: number; code: string; name_en: string; short_name: string | null; name_hi: string | null; designation_order: number; mapped_rank_code: string | null; designation_type: string | null; is_active: boolean; rank?: Rank | null; };
+type Rank = { code: string; name: string; };
+type Designation = { id: number; code: string; name: string; short_name: string | null; designation_order: number; mapped_rank_code: string | null; designation_type: string | null; is_active: boolean; rank?: Rank | null; };
 
 export default function Index({ designations }: { designations: Designation[] }) {
     const { t } = useTranslation();
@@ -19,7 +19,7 @@ export default function Index({ designations }: { designations: Designation[] })
     const filtered = useMemo(() => {
         const q = query.toLowerCase().trim();
 
-        return designations.filter((designation) => !q || [designation.code, designation.name_en, designation.short_name ?? '', designation.name_hi ?? '', designation.designation_type ?? '', designation.rank?.name_en ?? ''].some((v) => v.toLowerCase().includes(q)));
+        return designations.filter((designation) => !q || [designation.code, designation.name, designation.short_name ?? '', designation.designation_type ?? '', designation.rank?.name ?? ''].some((v) => v.toLowerCase().includes(q)));
     }, [designations, query]);
 
     return (
@@ -41,8 +41,8 @@ export default function Index({ designations }: { designations: Designation[] })
                             ) : filtered.map((designation) => (
                                 <TableRow key={designation.id}>
                                     <TableCell className="font-mono text-xs">{designation.code}</TableCell>
-                                    <TableCell><div className="font-medium">{designation.name_en}</div>{designation.name_hi && <div className="text-xs text-muted-foreground">{designation.name_hi}</div>}</TableCell>
-                                    <TableCell>{designation.rank?.name_en ?? designation.mapped_rank_code ?? '—'}</TableCell>
+                                    <TableCell><div className="font-medium">{designation.name}</div></TableCell>
+                                    <TableCell>{designation.rank?.name ?? designation.mapped_rank_code ?? '—'}</TableCell>
                                     <TableCell>{designation.designation_order}</TableCell>
                                     <TableCell>{designation.designation_type ?? '—'}</TableCell>
                                     <TableCell><Badge variant={designation.is_active ? 'default' : 'secondary'}>{designation.is_active ? t('Active') : t('Inactive')}</Badge></TableCell>

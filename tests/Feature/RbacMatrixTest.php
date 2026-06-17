@@ -219,8 +219,8 @@ test('viewer: policy denies create/update/delete on all reference resources', fu
 test('viewer: POST store with valid sport data returns 403', function (): void {
     $this->actingAs($this->viewer)
         ->post(route('sports.store'), [
-            'name_hi' => 'टेस्ट खेल',
-            'name_en' => 'Test Sport Matrix',
+            'name' => 'टेस्ट खेल',
+            'name' => 'Test Sport Matrix',
             'category' => 'INDIVIDUAL',
         ])
         ->assertForbidden();
@@ -229,8 +229,8 @@ test('viewer: POST store with valid sport data returns 403', function (): void {
 test('viewer: PATCH update with valid sport data returns 403', function (): void {
     $this->actingAs($this->viewer)
         ->patch(route('sports.update', $this->sport), [
-            'name_hi' => 'अपडेट खेल',
-            'name_en' => 'Updated Sport Matrix',
+            'name' => 'अपडेट खेल',
+            'name' => 'Updated Sport Matrix',
             'category' => 'TEAM',
         ])
         ->assertForbidden();

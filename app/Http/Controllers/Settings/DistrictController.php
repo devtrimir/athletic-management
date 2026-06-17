@@ -19,7 +19,7 @@ class DistrictController extends Controller
     {
         Gate::authorize('viewAny', District::class);
 
-        $districts = District::orderBy('name_en')->get();
+        $districts = District::orderBy('name')->get();
 
         return Inertia::render('settings/districts/index', [
             'districts' => $districts,

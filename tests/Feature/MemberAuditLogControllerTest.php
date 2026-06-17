@@ -68,10 +68,10 @@ test('member audit log endpoint includes promotion money and promotion evidence 
     ]);
     $tournament = Tournament::factory()
         ->forOrganization($member->organization)
-        ->create(['name_hi' => 'State Police Games']);
+        ->create(['name' => 'State Police Games']);
     $event = Event::factory()
         ->forTournament($tournament)
-        ->create(['name_hi' => '100m Sprint']);
+        ->create(['name' => '100m Sprint']);
     $participation = Participation::factory()
         ->forEvent($event)
         ->create(['member_id' => $member->id, 'position' => 1]);

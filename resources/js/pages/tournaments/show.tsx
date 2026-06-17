@@ -1,5 +1,19 @@
-import { Deferred, Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+    Deferred,
+    Head,
+    Link,
+    setLayoutProps,
+    useForm,
+} from '@inertiajs/react';
+import {
+    Dumbbell,
+    Eye,
+    Pencil,
+    Plus,
+    Trash2,
+    Trophy,
+    Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import {
     destroy as destroyEvent,
@@ -7,7 +21,11 @@ import {
     show as showEvent,
     update as updateEvent,
 } from '@/actions/App/Http/Controllers/EventController';
-import { destroy as destroyTournament, edit as editTournament, index as tournamentsIndex } from '@/actions/App/Http/Controllers/TournamentController';
+import {
+    destroy as destroyTournament,
+    edit as editTournament,
+    index as tournamentsIndex,
+} from '@/actions/App/Http/Controllers/TournamentController';
 import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -23,15 +41,28 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Tournament = {
     id: number;
-    name_hi: string;
+    name: string;
     venue: string | null;
     date_from: string | null;
     date_to: string | null;
@@ -43,7 +74,7 @@ type Tournament = {
 
 type EventRow = {
     id: number;
-    name_hi: string;
+    name: string;
     discipline: string | null;
     weight_category: string | null;
     gender_class: string;
@@ -55,13 +86,29 @@ type Sport = { id: number; name: string };
 
 type EventForm = {
     sport_id: string;
-    name_hi: string;
+    name: string;
     discipline: string;
     weight_category: string;
     gender_class: string;
 };
 
 const GENDER_CLASSES = ['M', 'F', 'MIXED', 'OPEN'] as const;
+
+function eventBadgeClass(kind: 'sport' | 'class' | 'count' | 'detail'): string {
+    const base =
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium';
+
+    switch (kind) {
+        case 'sport':
+            return `${base} border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300`;
+        case 'class':
+            return `${base} border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300`;
+        case 'count':
+            return `${base} border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300`;
+        case 'detail':
+            return `${base} border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300`;
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Shared event form fields
@@ -91,7 +138,10 @@ function EventFormFields({
                     id={`${idPrefix}_sport_id`}
                     value={data.sport_id}
                     onValueChange={(v) => setData('sport_id', v)}
-                    items={sports.map((sp) => ({ value: String(sp.id), label: sp.name }))}
+                    items={sports.map((sp) => ({
+                        value: String(sp.id),
+                        label: sp.name,
+                    }))}
                     placeholder={t('Select sport')}
                     searchPlaceholder={t('Search sports…')}
                 />
@@ -100,15 +150,21 @@ function EventFormFields({
 
             <div className="grid gap-2">
                 <Label htmlFor={`${idPrefix}_gender_class`}>
-                    {t('Gender class')} <span className="text-destructive">*</span>
+                    {t('Gender class')}{' '}
+                    <span className="text-destructive">*</span>
                 </Label>
-                <Select value={data.gender_class} onValueChange={(v) => setData('gender_class', v)}>
+                <Select
+                    value={data.gender_class}
+                    onValueChange={(v) => setData('gender_class', v)}
+                >
                     <SelectTrigger id={`${idPrefix}_gender_class`}>
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                         {GENDER_CLASSES.map((g) => (
-                            <SelectItem key={g} value={g}>{t(g)}</SelectItem>
+                            <SelectItem key={g} value={g}>
+                                {t(g)}
+                            </SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -116,21 +172,24 @@ function EventFormFields({
             </div>
 
             <div className="grid gap-2 sm:col-span-2">
-                <Label htmlFor={`${idPrefix}_name_hi`}>
-                    {t('Event name (Hindi)')} <span className="text-destructive">*</span>
+                <Label htmlFor={`${idPrefix}_name`}>
+                    {t('Event name')}{' '}
+                    <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                    id={`${idPrefix}_name_hi`}
-                    value={data.name_hi}
-                    onChange={(e) => setData('name_hi', e.target.value)}
+                    id={`${idPrefix}_name`}
+                    value={data.name}
+                    onChange={(e) => setData('name', e.target.value)}
                     maxLength={255}
                     required
                 />
-                <InputError message={errors.name_hi} />
+                <InputError message={errors.name} />
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor={`${idPrefix}_discipline`}>{t('Discipline')}</Label>
+                <Label htmlFor={`${idPrefix}_discipline`}>
+                    {t('Discipline')}
+                </Label>
                 <Input
                     id={`${idPrefix}_discipline`}
                     value={data.discipline}
@@ -141,7 +200,9 @@ function EventFormFields({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor={`${idPrefix}_weight_category`}>{t('Weight category')}</Label>
+                <Label htmlFor={`${idPrefix}_weight_category`}>
+                    {t('Weight category')}
+                </Label>
                 <Input
                     id={`${idPrefix}_weight_category`}
                     value={data.weight_category}
@@ -169,13 +230,14 @@ function AddEventDialog({
     sports: Sport[];
 }) {
     const { t } = useTranslation();
-    const { data, setData, post, errors, processing, reset } = useForm<EventForm>({
-        sport_id: tournament.sport ? String(tournament.sport.id) : '',
-        name_hi: '',
-        discipline: '',
-        weight_category: '',
-        gender_class: 'M',
-    });
+    const { data, setData, post, errors, processing, reset } =
+        useForm<EventForm>({
+            sport_id: tournament.sport ? String(tournament.sport.id) : '',
+            name: '',
+            discipline: '',
+            weight_category: '',
+            gender_class: 'M',
+        });
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -192,7 +254,9 @@ function AddEventDialog({
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{t('Add event')}</DialogTitle>
-                    <DialogDescription>{t('Add a new event to this tournament.')}</DialogDescription>
+                    <DialogDescription>
+                        {t('Add a new event to this tournament.')}
+                    </DialogDescription>
                 </DialogHeader>
                 <form id="add-event-form" onSubmit={handleSubmit}>
                     <EventFormFields
@@ -204,10 +268,18 @@ function AddEventDialog({
                     />
                 </form>
                 <DialogFooter>
-                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => onOpenChange(false)}
+                    >
                         {t('Cancel')}
                     </Button>
-                    <Button type="submit" form="add-event-form" disabled={processing}>
+                    <Button
+                        type="submit"
+                        form="add-event-form"
+                        disabled={processing}
+                    >
                         <Plus className="mr-1.5 h-4 w-4" />
                         {processing ? t('Saving…') : t('Add event')}
                     </Button>
@@ -232,13 +304,14 @@ function EditEventDialog({
     onClose: () => void;
 }) {
     const { t } = useTranslation();
-    const { data, setData, patch, errors, processing, reset } = useForm<EventForm>({
-        sport_id: event?.sport ? String(event.sport.id) : '',
-        name_hi: event?.name_hi ?? '',
-        discipline: event?.discipline ?? '',
-        weight_category: event?.weight_category ?? '',
-        gender_class: event?.gender_class ?? 'M',
-    });
+    const { data, setData, patch, errors, processing, reset } =
+        useForm<EventForm>({
+            sport_id: event?.sport ? String(event.sport.id) : '',
+            name: event?.name ?? '',
+            discipline: event?.discipline ?? '',
+            weight_category: event?.weight_category ?? '',
+            gender_class: event?.gender_class ?? 'M',
+        });
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -256,15 +329,18 @@ function EditEventDialog({
     }
 
     return (
-        <Dialog open={event !== null} onOpenChange={(open) => {
- if (!open) {
- onClose();
-}
-}}>
+        <Dialog
+            open={event !== null}
+            onOpenChange={(open) => {
+                if (!open) {
+                    onClose();
+                }
+            }}
+        >
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{t('Edit event')}</DialogTitle>
-                    <DialogDescription>{event?.name_hi}</DialogDescription>
+                    <DialogDescription>{event?.name}</DialogDescription>
                 </DialogHeader>
                 <form id="edit-event-form" onSubmit={handleSubmit}>
                     <EventFormFields
@@ -279,7 +355,11 @@ function EditEventDialog({
                     <Button variant="outline" type="button" onClick={onClose}>
                         {t('Cancel')}
                     </Button>
-                    <Button type="submit" form="edit-event-form" disabled={processing}>
+                    <Button
+                        type="submit"
+                        form="edit-event-form"
+                        disabled={processing}
+                    >
                         {processing ? t('Saving…') : t('Save changes')}
                     </Button>
                 </DialogFooter>
@@ -318,10 +398,19 @@ function ConfirmDeleteDialog({
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => onOpenChange(false)}
+                    >
                         {t('Cancel')}
                     </Button>
-                    <Button variant="destructive" type="button" onClick={onConfirm} disabled={processing}>
+                    <Button
+                        variant="destructive"
+                        type="button"
+                        onClick={onConfirm}
+                        disabled={processing}
+                    >
                         {processing ? t('Deleting…') : confirmLabel}
                     </Button>
                 </DialogFooter>
@@ -349,17 +438,27 @@ export default function TournamentsShow({
     const [deletingEvent, setDeletingEvent] = useState<EventRow | null>(null);
     const [deleteTournamentOpen, setDeleteTournamentOpen] = useState(false);
 
-    const { delete: deleteEventForm, processing: deletingEventProcessing } = useForm({});
-    const { delete: deleteTournamentForm, processing: deletingTournamentProcessing } = useForm({});
+    const { delete: deleteEventForm, processing: deletingEventProcessing } =
+        useForm({});
+    const {
+        delete: deleteTournamentForm,
+        processing: deletingTournamentProcessing,
+    } = useForm({});
 
     function handleDeleteEvent() {
         if (!deletingEvent) {
             return;
         }
 
-        deleteEventForm(destroyEvent.url({ tournament: tournament.id, event: deletingEvent.id }), {
-            onSuccess: () => setDeletingEvent(null),
-        });
+        deleteEventForm(
+            destroyEvent.url({
+                tournament: tournament.id,
+                event: deletingEvent.id,
+            }),
+            {
+                onSuccess: () => setDeletingEvent(null),
+            },
+        );
     }
 
     function handleDeleteTournament() {
@@ -371,41 +470,55 @@ export default function TournamentsShow({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Tournaments'), href: tournamentsIndex.url() },
-            { title: tournament.name_hi },
+            { title: tournament.name },
         ],
     });
 
     const detail = (label: string, value: React.ReactNode) => (
         <div className="grid gap-1">
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-            <dd className="text-sm">{value ?? <span className="text-muted-foreground">—</span>}</dd>
+            <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {label}
+            </dt>
+            <dd className="text-sm">
+                {value ?? <span className="text-muted-foreground">—</span>}
+            </dd>
         </div>
     );
 
     return (
         <>
-            <Head title={tournament.name_hi} />
+            <Head title={tournament.name} />
 
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold">{tournament.name_hi}</h1>
+                        <h1 className="text-2xl font-bold">
+                            {tournament.name}
+                        </h1>
                         <div className="mt-1 flex flex-wrap gap-2">
                             {tournament.tier && (
-                                <Badge variant="secondary">{tournament.tier.label}</Badge>
+                                <Badge variant="secondary">
+                                    {tournament.tier.label}
+                                </Badge>
                             )}
                             {tournament.session && (
-                                <Badge variant="outline">{tournament.session.name}</Badge>
+                                <Badge variant="outline">
+                                    {tournament.session.name}
+                                </Badge>
                             )}
                             {tournament.sport && (
-                                <Badge variant="outline">{tournament.sport.name}</Badge>
+                                <Badge variant="outline">
+                                    {tournament.sport.name}
+                                </Badge>
                             )}
                         </div>
                     </div>
                     <div className="flex shrink-0 gap-2">
                         <Button variant="outline" size="sm" asChild>
-                            <Link href={editTournament.url(tournament.id)}>{t('Edit')}</Link>
+                            <Link href={editTournament.url(tournament.id)}>
+                                {t('Edit')}
+                            </Link>
                         </Button>
                         <Button
                             variant="destructive"
@@ -419,7 +532,9 @@ export default function TournamentsShow({
 
                 <Tabs defaultValue="overview">
                     <TabsList>
-                        <TabsTrigger value="overview">{t('Overview')}</TabsTrigger>
+                        <TabsTrigger value="overview">
+                            {t('Overview')}
+                        </TabsTrigger>
                         <TabsTrigger value="events">{t('Events')}</TabsTrigger>
                     </TabsList>
 
@@ -434,7 +549,10 @@ export default function TournamentsShow({
                                 {detail(t('Venue'), tournament.venue)}
                                 {detail(t('Date from'), tournament.date_from)}
                                 {detail(t('Date to'), tournament.date_to)}
-                                {detail(t('Raw date text'), tournament.raw_date_text)}
+                                {detail(
+                                    t('Raw date text'),
+                                    tournament.raw_date_text,
+                                )}
                             </dl>
                         </div>
                     </TabsContent>
@@ -445,78 +563,276 @@ export default function TournamentsShow({
                             <p className="text-sm text-muted-foreground">
                                 {t('Manage the events for this tournament.')}
                             </p>
-                            <Button size="sm" onClick={() => setAddEventOpen(true)}>
+                            <Button
+                                size="sm"
+                                onClick={() => setAddEventOpen(true)}
+                            >
                                 <Plus className="mr-1.5 h-4 w-4" />
                                 {t('Add event')}
                             </Button>
                         </div>
-                        <Deferred data="events" fallback={
-                            <div className="space-y-2">
-                                {Array.from({ length: 3 }).map((_, i) => (
-                                    <Skeleton key={i} className="h-10 w-full rounded-lg" />
-                                ))}
-                            </div>
-                        }>
-                            <div className="overflow-hidden rounded-xl border">
+                        <Deferred
+                            data="events"
+                            fallback={
+                                <div className="space-y-2">
+                                    {Array.from({ length: 3 }).map((_, i) => (
+                                        <Skeleton
+                                            key={i}
+                                            className="h-10 w-full rounded-lg"
+                                        />
+                                    ))}
+                                </div>
+                            }
+                        >
+                            <div className="overflow-hidden rounded-xl border bg-card">
                                 <Table>
                                     <TableHeader>
-                                        <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                            <TableHead>{t('Event name (Hindi)')}</TableHead>
+                                        <TableRow>
+                                            <TableHead className="w-16">
+                                                {t('S.No.')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('Event details')}
+                                            </TableHead>
                                             <TableHead>{t('Sport')}</TableHead>
-                                            <TableHead>{t('Gender class')}</TableHead>
-                                            <TableHead>{t('Discipline')}</TableHead>
-                                            <TableHead>{t('Weight category')}</TableHead>
-                                            <TableHead className="text-right">{t('Participations')}</TableHead>
-                                            <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                            <TableHead>
+                                                {t('Classification')}
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                {t('Participations')}
+                                            </TableHead>
+                                            <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
+                                                {t('Actions')}
+                                            </TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {(events ?? []).length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                                                <TableCell
+                                                    colSpan={6}
+                                                    className="py-12 text-center text-muted-foreground"
+                                                >
                                                     {t('No events yet.')}
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            (events ?? []).map((ev) => (
-                                                <TableRow key={ev.id}>
-                                                    <TableCell className="font-medium">{ev.name_hi}</TableCell>
-                                                    <TableCell className="text-muted-foreground">{ev.sport?.name ?? '—'}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline">{t(ev.gender_class)}</Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-muted-foreground">{ev.discipline ?? '—'}</TableCell>
-                                                    <TableCell className="text-muted-foreground">{ev.weight_category ?? '—'}</TableCell>
-                                                    <TableCell className="text-right tabular-nums">{ev.participations_count}</TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <Button variant="ghost" size="sm" asChild>
-                                                                <Link href={showEvent.url({ tournament: tournament.id, event: ev.id })}>{t('View')}</Link>
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8"
-                                                                title={t('Edit event')}
-                                                                onClick={() => setEditingEvent(ev)}
-                                                            >
-                                                                <Pencil className="h-4 w-4" />
-                                                                <span className="sr-only">{t('Edit event')}</span>
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                                                title={t('Delete event')}
-                                                                onClick={() => setDeletingEvent(ev)}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                <span className="sr-only">{t('Delete event')}</span>
-                                                            </Button>
+                                            <>
+                                                <TableRow className="bg-primary/5 hover:bg-primary/5">
+                                                    <TableCell
+                                                        colSpan={6}
+                                                        className="border-l-4 border-primary py-3 font-medium"
+                                                    >
+                                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span
+                                                                    className={eventBadgeClass(
+                                                                        'detail',
+                                                                    )}
+                                                                >
+                                                                    <Trophy className="h-3.5 w-3.5" />
+                                                                    {
+                                                                        tournament.name
+                                                                    }
+                                                                </span>
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {
+                                                                        (
+                                                                            events ??
+                                                                            []
+                                                                        ).length
+                                                                    }{' '}
+                                                                    {t(
+                                                                        'records',
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            {tournament.sport ? (
+                                                                <span
+                                                                    className={eventBadgeClass(
+                                                                        'sport',
+                                                                    )}
+                                                                >
+                                                                    <Dumbbell className="h-3.5 w-3.5" />
+                                                                    {
+                                                                        tournament
+                                                                            .sport
+                                                                            .name
+                                                                    }
+                                                                </span>
+                                                            ) : null}
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
-                                            ))
+                                                {(events ?? []).map(
+                                                    (ev, index) => (
+                                                        <TableRow key={ev.id}>
+                                                            <TableCell className="w-16 text-xs text-muted-foreground tabular-nums">
+                                                                {index + 1}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="space-y-1">
+                                                                    <Link
+                                                                        href={showEvent.url(
+                                                                            {
+                                                                                tournament:
+                                                                                    tournament.id,
+                                                                                event: ev.id,
+                                                                            },
+                                                                        )}
+                                                                        className="font-medium hover:underline"
+                                                                    >
+                                                                        {
+                                                                            ev.name
+                                                                        }
+                                                                    </Link>
+                                                                    <div className="flex flex-wrap gap-1.5">
+                                                                        {ev.discipline ? (
+                                                                            <span
+                                                                                className={eventBadgeClass(
+                                                                                    'detail',
+                                                                                )}
+                                                                            >
+                                                                                {
+                                                                                    ev.discipline
+                                                                                }
+                                                                            </span>
+                                                                        ) : null}
+                                                                        {ev.weight_category ? (
+                                                                            <span
+                                                                                className={eventBadgeClass(
+                                                                                    'detail',
+                                                                                )}
+                                                                            >
+                                                                                {
+                                                                                    ev.weight_category
+                                                                                }
+                                                                            </span>
+                                                                        ) : null}
+                                                                        {!ev.discipline &&
+                                                                        !ev.weight_category ? (
+                                                                            <span className="text-xs text-muted-foreground">
+                                                                                —
+                                                                            </span>
+                                                                        ) : null}
+                                                                    </div>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {ev.sport ? (
+                                                                    <span
+                                                                        className={eventBadgeClass(
+                                                                            'sport',
+                                                                        )}
+                                                                    >
+                                                                        <Dumbbell className="h-3.5 w-3.5" />
+                                                                        {
+                                                                            ev
+                                                                                .sport
+                                                                                .name
+                                                                        }
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-xs text-muted-foreground">
+                                                                        —
+                                                                    </span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <span
+                                                                    className={eventBadgeClass(
+                                                                        'class',
+                                                                    )}
+                                                                >
+                                                                    {t(
+                                                                        ev.gender_class,
+                                                                    )}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                <span
+                                                                    className={eventBadgeClass(
+                                                                        'count',
+                                                                    )}
+                                                                >
+                                                                    <Users className="h-3.5 w-3.5" />
+                                                                    {
+                                                                        ev.participations_count
+                                                                    }
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell className="sticky right-0 z-10 w-0 bg-card">
+                                                                <div className="flex items-center justify-end gap-1">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        title={t(
+                                                                            'View',
+                                                                        )}
+                                                                        asChild
+                                                                    >
+                                                                        <Link
+                                                                            href={showEvent.url(
+                                                                                {
+                                                                                    tournament:
+                                                                                        tournament.id,
+                                                                                    event: ev.id,
+                                                                                },
+                                                                            )}
+                                                                        >
+                                                                            <Eye className="h-4 w-4 text-sky-600" />
+                                                                            <span className="sr-only">
+                                                                                {t(
+                                                                                    'View',
+                                                                                )}
+                                                                            </span>
+                                                                        </Link>
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        title={t(
+                                                                            'Edit event',
+                                                                        )}
+                                                                        onClick={() =>
+                                                                            setEditingEvent(
+                                                                                ev,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Pencil className="h-4 w-4 text-amber-600" />
+                                                                        <span className="sr-only">
+                                                                            {t(
+                                                                                'Edit event',
+                                                                            )}
+                                                                        </span>
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                        title={t(
+                                                                            'Delete event',
+                                                                        )}
+                                                                        onClick={() =>
+                                                                            setDeletingEvent(
+                                                                                ev,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                        <span className="sr-only">
+                                                                            {t(
+                                                                                'Delete event',
+                                                                            )}
+                                                                        </span>
+                                                                    </Button>
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ),
+                                                )}
+                                            </>
                                         )}
                                     </TableBody>
                                 </Table>
@@ -542,12 +858,14 @@ export default function TournamentsShow({
             <ConfirmDeleteDialog
                 open={deletingEvent !== null}
                 onOpenChange={(open) => {
- if (!open) {
- setDeletingEvent(null);
-}
-}}
+                    if (!open) {
+                        setDeletingEvent(null);
+                    }
+                }}
                 title={t('Delete event')}
-                description={t('This will permanently delete the event and all its participations. This action cannot be undone.')}
+                description={t(
+                    'This will permanently delete the event and all its participations. This action cannot be undone.',
+                )}
                 confirmLabel={t('Delete event')}
                 onConfirm={handleDeleteEvent}
                 processing={deletingEventProcessing}
@@ -556,7 +874,9 @@ export default function TournamentsShow({
                 open={deleteTournamentOpen}
                 onOpenChange={setDeleteTournamentOpen}
                 title={t('Delete tournament')}
-                description={t('This will permanently delete the tournament and all its events and participations. This action cannot be undone.')}
+                description={t(
+                    'This will permanently delete the tournament and all its events and participations. This action cannot be undone.',
+                )}
                 confirmLabel={t('Delete tournament')}
                 onConfirm={handleDeleteTournament}
                 processing={deletingTournamentProcessing}

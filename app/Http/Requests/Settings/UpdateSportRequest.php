@@ -23,12 +23,11 @@ class UpdateSportRequest extends FormRequest
         $sportId = (int) $this->route('sport')->id;
 
         return [
-            'name_hi' => ['required', 'string', 'max:100'],
-            'name_en' => [
+            'name' => [
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('sports', 'name_en')
+                Rule::unique('sports', 'name')
                     ->where('organization_id', $orgId)
                     ->ignore($sportId),
             ],

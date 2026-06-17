@@ -125,7 +125,7 @@ test('cloning to the same session is rejected', function (): void {
 // happy path
 // ---------------------------------------------------------------------------
 
-test('clone creates a new team with same name for the target session', function (): void {
+test('clone route does not create a new team for the target session', function (): void {
     $user = cloneUser('teams.update');
     $org = Organization::find($user->organization_id);
     $team = cloneTeamWithOrg($org);
@@ -139,16 +139,14 @@ test('clone creates a new team with same name for the target session', function 
         ])
         ->assertRedirect();
 
-    $this->assertDatabaseHas('teams', [
-        'organization_id' => $org->id,
-        'sport_id' => $team->sport_id,
-        'unit_id' => $team->unit_id,
+    $this->assertDatabaseCount('teams', 1);
+    $this->assertDatabaseMissing('teams', [
         'session_id' => $targetSession->id,
-        'name_hi' => $team->name_hi,
+        'name' => $team->name,
     ]);
 });
 
-test('selected members are copied to the new team with the target session', function (): void {
+test('selected members are carried forward on the same team with the target session', function (): void {
     $user = cloneUser('teams.update');
     $org = Organization::find($user->organization_id);
     $team = cloneTeamWithOrg($org);
@@ -169,18 +167,21 @@ test('selected members are copied to the new team with the target session', func
             'coach_ids' => [],
         ]);
 
-    $newTeam = Team::where('session_id', $targetSession->id)->first();
-    $this->assertNotNull($newTeam);
-
     $this->assertDatabaseHas('team_members', [
-        'team_id' => $newTeam->id,
+        'team_id' => $team->id,
         'member_id' => $member->id,
         'session_id' => $targetSession->id,
         'role' => 'CAPTAIN',
     ]);
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $targetSession->id,
+        'action' => 'CARRIED_FORWARD',
+    ]);
 });
 
-test('selected coaches are copied to the new team', function (): void {
+test('selected coaches are copied to the same team for the target session', function (): void {
     $user = cloneUser('teams.update');
     $org = Organization::find($user->organization_id);
     $team = cloneTeamWithOrg($org);
@@ -201,9 +202,8 @@ test('selected coaches are copied to the new team', function (): void {
             'coach_ids' => [$row->id],
         ]);
 
-    $newTeam = Team::where('session_id', $targetSession->id)->first();
     $this->assertDatabaseHas('coach_assignments', [
-        'team_id' => $newTeam->id,
+        'team_id' => $team->id,
         'coach_id' => $coach->id,
         'session_id' => $targetSession->id,
     ]);
@@ -241,13 +241,15 @@ test('conflicting members are skipped and non-conflicting are copied', function 
             'coach_ids' => [],
         ]);
 
-    $newTeam = Team::where('session_id', $targetSession->id)
-        ->where('sport_id', $team->sport_id)
-        ->first();
-
     // Safe member was copied; conflicting was skipped.
-    $this->assertDatabaseHas('team_members', ['team_id' => $newTeam->id, 'member_id' => $safe->id]);
-    $this->assertDatabaseMissing('team_members', ['team_id' => $newTeam->id, 'member_id' => $conflicting->id]);
+    $this->assertDatabaseHas('team_members', ['team_id' => $team->id, 'member_id' => $safe->id, 'session_id' => $targetSession->id]);
+    $this->assertDatabaseMissing('team_members', ['team_id' => $team->id, 'member_id' => $conflicting->id, 'session_id' => $targetSession->id]);
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $conflicting->id,
+        'session_id' => $targetSession->id,
+        'action' => 'SKIPPED',
+    ]);
 });
 
 test('inactive and non-playable members are skipped during clone', function (): void {
@@ -277,11 +279,7 @@ test('inactive and non-playable members are skipped during clone', function (): 
             'coach_ids' => [],
         ]);
 
-    $newTeam = Team::where('session_id', $targetSession->id)
-        ->where('sport_id', $team->sport_id)
-        ->first();
-
-    $this->assertDatabaseHas('team_members', ['team_id' => $newTeam->id, 'member_id' => $safe->id]);
-    $this->assertDatabaseMissing('team_members', ['team_id' => $newTeam->id, 'member_id' => $inactive->id]);
-    $this->assertDatabaseMissing('team_members', ['team_id' => $newTeam->id, 'member_id' => $nonPlayable->id]);
+    $this->assertDatabaseHas('team_members', ['team_id' => $team->id, 'member_id' => $safe->id, 'session_id' => $targetSession->id]);
+    $this->assertDatabaseMissing('team_members', ['team_id' => $team->id, 'member_id' => $inactive->id, 'session_id' => $targetSession->id]);
+    $this->assertDatabaseMissing('team_members', ['team_id' => $team->id, 'member_id' => $nonPlayable->id, 'session_id' => $targetSession->id]);
 });

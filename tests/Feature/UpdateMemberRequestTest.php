@@ -44,7 +44,7 @@ test('empty payload passes UpdateMemberRequest (all fields are sometimes)', func
 
 test('valid partial payload passes', function () {
     $rules = updateRules($this->user, $this->member);
-    $result = Validator::make(['full_name_hi' => 'नया नाम'], $rules);
+    $result = Validator::make(['full_name' => 'नया नाम'], $rules);
 
     expect($result->passes())->toBeTrue();
 });

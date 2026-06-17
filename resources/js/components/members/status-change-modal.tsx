@@ -17,7 +17,7 @@ type Props = {
 
 export function StatusChangeModal({ member, open, onOpenChange }: Props) {
     const { t } = useTranslation();
-    const form = useForm({ status: '', effective_on: '', reason_hi: '' });
+    const form = useForm({ status: '', effective_on: '', reason: '' });
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -67,11 +67,11 @@ export function StatusChangeModal({ member, open, onOpenChange }: Props) {
                     <div className="grid gap-2">
                         <Label>{t('Reason')}</Label>
                         <Textarea
-                            value={form.data.reason_hi}
-                            onChange={(e) => form.setData('reason_hi', e.target.value)}
+                            value={form.data.reason}
+                            onChange={(e) => form.setData('reason', e.target.value)}
                             rows={3}
                         />
-                        <InputError message={form.errors.reason_hi} />
+                        <InputError message={form.errors.reason} />
                     </div>
                     <div className="flex gap-3">
                         <Button type="submit" disabled={form.processing}>

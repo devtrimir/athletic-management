@@ -19,7 +19,7 @@ class TournamentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'name_hi' => $this->name_hi,
+            'name' => $this->name,
             'venue' => $this->venue,
             'date_from' => $this->date_from?->toDateString(),
             'date_to' => $this->date_to?->toDateString(),

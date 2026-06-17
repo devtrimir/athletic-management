@@ -14,7 +14,7 @@ import type { MediaFile } from './participation-media-sheet';
 // ---------------------------------------------------------------------------
 
 type EventMedia = {
-    event: { id: number; name_hi: string; sport: { id: number; name_hi: string } | null } | null;
+    event: { id: number; name: string; sport: { id: number; name: string } | null } | null;
     media: MediaFile[];
     count: number;
 };
@@ -22,9 +22,9 @@ type EventMedia = {
 type TournamentMedia = {
     tournament: {
         id: number;
-        name_hi: string;
+        name: string;
         date_from: string | null;
-        tier: { code: string; name_hi: string } | null;
+        tier: { code: string; name: string } | null;
     } | null;
     events: EventMedia[];
     total: number;
@@ -106,8 +106,8 @@ function FilterBar({
     filters: Filters;
     onChange: (key: keyof Filters, value: string) => void;
     onReset: () => void;
-    tournaments: { id: number; name_hi: string }[];
-    sports: { id: number; name_hi: string }[];
+    tournaments: { id: number; name: string }[];
+    sports: { id: number; name: string }[];
     sessions: { id: number; name: string }[];
     activeCount: number;
 }) {
@@ -127,7 +127,7 @@ function FilterBar({
                 <SelectContent>
                     <SelectItem value="__all__">{t('All Tournaments')}</SelectItem>
                     {tournaments.map((t2) => (
-                        <SelectItem key={t2.id} value={String(t2.id)}>{t2.name_hi}</SelectItem>
+                        <SelectItem key={t2.id} value={String(t2.id)}>{t2.name}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -143,7 +143,7 @@ function FilterBar({
                 <SelectContent>
                     <SelectItem value="__all__">{t('All Sports')}</SelectItem>
                     {sports.map((sp) => (
-                        <SelectItem key={sp.id} value={String(sp.id)}>{sp.name_hi}</SelectItem>
+                        <SelectItem key={sp.id} value={String(sp.id)}>{sp.name}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -219,15 +219,15 @@ function GridThumb({
         <div className={`group relative overflow-hidden rounded-lg border bg-muted ${size === 'lg' ? 'aspect-video' : 'aspect-square'}`}>
             <img
                 src={file.url}
-                alt={file.caption_hi ?? file.original_name}
+                alt={file.caption ?? file.original_name}
                 className="size-full cursor-zoom-in object-cover transition-transform group-hover:scale-105"
                 onClick={onOpen}
             />
 
             {/* Caption overlay */}
-            {file.caption_hi && (
+            {file.caption && (
                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-4">
-                    <p className="text-[10px] leading-tight text-white truncate">{file.caption_hi}</p>
+                    <p className="text-[10px] leading-tight text-white truncate">{file.caption}</p>
                 </div>
             )}
 
@@ -287,14 +287,14 @@ function ListRow({
             >
                 <img
                     src={file.url}
-                    alt={file.caption_hi ?? file.original_name}
+                    alt={file.caption ?? file.original_name}
                     className="size-full object-cover"
                 />
             </div>
 
             <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium leading-tight">
-                    {file.caption_hi ?? file.original_name}
+                    {file.caption ?? file.original_name}
                 </p>
                 <p className="text-xs text-muted-foreground">
                     {formatBytes(file.size_bytes)} · {new Date(file.created_at).toLocaleDateString('hi-IN')}
@@ -354,10 +354,10 @@ function EventGroup({
     return (
         <div className="space-y-3">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
-                {eventMedia.event?.name_hi ?? t('Unknown event')}
+                {eventMedia.event?.name ?? t('Unknown event')}
                 {eventMedia.event?.sport && (
                     <span className="font-normal normal-case tracking-normal text-muted-foreground/70">
-                        — {eventMedia.event.sport.name_hi}
+                        — {eventMedia.event.sport.name}
                     </span>
                 )}
                 <span className="ml-auto font-normal normal-case tracking-normal">
@@ -592,11 +592,11 @@ return prev;
                                 <ChevronDown className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                                 <div className="flex-1 min-w-0">
                                     <span className="font-semibold text-sm truncate">
-                                        {tournamentData.tournament?.name_hi ?? t('Unknown tournament')}
+                                        {tournamentData.tournament?.name ?? t('Unknown tournament')}
                                     </span>
                                     {tournamentData.tournament?.tier && (
                                         <span className="ml-2 text-xs text-muted-foreground">
-                                            {tournamentData.tournament.tier.name_hi}
+                                            {tournamentData.tournament.tier.name}
                                         </span>
                                     )}
                                     {tournamentData.tournament?.date_from && (

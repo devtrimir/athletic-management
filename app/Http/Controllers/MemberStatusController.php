@@ -25,7 +25,7 @@ class MemberStatusController extends Controller
                 'member_id' => $member->id,
                 'status' => $data['status'],
                 'effective_on' => $data['effective_on'],
-                'reason_hi' => $data['reason_hi'] ?? null,
+                'reason' => $data['reason'] ?? null,
                 'recorded_by' => $request->user()->id,
             ]);
 

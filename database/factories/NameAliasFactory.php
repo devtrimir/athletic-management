@@ -22,7 +22,7 @@ class NameAliasFactory extends Factory
     {
         return [
             'member_id' => Member::factory(),
-            'alias_hi' => fake()->name(),
+            'alias' => fake()->name(),
             'alias_normalized' => null,
             'source' => fake()->randomElement(['krutidev', 'spelling_variant', 'rank_prefixed', 'legacy', 'manual']),
         ];

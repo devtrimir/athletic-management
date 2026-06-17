@@ -20,7 +20,7 @@ class StoreAliasRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'alias_hi' => ['required', 'string', 'max:255'],
+            'alias' => ['required', 'string', 'max:255'],
             'source' => ['required', Rule::in(['krutidev', 'spelling_variant', 'rank_prefixed', 'legacy', 'manual'])],
         ];
     }

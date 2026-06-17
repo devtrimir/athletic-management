@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\Coach;
+use App\Models\CoachAssignment;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Sport;
@@ -12,7 +13,6 @@ use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\Unit;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Seeds real UP Police coach data from COACH.csv.
@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
 class CoachSeeder extends Seeder
 {
     /**
-     * Sport name aliases: COACH.csv variant → canonical name_hi in sports table.
+     * Sport name aliases: COACH.csv variant → canonical name in sports table.
      *
      * @var array<string, string>
      */
@@ -97,16 +97,16 @@ class CoachSeeder extends Seeder
             ->where('is_current', true)
             ->first();
 
-        /** @var array<string, int> $sportMap name_hi → id */
+        /** @var array<string, int> $sportMap name → id */
         $sportMap = Sport::withoutGlobalScopes()
             ->where('organization_id', $org->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
-        /** @var array<string, int> $unitMap name_hi → id */
+        /** @var array<string, int> $unitMap name → id */
         $unitMap = Unit::withoutGlobalScopes()
             ->where('organization_id', $org->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         $coachCreated = 0;
@@ -209,8 +209,7 @@ class CoachSeeder extends Seeder
             [
                 'organization_id' => $orgId,
                 'member_id' => $memberId,
-                'full_name_hi' => $name,
-                'full_name_en' => null,
+                'full_name' => $name,
                 'pno' => $pno,
                 'mobile' => $mobile,
                 'nis_certified' => $nis,
@@ -315,17 +314,21 @@ class CoachSeeder extends Seeder
      */
     private function upsertAssignment(int $teamId, int $coachId, int $sessionId, string $role): void
     {
-        DB::table('coach_assignments')->upsert(
+        CoachAssignment::query()->updateOrCreate(
             [
                 'team_id' => $teamId,
                 'coach_id' => $coachId,
                 'session_id' => $sessionId,
                 'role' => $role,
+            ],
+            [
+                'is_current' => true,
+                'assigned_at' => now(),
+                'removed_at' => null,
+                'notes' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
-            uniqueBy: ['team_id', 'coach_id', 'role'],
-            update: ['session_id', 'updated_at'],
         );
     }
 

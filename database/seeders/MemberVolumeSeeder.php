@@ -46,10 +46,9 @@ class MemberVolumeSeeder extends Seeder
                     'organization_id' => $org->id,
                     'member_code' => $code,
                     'pno' => fake()->optional(0.7)->numerify('##########'),
-                    'full_name_hi' => fake()->name(),
-                    'full_name_en' => fake()->optional(0.6)->name(),
+                    'full_name' => fake()->name(),
                     'full_name_normalized' => null, // populated by MySQL trigger on real DB
-                    'father_name_hi' => fake()->optional(0.8)->name(),
+                    'father_name' => fake()->optional(0.8)->name(),
                     'rank' => fake()->optional(0.5)->randomElement(self::RANKS),
                     'gender' => fake()->randomElement(self::GENDERS),
                     'dob' => fake()->optional(0.9)->date('Y-m-d', '-18 years'),

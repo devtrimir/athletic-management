@@ -23,6 +23,13 @@ class CoachPreviewController extends Controller
             'member.sport',
             'member.statusHistory',
             'member.legacyAchievements',
+            'certifications',
+            'sports',
+            'assignmentHistory' => fn ($query) => $query
+                ->with(['team', 'session'])
+                ->orderByDesc('is_current')
+                ->orderByDesc('assigned_at')
+                ->orderByDesc('id'),
         ]);
 
         $memberTeamHistory = $coach->member
@@ -31,7 +38,7 @@ class CoachPreviewController extends Controller
                 ->orderByDesc('joined_on')
                 ->get()
                 ->map(fn ($tm) => [
-                    'team_name_hi' => $tm->team?->name_hi,
+                    'team_name' => $tm->team?->name,
                     'session_name' => $tm->session?->name,
                     'role' => $tm->role,
                     'joined_on' => $tm->joined_on?->toDateString(),
@@ -41,19 +48,68 @@ class CoachPreviewController extends Controller
 
         $m = $coach->member;
 
+        $assignments = $coach->assignmentHistory
+            ->map(fn ($assignment) => [
+                'id' => $assignment->id,
+                'role' => $assignment->role,
+                'team_name' => $assignment->team?->name,
+                'session_name' => $assignment->session?->name,
+                'is_current' => (bool) $assignment->is_current,
+                'assigned_at' => $assignment->assigned_at?->toDateTimeString(),
+                'removed_at' => $assignment->removed_at?->toDateTimeString(),
+                'notes' => $assignment->notes,
+            ])
+            ->values();
+
+        $certifications = $coach->certifications
+            ->map(fn ($cert) => [
+                'id' => $cert->id,
+                'name' => $cert->name,
+                'certificate_type' => $cert->certificate_type,
+                'issuer' => $cert->issuer,
+                'issued_at' => $cert->issued_at?->toDateString(),
+                'expired_at' => $cert->expired_at?->toDateString(),
+                'attachment_path' => $cert->attachment_path,
+                'metadata' => $cert->metadata,
+            ])
+            ->values();
+
+        $sports = $coach->sports
+            ->map(fn ($sport) => [
+                'id' => $sport->id,
+                'name' => $sport->name,
+                'is_primary' => (bool) $sport->pivot?->is_primary,
+                'level' => $sport->pivot?->level,
+                'effective_from' => $sport->pivot?->effective_from?->toDateString(),
+                'effective_to' => $sport->pivot?->effective_to?->toDateString(),
+                'notes' => $sport->pivot?->notes,
+            ])
+            ->values();
+
         return response()->json([
             'id' => $coach->id,
-            'full_name_hi' => $coach->full_name_hi,
-            'full_name_en' => $coach->full_name_en,
+            'full_name' => $coach->full_name,
+            'display_name' => $coach->display_name,
             'pno' => $coach->pno,
             'mobile' => $coach->mobile,
             'nis_certified' => $coach->nis_certified,
+            'designation' => $coach->designation,
+            'email' => $coach->email,
+            'gender' => $coach->gender,
+            'date_of_birth' => $coach->date_of_birth?->toDateString(),
+            'coach_status' => $coach->coach_status,
+            'bio' => $coach->bio,
+            'address' => $coach->address,
+            'photo_path' => $coach->photo_path,
+            'profile_status_badge' => $coach->profile_status_badge,
+            'certifications' => $certifications,
+            'sports' => $sports,
+            'assignment_history' => $assignments,
             'member' => $m ? [
                 'id' => $m->id,
                 'member_code' => $m->member_code,
-                'full_name_hi' => $m->full_name_hi,
-                'full_name_en' => $m->full_name_en,
-                'father_name_hi' => $m->father_name_hi,
+                'full_name' => $m->full_name,
+                'father_name' => $m->father_name,
                 'rank' => $m->rank,
                 'gender' => $m->gender,
                 'dob' => $m->dob?->toDateString(),
@@ -69,13 +125,13 @@ class CoachPreviewController extends Controller
                 'player_level' => $m->player_level,
                 'player_category' => $m->player_category,
                 'team_since' => $m->team_since?->toDateString(),
-                'home_district' => $m->homeDistrict ? ['name_hi' => $m->homeDistrict->name_hi] : null,
-                'current_unit' => $m->currentUnit ? ['name_hi' => $m->currentUnit->name_hi] : null,
-                'sport' => $m->sport ? ['name_hi' => $m->sport->name_hi] : null,
+                'home_district' => $m->homeDistrict ? ['name' => $m->homeDistrict->name] : null,
+                'current_unit' => $m->currentUnit ? ['name' => $m->currentUnit->name] : null,
+                'sport' => $m->sport ? ['name' => $m->sport->name] : null,
                 'status_history' => $m->statusHistory->map(fn ($h) => [
                     'status' => $h->status,
                     'effective_on' => $h->effective_on->toDateString(),
-                    'reason_hi' => $h->reason_hi,
+                    'reason' => $h->reason,
                 ]),
                 'team_history' => $memberTeamHistory,
                 'achievements' => $m->legacyAchievements->map(fn ($a) => [

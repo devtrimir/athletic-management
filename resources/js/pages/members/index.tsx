@@ -1,10 +1,11 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Check, ChevronDown, Download, Eye, Info, Plus, Printer, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Download, Eye, IdCard, Info, MapPinned, Plus, Printer, Search, ShieldCheck, UserCheck, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
 import { MemberQuickView } from '@/components/members/member-quick-view';
+import { OptionMultiSelect } from '@/components/option-multi-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,15 +27,17 @@ type Member = {
     id: number;
     member_code: string;
     pno: string | null;
-    full_name_hi: string;
-    full_name_en: string | null;
+    full_name: string;
     rank: string | null;
+    designation?: string | null;
+    gender?: string | null;
+    blood_group?: string | null;
     player_category: string;
     player_level: string;
     current_status: string;
-    home_district: { id: number; name_hi: string; name_en: string } | null;
-    current_unit: { id: number; name_hi: string; name_en: string } | null;
-    posting_district: { id: number; name_hi: string; name_en: string } | null;
+    home_district: { id: number; name: string } | null;
+    current_unit: { id: number; name: string } | null;
+    posting_district: { id: number; name: string } | null;
     playable_sports: Array<SportOption & {
         pivot?: {
             role?: string | null;
@@ -47,10 +50,10 @@ type Member = {
     }>;
 };
 
-type UnitOption = { id: number; name_hi: string; name_en: string };
-type DistrictOption = { id: number; name_hi: string; name_en: string };
-type SportOption = { id: number; name_hi: string; name_en: string };
-type MasterOption = { code: string; name_hi: string | null; name_en: string; short_name: string | null };
+type UnitOption = { id: number; name: string };
+type DistrictOption = { id: number; name: string };
+type SportOption = { id: number; name: string };
+type MasterOption = { code: string; name: string; short_name: string | null };
 
 type PaginatedMembers = {
     data: Member[];
@@ -75,20 +78,20 @@ type Filters = {
     gender?: string;
     blood_group?: string;
     sport_id?: string;
+    sport_ids?: string[];
     joining_year_from?: string;
     joining_year_to?: string;
 };
 
 const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'pno', label: 'PNO' },
-    { key: 'full_name_hi', label: 'Name (Hindi)' },
-    { key: 'full_name_en', label: 'Name (English)' },
-    { key: 'father_name_hi', label: "Father's name" },
+    { key: 'full_name', label: 'Name' },
+    { key: 'father_name', label: "Father's name" },
     { key: 'gender', label: 'Gender' },
     { key: 'dob', label: 'Date of birth' },
     { key: 'rank', label: 'Rank' },
     { key: 'mobile', label: 'Mobile' },
-    { key: 'current_status', label: 'Status' },
+    { key: 'designation', label: 'Designation' },
     { key: 'player_category', label: 'Category' },
     { key: 'player_level', label: 'Level' },
     { key: 'unit', label: 'Unit' },
@@ -97,14 +100,12 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
-    { key: 'designation', label: 'Designation' },
     { key: 'appointment', label: 'Appointment' },
     { key: 'playable_sports', label: 'Playable sports' },
     { key: 'promotion_date', label: 'Promotion date' },
     { key: 'team_since', label: 'Team since' },
 ];
 
-const STATUS_OPTIONS = ['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'] as const;
 const CATEGORY_OPTIONS = ['GD', 'SPORTS_QUOTA'] as const;
 const LEVEL_OPTIONS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'] as const;
 const GENDER_OPTIONS: { value: string; label: string }[] = [
@@ -113,14 +114,6 @@ const GENDER_OPTIONS: { value: string; label: string }[] = [
     { value: 'O', label: 'Other gender' },
 ];
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
-
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    ACTIVE: 'default',
-    RESIGNED: 'outline',
-    DISMISSED: 'destructive',
-    DECEASED: 'secondary',
-    RETIRED: 'secondary',
-};
 
 const CATEGORY_BADGE_CLASS: Record<string, string> = {
     GD: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
@@ -138,24 +131,29 @@ function displayCategory(category: string): string {
     return category === 'SKILLED' ? 'SPORTS_QUOTA' : category;
 }
 
-function localeName(entity: { name_hi: string; name_en: string }, locale: string): string {
-    return locale === 'en' ? entity.name_en : (entity.name_hi ?? entity.name_en);
-}
-
-function localizedText(hi: string | null | undefined, en: string | null | undefined, locale: string): string | null {
-    if (locale === 'en') {
-        return en ?? hi ?? null;
-    }
-
-    return hi ?? en ?? null;
+function localeName(entity: { name: string }, locale: string): string {
+    return locale === 'en' ? entity.name : (entity.name ?? entity.name);
 }
 
 function postingLocation(member: Member): string | null {
-    return member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null;
+    return member.posting_district?.name ?? member.current_unit?.name ?? null;
+}
+
+function genderLabel(value: string | null | undefined, t: (key: string) => string): string {
+    switch (value) {
+        case 'M':
+            return t('Male');
+        case 'F':
+            return t('Female');
+        case 'O':
+            return t('Other gender');
+        default:
+            return value ?? '';
+    }
 }
 
 function sportSummary(sport: Member['playable_sports'][number]): string {
-    return [sport.name_hi, sport.role ?? sport.pivot?.role, sport.position ?? sport.pivot?.position, sport.notes ?? sport.pivot?.notes]
+    return [sport.name, sport.role ?? sport.pivot?.role, sport.position ?? sport.pivot?.position, sport.notes ?? sport.pivot?.notes]
         .filter(Boolean)
         .join(' · ');
 }
@@ -220,7 +218,7 @@ function SportCell({ member }: { member: Member }) {
                         <ul className="mt-1 space-y-2 text-sm">
                             {playableSports.map((sport) => (
                                 <li key={sport.id} className="space-y-0.5">
-                                    <p className="font-medium">{sport.name_hi}</p>
+                                    <p className="font-medium">{sport.name}</p>
                                     <div className="space-y-0.5 text-xs text-muted-foreground">
                                         {(sport.role ?? sport.pivot?.role) && (
                                             <p>
@@ -411,6 +409,7 @@ export default function MembersIndex({
     // Local draft for joining year (applied on blur/enter only to avoid spamming requests)
     const [yearFrom, setYearFrom] = useState(filters.joining_year_from ?? '');
     const [yearTo, setYearTo] = useState(filters.joining_year_to ?? '');
+    const selectedSportIds = filters.sport_ids ?? (filters.sport_id ? [filters.sport_id] : []);
 
     const applyFilters = useCallback((patch: Partial<Filters>) => {
         const merged: Filters = {
@@ -426,12 +425,13 @@ export default function MembersIndex({
             gender: filters.gender,
             blood_group: filters.blood_group,
             sport_id: filters.sport_id,
+            sport_ids: filters.sport_ids,
             joining_year_from: filters.joining_year_from,
             joining_year_to: filters.joining_year_to,
             ...patch,
         };
 
-        const clean: Record<string, string> = {};
+        const clean: Record<string, string | string[]> = {};
         const mapping: [keyof Filters, string][] = [
             ['q', 'filter[q]'],
             ['current_status', 'filter[current_status]'],
@@ -445,13 +445,24 @@ export default function MembersIndex({
             ['gender', 'filter[gender]'],
             ['blood_group', 'filter[blood_group]'],
             ['sport_id', 'filter[sport_id]'],
+            ['sport_ids', 'filter[sport_ids]'],
             ['joining_year_from', 'filter[joining_year_from]'],
             ['joining_year_to', 'filter[joining_year_to]'],
         ];
 
         for (const [k, param] of mapping) {
-            if (merged[k]) {
-                clean[param] = merged[k]!;
+            const value = merged[k];
+
+            if (Array.isArray(value)) {
+                if (value.length > 0) {
+                    clean[param] = value;
+                }
+
+                continue;
+            }
+
+            if (value) {
+                clean[param] = value;
             }
         }
 
@@ -481,9 +492,9 @@ export default function MembersIndex({
     }, [query]);
 
     const activeFilterCount = [
-        filters.current_status, filters.player_category, filters.player_level,
+        filters.player_category, filters.player_level,
         filters.rank, filters.designation, filters.current_unit_id, filters.home_district_id, filters.posting_district_id, filters.gender,
-        filters.blood_group, filters.sport_id,
+        filters.blood_group, selectedSportIds.length > 0 ? 'sports' : undefined,
         filters.joining_year_from, filters.joining_year_to,
     ].filter(Boolean).length;
     const hasAnyFilter = !!(filters.q) || activeFilterCount > 0;
@@ -518,13 +529,24 @@ export default function MembersIndex({
                 ['gender', 'filter[gender]'],
                 ['blood_group', 'filter[blood_group]'],
                 ['sport_id', 'filter[sport_id]'],
+                ['sport_ids', 'filter[sport_ids]'],
                 ['joining_year_from', 'filter[joining_year_from]'],
                 ['joining_year_to', 'filter[joining_year_to]'],
             ];
 
             for (const [k, param] of filterKeys) {
-                if (filters[k]) {
-params.append(param, filters[k]!);
+                const value = filters[k];
+
+                if (Array.isArray(value)) {
+                    for (const item of value) {
+                        params.append(`${param}[]`, item);
+                    }
+
+                    continue;
+                }
+
+                if (value) {
+params.append(param, value);
 }
             }
         }
@@ -545,15 +567,15 @@ params.append(param, filters[k]!);
                     `<tr>${cols
                         .map((c) => {
                             if (c.key === 'unit') {
-return `<td>${m.current_unit?.name_hi ?? '\u2014'}</td>`;
+return `<td>${m.current_unit?.name ?? '\u2014'}</td>`;
 }
 
                             if (c.key === 'home_district') {
-return `<td>${m.home_district?.name_hi ?? '\u2014'}</td>`;
+return `<td>${m.home_district?.name ?? '\u2014'}</td>`;
 }
 
                             if (c.key === 'posting_district') {
-return `<td>${m.posting_district?.name_hi ?? m.current_unit?.name_hi ?? '\u2014'}</td>`;
+return `<td>${m.posting_district?.name ?? m.current_unit?.name ?? '\u2014'}</td>`;
                             }
 
                             if (['dob', 'joining_date', 'promotion_date', 'team_since'].includes(c.key)) {
@@ -652,19 +674,6 @@ next.add(id);
                         />
                     </div>
 
-                    {/* Status */}
-                    <FilterPill
-                        label={t('Status')}
-                        activeLabel={filters.current_status ? t(filters.current_status) : undefined}
-                        onClear={() => applyFilters({ current_status: undefined })}
-                    >
-                        <OptionList
-                            options={STATUS_OPTIONS.map((s) => ({ value: s, label: t(s) }))}
-                            value={filters.current_status}
-                            onSelect={(v) => applyFilters({ current_status: v })}
-                        />
-                    </FilterPill>
-
                     {/* Category */}
                     <FilterPill
                         label={t('Category')}
@@ -693,13 +702,13 @@ next.add(id);
 
                     <FilterPill
                         label={t('Rank')}
-                        activeLabel={filters.rank ? (ranks.find((rank) => rank.code === filters.rank) ? localeName(ranks.find((rank) => rank.code === filters.rank)!, locale) : filters.rank) : undefined}
+                        activeLabel={filters.rank ? (ranks.find((rank) => rank.code === filters.rank)?.name ?? filters.rank) : undefined}
                         onClear={() => applyFilters({ rank: undefined })}
                     >
                         <SearchableOptionList
                             options={ranks.map((rank) => ({
                                 value: rank.code,
-                                label: locale === 'en' ? rank.name_en : (rank.name_hi ?? rank.name_en),
+                                label: rank.name ?? rank.code,
                             }))}
                             value={filters.rank}
                             onSelect={(v) => applyFilters({ rank: v })}
@@ -709,13 +718,13 @@ next.add(id);
 
                     <FilterPill
                         label={t('Designation')}
-                        activeLabel={filters.designation ? (designations.find((designation) => designation.code === filters.designation) ? localeName(designations.find((designation) => designation.code === filters.designation)!, locale) : filters.designation) : undefined}
+                        activeLabel={filters.designation ? (designations.find((designation) => designation.code === filters.designation)?.name ?? filters.designation) : undefined}
                         onClear={() => applyFilters({ designation: undefined })}
                     >
                         <SearchableOptionList
                             options={designations.map((designation) => ({
                                 value: designation.code,
-                                label: locale === 'en' ? designation.name_en : (designation.name_hi ?? designation.name_en),
+                                label: designation.name ?? designation.code,
                             }))}
                             value={filters.designation}
                             onSelect={(v) => applyFilters({ designation: v })}
@@ -791,19 +800,15 @@ next.add(id);
                         />
                     </FilterPill>
 
-                    {/* Sport */}
-                    <FilterPill
-                        label={t('Sport')}
-                        activeLabel={filters.sport_id ? (sports.find((s) => String(s.id) === filters.sport_id)?.name_hi ?? filters.sport_id) : undefined}
-                        onClear={() => applyFilters({ sport_id: undefined })}
-                    >
-                        <SearchableOptionList
-                            options={sports.map((s) => ({ value: String(s.id), label: s.name_hi }))}
-                            value={filters.sport_id}
-                            onSelect={(v) => applyFilters({ sport_id: v })}
-                            searchPlaceholder={t('Search sports…')}
-                        />
-                    </FilterPill>
+                    {/* Playable sport */}
+                    <OptionMultiSelect
+                        value={selectedSportIds}
+                        onValueChange={(value) => applyFilters({ sport_id: undefined, sport_ids: value })}
+                        options={sports.map((s) => ({ value: String(s.id), label: s.name }))}
+                        placeholder={t('Playable sport')}
+                        searchPlaceholder={t('Search sports…')}
+                        className="h-8 w-48 text-xs"
+                    />
 
                     {/* Joining year range */}
                     <FilterPill
@@ -867,7 +872,7 @@ next.add(id);
                 )}
 
                 {/* Table */}
-                <div className="overflow-hidden rounded-xl border">
+                <div className="overflow-x-auto rounded-xl border bg-card">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -880,14 +885,18 @@ next.add(id);
                                     />
                                 </TableHead>
                                 <TableHead>{t('Sr no')}</TableHead>
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
-                                <TableHead>{t('PNO')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
+                                <TableHead className="hidden md:table-cell">{t('PNO')}</TableHead>
+                                <TableHead className="hidden md:table-cell">{t('Blood group')}</TableHead>
+                                <TableHead className="hidden lg:table-cell">{t('Gender')}</TableHead>
                                 <TableHead>{t('Playable sports')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
-                                <TableHead>{t('Posting unit / district')}</TableHead>
-                                <TableHead>{t('Status')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead>{t('Location')}</TableHead>
+                                <TableHead>{t('Designation')}</TableHead>
+                                <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -903,8 +912,8 @@ next.add(id);
                                 members.data.map((member, index) => (
                                     <TableRow
                                         key={member.id}
+                                        className="group cursor-pointer transition-colors hover:bg-muted/30 data-[selected]:bg-primary/5"
                                         data-selected={selectedIds.has(member.id) || undefined}
-                                        className="cursor-pointer data-[selected]:bg-primary/5"
                                         onClick={() => router.visit(MemberController.show.url(member.id))}
                                     >
                                         <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
@@ -918,19 +927,45 @@ next.add(id);
                                             {(members.from ?? 1) + index}
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex min-w-0 items-center gap-2">
+                                            <div className="flex min-w-56 items-center gap-2 overflow-hidden whitespace-nowrap">
                                                 {member.rank && (
-                                                    <span className="shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-muted-foreground">
+                                                    <span className="inline-flex shrink-0 items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-sky-700 dark:text-sky-300">
                                                         {member.rank}
                                                     </span>
                                                 )}
-                                                <span className="truncate font-medium">
-                                                    {localizedText(member.full_name_hi, member.full_name_en, locale) ?? '—'}
-                                                </span>
+                                                <span className="truncate font-semibold text-foreground">{member.full_name}</span>
+                                                <div className="flex shrink-0 items-center gap-1.5">
+                                                    {member.designation && (
+                                                        <span className="truncate text-xs font-medium text-amber-700 dark:text-amber-300">
+                                                            {member.designation}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {member.pno ?? <span className="select-none text-border">—</span>}
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                                            {member.pno ? (
+                                                <div className="flex items-center gap-2">
+                                                    <IdCard className="h-4 w-4 text-sky-600 dark:text-sky-300" />
+                                                    <span>{member.pno}</span>
+                                                </div>
+                                            ) : null}
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                                            {member.blood_group ? (
+                                                <div className="flex items-center gap-2">
+                                                    <ShieldCheck className="h-4 w-4 text-rose-600 dark:text-rose-300" />
+                                                    <span>{member.blood_group}</span>
+                                                </div>
+                                            ) : null}
+                                        </TableCell>
+                                        <TableCell className="hidden lg:table-cell text-muted-foreground">
+                                            {member.gender ? (
+                                                <div className="flex items-center gap-2">
+                                                    <UserCheck className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-300" />
+                                                    <span>{genderLabel(member.gender, t)}</span>
+                                                </div>
+                                            ) : null}
                                         </TableCell>
                                         <TableCell>
                                             <SportCell member={member} />
@@ -946,15 +981,18 @@ next.add(id);
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {postingLocation(member) ?? <span className="select-none text-border">—</span>}
+                                            {postingLocation(member) ? (
+                                                <div className="flex items-center gap-2">
+                                                    <MapPinned className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                                                    <span>{postingLocation(member)}</span>
+                                                </div>
+                                            ) : null}
                                         </TableCell>
-                                        <TableCell>
-                                            <Badge variant={STATUS_VARIANT[member.current_status] ?? 'outline'}>
-                                                {t(member.current_status)}
-                                            </Badge>
+                                        <TableCell className="text-muted-foreground">
+                                            {member.designation ?? '—'}
                                         </TableCell>
-                                        <TableCell className="w-0" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex items-center">
+                                        <TableCell className="sticky right-0 z-10 w-0 bg-card text-right" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-end">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -995,7 +1033,7 @@ next.add(id);
                                         : 'border-input bg-background hover:bg-accent',
                                 ].join(' ')}
                                 onClick={() => {
-                                    const params: Record<string, string> = { per_page: String(n) };
+                                    const params: Record<string, string | string[]> = { per_page: String(n) };
                                     const filterKeys: [keyof Filters, string][] = [
                                         ['q', 'filter[q]'],
                                         ['current_status', 'filter[current_status]'],
@@ -1006,13 +1044,25 @@ next.add(id);
                                         ['posting_district_id', 'filter[posting_district_id]'],
                                         ['gender', 'filter[gender]'],
                                         ['blood_group', 'filter[blood_group]'],
+                                        ['sport_id', 'filter[sport_id]'],
+                                        ['sport_ids', 'filter[sport_ids]'],
                                         ['joining_year_from', 'filter[joining_year_from]'],
                                         ['joining_year_to', 'filter[joining_year_to]'],
                                     ];
 
                                     for (const [k, param] of filterKeys) {
-                                        if (filters[k]) {
-params[param] = filters[k]!;
+                                        const value = filters[k];
+
+                                        if (Array.isArray(value)) {
+                                            if (value.length > 0) {
+                                                params[param] = value;
+                                            }
+
+                                            continue;
+                                        }
+
+                                        if (value) {
+params[param] = value;
 }
                                     }
 

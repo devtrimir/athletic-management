@@ -17,7 +17,7 @@ test('coaches table is created by migration', function () {
 test('coaches table has all required columns', function () {
     $columns = [
         'id', 'organization_id', 'member_id',
-        'full_name_hi', 'full_name_en',
+        'full_name', 'full_name',
         'pno', 'mobile', 'nis_certified',
         'deleted_at', 'created_at', 'updated_at',
     ];
@@ -33,7 +33,7 @@ test('pno is nullable', function () {
 
     DB::table('coaches')->insert([
         'organization_id' => $org->id,
-        'full_name_hi' => 'राम प्रसाद',
+        'full_name' => 'राम प्रसाद',
         'pno' => null,
         'nis_certified' => false,
         'created_at' => now(),
@@ -48,7 +48,7 @@ test('duplicate pno in same org is rejected', function () {
 
     DB::table('coaches')->insert([
         'organization_id' => $org->id,
-        'full_name_hi' => 'राम प्रसाद',
+        'full_name' => 'राम प्रसाद',
         'pno' => '980123456',
         'nis_certified' => false,
         'created_at' => now(),
@@ -57,7 +57,7 @@ test('duplicate pno in same org is rejected', function () {
 
     expect(fn () => DB::table('coaches')->insert([
         'organization_id' => $org->id,
-        'full_name_hi' => 'श्याम लाल',
+        'full_name' => 'श्याम लाल',
         'pno' => '980123456',
         'nis_certified' => false,
         'created_at' => now(),
@@ -69,8 +69,8 @@ test('multiple coaches with null pno in same org are allowed', function () {
     $org = Organization::factory()->create();
 
     DB::table('coaches')->insert([
-        ['organization_id' => $org->id, 'full_name_hi' => 'कोच एक', 'pno' => null, 'nis_certified' => false, 'created_at' => now(), 'updated_at' => now()],
-        ['organization_id' => $org->id, 'full_name_hi' => 'कोच दो', 'pno' => null, 'nis_certified' => false, 'created_at' => now(), 'updated_at' => now()],
+        ['organization_id' => $org->id, 'full_name' => 'कोच एक', 'pno' => null, 'nis_certified' => false, 'created_at' => now(), 'updated_at' => now()],
+        ['organization_id' => $org->id, 'full_name' => 'कोच दो', 'pno' => null, 'nis_certified' => false, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
     expect(DB::table('coaches')->where('organization_id', $org->id)->count())->toBe(2);
@@ -81,7 +81,7 @@ test('member_id is nullable', function () {
 
     DB::table('coaches')->insert([
         'organization_id' => $org->id,
-        'full_name_hi' => 'स्वतंत्र कोच',
+        'full_name' => 'स्वतंत्र कोच',
         'member_id' => null,
         'nis_certified' => false,
         'created_at' => now(),

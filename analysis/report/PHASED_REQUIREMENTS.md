@@ -281,8 +281,9 @@ Phase 2.
 ### Scope
 
 **Schema:**
-- `teams` (id, organization_id, sport_id FK, session_id FK, unit_id FK, name_hi, in_charge_hi, deleted_at). Unique `(organization_id, sport_id, session_id, unit_id, name_hi)`.
-- `team_members` (id, team_id FK, member_id FK, session_id FK, role ENUM('PLAYER','CAPTAIN','RESERVE') default 'PLAYER', joined_on, left_on NULLABLE). Unique `(team_id, member_id)`.
+- `teams` (id, organization_id, sport_id FK, legacy `session_id` FK for compatibility, location fields, name, in_charge, is_active, deleted_at). Team identity is session-independent: organization + sport + location + name. Users should not recreate the same team for every session.
+- `team_members` (id, team_id FK, member_id FK, session_id FK, role ENUM('PLAYER','CAPTAIN','RESERVE') default 'PLAYER', joined_on, left_on NULLABLE). Unique `(team_id, member_id, session_id)`.
+- `team_member_movements` (id, team_id FK, member_id FK, session_id FK, team_member_id nullable, created_by nullable, action ENUM('ADDED','REMOVED','CARRIED_FORWARD','SKIPPED'), role, effective_on, reason, source, batch_uuid, metadata). This is the audit ledger for roster movement.
 - `coach_assignments` (id, team_id FK, coach_id FK, session_id FK, role ENUM('HEAD','ASSISTANT')). Unique `(team_id, coach_id, role)`.
 
 **Routes:**
@@ -290,7 +291,8 @@ Phase 2.
 *Inertia* under `/teams`:
 - `GET /teams` → `Teams/Index` (filtered by session, default = current; embedded counts `players_count`, `coaches_count`).
 - `GET /teams/create`, `POST /teams`, `GET /teams/{team}`, `PATCH /teams/{team}`, soft `DELETE`.
-- `POST /teams/{team}/members` (bulk add by member IDs), `DELETE /teams/{team}/members/{member}`.
+- `POST /teams/{team}/members` (strict add by member IDs), `DELETE /teams/{team}/members/{member}` and bulk delete (requires `left_on` + reason; keeps history).
+- `POST /teams/{team}/members/backfill/preview`, `POST /teams/{team}/members/backfill` for old-session manual/pasted roster backfill.
 - `POST /teams/{team}/coaches`, `DELETE /teams/{team}/coaches/{coach}`.
 
 *JSON API*:
@@ -298,13 +300,15 @@ Phase 2.
 - `GET /api/v1/coaches/{coach}/teams` — historical assignments.
 
 **Frontend (Inertia pages):**
-- `Pages/Teams/Index.tsx`, `Pages/Teams/Create.tsx`, `Pages/Teams/Show.tsx` (three sections: details, roster with player picker, coaches with coach picker).
+- `Pages/Teams/Index.tsx`, `Pages/Teams/Create.tsx`, `Pages/Teams/Show.tsx` (session selector, active roster, removed roster, movement history, player picker, historical backfill, coaches).
 - Members `Show.tsx` "Teams" tab now populated.
 - Coaches `Show.tsx` "Teams" tab now populated.
 
 ### Acceptance Criteria
 - A member added to Team A (session 2024-25) and Team B (session 2025-26) shows both in profile, grouped by session.
-- Trying to add the same member to the same team twice returns 422.
+- Same team + same member + different session is allowed; duplicate active same team/session is rejected.
+- Historical backfill can add inactive old players only when they are playable for the team sport; current-session add remains active-only.
+- Removing a player sets `left_on`, requires a reason, records `REMOVED`, and keeps the row visible in old-session history.
 - Deleting a team is soft; restored team shows correct roster.
 
 ### Dependencies

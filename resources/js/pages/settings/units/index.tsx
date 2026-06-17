@@ -12,13 +12,12 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type District = {
     id: number;
-    name_en: string;
+    name: string;
 };
 
 type Unit = {
     id: number;
-    name_hi: string;
-    name_en: string;
+    name: string;
     unit_type: string;
     commandant: string | null;
     district: District | null;
@@ -40,10 +39,9 @@ export default function Index({ units }: { units: Unit[] }) {
         return units.filter((u) => {
             const matchesQuery =
                 !q ||
-                u.name_hi.toLowerCase().includes(q) ||
-                u.name_en.toLowerCase().includes(q) ||
+                u.name.toLowerCase().includes(q) ||
                 (u.commandant ?? '').toLowerCase().includes(q) ||
-                (u.district?.name_en ?? '').toLowerCase().includes(q);
+                (u.district?.name ?? '').toLowerCase().includes(q);
             const matchesType = typeFilter === 'all' || u.unit_type === typeFilter;
 
             return matchesQuery && matchesType;
@@ -98,8 +96,7 @@ export default function Index({ units }: { units: Unit[] }) {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
-                                <TableHead>{t('Name (English)')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Type')}</TableHead>
                                 <TableHead>{t('Commandant')}</TableHead>
                                 <TableHead>{t('District')}</TableHead>
@@ -109,15 +106,14 @@ export default function Index({ units }: { units: Unit[] }) {
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
                                         {units.length === 0 ? t('No units yet.') : t('No units match your filters.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filtered.map((unit) => (
                                     <TableRow key={unit.id}>
-                                        <TableCell className="font-medium">{unit.name_hi}</TableCell>
-                                        <TableCell>{unit.name_en}</TableCell>
+                                        <TableCell className="font-medium">{unit.name}</TableCell>
                                         <TableCell>
                                             <Badge variant="secondary">{t(unit.unit_type)}</Badge>
                                         </TableCell>
@@ -125,7 +121,7 @@ export default function Index({ units }: { units: Unit[] }) {
                                             {unit.commandant ?? <span className="select-none text-border">—</span>}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {unit.district?.name_en ?? <span className="select-none text-border">—</span>}
+                                            {unit.district?.name ?? <span className="select-none text-border">—</span>}
                                         </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center justify-end gap-1">

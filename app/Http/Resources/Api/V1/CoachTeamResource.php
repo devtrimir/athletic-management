@@ -20,9 +20,13 @@ class CoachTeamResource extends JsonResource
         return [
             'id' => $this->id,
             'role' => $this->role,
+            'is_current' => (bool) $this->is_current,
+            'assigned_at' => $this->assigned_at?->toDateTimeString(),
+            'removed_at' => $this->removed_at?->toDateTimeString(),
+            'notes' => $this->notes,
             'team' => [
                 'id' => $this->team->id,
-                'name_hi' => $this->team->name_hi,
+                'name' => $this->team->name,
             ],
             'sport' => [
                 'id' => $this->team->sport->id,

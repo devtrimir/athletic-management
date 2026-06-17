@@ -6,17 +6,26 @@ namespace App\Exports;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class ReportExport implements FromCollection, WithHeadings, WithStyles, WithTitle
+class ReportExport implements FromCollection, ShouldAutoSize, WithEvents, WithHeadings, WithStyles, WithTitle
 {
+    /**
+     * @param  array<int, string>  $headings
+     * @param  array<int, string>  $mergeRanges
+     */
     public function __construct(
         private readonly Collection $rows,
         private readonly array $headings,
         private readonly string $title,
+        private readonly array $mergeRanges = [],
     ) {}
 
     public function collection(): Collection
@@ -71,6 +80,34 @@ class ReportExport implements FromCollection, WithHeadings, WithStyles, WithTitl
     public function title(): string
     {
         return $this->title;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function mergeRanges(): array
+    {
+        return $this->mergeRanges;
+    }
+
+    /**
+     * @return array<class-string, callable>
+     */
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event): void {
+                $worksheet = $event->sheet->getDelegate();
+
+                foreach ($this->mergeRanges as $range) {
+                    $worksheet->mergeCells($range);
+                    $worksheet
+                        ->getStyle($range)
+                        ->getAlignment()
+                        ->setVertical(Alignment::VERTICAL_CENTER);
+                }
+            },
+        ];
     }
 
     /** @return array<int|string, mixed> */

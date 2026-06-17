@@ -25,7 +25,7 @@ test('create page returns 200 for authorized user', function (): void {
 test('store creates designation and redirects', function (): void {
     $rank = Rank::create([
         'code' => 'MAP_RANK',
-        'name_en' => 'Mapped Rank',
+        'name' => 'Mapped Rank',
         'rank_order' => 1,
         'is_gazetted' => false,
         'is_active' => true,
@@ -34,9 +34,8 @@ test('store creates designation and redirects', function (): void {
     $this->actingAs($this->admin)
         ->post(route('designations.store'), [
             'code' => 'TEST_DESIGNATION',
-            'name_en' => 'Test Designation',
+            'name' => 'टेस्ट पद',
             'short_name' => 'TD',
-            'name_hi' => 'टेस्ट पद',
             'designation_order' => 99,
             'mapped_rank_code' => $rank->code,
             'designation_type' => 'COMMISSIONERATE',
@@ -50,7 +49,7 @@ test('store creates designation and redirects', function (): void {
 test('store inline creates designation and returns created data', function (): void {
     $rank = Rank::create([
         'code' => 'INLINE_MAP',
-        'name_en' => 'Inline Map',
+        'name' => 'Inline Map',
         'rank_order' => 1,
         'is_gazetted' => false,
         'is_active' => true,
@@ -59,9 +58,8 @@ test('store inline creates designation and returns created data', function (): v
     $response = $this->actingAs($this->admin)
         ->postJson(route('designations.inline.store'), [
             'code' => 'INLINE_DESIGNATION',
-            'name_en' => 'Inline Designation',
+            'name' => 'इनलाइन पद',
             'short_name' => 'ID',
-            'name_hi' => 'इनलाइन पद',
             'designation_order' => 98,
             'mapped_rank_code' => $rank->code,
             'designation_type' => 'DISTRICT',
@@ -70,7 +68,7 @@ test('store inline creates designation and returns created data', function (): v
 
     $response->assertOk()
         ->assertJsonPath('designation.code', 'INLINE_DESIGNATION')
-        ->assertJsonPath('designation.name_en', 'Inline Designation');
+        ->assertJsonPath('designation.name', 'इनलाइन पद');
 
     expect(Designation::where('code', 'INLINE_DESIGNATION')->exists())->toBeTrue();
 });
@@ -79,7 +77,7 @@ test('store is forbidden without permission', function (): void {
     $this->actingAs($this->user)
         ->post(route('designations.store'), [
             'code' => 'TEST_DESIGNATION',
-            'name_en' => 'Test Designation',
+            'name' => 'टेस्ट पद',
             'designation_order' => 99,
         ])
         ->assertForbidden();
@@ -88,7 +86,7 @@ test('store is forbidden without permission', function (): void {
 test('edit page returns 200 for authorized user', function (): void {
     $rank = Rank::create([
         'code' => 'EDIT_MAP',
-        'name_en' => 'Edit Map',
+        'name' => 'Edit Map',
         'rank_order' => 1,
         'is_gazetted' => false,
         'is_active' => true,
@@ -96,9 +94,8 @@ test('edit page returns 200 for authorized user', function (): void {
 
     $designation = Designation::create([
         'code' => 'EDIT_DESIGNATION',
-        'name_en' => 'Edit Designation',
+        'name' => 'एडिट पद',
         'short_name' => 'ED',
-        'name_hi' => 'एडिट पद',
         'designation_order' => 10,
         'mapped_rank_code' => $rank->code,
         'designation_type' => 'STATE_HEAD',
@@ -114,7 +111,7 @@ test('edit page returns 200 for authorized user', function (): void {
 test('update saves changes and redirects', function (): void {
     $rank = Rank::create([
         'code' => 'UPDATE_MAP',
-        'name_en' => 'Update Map',
+        'name' => 'Update Map',
         'rank_order' => 1,
         'is_gazetted' => false,
         'is_active' => true,
@@ -122,7 +119,7 @@ test('update saves changes and redirects', function (): void {
 
     $designation = Designation::create([
         'code' => 'UPDATE_DESIGNATION',
-        'name_en' => 'Update Designation',
+        'name' => 'अपडेट पद',
         'designation_order' => 10,
         'is_active' => true,
     ]);
@@ -130,9 +127,8 @@ test('update saves changes and redirects', function (): void {
     $this->actingAs($this->admin)
         ->patch(route('designations.update', $designation), [
             'code' => 'UPDATE_DESIGNATION',
-            'name_en' => 'Updated Designation',
+            'name' => 'अपडेटेड पद',
             'short_name' => 'UD',
-            'name_hi' => 'अपडेटेड पद',
             'designation_order' => 11,
             'mapped_rank_code' => $rank->code,
             'designation_type' => 'DISTRICT',
@@ -140,13 +136,13 @@ test('update saves changes and redirects', function (): void {
         ])
         ->assertRedirect(route('designations.index'));
 
-    expect($designation->refresh()->name_en)->toBe('Updated Designation');
+    expect($designation->refresh()->name)->toBe('अपडेटेड पद');
 });
 
 test('destroy deletes designation and redirects', function (): void {
     $designation = Designation::create([
         'code' => 'DELETE_DESIGNATION',
-        'name_en' => 'Delete Designation',
+        'name' => 'डिलीट पद',
         'designation_order' => 10,
         'is_active' => true,
     ]);

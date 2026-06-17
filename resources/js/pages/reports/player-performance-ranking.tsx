@@ -36,11 +36,11 @@ import {
 import { useTranslation } from '@/hooks/use-translation';
 
 type Session = { id: number; name: string };
-type Sport = { id: number; name_hi: string };
+type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label_hi: string; label_en: string };
-type Unit = { id: number; name_hi: string };
-type District = { id: number; name_hi: string };
-type ReportMeta = { key: string; name_hi: string; name_en: string };
+type Unit = { id: number; name: string };
+type District = { id: number; name: string };
+type ReportMeta = { key: string; name: string };
 type PaginationLink = { url: string | null; label: string; active: boolean };
 
 type MetricSummary = {
@@ -60,13 +60,12 @@ type MemberSummaryRow = {
     rank: number | null;
     member: {
         id: number;
-        full_name_hi: string;
-        full_name_en: string | null;
+        full_name: string;
         member_code: string | null;
         pno: string | null;
         rank: string | null;
-        district: { id: number; name_hi: string; name_en: string } | null;
-        unit: { id: number; name_hi: string; name_en: string } | null;
+        district: { id: number; name: string } | null;
+        unit: { id: number; name: string } | null;
     };
     participation_count: number;
     achievement_count: number;
@@ -126,7 +125,7 @@ type Filters = {
 type MemberPerformanceDetail = {
     member: {
         id: number;
-        full_name_hi: string;
+        full_name: string;
         member_code: string;
         pno: string | null;
         rank: string | null;
@@ -138,19 +137,19 @@ type DrilldownRow = {
     participation_id: number;
     member: {
         id: number;
-        full_name_hi: string | null;
+        full_name: string | null;
         pno: string | null;
         rank: string | null;
     };
     session: { id: number | null; name: string | null };
-    sport: { id: number | null; name_hi: string | null };
+    sport: { id: number | null; name: string | null };
     tournament: {
         id: number | null;
-        name_hi: string | null;
+        name: string | null;
         date_from: string | null;
         tier: { id: number | null; label_hi: string | null } | null;
     } | null;
-    event: { id: number | null; name_hi: string | null } | null;
+    event: { id: number | null; name: string | null } | null;
     achievement: { medal_type: string | null; position: number | null } | null;
     awards: Array<{ id: number; title: string; points: number }>;
     scoring: { total_points: number };
@@ -210,7 +209,7 @@ export default function PlayerPerformanceRanking({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Reports'), href: ReportController.index().url },
-            { title: report.name_hi },
+            { title: report.name },
         ],
     });
 
@@ -298,7 +297,7 @@ export default function PlayerPerformanceRanking({
     }));
     const sportOptions: MultiSelectOption[] = sports.map((sport) => ({
         value: String(sport.id),
-        label: sport.name_hi,
+        label: sport.name,
     }));
     const tierOptions: MultiSelectOption[] = tiers.map((tier) => ({
         value: String(tier.id),
@@ -306,11 +305,11 @@ export default function PlayerPerformanceRanking({
     }));
     const unitOptions: MultiSelectOption[] = units.map((unit) => ({
         value: String(unit.id),
-        label: unit.name_hi,
+        label: unit.name,
     }));
     const districtOptions: MultiSelectOption[] = districts.map((district) => ({
         value: String(district.id),
-        label: district.name_hi,
+        label: district.name,
     }));
 
     function buildParams(): Record<string, string | string[]> {
@@ -576,7 +575,7 @@ export default function PlayerPerformanceRanking({
                                             openMemberDetail(row.member.id)
                                         }
                                     >
-                                        {row.member.full_name_hi}
+                                        {row.member.full_name}
                                     </button>
                                     <div className="text-xs text-muted-foreground">
                                         {[row.member.pno, row.member.rank]
@@ -590,7 +589,7 @@ export default function PlayerPerformanceRanking({
                                         className="text-left hover:underline"
                                         onClick={() =>
                                             openDrilldown({
-                                                title: `${row.member.district?.name_hi ?? t('District')} · ${label}`,
+                                                title: `${row.member.district?.name ?? t('District')} · ${label}`,
                                                 dimension: 'district',
                                                 dimensionId:
                                                     row.member.district?.id ??
@@ -600,7 +599,7 @@ export default function PlayerPerformanceRanking({
                                             })
                                         }
                                     >
-                                        {row.member.district?.name_hi ?? '—'}
+                                        {row.member.district?.name ?? '—'}
                                     </button>
                                 </TableCell>
                                 <TableCell>
@@ -609,7 +608,7 @@ export default function PlayerPerformanceRanking({
                                         className="text-left hover:underline"
                                         onClick={() =>
                                             openDrilldown({
-                                                title: `${row.member.unit?.name_hi ?? t('Unit')} · ${label}`,
+                                                title: `${row.member.unit?.name ?? t('Unit')} · ${label}`,
                                                 dimension: 'unit',
                                                 dimensionId:
                                                     row.member.unit?.id ?? null,
@@ -618,12 +617,12 @@ export default function PlayerPerformanceRanking({
                                             })
                                         }
                                     >
-                                        {row.member.unit?.name_hi ?? '—'}
+                                        {row.member.unit?.name ?? '—'}
                                     </button>
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {metricCell({
-                                        title: `${row.member.full_name_hi} · ${t('Participations')}`,
+                                        title: `${row.member.full_name} · ${t('Participations')}`,
                                         dimension,
                                         dimensionId,
                                         metric: 'participations',
@@ -633,7 +632,7 @@ export default function PlayerPerformanceRanking({
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {metricCell({
-                                        title: `${row.member.full_name_hi} · ${t('Achievements')}`,
+                                        title: `${row.member.full_name} · ${t('Achievements')}`,
                                         dimension,
                                         dimensionId,
                                         metric: 'achievements',
@@ -643,7 +642,7 @@ export default function PlayerPerformanceRanking({
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {metricCell({
-                                        title: `${row.member.full_name_hi} · ${t('Awards')}`,
+                                        title: `${row.member.full_name} · ${t('Awards')}`,
                                         dimension,
                                         dimensionId,
                                         metric: 'awards',
@@ -653,7 +652,7 @@ export default function PlayerPerformanceRanking({
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {metricCell({
-                                        title: `${row.member.full_name_hi} · ${t('Gold')}`,
+                                        title: `${row.member.full_name} · ${t('Gold')}`,
                                         dimension,
                                         dimensionId,
                                         metric: 'GOLD',
@@ -663,7 +662,7 @@ export default function PlayerPerformanceRanking({
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {metricCell({
-                                        title: `${row.member.full_name_hi} · ${t('Silver')}`,
+                                        title: `${row.member.full_name} · ${t('Silver')}`,
                                         dimension,
                                         dimensionId,
                                         metric: 'SILVER',
@@ -673,7 +672,7 @@ export default function PlayerPerformanceRanking({
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {metricCell({
-                                        title: `${row.member.full_name_hi} · ${t('Bronze')}`,
+                                        title: `${row.member.full_name} · ${t('Bronze')}`,
                                         dimension,
                                         dimensionId,
                                         metric: 'BRONZE',
@@ -683,7 +682,7 @@ export default function PlayerPerformanceRanking({
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {metricCell({
-                                        title: `${row.member.full_name_hi} · ${t('Merit')}`,
+                                        title: `${row.member.full_name} · ${t('Merit')}`,
                                         dimension,
                                         dimensionId,
                                         metric: 'MERIT',
@@ -693,7 +692,7 @@ export default function PlayerPerformanceRanking({
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {metricCell({
-                                        title: `${row.member.full_name_hi} · ${t('Points')}`,
+                                        title: `${row.member.full_name} · ${t('Points')}`,
                                         dimension,
                                         dimensionId,
                                         metric: 'points',
@@ -712,10 +711,16 @@ export default function PlayerPerformanceRanking({
 
     return (
         <>
-            <Head title={report.name_hi} />
+            <Head title={report.name} />
 
             <div className="space-y-6 px-4 py-6">
-                <Heading title={report.name_hi} description={report.name_en} />
+                <h1 className="sr-only">{report.name}</h1>
+                <Heading
+                    title={report.name}
+                    description={t(
+                        'Review ranked player performance across points, medals, participation, and awards.',
+                    )}
+                />
 
                 <div className="space-y-2 rounded-lg border p-3">
                     <div className="flex flex-wrap items-center gap-2">
@@ -1007,7 +1012,7 @@ export default function PlayerPerformanceRanking({
                 </div>
 
                 {data.pagination.last_page > 1 && (
-                    <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+                    <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
                         <span>
                             {data.pagination.from !== null
                                 ? t('Showing :from–:to of :total')
@@ -1081,7 +1086,7 @@ export default function PlayerPerformanceRanking({
                 >
                     <DialogHeader>
                         <DialogTitle>
-                            {detail?.member.full_name_hi ??
+                            {detail?.member.full_name ??
                                 t('Performance details')}
                         </DialogTitle>
                         <DialogDescription id="member-performance-detail">
@@ -1159,19 +1164,19 @@ export default function PlayerPerformanceRanking({
                                     {drilldownRows.map((row) => (
                                         <TableRow key={row.participation_id}>
                                             <TableCell>
-                                                {row.member.full_name_hi ?? '—'}
+                                                {row.member.full_name ?? '—'}
                                             </TableCell>
                                             <TableCell>
                                                 {row.session.name ?? '—'}
                                             </TableCell>
                                             <TableCell>
-                                                {row.sport.name_hi ?? '—'}
+                                                {row.sport.name ?? '—'}
                                             </TableCell>
                                             <TableCell>
-                                                {row.tournament?.name_hi ?? '—'}
+                                                {row.tournament?.name ?? '—'}
                                             </TableCell>
                                             <TableCell>
-                                                {row.event?.name_hi ?? '—'}
+                                                {row.event?.name ?? '—'}
                                             </TableCell>
                                             <TableCell>
                                                 {row.achievement?.medal_type ??

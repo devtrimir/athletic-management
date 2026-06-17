@@ -16,7 +16,7 @@ export type MemberTeamRow = {
     role: string | null;
     joined_on: string | null;
     left_on: string | null;
-    team: { id: number; name_hi: string } | null;
+    team: { id: number; name: string } | null;
     sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
 };
@@ -109,7 +109,7 @@ export function MemberTeamsTab({ teams, locale }: Props) {
                                             href={showTeam.url(row.team)}
                                             className="hover:underline"
                                         >
-                                            {row.team.name_hi}
+                                            {row.team.name}
                                         </Link>
                                     ) : (
                                         '—'

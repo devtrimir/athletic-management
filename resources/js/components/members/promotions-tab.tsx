@@ -1,5 +1,6 @@
-import { router, useForm, usePage } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Combobox } from '@/components/combobox';
 import type { ComboboxItem } from '@/components/combobox';
@@ -18,6 +19,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 import {
@@ -44,9 +52,16 @@ type LiveAchievement = {
     position: number | null;
     remarks: string | null;
     session: { id: number; name: string };
-    tournament: { id: number; name_hi: string; tier_code: string | null };
-    event: { id: number; name_hi: string };
-    benefits: { id: number; benefit_type: string }[];
+    tournament: { id: number; name: string; tier_code: string | null };
+    event: { id: number; name: string };
+    benefits: {
+        id: number;
+        benefit_type: string;
+        cash_amount: string | null;
+        benefit_date: string | null;
+        order_reference: string | null;
+        remarks: string | null;
+    }[];
 };
 
 type ParticipationItem = {
@@ -54,12 +69,13 @@ type ParticipationItem = {
     position: number | null;
     tournament: {
         id: number;
-        name_hi: string;
+        name: string;
         tier_code: string | null;
         date_from: string | null;
     };
-    event: { id: number; name_hi: string; gender_class: string };
+    event: { id: number; name: string; gender_class: string };
     achievement: {
+        id: number;
         medal_type: string;
         position: number | null;
         remarks: string | null;
@@ -69,12 +85,13 @@ type ParticipationItem = {
             cash_amount: string | null;
             benefit_date: string | null;
             order_reference: string | null;
+            remarks: string | null;
         }[];
     } | null;
 };
 
 type ParticipationGroup = {
-    session: { id: number; name: string };
+    session: { id: number; name: string; is_current?: boolean };
     participations: ParticipationItem[];
 };
 
@@ -87,7 +104,10 @@ type PromotionEvidenceRef = { type: PromotionEvidence['type']; id: number };
 type RewardOption = {
     key: string;
     label: string;
-    target: { type: 'participation'; id: number } | null;
+    target: { type: 'achievement'; id: number } | null;
+};
+type SelectedRewardOption = RewardOption & {
+    target: NonNullable<RewardOption['target']>;
 };
 type PromotionBenefit = {
     id: number;
@@ -119,24 +139,23 @@ type PromotionMediaFile = {
     original_name: string;
     mime_type: string;
     size_bytes: number;
-    caption_hi: string | null;
+    caption: string | null;
     uploaded_by: { id: number; name: string };
     created_at: string;
 };
 
 type RankOption = {
     code: string;
-    name_hi: string;
-    name_en: string;
+    name: string;
     short_name: string | null;
 };
 
 type InlineRankPayload = {
     code: string;
-    name_en: string;
+    name: string;
     rank_order: string;
     short_name: string;
-    name_hi: string;
+    is_gazetted: boolean;
     is_active: boolean;
 };
 
@@ -155,8 +174,54 @@ function evidenceKey(type: string, id: number): string {
     return `${type}:${id}`;
 }
 
-function rankDisplay(rank: RankOption, locale: string): string {
-    const label = locale === 'en' ? rank.name_en : rank.name_hi;
+function currentSessionId(participations: ParticipationGroup[]): string {
+    return String(
+        participations.find((group) => group.session.is_current)?.session.id ??
+            participations[0]?.session.id ??
+            '',
+    );
+}
+
+function participationGroupsForSession(
+    participations: ParticipationGroup[],
+    sessionId: string,
+): ParticipationGroup[] {
+    if (!sessionId) {
+        return [];
+    }
+
+    return participations.filter(
+        (group) => String(group.session.id) === sessionId,
+    );
+}
+
+function sessionById(
+    participations: ParticipationGroup[],
+    sessionId: string,
+): ParticipationGroup['session'] | undefined {
+    return participations.find(
+        (group) => String(group.session.id) === sessionId,
+    )?.session;
+}
+
+function sessionStartDate(
+    session?: ParticipationGroup['session'],
+): string | undefined {
+    if (!session?.is_current) {
+        return undefined;
+    }
+
+    const match = session.name.match(/(\d{4})/);
+
+    return match ? `${match[1]}-01-01` : undefined;
+}
+
+function isBeforeDate(value: string, minDate?: string): boolean {
+    return Boolean(value && minDate && value < minDate);
+}
+
+function rankDisplay(rank: RankOption): string {
+    const label = rank.name;
 
     return `${rank.code} · ${label}${rank.short_name ? ` · ${rank.short_name}` : ''}`;
 }
@@ -208,7 +273,7 @@ function benefitBadgeText(
 }
 
 function medalBadgeContent(medalType: string): {
-    icon: JSX.Element;
+    icon: ReactElement;
     label: string;
     className: string;
 } {
@@ -247,11 +312,7 @@ function medalBadgeContent(medalType: string): {
     }
 }
 
-function resolveRankLabel(
-    value: string | null,
-    ranks: RankOption[],
-    locale: string,
-): string {
+function resolveRankLabel(value: string | null, ranks: RankOption[]): string {
     if (!value) {
         return '';
     }
@@ -259,12 +320,11 @@ function resolveRankLabel(
     const rank = ranks.find(
         (item) =>
             item.code === value ||
-            item.name_en === value ||
-            item.name_hi === value ||
+            item.name === value ||
             item.short_name === value,
     );
 
-    return rank ? rankDisplay(rank, locale) : value;
+    return rank ? rankDisplay(rank) : value;
 }
 
 function getCsrfToken(): string {
@@ -417,10 +477,10 @@ function InlineRankDialog({
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [data, setData] = useState<InlineRankPayload>({
         code: '',
-        name_en: '',
+        name: '',
         rank_order: '',
         short_name: '',
-        name_hi: '',
+        is_gazetted: false,
         is_active: true,
     });
 
@@ -446,10 +506,10 @@ function InlineRankDialog({
                 },
                 body: JSON.stringify({
                     code: data.code,
-                    name_en: data.name_en,
+                    name: data.name,
                     rank_order: Number(data.rank_order),
                     short_name: data.short_name || null,
-                    name_hi: data.name_hi || null,
+                    is_gazetted: data.is_gazetted,
                     is_active: data.is_active,
                 }),
             });
@@ -480,10 +540,10 @@ function InlineRankDialog({
             onCreated(json.rank);
             setData({
                 code: '',
-                name_en: '',
+                name: '',
                 rank_order: '',
                 short_name: '',
-                name_hi: '',
+                is_gazetted: false,
                 is_active: true,
             });
             setOpen(false);
@@ -552,16 +612,16 @@ function InlineRankDialog({
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="inline-rank-name-en">
-                                {t('Name (English)')}
+                                {t('Name')}
                             </Label>
                             <Input
                                 id="inline-rank-name-en"
-                                value={data.name_en}
+                                value={data.name}
                                 onChange={(e) =>
-                                    setField('name_en', e.target.value)
+                                    setField('name', e.target.value)
                                 }
                             />
-                            <InputError message={errors.name_en} />
+                            <InputError message={errors.name} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="inline-rank-short-name">
@@ -579,17 +639,24 @@ function InlineRankDialog({
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="inline-rank-name-hi">
-                                {t('Name (Hindi)')}
+                            <Label htmlFor="inline-rank-gazetted">
+                                {t('Gazetted')}
                             </Label>
-                            <Input
-                                id="inline-rank-name-hi"
-                                value={data.name_hi}
+                            <select
+                                id="inline-rank-gazetted"
+                                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                                value={data.is_gazetted ? '1' : '0'}
                                 onChange={(e) =>
-                                    setField('name_hi', e.target.value)
+                                    setField(
+                                        'is_gazetted',
+                                        e.target.value === '1',
+                                    )
                                 }
-                            />
-                            <InputError message={errors.name_hi} />
+                            >
+                                <option value="1">{t('Yes')}</option>
+                                <option value="0">{t('No')}</option>
+                            </select>
+                            <InputError message={errors.is_gazetted} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="inline-rank-active">
@@ -653,8 +720,6 @@ function PromotionDialog({
     onSaved: () => void;
 }) {
     const { t } = useTranslation();
-    const { locale } = usePage().props as { locale?: string };
-    const resolvedLocale = locale ?? 'en';
     const [open, setOpen] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [availableRanks, setAvailableRanks] = useState(ranks);
@@ -678,10 +743,20 @@ function PromotionDialog({
         [promotion],
     );
     const [selected, setSelected] = useState<string[]>(selectedDefaults);
+    const [selectedSessionId, setSelectedSessionId] = useState(() =>
+        currentSessionId(participations),
+    );
+    const selectedParticipationGroups = useMemo(
+        () => participationGroupsForSession(participations, selectedSessionId),
+        [participations, selectedSessionId],
+    );
+    const selectedSession = sessionById(participations, selectedSessionId);
+    const currentSessionMinDate = sessionStartDate(selectedSession);
+
     const rankItems: ComboboxItem[] = useMemo(() => {
         const items = availableRanks.map((rank) => ({
             value: rank.code,
-            label: rankDisplay(rank, resolvedLocale),
+            label: rankDisplay(rank),
         }));
 
         if (memberRank && !items.some((item) => item.value === memberRank)) {
@@ -689,7 +764,7 @@ function PromotionDialog({
         }
 
         return items;
-    }, [availableRanks, memberRank, resolvedLocale]);
+    }, [availableRanks, memberRank]);
 
     const form = useForm({
         promotion_date: promotion?.promotion_date ?? '',
@@ -726,6 +801,7 @@ function PromotionDialog({
             }),
         });
         setSelected(selectedDefaults);
+        setSelectedSessionId(currentSessionId(participations));
         form.clearErrors();
         setPendingPayload(null);
         setConfirmOpen(false);
@@ -738,8 +814,8 @@ function PromotionDialog({
             }
 
             return [...prev, rank].sort((left, right) =>
-                (left.name_en ?? left.code).localeCompare(
-                    right.name_en ?? right.code,
+                (left.name ?? left.code).localeCompare(
+                    right.name ?? right.code,
                 ),
             );
         });
@@ -758,7 +834,7 @@ function PromotionDialog({
             }
         >();
 
-        for (const group of participations) {
+        for (const group of selectedParticipationGroups) {
             for (const item of group.participations) {
                 const key = `event:${item.tournament.id}:${item.event.id}`;
                 const evidences: PromotionEvidenceRef[] = [
@@ -772,7 +848,7 @@ function PromotionDialog({
                     });
                 }
 
-                const label = `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}${item.achievement?.benefits && item.achievement.benefits.length > 0 ? ` · ${summarizeBenefits(item.achievement.benefits, t)}` : ''}`;
+                const label = `${group.session.name} · ${item.tournament.name} · ${item.event.name}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}${item.achievement?.benefits && item.achievement.benefits.length > 0 ? ` · ${summarizeBenefits(item.achievement.benefits, t)}` : ''}`;
                 const existing = deduped.get(key);
 
                 if (!existing || existing.priority < 2) {
@@ -782,12 +858,16 @@ function PromotionDialog({
         }
 
         for (const item of achievements) {
+            if (String(item.session.id) !== selectedSessionId) {
+                continue;
+            }
+
             const key = `event:${item.tournament.id}:${item.event.id}`;
 
             if (!deduped.has(key)) {
                 deduped.set(key, {
                     key,
-                    label: `${t(item.medal_type)} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.benefits.length > 0 ? ` · ${t('Benefit recorded')}` : ''}`,
+                    label: `${t(item.medal_type)} · ${item.tournament.name} · ${item.event.name}${item.benefits.length > 0 ? ` · ${t('Benefit recorded')}` : ''}`,
                     evidences: [{ type: 'achievement', id: item.id }],
                     priority: 1,
                 });
@@ -812,7 +892,13 @@ function PromotionDialog({
         return Array.from(deduped.values()).map(
             ({ key, label, evidences }) => ({ key, label, evidences }),
         );
-    }, [achievements, legacyAchievements, participations, t]);
+    }, [
+        achievements,
+        legacyAchievements,
+        selectedParticipationGroups,
+        selectedSessionId,
+        t,
+    ]);
 
     function buildPayload() {
         return {
@@ -864,6 +950,29 @@ function PromotionDialog({
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+
+        if (isBeforeDate(form.data.promotion_date, currentSessionMinDate)) {
+            form.setError(
+                'promotion_date',
+                t(
+                    'Current session dates cannot be older than the selected session year. Choose an older session to back fill older entries.',
+                ),
+            );
+
+            return;
+        }
+
+        if (isBeforeDate(form.data.cash_reward_date, currentSessionMinDate)) {
+            form.setError(
+                'cash_reward_date',
+                t(
+                    'Current session dates cannot be older than the selected session year. Choose an older session to back fill older entries.',
+                ),
+            );
+
+            return;
+        }
+
         setPendingPayload(buildPayload());
         setConfirmOpen(true);
     }
@@ -913,6 +1022,7 @@ function PromotionDialog({
                             <Label>{t('Promotion date')}</Label>
                             <DatePicker
                                 value={form.data.promotion_date}
+                                minDate={currentSessionMinDate}
                                 onChange={(v) =>
                                     form.setData('promotion_date', v)
                                 }
@@ -977,6 +1087,7 @@ function PromotionDialog({
                             <Label>{t('Cash reward date')}</Label>
                             <DatePicker
                                 value={form.data.cash_reward_date}
+                                minDate={currentSessionMinDate}
                                 onChange={(v) =>
                                     form.setData('cash_reward_date', v)
                                 }
@@ -1039,6 +1150,41 @@ function PromotionDialog({
                             rows={3}
                         />
                         <InputError message={form.errors.remarks} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>{t('Session')}</Label>
+                        <Select
+                            value={selectedSessionId}
+                            onValueChange={(value) => {
+                                setSelectedSessionId(value);
+                                setSelected([]);
+                                form.setData('evidences', []);
+                            }}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue
+                                    placeholder={t('Select session')}
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {participations.map((group) => (
+                                    <SelectItem
+                                        key={group.session.id}
+                                        value={String(group.session.id)}
+                                    >
+                                        {group.session.name}
+                                        {group.session.is_current
+                                            ? ` · ${t('Current session')}`
+                                            : ''}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            {t(
+                                'Only current session participations are shown by default. To back fill an older entry, choose that session and load its events here.',
+                            )}
+                        </p>
                     </div>
                     <div className="grid gap-2">
                         <Label>
@@ -1112,7 +1258,6 @@ function PromotionDialog({
                                     {resolveRankLabel(
                                         form.data.from_rank,
                                         ranks,
-                                        resolvedLocale,
                                     ) || t('Unknown')}
                                 </Badge>
                                 <span className="text-muted-foreground">→</span>
@@ -1120,7 +1265,6 @@ function PromotionDialog({
                                     {resolveRankLabel(
                                         form.data.to_rank,
                                         ranks,
-                                        resolvedLocale,
                                     ) || t('Unknown')}
                                 </Badge>
                             </div>
@@ -1178,31 +1322,42 @@ function CashRewardDialog({
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [selected, setSelected] = useState<string[]>([]);
+    const [selectedSessionId, setSelectedSessionId] = useState(() =>
+        currentSessionId(participations),
+    );
     const [data, setData] = useState({
         cash_amount: '',
         benefit_date: '',
         order_reference: '',
         remarks: '',
     });
+    const selectedParticipationGroups = useMemo(
+        () => participationGroupsForSession(participations, selectedSessionId),
+        [participations, selectedSessionId],
+    );
+    const selectedSession = sessionById(participations, selectedSessionId);
+    const currentSessionMinDate = sessionStartDate(selectedSession);
 
     const rewardOptions = useMemo<RewardOption[]>(() => {
         const deduped = new Map<string, RewardOption>();
 
-        for (const group of participations) {
+        for (const group of selectedParticipationGroups) {
             for (const item of group.participations) {
                 const key = `participation:${item.id}`;
-                const label = `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}`;
+                const label = `${group.session.name} · ${item.tournament.name} · ${item.event.name}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}`;
 
                 deduped.set(key, {
                     key,
                     label,
-                    target: { type: 'participation', id: item.id },
+                    target: item.achievement
+                        ? { type: 'achievement', id: item.achievement.id }
+                        : null,
                 });
             }
         }
 
         return Array.from(deduped.values());
-    }, [participations, t]);
+    }, [selectedParticipationGroups, t]);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -1216,12 +1371,28 @@ function CashRewardDialog({
                 return;
             }
 
+            if (isBeforeDate(data.benefit_date, currentSessionMinDate)) {
+                setErrors({
+                    benefit_date: t(
+                        'Current session dates cannot be older than the selected session year. Choose an older session to back fill older entries.',
+                    ),
+                });
+
+                return;
+            }
+
             const selectedOptions = selected
                 .map((key) => rewardOptions.find((item) => item.key === key))
-                .filter((item): item is RewardOption => Boolean(item?.target));
+                .filter((item): item is SelectedRewardOption =>
+                    Boolean(item?.target),
+                );
 
-            if (selectedOptions.length === 0) {
-                setErrors({ benefitable_id: t('Select at least one event.') });
+            if (selectedOptions.length !== selected.length) {
+                setErrors({
+                    benefitable_id: t(
+                        'Cash reward can only be added for an event that has a recorded achievement.',
+                    ),
+                });
 
                 return;
             }
@@ -1283,7 +1454,18 @@ function CashRewardDialog({
     }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (nextOpen) {
+                    setSelectedSessionId(currentSessionId(participations));
+                    setSelected([]);
+                    setErrors({});
+                }
+            }}
+        >
             <DialogTrigger asChild>
                 <Button type="button" variant="outline" size="sm">
                     <Plus className="mr-1.5 size-3.5" />
@@ -1296,6 +1478,41 @@ function CashRewardDialog({
                 </DialogHeader>
 
                 <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div className="grid gap-2">
+                        <Label>{t('Session')}</Label>
+                        <Select
+                            value={selectedSessionId}
+                            onValueChange={(value) => {
+                                setSelectedSessionId(value);
+                                setSelected([]);
+                                setErrors({});
+                            }}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue
+                                    placeholder={t('Select session')}
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {participations.map((group) => (
+                                    <SelectItem
+                                        key={group.session.id}
+                                        value={String(group.session.id)}
+                                    >
+                                        {group.session.name}
+                                        {group.session.is_current
+                                            ? ` · ${t('Current session')}`
+                                            : ''}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            {t(
+                                'Only current session participations are shown by default. To back fill an older entry, choose that session and load its events here.',
+                            )}
+                        </p>
+                    </div>
                     <div className="grid gap-2">
                         <Label>{t('Events')}</Label>
                         <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
@@ -1324,7 +1541,11 @@ function CashRewardDialog({
                                 </label>
                             ))}
                         </div>
-                        <InputError message={errors.benefitable_id} />
+                        <InputError
+                            message={
+                                errors.benefitable_id ?? errors.benefitable_type
+                            }
+                        />
                         <p className="text-xs text-muted-foreground">
                             {selected.length > 0
                                 ? t('{{count}} events selected').replace(
@@ -1355,6 +1576,7 @@ function CashRewardDialog({
                             <Label>{t('Benefit date')}</Label>
                             <DatePicker
                                 value={data.benefit_date}
+                                minDate={currentSessionMinDate}
                                 onChange={(v) =>
                                     setData((prev) => ({
                                         ...prev,
@@ -1595,9 +1817,6 @@ export function PromotionsTab({
     onSaved,
 }: Props) {
     const { t } = useTranslation();
-    const { locale } = usePage().props as { locale?: string };
-    const resolvedLocale = locale ?? 'en';
-
     function evidenceSummary(evidence: PromotionEvidence): string {
         if (evidence.type === 'participation') {
             for (const group of participations) {
@@ -1616,7 +1835,7 @@ export function PromotionsTab({
                         ? ` · #${item.position}`
                         : '';
 
-                    return `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi} · ${item.tournament.date_from ?? t('No date')}${item.event.gender_class ? ` · ${item.event.gender_class}` : ''}${medalSummary}${positionSummary}${benefitSummary}`;
+                    return `${group.session.name} · ${item.tournament.name} · ${item.event.name} · ${item.tournament.date_from ?? t('No date')}${item.event.gender_class ? ` · ${item.event.gender_class}` : ''}${medalSummary}${positionSummary}${benefitSummary}`;
                 }
             }
 
@@ -1636,11 +1855,11 @@ export function PromotionsTab({
         const item = achievements.find((a) => a.id === evidence.evidence_id);
 
         return item
-            ? `${medalBadgeContent(item.medal_type).label} · ${item.tournament.name_hi} · ${item.event.name_hi}${item.tournament.tier_code ? ` · ${item.tournament.tier_code}` : ''}${item.benefits.length > 0 ? ` · ${summarizeBenefits(item.benefits, t)}` : ''}`
+            ? `${medalBadgeContent(item.medal_type).label} · ${item.tournament.name} · ${item.event.name}${item.tournament.tier_code ? ` · ${item.tournament.tier_code}` : ''}${item.benefits.length > 0 ? ` · ${summarizeBenefits(item.benefits, t)}` : ''}`
             : `${t('Achievement')} #${evidence.evidence_id}`;
     }
 
-    function labelForEvidence(evidence: PromotionEvidence): JSX.Element {
+    function labelForEvidence(evidence: PromotionEvidence): ReactElement {
         if (evidence.type === 'achievement') {
             const item = achievements.find(
                 (a) => a.id === evidence.evidence_id,
@@ -1655,8 +1874,8 @@ export function PromotionsTab({
                     >
                         {medal.icon}
                         <span className="truncate">
-                            {medal.label} {item.tournament.name_hi} ·{' '}
-                            {item.event.name_hi}
+                            {medal.label} {item.tournament.name} ·{' '}
+                            {item.event.name}
                         </span>
                     </span>
                 );
@@ -1706,7 +1925,7 @@ export function PromotionsTab({
                                 benefit_date: benefit.benefit_date,
                                 order_reference: benefit.order_reference,
                                 remarks: benefit.remarks,
-                                source_label: `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}`,
+                                source_label: `${group.session.name} · ${item.tournament.name} · ${item.event.name}`,
                             });
                         }
                     }
@@ -1749,7 +1968,7 @@ export function PromotionsTab({
                             benefit_date: benefit.benefit_date,
                             order_reference: benefit.order_reference,
                             remarks: benefit.remarks,
-                            source_label: `${group.session.name} · ${item.tournament.name_hi} · ${item.event.name_hi}`,
+                            source_label: `${group.session.name} · ${item.tournament.name} · ${item.event.name}`,
                         });
                     }
                 }
@@ -1775,11 +1994,7 @@ export function PromotionsTab({
                     <p className="text-xs text-muted-foreground">
                         {t('Current rank')}:{' '}
                         {memberRank
-                            ? resolveRankLabel(
-                                  memberRank,
-                                  ranks,
-                                  resolvedLocale,
-                              )
+                            ? resolveRankLabel(memberRank, ranks)
                             : t('Unknown')}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -1823,7 +2038,6 @@ export function PromotionsTab({
                                             {resolveRankLabel(
                                                 promotion.from_rank,
                                                 ranks,
-                                                resolvedLocale,
                                             ) || t('Unknown')}
                                         </Badge>
                                         <span className="text-muted-foreground">
@@ -1833,7 +2047,6 @@ export function PromotionsTab({
                                             {resolveRankLabel(
                                                 promotion.to_rank,
                                                 ranks,
-                                                resolvedLocale,
                                             )}
                                         </Badge>
                                         {promotion.promotion_date && (

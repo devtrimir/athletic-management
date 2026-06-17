@@ -70,7 +70,7 @@ class MediaFileController extends Controller
             'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType() ?? 'image/jpeg',
             'size_bytes' => $file->getSize(),
-            'caption_hi' => $request->input('caption'),
+            'caption' => $request->input('caption'),
             'uploaded_by' => $request->user()->id,
         ]);
 
@@ -122,7 +122,7 @@ class MediaFileController extends Controller
             'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType() ?? 'application/pdf',
             'size_bytes' => $file->getSize(),
-            'caption_hi' => $request->input('caption'),
+            'caption' => $request->input('caption'),
             'uploaded_by' => $request->user()->id,
         ]);
 

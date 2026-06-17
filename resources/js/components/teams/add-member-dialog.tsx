@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
-import { X } from 'lucide-react';
-import { useState } from 'react';
+import { UserCheck, UserPlus, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { store as storeTeamMember } from '@/actions/App/Http/Controllers/TeamMemberController';
 import InputError from '@/components/input-error';
 import { MemberPicker } from '@/components/member-picker';
@@ -35,6 +35,7 @@ interface Props {
     onOpenChange: (open: boolean) => void;
     team: Team;
     sessions: Session[];
+    selectedSessionId: number | null;
     onAdded?: (members: MemberOption[]) => void;
 }
 
@@ -52,7 +53,14 @@ const LEVELS = [
     { value: 'AIPSC', label: 'AIPSC' },
 ] as const;
 
-export function AddMemberDialog({ open, onOpenChange, team, onAdded }: Props) {
+export function AddMemberDialog({
+    open,
+    onOpenChange,
+    team,
+    sessions,
+    selectedSessionId,
+    onAdded,
+}: Props) {
     const { t } = useTranslation();
     const [pickedMember, setPickedMember] = useState<MemberOption | null>(null);
     const [selectedMembers, setSelectedMembers] = useState<MemberOption[]>([]);
@@ -61,13 +69,19 @@ export function AddMemberDialog({ open, onOpenChange, team, onAdded }: Props) {
 
     const { data, setData, post, errors, processing, reset } = useForm<{
         member_ids: string[];
+        session_id: string;
         role: string;
         joined_on: string;
     }>({
         member_ids: [],
+        session_id: selectedSessionId ? String(selectedSessionId) : '',
         role: 'PLAYER',
         joined_on: '',
     });
+
+    useEffect(() => {
+        setData('session_id', selectedSessionId ? String(selectedSessionId) : '');
+    }, [selectedSessionId, setData]);
 
     function handleMemberChange(m: MemberOption | null) {
         setPickedMember(m);
@@ -127,6 +141,10 @@ export function AddMemberDialog({ open, onOpenChange, team, onAdded }: Props) {
 
     extraFilters.available_for_team_id = String(team.id);
 
+    if (data.session_id) {
+        extraFilters.available_for_session_id = data.session_id;
+    }
+
     if (filterCategory) {
         extraFilters.player_category = filterCategory;
     }
@@ -137,54 +155,68 @@ export function AddMemberDialog({ open, onOpenChange, team, onAdded }: Props) {
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+            <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
                 <DialogHeader>
-                    <DialogTitle>{t('Add member')}</DialogTitle>
+                    <div className="mb-1 inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium tracking-wide text-sky-700 dark:border-sky-900/50 dark:bg-sky-950 dark:text-sky-200">
+                        <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+                        {t('Team roster')}
+                    </div>
+                    <DialogTitle className="text-lg">
+                        {t('Add member')}
+                    </DialogTitle>
+                    <p className="text-sm text-muted-foreground">
+                        {t('Add one or more active athletes for this session.')}
+                    </p>
                 </DialogHeader>
 
                 {/* Search filters */}
-                <div className="flex flex-wrap gap-2">
-                    <Select
-                        value={filterCategory || '_all'}
-                        onValueChange={(v) =>
-                            setFilterCategory(v === '_all' ? '' : v)
-                        }
-                    >
-                        <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
-                            <SelectValue placeholder={t('Category')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="_all">
-                                {t('All categories')}
-                            </SelectItem>
-                            {CATEGORIES.map((c) => (
-                                <SelectItem key={c.value} value={c.value}>
-                                    {t(c.label)}
+                <div className="rounded-lg border border-sky-200/70 bg-sky-50/60 p-3 dark:border-sky-900/40 dark:bg-sky-950/40">
+                    <p className="mb-2 text-xs font-medium tracking-wide text-sky-700 dark:text-sky-200">
+                        {t('Filter available athletes')}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        <Select
+                            value={filterCategory || '_all'}
+                            onValueChange={(v) =>
+                                setFilterCategory(v === '_all' ? '' : v)
+                            }
+                        >
+                            <SelectTrigger className="h-8 w-auto min-w-28 gap-2 px-2.5">
+                                <SelectValue placeholder={t('Category')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="_all">
+                                    {t('All categories')}
                                 </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                                {CATEGORIES.map((c) => (
+                                    <SelectItem key={c.value} value={c.value}>
+                                        {t(c.label)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
 
-                    <Select
-                        value={filterLevel || '_all'}
-                        onValueChange={(v) =>
-                            setFilterLevel(v === '_all' ? '' : v)
-                        }
-                    >
-                        <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs">
-                            <SelectValue placeholder={t('Level')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="_all">
-                                {t('All levels')}
-                            </SelectItem>
-                            {LEVELS.map((l) => (
-                                <SelectItem key={l.value} value={l.value}>
-                                    {t(l.label)}
+                        <Select
+                            value={filterLevel || '_all'}
+                            onValueChange={(v) =>
+                                setFilterLevel(v === '_all' ? '' : v)
+                            }
+                        >
+                            <SelectTrigger className="h-8 w-auto min-w-28 gap-2 px-2.5">
+                                <SelectValue placeholder={t('Level')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="_all">
+                                    {t('All levels')}
                                 </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                                {LEVELS.map((l) => (
+                                    <SelectItem key={l.value} value={l.value}>
+                                        {t(l.label)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -214,22 +246,36 @@ export function AddMemberDialog({ open, onOpenChange, team, onAdded }: Props) {
                     </div>
 
                     {selectedMembers.length > 0 && (
-                        <div className="grid gap-2">
-                            <Label>{t('Selected athletes')}</Label>
+                        <div className="grid gap-2 rounded-lg border border-sky-200/70 bg-sky-50/70 p-3 dark:border-sky-900/50 dark:bg-sky-950/30">
+                            <div className="flex items-center justify-between gap-2">
+                                <Label className="text-sky-900 dark:text-sky-200">
+                                    {t('Selected athletes')}
+                                </Label>
+                                <span className="text-xs text-sky-700 dark:text-sky-200/80">
+                                    {selectedMembers.length}{' '}
+                                    {selectedMembers.length > 1
+                                        ? t('athletes selected')
+                                        : t('athlete selected')}
+                                </span>
+                            </div>
                             <div className="flex flex-wrap gap-2">
                                 {selectedMembers.map((member) => (
                                     <span
                                         key={member.id}
-                                        className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs"
+                                        className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-xs dark:border-sky-900 dark:bg-slate-900/80"
                                     >
-                                        {member.full_name_hi}
+                                        <UserCheck className="h-3.5 w-3.5 text-sky-600 dark:text-sky-300" />
+                                        <span className="font-medium">
+                                            {member.full_name}
+                                        </span>
                                         {member.pno && (
-                                            <span className="font-mono text-muted-foreground">
+                                            <span className="font-mono text-xs text-muted-foreground">
                                                 {member.pno}
                                             </span>
                                         )}
                                         <button
                                             type="button"
+                                            className="rounded-full p-0.5 text-muted-foreground hover:bg-sky-100 hover:text-sky-700 dark:hover:bg-slate-800"
                                             onClick={() =>
                                                 removeSelectedMember(member.id)
                                             }
@@ -244,6 +290,35 @@ export function AddMemberDialog({ open, onOpenChange, team, onAdded }: Props) {
                     )}
 
                     <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="dlg-add-member-session">
+                                {t('Session')}
+                            </Label>
+                            <Select
+                                value={data.session_id}
+                                onValueChange={(v) => setData('session_id', v)}
+                            >
+                                <SelectTrigger
+                                    id="dlg-add-member-session"
+                                    className="w-full"
+                                >
+                                    <SelectValue
+                                        placeholder={t('Select session')}
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {sessions.map((session) => (
+                                        <SelectItem
+                                            key={session.id}
+                                            value={String(session.id)}
+                                        >
+                                            {session.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={errors.session_id} />
+                        </div>
                         <div className="grid gap-2">
                             <Label htmlFor="dlg-add-member-role">
                                 {t('Role')}
@@ -292,12 +367,12 @@ export function AddMemberDialog({ open, onOpenChange, team, onAdded }: Props) {
                                 processing || selectedMembers.length === 0
                             }
                         >
-                            {selectedMembers.length > 1
-                                ? t('Add selected (:count)').replace(
-                                      ':count',
-                                      String(selectedMembers.length),
-                                  )
-                                : t('Add member')}
+                                {selectedMembers.length > 1
+                                    ? t('Add selected (:count)').replace(
+                                          ':count',
+                                          String(selectedMembers.length),
+                                      )
+                                    : t('Add member')}
                         </Button>
                         <Button
                             type="button"

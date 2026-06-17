@@ -33,7 +33,7 @@ class MemberPreviewController extends Controller
             ->orderByDesc('joined_on')
             ->get()
             ->map(fn ($tm) => [
-                'team_name_hi' => $tm->team?->name_hi,
+                'team_name' => $tm->team?->name,
                 'session_name' => $tm->session?->name,
                 'role' => $tm->role,
                 'joined_on' => $tm->joined_on?->toDateString(),
@@ -44,9 +44,8 @@ class MemberPreviewController extends Controller
             'id' => $member->id,
             'member_code' => $member->member_code,
             'pno' => $member->pno,
-            'full_name_hi' => $member->full_name_hi,
-            'full_name_en' => $member->full_name_en,
-            'father_name_hi' => $member->father_name_hi,
+            'full_name' => $member->full_name,
+            'father_name' => $member->father_name,
             'rank' => $member->rank,
             'designation' => $member->designation,
             'gender' => $member->gender,
@@ -64,14 +63,13 @@ class MemberPreviewController extends Controller
             'home_address' => $member->home_address,
             'other_notes' => $member->other_notes,
             'team_since' => $member->team_since?->toDateString(),
-            'home_district' => $member->homeDistrict ? ['name_hi' => $member->homeDistrict->name_hi] : null,
-            'posting_district' => $member->postingDistrict ? ['name_hi' => $member->postingDistrict->name_hi] : null,
-            'current_unit' => $member->currentUnit ? ['name_hi' => $member->currentUnit->name_hi] : null,
-            'sport' => $member->sport ? ['name_hi' => $member->sport->name_hi] : null,
+            'home_district' => $member->homeDistrict ? ['name' => $member->homeDistrict->name] : null,
+            'posting_district' => $member->postingDistrict ? ['name' => $member->postingDistrict->name] : null,
+            'current_unit' => $member->currentUnit ? ['name' => $member->currentUnit->name] : null,
+            'sport' => $member->sport ? ['name' => $member->sport->name] : null,
             'playable_sports' => $member->playableSports->map(fn ($sport) => [
                 'id' => $sport->id,
-                'name_hi' => $sport->name_hi,
-                'name_en' => $sport->name_en,
+                'name' => $sport->name,
                 'role' => $sport->pivot?->role,
                 'position' => $sport->pivot?->position,
                 'notes' => $sport->pivot?->notes,
@@ -79,7 +77,7 @@ class MemberPreviewController extends Controller
             'status_history' => $member->statusHistory->map(fn ($h) => [
                 'status' => $h->status,
                 'effective_on' => $h->effective_on->toDateString(),
-                'reason_hi' => $h->reason_hi,
+                'reason' => $h->reason,
             ]),
             'team_history' => $teamHistory,
             'achievements' => $member->legacyAchievements->map(fn ($a) => [

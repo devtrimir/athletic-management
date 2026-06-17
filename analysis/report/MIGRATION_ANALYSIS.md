@@ -215,7 +215,7 @@ Issues observed (with evidence locations):
 1. Auth + RBAC (Admin / Data-Entry / Viewer)
 2. Members module: list with fast multi-key search; create / edit; status change with effective date
 3. Sessions, Sports, Units, Districts as managed reference data
-4. Teams per session (sport × unit × session); assign team members; assign coaches
+4. Stable teams (sport × location × name) with per-session roster rows; assign team members and coaches by session without recreating teams each year
 5. Tournaments + Events: create competition, list events, record participation, record achievement (medal)
 6. Member profile page showing **historical participation across all sessions** (the headline value: replaces the manual cross-sheet lookup users do today)
 7. Excel-import wizard for the three legacy files (run once) + ongoing single-sheet uploads, with column-mapping templates and an `import_rows` review/approve queue

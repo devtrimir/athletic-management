@@ -5,10 +5,10 @@ import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import TournamentController from '@/actions/App/Http/Controllers/TournamentController';
 import AppLogo from '@/components/app-logo';
+import { LocaleSwitcher } from '@/components/locale-switcher';
 import { NavMain } from '@/components/nav-main';
 import { NavReports } from '@/components/nav-reports';
 import { NavUser } from '@/components/nav-user';
-import { LocaleSwitcher } from '@/components/locale-switcher';
 import {
     Sidebar,
     SidebarContent,

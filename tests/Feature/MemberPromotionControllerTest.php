@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Achievement;
+use App\Models\AchievementBenefit;
 use App\Models\Event;
 use App\Models\MediaFile;
 use App\Models\Member;
@@ -57,8 +58,7 @@ function promotionRanks(Organization $organization): array
 {
     $fromRank = Rank::create([
         'code' => 'CONSTABLE',
-        'name_en' => 'Constable',
-        'name_hi' => 'कांस्टेबल',
+        'name' => 'कांस्टेबल',
         'short_name' => 'CT',
         'rank_order' => 1,
         'cadre_type' => null,
@@ -69,8 +69,7 @@ function promotionRanks(Organization $organization): array
 
     $toRank = Rank::create([
         'code' => 'HEAD_CONSTABLE',
-        'name_en' => 'Head Constable',
-        'name_hi' => 'हेड कांस्टेबल',
+        'name' => 'हेड कांस्टेबल',
         'short_name' => 'HC',
         'rank_order' => 2,
         'cadre_type' => null,
@@ -116,6 +115,82 @@ test('member show exposes promotions tab data', function () {
         ->get(route('members.show', $member))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('members/show'));
+});
+
+test('member preview promotion rows include event evidence details', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    promotionRanks($member->organization);
+
+    $tournament = Tournament::factory()
+        ->forOrganization($member->organization)
+        ->create([
+            'name' => 'Police Athletics Championship',
+            'date_from' => '2026-01-10',
+            'venue' => 'Lucknow',
+        ]);
+    $event = Event::factory()
+        ->forTournament($tournament)
+        ->create([
+            'name' => '100m Sprint',
+            'gender_class' => 'OPEN',
+        ]);
+    $participation = Participation::factory()
+        ->for($member)
+        ->forEvent($event)
+        ->create(['position' => 1]);
+    $achievement = Achievement::factory()
+        ->forParticipation($participation)
+        ->create([
+            'medal_type' => 'GOLD',
+            'position' => 1,
+        ]);
+    AchievementBenefit::create([
+        'organization_id' => $member->organization_id,
+        'benefitable_type' => 'achievement',
+        'benefitable_id' => $achievement->id,
+        'benefit_type' => 'PROMOTION',
+        'promoted_from_rank' => 'CONSTABLE',
+        'promoted_to_rank' => 'HEAD_CONSTABLE',
+        'benefit_date' => '2026-02-01',
+        'order_reference' => 'PROMO-100',
+    ]);
+
+    $promotion = MemberPromotion::create([
+        'organization_id' => $member->organization_id,
+        'member_id' => $member->id,
+        'promotion_date' => '2026-02-01',
+        'from_rank' => 'CONSTABLE',
+        'to_rank' => 'HEAD_CONSTABLE',
+        'reason' => 'Promotion after championship result.',
+        'recorded_by' => $user->id,
+    ]);
+    $promotion->evidences()->create([
+        'organization_id' => $member->organization_id,
+        'evidencable_type' => 'achievement',
+        'evidencable_id' => $achievement->id,
+    ]);
+
+    $version = file_exists(public_path('build/manifest.json')) ? hash_file('xxh128', public_path('build/manifest.json')) : null;
+
+    $response = $this->actingAs($user)
+        ->getJson(route('members.preview', $member), [
+            'X-Inertia' => 'true',
+            'X-Inertia-Partial-Component' => 'members/print-preview',
+            'X-Inertia-Partial-Data' => 'promotions',
+            'X-Inertia-Version' => $version,
+        ])
+        ->assertOk();
+
+    $promotionRow = $response->json('props.promotions.0');
+    $evidence = $promotionRow['evidences'][0];
+
+    expect($promotionRow['to_rank'])->toBe('HEAD_CONSTABLE')
+        ->and($evidence['type'])->toBe('achievement')
+        ->and($evidence['tournament']['name'])->toBe('Police Athletics Championship')
+        ->and($evidence['event']['name'])->toBe('100m Sprint')
+        ->and($evidence['achievement']['medal_type'])->toBe('GOLD')
+        ->and($evidence['achievement']['benefits'][0]['order_reference'])->toBe('PROMO-100');
 });
 
 test('member promotion records evidence and appears in database', function () {
@@ -206,6 +281,25 @@ test('member promotion updates cash reward fields', function () {
     expect($promotion->cash_reward_amount)->toBe('7500.00');
     expect($promotion->cash_reward_reference)->toBe('NEW-REF');
     expect($promotion->cash_reward_remarks)->toBe('Updated reward.');
+});
+
+test('cash reward validation explains when selected event has no achievement', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $tournament = Tournament::factory()->forOrganization($member->organization)->create();
+    $event = Event::factory()->forTournament($tournament)->create();
+    $participation = Participation::factory()->for($member)->forEvent($event)->create();
+
+    $response = $this->actingAs($user)->postJson(route('achievement-benefits.store'), [
+        'benefitable_type' => 'participation',
+        'benefitable_id' => $participation->id,
+        'benefit_type' => 'CASH_AWARD',
+        'cash_amount' => '5000.00',
+    ]);
+
+    $response->assertInvalid([
+        'benefitable_type' => 'Cash reward can only be added for an event that has a recorded achievement.',
+    ]);
 });
 
 test('member promotion accepts uploaded order documents', function () {

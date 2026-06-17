@@ -266,55 +266,7 @@ export default function Dashboard({ stats, permissions, currentSession }: Props)
                 {(permissions.viewMembers || permissions.viewTournaments) && (
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                         {/* Member Status — pie */}
-                        {permissions.viewMembers && stats.members && memberStatusData.length > 0 && (
-                            <Card>
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                                        <Users className="h-4 w-4 text-indigo-500" />
-                                        {t('Member Status')}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="pb-4">
-                                    <ResponsiveContainer width="100%" height={180}>
-                                        <PieChart>
-                                            <Pie
-                                                data={memberStatusData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={45}
-                                                outerRadius={72}
-                                                paddingAngle={2}
-                                                dataKey="value"
-                                            >
-                                                {memberStatusData.map((entry, idx) => (
-                                                    <Cell key={idx} fill={entry.color} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip
-                                                formatter={(v) => [(v as number).toLocaleString('hi-IN'), '']}
-                                                contentStyle={{
-                                                    borderRadius: '8px',
-                                                    fontSize: '12px',
-                                                    border: '1px solid hsl(var(--border))',
-                                                }}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-                                        {memberStatusData.map((item) => (
-                                            <div key={item.name} className="flex items-center gap-1.5 text-xs">
-                                                <span
-                                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                                    style={{ backgroundColor: item.color }}
-                                                />
-                                                <span className="truncate text-muted-foreground">{item.name}</span>
-                                                <span className="ml-auto font-medium">{item.value}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
+
 
                         {/* Player Level — bar */}
                         {permissions.viewMembers && stats.members && memberLevelData.length > 0 && (

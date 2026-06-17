@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             SportSeeder::class,
             SportSessionSeeder::class,
             TournamentTierSeeder::class,
+            NisMasterSeeder::class,
+            RanksAndDesignationsSeeder::class,
             UnitSeeder::class,
             MemberSeeder::class,
             TeamSeeder::class,

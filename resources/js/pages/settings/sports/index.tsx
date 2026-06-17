@@ -19,8 +19,7 @@ const CATEGORY_VARIANTS: Record<string, string> = {
 
 type Sport = {
     id: number;
-    name_hi: string;
-    name_en: string;
+    name: string;
     category: string;
     slug: string;
 };
@@ -38,8 +37,7 @@ export default function Index({ sports }: { sports: Sport[] }) {
         return sports.filter((s) => {
             const matchesQuery =
                 !q ||
-                s.name_hi.toLowerCase().includes(q) ||
-                s.name_en.toLowerCase().includes(q) ||
+                s.name.toLowerCase().includes(q) ||
                 s.slug.toLowerCase().includes(q);
             const matchesCategory = categoryFilter === 'all' || s.category === categoryFilter;
 
@@ -95,8 +93,7 @@ export default function Index({ sports }: { sports: Sport[] }) {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
-                                <TableHead>{t('Name (English)')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
                             </TableRow>
@@ -104,15 +101,14 @@ export default function Index({ sports }: { sports: Sport[] }) {
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={3} className="py-12 text-center text-muted-foreground">
                                         {sports.length === 0 ? t('No sports yet.') : t('No sports match your filters.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filtered.map((sport) => (
                                     <TableRow key={sport.id}>
-                                        <TableCell className="font-medium">{sport.name_hi}</TableCell>
-                                        <TableCell>{sport.name_en}</TableCell>
+                                        <TableCell className="font-medium">{sport.name}</TableCell>
                                         <TableCell>
                                             <Badge
                                                 variant="outline"

@@ -53,7 +53,7 @@ test('authorized user can view team preview', function () {
     $this->actingAs($user)
         ->getJson(route('v1.teams.preview', $team))
         ->assertOk()
-        ->assertJsonStructure(['id', 'name_hi', 'players_count', 'coaches_count']);
+        ->assertJsonStructure(['id', 'name', 'location_type', 'is_active', 'players_count', 'coaches_count']);
 });
 
 test('user cannot preview team from another organization', function () {

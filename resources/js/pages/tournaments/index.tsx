@@ -1,8 +1,8 @@
-import { Head, Link, router, setLayoutProps } from '@inertiajs/react';
-import { Download, Eye, Pencil, Plus, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState   } from 'react';
-import type {Dispatch, SetStateAction} from 'react';
-import { create as createTournament, edit as editTournament, index as tournamentsIndex, show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import { Head, Link, router, setLayoutProps, usePage } from '@inertiajs/react';
+import { CalendarDays, Download, Eye, Info, MapPin, Plus, Search, Trophy, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { create as createTournament, index as tournamentsIndex, show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import { index as exportTournamentsUrl } from '@/actions/App/Http/Controllers/TournamentExportController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
-    { key: 'name_hi', label: 'Tournament Name (Hindi)' },
+    { key: 'name', label: 'Tournament Name' },
     { key: 'session', label: 'Session' },
     { key: 'tier', label: 'Tier' },
     { key: 'sport', label: 'Sport' },
@@ -32,8 +32,9 @@ type Tier = { id: number; code: string; label: string };
 
 type Tournament = {
     id: number;
-    name_hi: string;
+    name: string;
     date_from: string | null;
+    date_to: string | null;
     venue: string | null;
     events_count: number;
     session: Session | null;
@@ -60,6 +61,7 @@ export default function TournamentsIndex({
     sessions,
     sports,
     tiers,
+    defaultSessionId,
 }: {
     tournaments: PaginatedTournaments;
     filters: Filters;
@@ -68,15 +70,47 @@ export default function TournamentsIndex({
     sports: Sport[];
     tiers: Tier[];
 }) {
+    const { locale = 'en' } = usePage().props as { locale?: string };
     const { t } = useTranslation();
 
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [quickOverviewTournament, setQuickOverviewTournament] = useState<Tournament | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
 
     setLayoutProps({
         breadcrumbs: [{ title: t('Tournaments') }],
     });
+    const sessionDefaultValue = defaultSessionId ? String(defaultSessionId) : 'all';
+
+    function parseDateValue(value: string): Date | null {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [year, month, day] = value.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        const date = new Date(value);
+
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function formatDisplayDate(value: string | null): string {
+        if (!value) {
+            return '—';
+        }
+
+        const date = parseDateValue(value);
+
+        if (!date) {
+            return value;
+        }
+
+        return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+            dateStyle: 'medium',
+        }).format(date);
+    }
 
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -229,7 +263,7 @@ params.append('filter[sport_id]', filters.sport_id);
                         />
                     </div>
                     <Select
-                        value={filters.session_id ?? 'all'}
+                        value={filters.session_id ?? sessionDefaultValue}
                         onValueChange={(v) => applyFilters({ session_id: v === 'all' ? undefined : v })}
                     >
                         <SelectTrigger className="w-44">
@@ -286,7 +320,7 @@ params.append('filter[sport_id]', filters.sport_id);
                 </div>
 
                 {/* Table */}
-                <div className="overflow-hidden rounded-xl border">
+                <div className="overflow-x-auto rounded-xl border bg-card">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -303,24 +337,27 @@ params.append('filter[sport_id]', filters.sport_id);
                                         aria-label={t('Select all on page')}
                                     />
                                 </TableHead>
-                                <TableHead>{t('Name (Hindi)')}</TableHead>
+                                <TableHead className="w-12">{t('S.No.')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Session')}</TableHead>
                                 <TableHead>{t('Tier')}</TableHead>
                                 <TableHead>{t('Sport')}</TableHead>
+                                <TableHead>{t('Venue')}</TableHead>
                                 <TableHead>{t('Date from')}</TableHead>
+                                <TableHead>{t('Date to')}</TableHead>
                                 <TableHead className="text-right">{t('Events')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">{t('Actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {tournaments.data.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
+                        {tournaments.data.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={11} className="py-12 text-center text-muted-foreground">
                                         {hasActive ? t('No tournaments match your filters.') : t('No tournaments yet.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                tournaments.data.map((t_) => (
+                                tournaments.data.map((t_, index) => (
                                     <TableRow key={t_.id}>
                                         <TableCell className="w-0">
                                             <Checkbox
@@ -329,29 +366,64 @@ params.append('filter[sport_id]', filters.sport_id);
                                                 aria-label={t('Select row')}
                                             />
                                         </TableCell>
-                                        <TableCell className="font-medium">{t_.name_hi}</TableCell>
+                                        <TableCell className="w-12 text-xs text-muted-foreground tabular-nums">
+                                            {(typeof tournaments.from === 'number' ? tournaments.from : 1) + index}
+                                        </TableCell>
+                                        <TableCell className="font-medium">
+                                            <div className="flex items-center gap-2">
+                                                <Trophy className="h-4 w-4 text-blue-500" />
+                                                <span>{t_.name}</span>
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-muted-foreground">{t_.session?.name ?? '—'}</TableCell>
                                         <TableCell>
                                             {t_.tier ? (
-                                                <Badge variant="secondary">{t_.tier.label}</Badge>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                                >
+                                                    {t_.tier.label}
+                                                </Badge>
                                             ) : (
                                                 <span className="select-none text-border">—</span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">{t_.sport?.name ?? '—'}</TableCell>
-                                        <TableCell className="text-muted-foreground">{t_.date_from ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            <div className="flex items-center gap-2">
+                                                <MapPin className="h-3.5 w-3.5 text-rose-500" />
+                                                <span>{t_.venue ?? '—'}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            <div className="flex items-center gap-2">
+                                                <CalendarDays className="h-3.5 w-3.5 text-sky-500" />
+                                                <span>{formatDisplayDate(t_.date_from)}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            <div className="flex items-center gap-2">
+                                                <CalendarDays className="h-3.5 w-3.5 text-indigo-500" />
+                                                <span>{formatDisplayDate(t_.date_to)}</span>
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-right tabular-nums">{t_.events_count}</TableCell>
-                                        <TableCell className="flex justify-end gap-1">
-                                            <Button variant="ghost" size="icon" title={t('View')} asChild>
-                                                <Link href={showTournament.url(t_.id)}>
-                                                    <Eye className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
-                                            <Button variant="ghost" size="icon" title={t('Edit')} asChild>
-                                                <Link href={editTournament.url(t_.id)}>
-                                                    <Pencil className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
+                                        <TableCell className="sticky right-0 z-10 w-0 bg-card">
+                                            <div className="flex justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Quick overview')}
+                                                    onClick={() => setQuickOverviewTournament(t_)}
+                                                >
+                                                    <Info className="h-4 w-4 text-amber-600" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" title={t('View')} asChild>
+                                                    <Link href={showTournament.url(t_.id)}>
+                                                        <Eye className="h-4 w-4 text-sky-600" />
+                                                    </Link>
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -362,7 +434,7 @@ params.append('filter[sport_id]', filters.sport_id);
 
                 {/* Pagination */}
                 {tournaments.last_page > 1 && (
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
                         <span>
                             {t('Showing :from–:to of :total')
                                 .replace(':from', String(tournaments.from ?? 0))
@@ -375,8 +447,12 @@ params.append('filter[sport_id]', filters.sport_id);
                                     key={i}
                                     variant={link.active ? 'default' : 'outline'}
                                     size="sm"
+                                    className="h-8 min-w-8 px-2"
                                     disabled={!link.url}
-                                    onClick={() => link.url && router.get(link.url)}
+                                    onClick={() =>
+                                        link.url &&
+                                        router.get(link.url, {}, { preserveState: true })
+                                    }
                                     dangerouslySetInnerHTML={{ __html: link.label }}
                                 />
                             ))}
@@ -395,7 +471,74 @@ params.append('filter[sport_id]', filters.sport_id);
                 buildExportUrl={buildExportUrl}
                 t={t}
             />
+
+            <QuickOverviewDialog
+                open={quickOverviewTournament !== null}
+                tournament={quickOverviewTournament}
+                onOpenChange={(open) => !open && setQuickOverviewTournament(null)}
+                formatDisplayDate={formatDisplayDate}
+                t={t}
+            />
         </>
+    );
+}
+
+function QuickOverviewDialog({
+    open,
+    tournament,
+    onOpenChange,
+    formatDisplayDate,
+    t,
+}: {
+    open: boolean;
+    tournament: Tournament | null;
+    onOpenChange: (open: boolean) => void;
+    formatDisplayDate: (value: string | null) => string;
+    t: (key: string) => string;
+}) {
+    if (!tournament) {
+        return null;
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{t('Quick overview')}</DialogTitle>
+                    <DialogDescription>{tournament.name}</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2 text-sm">
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Session')}</span>
+                        <span className="font-medium">{tournament.session?.name ?? '—'}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Tier')}</span>
+                        <span className="font-medium">{tournament.tier?.label ?? '—'}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Sport')}</span>
+                        <span className="font-medium">{tournament.sport?.name ?? '—'}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Venue')}</span>
+                        <span className="font-medium">{tournament.venue ?? '—'}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Date from')}</span>
+                        <span className="font-medium">{formatDisplayDate(tournament.date_from)}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Date to')}</span>
+                        <span className="font-medium">{formatDisplayDate(tournament.date_to)}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Events')}</span>
+                        <span className="font-medium">{tournament.events_count}</span>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }
 

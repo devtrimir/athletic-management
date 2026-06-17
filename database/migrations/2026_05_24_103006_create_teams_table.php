@@ -15,20 +15,27 @@ return new class extends Migration
             $table->foreignId('organization_id')->constrained('organizations');
             $table->foreignId('sport_id')->constrained('sports');
             $table->foreignId('session_id')->constrained('sport_sessions');
-            $table->foreignId('unit_id')->constrained('units');
-            $table->string('name_hi');
-            $table->string('in_charge_hi')->nullable();
+            $table->foreignId('unit_id')->nullable()->constrained('units')->nullOnDelete();
+            $table->string('location_type', 20)->default('unit');
+            $table->foreignId('district_id')->nullable()->constrained('districts')->nullOnDelete();
+            $table->string('name');
+            $table->string('in_charge')->nullable();
+            $table->boolean('is_active')->default(true);
 
             $table->softDeletes();
             $table->timestamps();
 
-            // 5-column unique composite — allows the same team name across different units.
             $table->unique(
-                ['organization_id', 'sport_id', 'session_id', 'unit_id', 'name_hi'],
-                'teams_unique_org_sport_session_unit_name'
+                ['organization_id', 'sport_id', 'session_id', 'location_type', 'district_id', 'unit_id', 'name'],
+                'teams_unique_org_sport_session_location_name'
             );
+
             $table->index('organization_id');
             $table->index('session_id');
+            $table->index('location_type');
+            $table->index('district_id');
+            $table->index('unit_id');
+            $table->index('is_active');
         });
     }
 

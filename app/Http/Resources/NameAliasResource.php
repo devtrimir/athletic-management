@@ -17,7 +17,7 @@ class NameAliasResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'alias_hi' => $this->alias_hi,
+            'alias' => $this->alias,
             'source' => $this->source,
         ];
     }

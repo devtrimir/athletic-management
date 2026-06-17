@@ -74,13 +74,13 @@ class MemberSeeder extends Seeder
 
         /** @var array<string, int> $districtMap */
         $districtMap = District::query()
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         /** @var array<string, int> $unitMap */
         $unitMap = Unit::withoutGlobalScopes()
             ->where('organization_id', $org->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         $sources = [
@@ -152,7 +152,7 @@ class MemberSeeder extends Seeder
 
             foreach ($withoutPno as $row) {
                 Member::withoutGlobalScopes()->firstOrCreate(
-                    ['organization_id' => $row['organization_id'], 'full_name_hi' => $row['full_name_hi'], 'player_category' => $row['player_category']],
+                    ['organization_id' => $row['organization_id'], 'full_name' => $row['full_name'], 'player_category' => $row['player_category']],
                     $row,
                 );
             }
@@ -251,10 +251,9 @@ class MemberSeeder extends Seeder
                 'organization_id' => $orgId,
                 'member_code' => '', // filled after batch code generation
                 'pno' => $pno,
-                'full_name_hi' => $cleanName,
-                'full_name_en' => null,
+                'full_name' => $cleanName,
                 'full_name_normalized' => null,
-                'father_name_hi' => null,
+                'father_name' => null,
                 'rank' => $rank,
                 'gender' => $gender,
                 'dob' => $this->parseDate($dobRaw),

@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string('original_name', 255);
             $table->string('mime_type', 50);                    // image/jpeg | image/png | image/webp
             $table->unsignedInteger('size_bytes');
-            $table->string('caption_hi', 500)->nullable();      // optional Hindi caption
+            $table->string('caption', 500)->nullable();      // optional Hindi caption
             $table->foreignId('uploaded_by')->constrained('users');
 
             $table->timestamps();

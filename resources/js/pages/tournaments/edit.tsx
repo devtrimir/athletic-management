@@ -16,7 +16,7 @@ type Tier = { id: number; code: string; label: string };
 
 type TournamentProp = {
     id: number;
-    name_hi: string;
+    name: string;
     venue: string | null;
     date_from: string | null;
     date_to: string | null;
@@ -27,7 +27,7 @@ type TournamentProp = {
 };
 
 type FormData = {
-    name_hi: string;
+    name: string;
     session_id: string;
     tier_id: string;
     sport_id: string;
@@ -53,13 +53,13 @@ export default function TournamentsEdit({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Tournaments'), href: tournamentsIndex.url() },
-            { title: tournament.name_hi, href: showTournament.url(tournament.id) },
+            { title: tournament.name, href: showTournament.url(tournament.id) },
             { title: t('Edit tournament') },
         ],
     });
 
     const { data, setData, put, errors, processing } = useForm<FormData>({
-        name_hi: tournament.name_hi,
+        name: tournament.name,
         session_id: tournament.session ? String(tournament.session.id) : '',
         tier_id: tournament.tier ? String(tournament.tier.id) : '',
         sport_id: tournament.sport ? String(tournament.sport.id) : '',
@@ -79,23 +79,23 @@ export default function TournamentsEdit({
             <Head title={t('Edit tournament')} />
 
             <div className="space-y-6">
-                <Heading variant="small" title={t('Edit tournament')} description={tournament.name_hi} />
+                <Heading variant="small" title={t('Edit tournament')} description={tournament.name} />
 
                 <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
                     <div className="rounded-xl border bg-card p-6 space-y-5">
                         {/* Name */}
                         <div className="grid gap-2">
-                            <Label htmlFor="name_hi">
-                                {t('Name (Hindi)')} <span className="text-destructive">*</span>
+                            <Label htmlFor="name">
+                                {t('Name')} <span className="text-destructive">*</span>
                             </Label>
                             <Input
-                                id="name_hi"
-                                value={data.name_hi}
-                                onChange={(e) => setData('name_hi', e.target.value)}
+                                id="name"
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
                                 maxLength={255}
                                 required
                             />
-                            <InputError message={errors.name_hi} />
+                            <InputError message={errors.name} />
                         </div>
 
                         <div className="grid gap-5 sm:grid-cols-2">

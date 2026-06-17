@@ -5,12 +5,14 @@ import MedalsDetailController from '@/actions/App/Http/Controllers/Api/V1/Medals
 import MedalsPivotController from '@/actions/App/Http/Controllers/Api/V1/MedalsPivotController';
 import MedalsExportController from '@/actions/App/Http/Controllers/MedalsExportController';
 import Heading from '@/components/heading';
+import { OptionMultiSelect } from '@/components/option-multi-select';
+import type { MultiSelectOption } from '@/components/option-multi-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,9 +20,15 @@ import { useTranslation } from '@/hooks/use-translation';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Sport = { id: number; name_hi: string; name_en: string };
+type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label_hi: string; label_en: string };
-type Unit = { id: number; name_hi: string; name_en: string };
+type Unit = { id: number; name: string };
+type Session = { id: number; name: string; is_current: boolean };
+type District = { id: number; name: string };
+type RankOption = { code: string; name: string; short_name: string | null };
+type DesignationOption = { code: string; name: string; short_name: string | null };
+type TournamentOption = { id: number; session_id: number | null; name: string; date_from: string | null };
+type EventOption = { id: number; tournament_id: number; name: string };
 
 type PivotRow = {
     tier: { code: string; label: string; weight: number };
@@ -54,8 +62,7 @@ type MedalRow = {
         id: number;
         member_code: string;
         pno: string | null;
-        full_name_hi: string;
-        full_name_en: string | null;
+        full_name: string;
         rank: string | null;
         gender: string;
         unit_name: string | null;
@@ -70,7 +77,7 @@ type MedalRow = {
         tier_label: string | null;
     };
     session_name: string | null;
-    sport: { id: number; name_hi: string; name_en: string | null };
+    sport: { id: number; name: string };
     event: {
         id: number;
         name: string;
@@ -102,11 +109,35 @@ type DetailResponse = {
 type Filters = {
     year_from: string;
     year_to: string;
-    sport_id: string;
-    tier_id: string;
-    unit_id: string;
-    medal_type: string;
-    gender: string;
+    date_from: string;
+    date_to: string;
+    session_ids: string[];
+    sport_ids: string[];
+    tier_ids: string[];
+    unit_ids: string[];
+    district_ids: string[];
+    rank_codes: string[];
+    designations: string[];
+    player_categories: string[];
+    player_levels: string[];
+    statuses: string[];
+    tournament_ids: string[];
+    tournament_name: string;
+    venue: string;
+    event_name: string;
+    event_ids: string[];
+    disciplines: string[];
+    weight_categories: string[];
+    event_gender_classes: string[];
+    medal_types: string[];
+    genders: string[];
+    position_from: string;
+    position_to: string;
+    has_remarks: string;
+    benefit_types: string[];
+    benefit_date_from: string;
+    benefit_date_to: string;
+    order_reference: string;
 };
 
 const ALL = 'all';
@@ -118,6 +149,50 @@ const GENDER_OPTIONS = [
     { value: 'O', label: 'Other gender' },
 ] as const;
 const PER_PAGE_OPTIONS = [15, 25, 50, 100] as const;
+const PLAYER_CATEGORY_OPTIONS = ['GD', 'SPORTS_QUOTA'] as const;
+const PLAYER_LEVEL_OPTIONS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'] as const;
+const STATUS_OPTIONS = ['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'] as const;
+const EVENT_GENDER_CLASS_OPTIONS = ['M', 'F', 'MIXED', 'OPEN'] as const;
+const BENEFIT_TYPE_OPTIONS = ['PROMOTION', 'OUT_OF_TURN_PROMOTION', 'CASH_AWARD', 'COMMENDATION', 'NONE', 'OTHER'] as const;
+
+function parseDateValue(value: string | null | undefined): Date | null {
+    if (!value) {
+        return null;
+    }
+
+    const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+
+    if (!year || !month || !day) {
+        return null;
+    }
+
+    return new Date(year, month - 1, day);
+}
+
+function formatDisplayDate(value: string | null | undefined, locale = 'hi'): string | null {
+    const date = parseDateValue(value);
+
+    if (!date) {
+        return null;
+    }
+
+    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    }).format(date);
+}
+
+function formatDateRange(from: string | null | undefined, to: string | null | undefined, locale = 'hi'): string | null {
+    const formattedFrom = formatDisplayDate(from, locale);
+    const formattedTo = formatDisplayDate(to, locale);
+
+    if (formattedFrom && formattedTo) {
+        return formattedFrom === formattedTo ? formattedFrom : `${formattedFrom} – ${formattedTo}`;
+    }
+
+    return formattedFrom ?? formattedTo;
+}
 
 // ── Medal badge ───────────────────────────────────────────────────────────────
 
@@ -228,35 +303,6 @@ function OptionList({ options, value, onSelect }: {
     );
 }
 
-function SearchableOptionList({ options, value, onSelect, searchPlaceholder }: {
-    options: { value: string; label: string }[];
-    value: string;
-    onSelect: (v: string) => void;
-    searchPlaceholder: string;
-}) {
-    return (
-        <Command className="w-56">
-            <CommandInput placeholder={searchPlaceholder} className="h-8 text-sm" />
-            <CommandList className="max-h-52">
-                <CommandEmpty>—</CommandEmpty>
-                <CommandGroup>
-                    {options.map((opt) => (
-                        <CommandItem
-                            key={opt.value}
-                            value={opt.label}
-                            onSelect={() => onSelect(value === opt.value ? ALL : opt.value)}
-                            className="gap-2"
-                        >
-                            <Check className={['size-3.5 shrink-0', value === opt.value ? 'opacity-100' : 'opacity-0'].join(' ')} />
-                            {opt.label}
-                        </CommandItem>
-                    ))}
-                </CommandGroup>
-            </CommandList>
-        </Command>
-    );
-}
-
 // ── Print orientation dialog ──────────────────────────────────────────────────
 
 function PrintDialog({ open, onOpenChange, onPrint }: {
@@ -300,14 +346,14 @@ function exportRelatedCsv(rows: MedalRow[], filename: string): void {
     const header = ['Medal', 'Name', 'PNO', 'Rank', 'Unit', 'Sport', 'Event', 'Tournament', 'Date'].join(',');
     const body = rows.map((r) => [
         r.medal_type,
-        r.member.full_name_hi,
+        r.member.full_name,
         r.member.pno ?? '',
         r.member.rank ?? '',
         r.member.unit_name ?? '',
-        r.sport.name_hi,
+        r.sport.name,
         r.event.name,
         r.tournament.name,
-        r.tournament.date_from ?? '',
+        formatDisplayDate(r.tournament.date_from) ?? '',
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
 
     const csv = '\uFEFF' + header + '\n' + body;
@@ -339,14 +385,14 @@ function printRelated(rows: MedalRow[], title: string): void {
     const tableRows = rows.map((r) => `
         <tr>
             <td style="color:${MEDAL_COLOR[r.medal_type] ?? '#000'};font-weight:600">${r.medal_type}</td>
-            <td>${r.member.full_name_hi}</td>
+            <td>${r.member.full_name}</td>
             <td>${r.member.pno ?? ''}</td>
             <td>${r.member.rank ?? ''}</td>
             <td>${r.member.unit_name ?? ''}</td>
-            <td>${r.sport.name_hi}</td>
+            <td>${r.sport.name}</td>
             <td>${r.event.name}</td>
             <td>${r.tournament.name}</td>
-            <td>${r.tournament.date_from ?? ''}</td>
+            <td>${formatDisplayDate(r.tournament.date_from) ?? ''}</td>
         </tr>`).join('');
 
     win.document.write(`<!DOCTYPE html><html><head>
@@ -364,7 +410,7 @@ function printRelated(rows: MedalRow[], title: string): void {
         </style>
     </head><body>
         <h2>${title}</h2>
-        <p class="sub">Printed: ${new Date().toLocaleDateString()}</p>
+        <p class="sub">Printed: ${new Intl.DateTimeFormat('hi-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date())}</p>
         <table>
             <thead><tr>
                 <th>Medal</th><th>Name</th><th>PNO</th><th>Rank</th><th>Unit</th>
@@ -397,9 +443,10 @@ function RelatedMedalsModal({
 
     useEffect(() => {
         if (!open) {
- return;
-}
+            return;
+        }
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setRelatedData(null);
         fetchRows(
             MedalsDetailController.url({ query: { ...params, per_page: '50' } }),
@@ -441,9 +488,9 @@ function RelatedMedalsModal({
                                     <div key={r.id} className="flex items-center gap-3 px-3 py-2.5 bg-card hover:bg-muted/40">
                                         <MedalBadge type={r.medal_type} />
                                         <div className="min-w-0 flex-1">
-                                            <div className="text-sm font-medium truncate">{r.member.full_name_hi}</div>
+                                            <div className="text-sm font-medium truncate">{r.member.full_name}</div>
                                             <div className="text-xs text-muted-foreground truncate">
-                                                {[r.sport.name_hi, r.event.name].filter(Boolean).join(' · ')}
+                                                {[r.sport.name, r.event.name].filter(Boolean).join(' · ')}
                                             </div>
                                         </div>
                                         <div className="shrink-0 text-right">
@@ -529,7 +576,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
  return null;
 }
 
-    const dateRange = [row.tournament.date_from, row.tournament.date_to].filter(Boolean).join(' – ');
+    const dateRange = formatDateRange(row.tournament.date_from, row.tournament.date_to);
     const genderLabel = GENDER_OPTIONS.find((g) => g.value === row.member.gender)?.label;
 
     const viewAllBtn = (onClick: () => void, label: string) => (
@@ -556,15 +603,15 @@ function MedalDetailModal({ row, open, onOpenChange }: {
         <RelatedMedalsModal
             open={subModal === 'event'}
             onOpenChange={(v) => setSubModal(v ? 'event' : null)}
-            title={[row.sport.name_hi, row.event.name].filter(Boolean).join(' – ')}
+            title={[row.sport.name, row.event.name].filter(Boolean).join(' – ')}
             description={t('All medal records for this event')}
-            params={{ tournament_id: String(row.tournament.id), event_name: row.event.name }}
+            params={{ tournament_id: String(row.tournament.id), event_id: String(row.event.id) }}
         />
         {row.member.pno && (
             <RelatedMedalsModal
                 open={subModal === 'athlete'}
                 onOpenChange={(v) => setSubModal(v ? 'athlete' : null)}
-                title={row.member.full_name_hi}
+                title={row.member.full_name}
                 description={t('All medal records for this athlete')}
                 params={{ pno: row.member.pno }}
             />
@@ -590,7 +637,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <h2 className="text-lg font-bold leading-tight">{row.member.full_name_hi}</h2>
+                            <h2 className="text-lg font-bold leading-tight">{row.member.full_name}</h2>
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                             {row.member.member_code && <span>{row.member.member_code}</span>}
@@ -613,7 +660,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
                         </div>
                     </div>
                     <DialogHeader className="sr-only">
-                        <DialogTitle>{row.member.full_name_hi}</DialogTitle>
+                        <DialogTitle>{row.member.full_name}</DialogTitle>
                     </DialogHeader>
                 </div>
 
@@ -636,7 +683,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
                         title={t('Event')}
                         action={viewAllBtn(() => setSubModal('event'), t('All in event'))}
                     >
-                        <DetailRow label={t('Sport')} value={row.sport.name_hi} />
+                        <DetailRow label={t('Sport')} value={row.sport.name} />
                         <DetailRow label={t('Event')} value={row.event.name} />
                         {row.event.discipline && <DetailRow label={t('Discipline')} value={row.event.discipline} />}
                         {row.event.weight_category && <DetailRow label={t('Weight category')} value={row.event.weight_category} />}
@@ -652,7 +699,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
                         <DetailRow label={t('PNO')} value={row.member.pno} />
                         <DetailRow label={t('Rank')} value={row.member.rank} />
                         <DetailRow label={t('Gender')} value={genderLabel ? t(genderLabel) : row.member.gender} />
-                        {row.member.full_name_en && <DetailRow label={t('Name (English)')} value={row.member.full_name_en} full />}
+                        {row.member.full_name && <DetailRow label={t('Name')} value={row.member.full_name} full />}
                         <DetailRow label={t('Unit')} value={row.member.unit_name} full />
                     </SectionCard>
 
@@ -667,7 +714,7 @@ function MedalDetailModal({ row, open, onOpenChange }: {
                     {row.benefit && (
                         <SectionCard title={t('Benefit')}>
                             <DetailRow label={t('Benefit type')} value={t(row.benefit.benefit_type)} />
-                            <DetailRow label={t('Benefit date')} value={row.benefit.benefit_date} />
+                            <DetailRow label={t('Benefit date')} value={formatDisplayDate(row.benefit.benefit_date)} />
                             <DetailRow label={t('Order reference')} value={row.benefit.order_reference} />
                             <DetailRow label={t('Cash amount')} value={row.benefit.cash_amount} />
                             <DetailRow label={t('Promoted from')} value={row.benefit.promoted_from_rank} />
@@ -687,15 +734,35 @@ function MedalDetailModal({ row, open, onOpenChange }: {
 export default function ReportsMedals({
     defaultYearFrom,
     defaultYearTo,
+    defaultSessionId,
+    sessions,
     sports,
     tiers,
     units,
+    districts,
+    ranks,
+    designations,
+    tournaments,
+    events,
+    venues,
+    disciplines,
+    weightCategories,
 }: {
     defaultYearFrom: number;
     defaultYearTo: number;
+    defaultSessionId: number | null;
+    sessions: Session[];
     sports: Sport[];
     tiers: Tier[];
     units: Unit[];
+    districts: District[];
+    ranks: RankOption[];
+    designations: DesignationOption[];
+    tournaments: TournamentOption[];
+    events: EventOption[];
+    venues: string[];
+    disciplines: string[];
+    weightCategories: string[];
 }) {
     const { t } = useTranslation();
 
@@ -706,11 +773,35 @@ export default function ReportsMedals({
     const [filters, setFilters] = useState<Filters>({
         year_from: String(defaultYearFrom),
         year_to: String(defaultYearTo),
-        sport_id: ALL,
-        tier_id: ALL,
-        unit_id: ALL,
-        medal_type: ALL,
-        gender: ALL,
+        date_from: '',
+        date_to: '',
+        session_ids: defaultSessionId ? [String(defaultSessionId)] : [],
+        sport_ids: [],
+        tier_ids: [],
+        unit_ids: [],
+        district_ids: [],
+        rank_codes: [],
+        designations: [],
+        player_categories: [],
+        player_levels: [],
+        statuses: [],
+        tournament_ids: [],
+        tournament_name: '',
+        venue: '',
+        event_name: '',
+        event_ids: [],
+        disciplines: [],
+        weight_categories: [],
+        event_gender_classes: [],
+        medal_types: [],
+        genders: [],
+        position_from: '',
+        position_to: '',
+        has_remarks: ALL,
+        benefit_types: [],
+        benefit_date_from: '',
+        benefit_date_to: '',
+        order_reference: '',
     });
 
     const [memberSearch, setMemberSearch] = useState('');
@@ -720,6 +811,7 @@ export default function ReportsMedals({
     const [tab, setTab] = useState<'tally' | 'detail'>('tally');
     const [perPage, setPerPage] = useState(25);
     const [page, setPage] = useState(1);
+    const [advancedOpen, setAdvancedOpen] = useState(false);
 
     // Pivot (tally)
     const [pivotRows, setPivotRows] = useState<PivotRow[] | null>(null);
@@ -734,39 +826,28 @@ export default function ReportsMedals({
     const [modalOpen, setModalOpen] = useState(false);
     const [printOpen, setPrintOpen] = useState(false);
 
-    const hasAnyFilter = filters.year_from !== ALL || filters.year_to !== ALL || Object.entries(filters).filter(([k]) => k !== 'year_from' && k !== 'year_to').some(([, v]) => v !== ALL) || !!memberSearch;
+    const hasFilterValue = (value: string | string[]): boolean =>
+        Array.isArray(value) ? value.length > 0 : value !== '' && value !== ALL;
+
+    const hasAnyFilter = Object.values(filters).some(hasFilterValue) || !!memberSearch;
 
     const buildParams = useCallback(
-        (extra?: Record<string, string | number>): Record<string, string> => {
-            const p: Record<string, string> = {};
+        (extra?: Record<string, string | number>): Record<string, string | string[]> => {
+            const p: Record<string, string | string[]> = {};
 
-            if (filters.year_from !== ALL) {
- p['year_from'] = filters.year_from;
-}
+            for (const [key, value] of Object.entries(filters)) {
+                if (Array.isArray(value)) {
+                    if (value.length > 0) {
+                        p[key] = value;
+                    }
 
-            if (filters.year_to !== ALL) {
- p['year_to'] = filters.year_to;
-}
+                    continue;
+                }
 
-            if (filters.sport_id !== ALL) {
- p['sport_id'] = filters.sport_id;
-}
-
-            if (filters.tier_id !== ALL) {
- p['tier_id'] = filters.tier_id;
-}
-
-            if (filters.unit_id !== ALL) {
- p['unit_id'] = filters.unit_id;
-}
-
-            if (filters.medal_type !== ALL) {
- p['medal_type'] = filters.medal_type;
-}
-
-            if (filters.gender !== ALL) {
- p['gender'] = filters.gender;
-}
+                if (value !== '' && value !== ALL) {
+                    p[key] = value;
+                }
+            }
 
             if (memberSearch) {
  p['member_name'] = memberSearch;
@@ -814,6 +895,7 @@ export default function ReportsMedals({
 
     // Reset page when filters change
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPage(1);
     }, [filters, memberSearch, perPage]);
 
@@ -831,8 +913,44 @@ export default function ReportsMedals({
         setFilters((prev) => ({ ...prev, [key]: value }));
     };
 
+    const setArrayFilter = (key: keyof Filters, value: string[]) => {
+        setFilters((prev) => ({ ...prev, [key]: value }));
+    };
+
     const clearAll = () => {
-        setFilters({ year_from: ALL, year_to: ALL, sport_id: ALL, tier_id: ALL, unit_id: ALL, medal_type: ALL, gender: ALL });
+        setFilters({
+            year_from: '',
+            year_to: '',
+            date_from: '',
+            date_to: '',
+            session_ids: [],
+            sport_ids: [],
+            tier_ids: [],
+            unit_ids: [],
+            district_ids: [],
+            rank_codes: [],
+            designations: [],
+            player_categories: [],
+            player_levels: [],
+            statuses: [],
+            tournament_ids: [],
+            tournament_name: '',
+            venue: '',
+            event_name: '',
+            event_ids: [],
+            disciplines: [],
+            weight_categories: [],
+            event_gender_classes: [],
+            medal_types: [],
+            genders: [],
+            position_from: '',
+            position_to: '',
+            has_remarks: ALL,
+            benefit_types: [],
+            benefit_date_from: '',
+            benefit_date_to: '',
+            order_reference: '',
+        });
         setMemberSearchDraft('');
         setMemberSearch('');
     };
@@ -857,17 +975,75 @@ export default function ReportsMedals({
     };
 
     const buildExportUrl = () => {
-        const params = new URLSearchParams(buildParams() as Record<string, string>);
+        const params = new URLSearchParams();
+
+        for (const [key, value] of Object.entries(buildParams())) {
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    params.append(`${key}[]`, item);
+                }
+
+                continue;
+            }
+
+            params.set(key, value);
+        }
 
         const qs = params.toString();
 
         return MedalsExportController.url() + (qs ? '?' + qs : '');
     };
 
+    const optionLabels = (options: MultiSelectOption[], values: string[]): string | undefined => {
+        if (values.length === 0) {
+            return undefined;
+        }
+
+        const labels = options
+            .filter((option) => values.includes(option.value))
+            .map((option) => option.label);
+
+        return labels.length > 2 ? `${labels.slice(0, 2).join(', ')} +${labels.length - 2}` : labels.join(', ');
+    };
+
+    const sessionOptions = sessions.map((session) => ({ value: String(session.id), label: session.name }));
+    const sportOptions = sports.map((sport) => ({ value: String(sport.id), label: sport.name }));
+    const tierOptions = tiers.map((tier) => ({ value: String(tier.id), label: tier.label_hi }));
+    const unitOptions = units.map((unit) => ({ value: String(unit.id), label: unit.name }));
+    const districtOptions = districts.map((district) => ({ value: String(district.id), label: district.name }));
+    const rankOptions = ranks.map((rank) => ({ value: rank.code, label: [rank.name, rank.short_name].filter(Boolean).join(' · ') }));
+    const designationOptions = designations.map((designation) => ({ value: designation.code, label: [designation.name, designation.short_name].filter(Boolean).join(' · ') }));
+    const selectedSessionId = filters.session_ids[0] ?? ALL;
+    const selectedTournamentId = filters.tournament_ids[0] ?? ALL;
+    const selectedEventId = filters.event_ids[0] ?? ALL;
+    const visibleTournaments = tournaments.filter(
+        (tournament) => selectedSessionId === ALL || String(tournament.session_id) === selectedSessionId,
+    );
+    const visibleEvents = events.filter((event) =>
+        selectedTournamentId !== ALL
+            ? String(event.tournament_id) === selectedTournamentId
+            : visibleTournaments.some((tournament) => tournament.id === event.tournament_id),
+    );
+    const tournamentOptions = visibleTournaments.map((tournament) => ({
+        value: String(tournament.id),
+        label: [tournament.name, formatDisplayDate(tournament.date_from)].filter(Boolean).join(' · '),
+    }));
+    const eventOptions = visibleEvents.map((event) => ({ value: String(event.id), label: event.name }));
+    const venueOptions = venues.map((venue) => ({ value: venue, label: venue }));
+    const disciplineOptions = disciplines.map((discipline) => ({ value: discipline, label: discipline }));
+    const weightCategoryOptions = weightCategories.map((weightCategory) => ({ value: weightCategory, label: weightCategory }));
+    const medalOptions = MEDAL_TYPES.map((medal) => ({ value: medal, label: t(medal) }));
+    const genderOptions = GENDER_OPTIONS.map((gender) => ({ value: gender.value, label: t(gender.label) }));
+    const playerCategoryOptions = PLAYER_CATEGORY_OPTIONS.map((value) => ({ value, label: t(value) }));
+    const playerLevelOptions = PLAYER_LEVEL_OPTIONS.map((value) => ({ value, label: t(value) }));
+    const statusOptions = STATUS_OPTIONS.map((value) => ({ value, label: t(value) }));
+    const eventGenderClassOptions = EVENT_GENDER_CLASS_OPTIONS.map((value) => ({ value, label: t(value) }));
+    const benefitTypeOptions = BENEFIT_TYPE_OPTIONS.map((value) => ({ value, label: t(value) }));
+
     // Label helpers
     const yearRangeLabel = (() => {
-        const from = filters.year_from !== ALL ? filters.year_from : null;
-        const to = filters.year_to !== ALL ? filters.year_to : null;
+        const from = filters.year_from || null;
+        const to = filters.year_to || null;
 
         if (from && to && from === to) {
 return from;
@@ -887,11 +1063,14 @@ return `≤ ${to}`;
 
         return undefined;
     })();
-    const sportLabel = sports.find((s) => String(s.id) === filters.sport_id)?.name_hi;
-    const tierLabel = tiers.find((t) => String(t.id) === filters.tier_id)?.label_hi;
-    const unitLabel = units.find((u) => String(u.id) === filters.unit_id)?.name_hi;
-    const medalLabel = filters.medal_type !== ALL ? t(filters.medal_type) : undefined;
-    const genderLabel = filters.gender !== ALL ? t(GENDER_OPTIONS.find((g) => g.value === filters.gender)?.label ?? filters.gender) : undefined;
+    const sessionLabel = optionLabels(sessionOptions, filters.session_ids);
+    const sportLabel = optionLabels(sportOptions, filters.sport_ids);
+    const tournamentLabel = optionLabels(tournamentOptions, filters.tournament_ids);
+    const eventLabel = optionLabels(eventOptions, filters.event_ids);
+    const tierLabel = optionLabels(tierOptions, filters.tier_ids);
+    const unitLabel = optionLabels(unitOptions, filters.unit_ids);
+    const medalLabel = optionLabels(medalOptions, filters.medal_types);
+    const genderLabel = optionLabels(genderOptions, filters.genders);
 
     const grandTotal = pivotRows
         ? pivotRows.reduce((acc, r) => acc + r.GOLD + r.SILVER + r.BRONZE + r.MERIT, 0)
@@ -936,7 +1115,7 @@ return `≤ ${to}`;
                     <FilterPill
                         label={t('Year')}
                         activeLabel={yearRangeLabel}
-                        onClear={() => setFilters((prev) => ({ ...prev, year_from: ALL, year_to: ALL }))}
+                        onClear={() => setFilters((prev) => ({ ...prev, year_from: '', year_to: '' }))}
                     >
                         <div className="flex flex-col gap-3 p-3 w-52">
                             <div className="space-y-1">
@@ -946,8 +1125,8 @@ return `≤ ${to}`;
                                     min={1900}
                                     max={2099}
                                     placeholder="e.g. 2019"
-                                    value={filters.year_from !== ALL ? filters.year_from : ''}
-                                    onChange={(e) => setFilter('year_from', e.target.value.trim() || ALL)}
+                                    value={filters.year_from}
+                                    onChange={(e) => setFilter('year_from', e.target.value.trim())}
                                     className="h-8 text-sm"
                                 />
                             </div>
@@ -958,80 +1137,103 @@ return `≤ ${to}`;
                                     min={1900}
                                     max={2099}
                                     placeholder="e.g. 2026"
-                                    value={filters.year_to !== ALL ? filters.year_to : ''}
-                                    onChange={(e) => setFilter('year_to', e.target.value.trim() || ALL)}
+                                    value={filters.year_to}
+                                    onChange={(e) => setFilter('year_to', e.target.value.trim())}
                                     className="h-8 text-sm"
                                 />
                             </div>
                         </div>
                     </FilterPill>
 
-                    {/* Sport */}
-                    <FilterPill
-                        label={t('Sport')}
-                        activeLabel={sportLabel}
-                        onClear={() => setFilter('sport_id', ALL)}
+                    <Select
+                        value={selectedSessionId}
+                        onValueChange={(value) => {
+                            setFilters((prev) => ({
+                                ...prev,
+                                session_ids: value === ALL ? [] : [value],
+                                tournament_ids: [],
+                                event_ids: [],
+                            }));
+                        }}
                     >
-                        <SearchableOptionList
-                            options={sports.map((s) => ({ value: String(s.id), label: s.name_hi }))}
-                            value={filters.sport_id}
-                            onSelect={(v) => setFilter('sport_id', v)}
-                            searchPlaceholder={t('Search sports…')}
-                        />
-                    </FilterPill>
+                        <SelectTrigger className="h-8 w-44 text-xs">
+                            <SelectValue placeholder={t('Session')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={ALL}>{t('All Sessions')}</SelectItem>
+                            {sessionOptions.map((session) => (
+                                <SelectItem key={session.value} value={session.value}>
+                                    {session.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                    {/* Tier */}
-                    <FilterPill
-                        label={t('Tier')}
-                        activeLabel={tierLabel}
-                        onClear={() => setFilter('tier_id', ALL)}
+                    <Select
+                        value={selectedTournamentId}
+                        onValueChange={(value) => {
+                            setFilters((prev) => ({
+                                ...prev,
+                                tournament_ids: value === ALL ? [] : [value],
+                                event_ids: [],
+                            }));
+                        }}
                     >
-                        <OptionList
-                            options={tiers.map((ti) => ({ value: String(ti.id), label: ti.label_hi }))}
-                            value={filters.tier_id}
-                            onSelect={(v) => setFilter('tier_id', v)}
-                        />
-                    </FilterPill>
+                        <SelectTrigger className="h-8 w-64 text-xs">
+                            <SelectValue placeholder={t('Tournament')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={ALL}>{t('All Tournaments')}</SelectItem>
+                            {tournamentOptions.map((tournament) => (
+                                <SelectItem key={tournament.value} value={tournament.value}>
+                                    {tournament.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                    {/* Unit */}
-                    <FilterPill
-                        label={t('Unit')}
-                        activeLabel={unitLabel}
-                        onClear={() => setFilter('unit_id', ALL)}
+                    <Select
+                        value={selectedEventId}
+                        onValueChange={(value) => setArrayFilter('event_ids', value === ALL ? [] : [value])}
                     >
-                        <SearchableOptionList
-                            options={units.map((u) => ({ value: String(u.id), label: u.name_hi }))}
-                            value={filters.unit_id}
-                            onSelect={(v) => setFilter('unit_id', v)}
-                            searchPlaceholder={t('Search units…')}
-                        />
-                    </FilterPill>
+                        <SelectTrigger className="h-8 w-56 text-xs">
+                            <SelectValue placeholder={t('Event')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={ALL}>{t('All Events')}</SelectItem>
+                            {eventOptions.map((event) => (
+                                <SelectItem key={event.value} value={event.value}>
+                                    {event.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                    {/* Medal type */}
-                    <FilterPill
-                        label={t('Medal')}
-                        activeLabel={medalLabel}
-                        onClear={() => setFilter('medal_type', ALL)}
-                    >
-                        <OptionList
-                            options={MEDAL_TYPES.map((m) => ({ value: m, label: t(m) }))}
-                            value={filters.medal_type}
-                            onSelect={(v) => setFilter('medal_type', v)}
-                        />
-                    </FilterPill>
+                    <OptionMultiSelect
+                        value={filters.sport_ids}
+                        onValueChange={(value) => setArrayFilter('sport_ids', value)}
+                        options={sportOptions}
+                        placeholder={t('All Sports')}
+                        searchPlaceholder={t('Search sports…')}
+                        className="w-44"
+                    />
 
-                    {/* Gender */}
-                    <FilterPill
-                        label={t('Gender')}
-                        activeLabel={genderLabel}
-                        onClear={() => setFilter('gender', ALL)}
+                    <OptionMultiSelect
+                        value={filters.medal_types}
+                        onValueChange={(value) => setArrayFilter('medal_types', value)}
+                        options={medalOptions}
+                        placeholder={t('All Medals')}
+                        className="w-40"
+                    />
+
+                    <Button
+                        type="button"
+                        variant={advancedOpen ? 'secondary' : 'outline'}
+                        size="sm"
+                        onClick={() => setAdvancedOpen((open) => !open)}
                     >
-                        <OptionList
-                            options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: t(g.label) }))}
-                            value={filters.gender}
-                            onSelect={(v) => setFilter('gender', v)}
-                        />
-                    </FilterPill>
+                        {t('Advanced filters')}
+                    </Button>
 
                     {hasAnyFilter && (
                         <button
@@ -1044,6 +1246,204 @@ return `≤ ${to}`;
                         </button>
                     )}
                 </div>
+
+                {hasAnyFilter && (
+                    <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+                        {[
+                            yearRangeLabel ? `${t('Year')}: ${yearRangeLabel}` : null,
+                            sessionLabel ? `${t('Session')}: ${sessionLabel}` : null,
+                            tournamentLabel ? `${t('Tournament')}: ${tournamentLabel}` : null,
+                            eventLabel ? `${t('Event')}: ${eventLabel}` : null,
+                            sportLabel ? `${t('Sport')}: ${sportLabel}` : null,
+                            tierLabel ? `${t('Tier')}: ${tierLabel}` : null,
+                            unitLabel ? `${t('Unit')}: ${unitLabel}` : null,
+                            medalLabel ? `${t('Medal')}: ${medalLabel}` : null,
+                            genderLabel ? `${t('Gender')}: ${genderLabel}` : null,
+                            memberSearch ? `${t('Athlete')}: ${memberSearch}` : null,
+                        ].filter(Boolean).map((label) => (
+                            <span key={label} className="rounded-md border bg-muted/30 px-2 py-1">
+                                {label}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                {advancedOpen && (
+                    <div className="grid gap-4 rounded-lg border bg-muted/20 p-4 lg:grid-cols-4">
+                        <div className="space-y-3">
+                            <h3 className="text-xs font-semibold uppercase text-muted-foreground">{t('Athlete')}</h3>
+                            <OptionMultiSelect
+                                value={filters.rank_codes}
+                                onValueChange={(value) => setArrayFilter('rank_codes', value)}
+                                options={rankOptions}
+                                placeholder={t('All Ranks')}
+                                searchPlaceholder={t('Search ranks…')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.designations}
+                                onValueChange={(value) => setArrayFilter('designations', value)}
+                                options={designationOptions}
+                                placeholder={t('All Designations')}
+                                searchPlaceholder={t('Search designations…')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.district_ids}
+                                onValueChange={(value) => setArrayFilter('district_ids', value)}
+                                options={districtOptions}
+                                placeholder={t('All Districts')}
+                                searchPlaceholder={t('Search districts…')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.unit_ids}
+                                onValueChange={(value) => setArrayFilter('unit_ids', value)}
+                                options={unitOptions}
+                                placeholder={t('All Units')}
+                                searchPlaceholder={t('Search units…')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.genders}
+                                onValueChange={(value) => setArrayFilter('genders', value)}
+                                options={genderOptions}
+                                placeholder={t('All Genders')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.player_categories}
+                                onValueChange={(value) => setArrayFilter('player_categories', value)}
+                                options={playerCategoryOptions}
+                                placeholder={t('All Player Categories')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.player_levels}
+                                onValueChange={(value) => setArrayFilter('player_levels', value)}
+                                options={playerLevelOptions}
+                                placeholder={t('All Player Levels')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.statuses}
+                                onValueChange={(value) => setArrayFilter('statuses', value)}
+                                options={statusOptions}
+                                placeholder={t('All Statuses')}
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            <h3 className="text-xs font-semibold uppercase text-muted-foreground">{t('Tournament')}</h3>
+                            <OptionMultiSelect
+                                value={filters.tier_ids}
+                                onValueChange={(value) => setArrayFilter('tier_ids', value)}
+                                options={tierOptions}
+                                placeholder={t('All Tiers')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.venue ? [filters.venue] : []}
+                                onValueChange={(value) => setFilter('venue', value.at(-1) ?? '')}
+                                options={venueOptions}
+                                placeholder={t('All Venues')}
+                                searchPlaceholder={t('Search venues…')}
+                            />
+                            <Input
+                                value={filters.tournament_name}
+                                onChange={(event) => setFilter('tournament_name', event.target.value)}
+                                placeholder={t('Tournament name')}
+                                className="h-9"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                    type="date"
+                                    value={filters.date_from}
+                                    onChange={(event) => setFilter('date_from', event.target.value)}
+                                    className="h-9"
+                                />
+                                <Input
+                                    type="date"
+                                    value={filters.date_to}
+                                    onChange={(event) => setFilter('date_to', event.target.value)}
+                                    className="h-9"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <h3 className="text-xs font-semibold uppercase text-muted-foreground">{t('Event')}</h3>
+                            <OptionMultiSelect
+                                value={filters.disciplines}
+                                onValueChange={(value) => setArrayFilter('disciplines', value)}
+                                options={disciplineOptions}
+                                placeholder={t('All Disciplines')}
+                                searchPlaceholder={t('Search disciplines…')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.weight_categories}
+                                onValueChange={(value) => setArrayFilter('weight_categories', value)}
+                                options={weightCategoryOptions}
+                                placeholder={t('All Weight Categories')}
+                                searchPlaceholder={t('Search weight categories…')}
+                            />
+                            <OptionMultiSelect
+                                value={filters.event_gender_classes}
+                                onValueChange={(value) => setArrayFilter('event_gender_classes', value)}
+                                options={eventGenderClassOptions}
+                                placeholder={t('All Event Gender Classes')}
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            <h3 className="text-xs font-semibold uppercase text-muted-foreground">{t('Result & Benefit')}</h3>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    value={filters.position_from}
+                                    onChange={(event) => setFilter('position_from', event.target.value)}
+                                    placeholder={t('Position from')}
+                                    className="h-9"
+                                />
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    value={filters.position_to}
+                                    onChange={(event) => setFilter('position_to', event.target.value)}
+                                    placeholder={t('Position to')}
+                                    className="h-9"
+                                />
+                            </div>
+                            <OptionList
+                                options={[
+                                    { value: '1', label: t('With remarks') },
+                                    { value: '0', label: t('Without remarks') },
+                                ]}
+                                value={filters.has_remarks}
+                                onSelect={(value) => setFilter('has_remarks', value)}
+                            />
+                            <OptionMultiSelect
+                                value={filters.benefit_types}
+                                onValueChange={(value) => setArrayFilter('benefit_types', value)}
+                                options={benefitTypeOptions}
+                                placeholder={t('All Benefits')}
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                    type="date"
+                                    value={filters.benefit_date_from}
+                                    onChange={(event) => setFilter('benefit_date_from', event.target.value)}
+                                    className="h-9"
+                                />
+                                <Input
+                                    type="date"
+                                    value={filters.benefit_date_to}
+                                    onChange={(event) => setFilter('benefit_date_to', event.target.value)}
+                                    className="h-9"
+                                />
+                            </div>
+                            <Input
+                                value={filters.order_reference}
+                                onChange={(event) => setFilter('order_reference', event.target.value)}
+                                placeholder={t('Order reference')}
+                                className="h-9"
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {/* Tabs */}
                 <Tabs value={tab} onValueChange={(v) => setTab(v as 'tally' | 'detail')}>
@@ -1108,7 +1508,13 @@ return `≤ ${to}`;
                                                     key={row.tier.code}
                                                     className="cursor-pointer hover:bg-muted/40"
                                                     onClick={() => {
- setFilters((prev) => ({ ...prev, tier_id: String(tiers.find((ti) => ti.code === row.tier.code)?.id ?? ALL) })); setTab('detail');
+ const tierId = tiers.find((ti) => ti.code === row.tier.code)?.id;
+
+ if (tierId) {
+ setFilters((prev) => ({ ...prev, tier_ids: [String(tierId)] }));
+}
+
+ setTab('detail');
 }}
                                                 >
                                                     <TableCell className="font-medium">{row.tier.label}</TableCell>
@@ -1206,7 +1612,7 @@ return `≤ ${to}`;
                                                     <MedalBadge type={row.medal_type} />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-medium">{row.member.full_name_hi}</div>
+                                                    <div className="font-medium">{row.member.full_name}</div>
                                                     <div className="text-xs text-muted-foreground">
                                                         {[row.member.member_code, row.member.pno].filter(Boolean).join(' · ')}
                                                     </div>
@@ -1214,13 +1620,13 @@ return `≤ ${to}`;
                                                 <TableCell className="text-sm">{row.member.rank ?? '—'}</TableCell>
                                                 <TableCell className="text-sm">{row.member.unit_name ?? '—'}</TableCell>
                                                 <TableCell>
-                                                    <div className="text-sm">{row.sport.name_hi}</div>
+                                                    <div className="text-sm">{row.sport.name}</div>
                                                     <div className="text-xs text-muted-foreground">{row.event.name}</div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="max-w-48 truncate text-sm">{row.tournament.name}</div>
                                                     {row.tournament.date_from && (
-                                                        <div className="text-xs text-muted-foreground">{row.tournament.date_from}</div>
+                                                        <div className="text-xs text-muted-foreground">{formatDisplayDate(row.tournament.date_from)}</div>
                                                     )}
                                                 </TableCell>
                                                 <TableCell>
@@ -1238,8 +1644,8 @@ return `≤ ${to}`;
 
                         {/* Pagination */}
                         {detailData !== null && detailData.last_page > 1 && (
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">
+                            <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                                <span>
                                     {t('Showing :from–:to of :total')
                                         .replace(':from', String(detailData.from ?? 0))
                                         .replace(':to', String(detailData.to ?? 0))
@@ -1266,7 +1672,7 @@ return `≤ ${to}`;
                                                     type="button"
                                                     onClick={() => setPage(p as number)}
                                                     className={[
-                                                        'h-7 min-w-7 rounded border px-1.5',
+                                                        'h-8 min-w-8 rounded border px-2',
                                                         page === p
                                                             ? 'border-primary bg-primary text-primary-foreground'
                                                             : 'border-input bg-background hover:bg-accent',

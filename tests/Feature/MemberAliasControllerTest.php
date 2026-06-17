@@ -46,7 +46,7 @@ test('unauthenticated user is redirected on store', function () {
     $member = Member::factory()->create();
 
     $this->post(route('members.aliases.store', $member), [
-        'alias_hi' => 'राम',
+        'alias' => 'राम',
         'source' => 'manual',
     ])->assertRedirect(route('login'));
 });
@@ -57,7 +57,7 @@ test('user without members.manageAlias gets 403 on store', function () {
 
     $this->actingAs($user)
         ->post(route('members.aliases.store', $member), [
-            'alias_hi' => 'राम',
+            'alias' => 'राम',
             'source' => 'manual',
         ])
         ->assertForbidden();
@@ -69,14 +69,14 @@ test('valid store creates alias and redirects to show', function () {
 
     $this->actingAs($user)
         ->post(route('members.aliases.store', $member), [
-            'alias_hi' => 'राम कुमार',
+            'alias' => 'राम कुमार',
             'source' => 'manual',
         ])
         ->assertRedirect(route('members.show', $member));
 
     $alias = NameAlias::where('member_id', $member->id)->latest()->first();
     expect($alias)->not->toBeNull()
-        ->and($alias->alias_hi)->toBe('राम कुमार')
+        ->and($alias->alias)->toBe('राम कुमार')
         ->and($alias->source)->toBe('manual');
 });
 
@@ -86,7 +86,7 @@ test('invalid store payload returns validation errors', function () {
 
     $this->actingAs($user)
         ->post(route('members.aliases.store', $member), [])
-        ->assertSessionHasErrors(['alias_hi', 'source']);
+        ->assertSessionHasErrors(['alias', 'source']);
 });
 
 // ---------------------------------------------------------------------------
@@ -123,7 +123,7 @@ test('member from other org returns 404 on store', function () {
 
     $this->actingAs($user)
         ->post(route('members.aliases.store', $member), [
-            'alias_hi' => 'राम',
+            'alias' => 'राम',
             'source' => 'manual',
         ])
         ->assertNotFound();

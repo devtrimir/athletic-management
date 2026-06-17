@@ -14,7 +14,7 @@ test('factory creates a standalone coach', function () {
 
     expect($coach->id)->toBeInt()
         ->and($coach->member_id)->toBeNull()
-        ->and($coach->full_name_hi)->not->toBeEmpty()
+        ->and($coach->full_name)->not->toBeEmpty()
         ->and($coach->organization_id)->toBeInt();
 });
 
@@ -33,7 +33,7 @@ test('factory creates a coach linked to a member', function () {
         ->create(['organization_id' => $org->id]);
 
     expect($coach->member_id)->toBe($member->id)
-        ->and($coach->full_name_hi)->toBe($member->full_name_hi);
+        ->and($coach->full_name)->toBe($member->full_name);
 });
 
 test('withMember state creates a new member when none provided', function () {

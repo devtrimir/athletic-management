@@ -14,8 +14,7 @@ return new class extends Migration
         Schema::create('sports', function (Blueprint $table) {
             $table->id();
             $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
-            $table->string('name_hi');
-            $table->string('name_en');
+            $table->string('name');
             $table->enum('category', ['INDIVIDUAL', 'TEAM', 'COMBAT', 'WATER']);
             $table->string('slug');
             $table->timestamps();

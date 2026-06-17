@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\District;
 use App\Models\Organization;
 use App\Models\Sport;
 use App\Models\SportSession;
@@ -19,8 +20,9 @@ test('teams table is created by migration', function () {
 
 test('teams table has all required columns', function () {
     $columns = [
-        'id', 'organization_id', 'sport_id', 'session_id', 'unit_id',
-        'name_hi', 'in_charge_hi', 'deleted_at', 'created_at', 'updated_at',
+        'id', 'organization_id', 'sport_id', 'session_id', 'location_type',
+        'district_id', 'unit_id', 'name', 'in_charge', 'is_active',
+        'deleted_at', 'created_at', 'updated_at',
     ];
 
     foreach ($columns as $column) {
@@ -29,10 +31,10 @@ test('teams table has all required columns', function () {
     }
 });
 
-test('in_charge_hi is nullable', function () {
-    $team = Team::factory()->create(['in_charge_hi' => null]);
+test('in_charge is nullable', function () {
+    $team = Team::factory()->create(['in_charge' => null]);
 
-    expect($team->in_charge_hi)->toBeNull();
+    expect($team->in_charge)->toBeNull();
 });
 
 test('team can be soft deleted and restored', function () {
@@ -55,16 +57,20 @@ test('duplicate org-sport-session-unit-name combination is rejected', function (
         'organization_id' => $org->id,
         'sport_id' => $sport->id,
         'session_id' => $session->id,
+        'location_type' => 'unit',
+        'district_id' => $unit->district_id,
         'unit_id' => $unit->id,
-        'name_hi' => 'टीम एक',
+        'name' => 'टीम एक',
     ]);
 
     expect(fn () => Team::factory()->create([
         'organization_id' => $org->id,
         'sport_id' => $sport->id,
         'session_id' => $session->id,
+        'location_type' => 'unit',
+        'district_id' => $unit->district_id,
         'unit_id' => $unit->id,
-        'name_hi' => 'टीम एक',
+        'name' => 'टीम एक',
     ]))->toThrow(QueryException::class);
 });
 
@@ -79,19 +85,23 @@ test('same name in different units within same org-sport-session is allowed', fu
         'organization_id' => $org->id,
         'sport_id' => $sport->id,
         'session_id' => $session->id,
+        'location_type' => 'unit',
+        'district_id' => $unitA->district_id,
         'unit_id' => $unitA->id,
-        'name_hi' => 'टीम ए',
+        'name' => 'टीम ए',
     ]);
 
     Team::factory()->create([
         'organization_id' => $org->id,
         'sport_id' => $sport->id,
         'session_id' => $session->id,
+        'location_type' => 'unit',
+        'district_id' => $unitB->district_id,
         'unit_id' => $unitB->id,
-        'name_hi' => 'टीम ए',
+        'name' => 'टीम ए',
     ]);
 
-    expect(Team::withoutGlobalScopes()->where('name_hi', 'टीम ए')->count())->toBe(2);
+    expect(Team::withoutGlobalScopes()->where('name', 'टीम ए')->count())->toBe(2);
 });
 
 test('factory forOrganization state creates consistent related records', function () {
@@ -102,4 +112,42 @@ test('factory forOrganization state creates consistent related records', functio
         ->and($team->sport()->withoutGlobalScopes()->first()->organization_id)->toBe($org->id)
         ->and($team->session()->withoutGlobalScopes()->first()->organization_id)->toBe($org->id)
         ->and($team->unit()->withoutGlobalScopes()->first()->organization_id)->toBe($org->id);
+});
+
+test('district based teams allow duplicate name across different districts only', function () {
+    $org = Organization::factory()->create();
+    $sport = Sport::factory()->create(['organization_id' => $org->id]);
+    $session = SportSession::factory()->create(['organization_id' => $org->id]);
+    $districtA = District::factory()->create();
+    $districtB = District::factory()->create();
+
+    Team::factory()->create([
+        'organization_id' => $org->id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'location_type' => 'district',
+        'district_id' => $districtA->id,
+        'unit_id' => null,
+        'name' => 'जिला टीम',
+    ]);
+
+    Team::factory()->create([
+        'organization_id' => $org->id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'location_type' => 'district',
+        'district_id' => $districtB->id,
+        'unit_id' => null,
+        'name' => 'जिला टीम',
+    ]);
+
+    expect(fn () => Team::factory()->create([
+        'organization_id' => $org->id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'location_type' => 'district',
+        'district_id' => $districtA->id,
+        'unit_id' => null,
+        'name' => 'जिला टीम',
+    ]))->toThrow(QueryException::class);
 });

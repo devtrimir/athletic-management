@@ -23,7 +23,7 @@ class StoreEventRequest extends FormRequest
 
         return [
             'sport_id' => ['required', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
-            'name_hi' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'discipline' => ['nullable', 'string', 'max:255'],
             'weight_category' => ['nullable', 'string', 'max:100'],
             'gender_class' => ['required', Rule::in(['M', 'F', 'MIXED', 'OPEN'])],

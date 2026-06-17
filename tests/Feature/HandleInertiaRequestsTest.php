@@ -15,7 +15,7 @@ test('authenticated user with permissions has permissions array in shared props'
 
     $perm = Permission::firstOrCreate(
         ['code' => 'members.view'],
-        ['group' => 'members', 'name_hi' => 'test', 'name_en' => 'test'],
+        ['group' => 'members', 'name_hi' => 'members.view', 'name_en' => 'members.view'],
     );
     $role = Role::factory()->create(['organization_id' => $org->id]);
 

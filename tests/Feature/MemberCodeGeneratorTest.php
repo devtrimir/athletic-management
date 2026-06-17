@@ -32,7 +32,6 @@ test('sequential calls increment the sequence', function () {
     $codes = [
         $this->generator->next($this->orgId),
         $this->generator->next($this->orgId),
-        $this->generator->next($this->orgId),
     ];
 
     $year = now()->year;

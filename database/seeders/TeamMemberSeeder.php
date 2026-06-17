@@ -28,11 +28,11 @@ class TeamMemberSeeder extends Seeder
             ->where('is_current', true)
             ->firstOrFail();
 
-        /** @var array<string, int> $teamMap  name_hi → id */
+        /** @var array<string, int> $teamMap  name → id */
         $teamMap = Team::withoutGlobalScopes()
             ->where('organization_id', $org->id)
             ->where('session_id', $session->id)
-            ->pluck('id', 'name_hi')
+            ->pluck('id', 'name')
             ->all();
 
         /** @var array<string, int> $memberMap  pno → id */
@@ -154,7 +154,7 @@ class TeamMemberSeeder extends Seeder
     }
 
     /**
-     * Partial lookup: find a team whose name_hi contains or is contained in
+     * Partial lookup: find a team whose name contains or is contained in
      * the given header text (handles minor whitespace / encoding differences).
      *
      * @param  array<string, int>  $teamMap

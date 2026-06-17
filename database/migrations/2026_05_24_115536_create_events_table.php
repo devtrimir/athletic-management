@@ -14,7 +14,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('tournament_id')->constrained('tournaments')->cascadeOnDelete();
             $table->foreignId('sport_id')->constrained('sports');
-            $table->string('name_hi');
+            $table->string('name');
             $table->string('discipline')->nullable();
             $table->string('weight_category')->nullable();
             $table->enum('gender_class', ['M', 'F', 'MIXED', 'OPEN']);

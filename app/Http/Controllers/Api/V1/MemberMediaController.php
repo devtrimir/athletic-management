@@ -107,10 +107,10 @@ class MemberMediaController extends Controller
 
         $participations = Participation::whereIn('id', $participationIds)
             ->with([
-                'event:id,tournament_id,sport_id,name_hi',
-                'event.tournament:id,name_hi,date_from,tier_id',
+                'event:id,tournament_id,sport_id,name',
+                'event.tournament:id,name,date_from,tier_id',
                 'event.tournament.tier:id,code,label_hi',
-                'event.sport:id,name_hi',
+                'event.sport:id,name',
                 'achievement:participation_id,medal_type',
             ])
             ->get()
@@ -150,8 +150,8 @@ class MemberMediaController extends Controller
                 return [
                     'event' => $event ? [
                         'id' => $event->id,
-                        'name_hi' => $event->name_hi,
-                        'sport' => $event->sport ? ['id' => $event->sport->id, 'name_hi' => $event->sport->name_hi] : null,
+                        'name' => $event->name,
+                        'sport' => $event->sport ? ['id' => $event->sport->id, 'name' => $event->sport->name] : null,
                     ] : null,
                     'media' => MediaFileResource::collection($eventFiles->values()),
                     'count' => $eventFiles->count(),
@@ -161,7 +161,7 @@ class MemberMediaController extends Controller
             return [
                 'tournament' => $tournament ? [
                     'id' => $tournament->id,
-                    'name_hi' => $tournament->name_hi,
+                    'name' => $tournament->name,
                     'date_from' => $tournament->date_from?->toDateString(),
                     'tier' => $tournament->tier ? ['code' => $tournament->tier->code, 'label_hi' => $tournament->tier->label_hi] : null,
                 ] : null,

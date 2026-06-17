@@ -80,8 +80,8 @@ test('coaches.export with q filter exports matching coaches', function () {
     Excel::fake();
 
     $user = coachExportUser('coaches.view');
-    Coach::factory()->create(['organization_id' => $user->organization_id, 'full_name_hi' => 'राम कुमार']);
-    Coach::factory()->create(['organization_id' => $user->organization_id, 'full_name_hi' => 'श्याम लाल']);
+    Coach::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'राम कुमार']);
+    Coach::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'श्याम लाल']);
 
     $this->actingAs($user)->get(route('coaches.export', ['filter' => ['q' => 'राम']]))->assertOk();
 

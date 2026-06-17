@@ -20,7 +20,7 @@ beforeEach(function () {
 function validMemberPayload(): array
 {
     return [
-        'full_name_hi' => 'राम कुमार',
+        'full_name' => 'राम कुमार',
         'gender' => 'M',
         'player_category' => 'GD',
         'player_level' => 'ZONAL',
@@ -42,12 +42,12 @@ test('valid payload passes StoreMemberRequest', function () {
     expect($result->passes())->toBeTrue();
 });
 
-test('full_name_hi is required', function () {
+test('full_name is required', function () {
     $rules = memberRules($this->user);
     $result = Validator::make(['gender' => 'M', 'player_category' => 'GD', 'player_level' => 'ZONAL'], $rules);
 
     expect($result->fails())->toBeTrue()
-        ->and($result->errors()->has('full_name_hi'))->toBeTrue();
+        ->and($result->errors()->has('full_name'))->toBeTrue();
 });
 
 test('gender must be in M F O', function () {

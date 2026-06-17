@@ -170,8 +170,8 @@ test('index includes posting district independently from current unit district',
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('members/index')
-            ->where('members.data.0.current_unit.name_hi', $unit->name_hi)
-            ->where('members.data.0.posting_district.name_hi', $postingDistrict->name_hi)
+            ->where('members.data.0.current_unit.name', $unit->name)
+            ->where('members.data.0.posting_district.name', $postingDistrict->name)
         );
 });
 
@@ -194,7 +194,7 @@ test('index exposes current unit when posting district is missing', function () 
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('members/index')
-            ->where('members.data.0.current_unit.name_hi', $unit->name_hi)
+            ->where('members.data.0.current_unit.name', $unit->name)
             ->where('members.data.0.posting_district', null)
         );
 });
@@ -282,10 +282,10 @@ test('index filters by designation', function () {
         );
 });
 
-test('index q filter searches by full_name_hi', function () {
+test('index q filter searches by full_name', function () {
     $user = memberUser('members.view');
-    Member::factory()->create(['organization_id' => $user->organization_id, 'full_name_hi' => 'राम कुमार']);
-    Member::factory()->create(['organization_id' => $user->organization_id, 'full_name_hi' => 'श्याम लाल']);
+    Member::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'राम कुमार']);
+    Member::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'श्याम लाल']);
 
     $this->actingAs($user)
         ->get(route('members.index', ['filter' => ['q' => 'राम']]))
@@ -293,7 +293,7 @@ test('index q filter searches by full_name_hi', function () {
         ->assertInertia(fn ($page) => $page
             ->component('members/index')
             ->where('members.total', 1)
-            ->where('members.data.0.full_name_hi', 'राम कुमार')
+            ->where('members.data.0.full_name', 'राम कुमार')
         );
 });
 
@@ -348,7 +348,7 @@ test('user without members.create gets 403 on store', function () {
 
     $this->actingAs($user)
         ->post(route('members.store'), [
-            'full_name_hi' => 'राम',
+            'full_name' => 'राम',
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
@@ -361,7 +361,7 @@ test('store with invalid payload returns validation errors', function () {
 
     $this->actingAs($user)
         ->post(route('members.store'), [])
-        ->assertSessionHasErrors(['full_name_hi', 'gender', 'player_category', 'player_level']);
+        ->assertSessionHasErrors(['full_name', 'gender', 'player_category', 'player_level']);
 });
 
 test('store creates member and redirects to show', function () {
@@ -372,7 +372,7 @@ test('store creates member and redirects to show', function () {
 
     $response = $this->actingAs($user)
         ->post(route('members.store'), [
-            'full_name_hi' => 'राम कुमार',
+            'full_name' => 'राम कुमार',
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
@@ -385,7 +385,7 @@ test('store creates member and redirects to show', function () {
 
     $member = Member::withoutGlobalScopes()->latest()->first();
     expect($member)->not->toBeNull()
-        ->and($member->full_name_hi)->toBe('राम कुमार')
+        ->and($member->full_name)->toBe('राम कुमार')
         ->and($member->posting_district_id)->toBe($postingDistrict->id)
         ->and($member->member_code)->toStartWith('UPP-');
 
@@ -400,7 +400,7 @@ test('store backfills sport event into playable sports when row event is empty',
 
     $this->actingAs($user)
         ->post(route('members.store'), [
-            'full_name_hi' => 'राम कुमार',
+            'full_name' => 'राम कुमार',
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
@@ -462,12 +462,12 @@ test('preview includes achievement data for the member record', function () {
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     $organization = Organization::findOrFail($user->organization_id);
     $tournament = Tournament::factory()->forOrganization($organization)->create([
-        'name_hi' => 'राष्ट्रीय खेल',
+        'name' => 'राष्ट्रीय खेल',
         'date_from' => '2025-03-10',
         'date_to' => '2025-03-12',
     ]);
     $event = Event::factory()->forTournament($tournament)->create([
-        'name_hi' => '100 मीटर दौड़',
+        'name' => '100 मीटर दौड़',
     ]);
     $participation = Participation::factory()->forEvent($event)->create([
         'member_id' => $member->id,
@@ -485,8 +485,8 @@ test('preview includes achievement data for the member record', function () {
             ->where('achievements.0.medal_type', 'GOLD')
             ->where('achievements.0.position', 1)
             ->where('achievements.0.participation_position', null)
-            ->where('achievements.0.tournament.name_hi', 'राष्ट्रीय खेल')
-            ->where('achievements.0.event.name_hi', '100 मीटर दौड़')
+            ->where('achievements.0.tournament.name', 'राष्ट्रीय खेल')
+            ->where('achievements.0.event.name', '100 मीटर दौड़')
         );
 });
 
@@ -570,7 +570,7 @@ test('update changes member and redirects to show', function () {
 
     $this->actingAs($user)
         ->put(route('members.update', $member), [
-            'full_name_hi' => 'नया नाम',
+            'full_name' => 'नया नाम',
             'posting_district_id' => $postingDistrict->id,
             'playable_sports' => [
                 ['sport_id' => $addedSport->id, 'role' => 'Keeper', 'position' => '1', 'sport_event' => 'Hockey', 'notes' => ''],
@@ -580,7 +580,7 @@ test('update changes member and redirects to show', function () {
 
     $member->refresh();
 
-    expect($member->full_name_hi)->toBe('नया नाम')
+    expect($member->full_name)->toBe('नया नाम')
         ->and($member->posting_district_id)->toBe($postingDistrict->id);
 
     $memberSportLogs = AuditLog::where('entity', 'MemberSport')
@@ -605,7 +605,7 @@ test('update returns 403 without members.update', function () {
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
 
     $this->actingAs($user)
-        ->put(route('members.update', $member), ['full_name_hi' => 'नया नाम'])
+        ->put(route('members.update', $member), ['full_name' => 'नया नाम'])
         ->assertForbidden();
 });
 

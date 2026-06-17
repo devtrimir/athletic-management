@@ -173,7 +173,7 @@ test('filters by member name pno and tournament date range', function (): void {
 
     $member = Member::factory()->create([
         'organization_id' => $org->id,
-        'full_name_hi' => 'Amit Kumar',
+        'full_name' => 'Amit Kumar',
         'pno' => 'PNO-101',
     ]);
     $session = SportSession::factory()->create(['organization_id' => $org->id]);

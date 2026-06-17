@@ -116,7 +116,7 @@ test('session_id filter derives date range from sport_sessions', function (): vo
     expect($result[0]['joining_date'])->toBe('2026-06-01');
 });
 
-test('results ordered by joining_date then full_name_hi', function (): void {
+test('results ordered by joining_date then full_name', function (): void {
     $org = njOrg();
     njMember($org, joiningDate: '2026-04-10');
     njMember($org, joiningDate: '2026-04-05');

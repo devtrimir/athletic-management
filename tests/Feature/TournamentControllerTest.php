@@ -64,7 +64,7 @@ function validTournamentPayload(User $user): array
     $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
 
     return [
-        'name_hi' => 'राष्ट्रीय प्रतियोगिता 2026',
+        'name' => 'राष्ट्रीय प्रतियोगिता 2026',
         'session_id' => $session->id,
         'tier_id' => $tier->id,
         'sport_id' => null,
@@ -166,19 +166,19 @@ test('store creates tournament and redirects to show', function () {
         ->assertRedirect();
 
     $this->assertDatabaseHas('tournaments', [
-        'name_hi' => $payload['name_hi'],
+        'name' => $payload['name'],
         'organization_id' => $user->organization_id,
     ]);
 });
 
-test('store requires name_hi', function () {
+test('store requires name', function () {
     $user = tournamentUser('tournaments.create');
     $payload = validTournamentPayload($user);
-    unset($payload['name_hi']);
+    unset($payload['name']);
 
     $this->actingAs($user)
         ->post(route('tournaments.store'), $payload)
-        ->assertSessionHasErrors('name_hi');
+        ->assertSessionHasErrors('name');
 });
 
 test('store requires session_id to belong to own org', function () {
@@ -219,7 +219,7 @@ test('show returns tournament resource in Inertia props', function () {
             ->component('tournaments/show')
             ->has('tournament', fn ($t) => $t
                 ->has('id')
-                ->has('name_hi')
+                ->has('name')
                 ->has('venue')
                 ->has('date_from')
                 ->has('date_to')
@@ -284,7 +284,7 @@ test('user without tournaments.update gets 403 on update', function () {
     $tournament = makeTournament($user);
 
     $this->actingAs($user)
-        ->patch(route('tournaments.update', $tournament), ['name_hi' => 'नया नाम'])
+        ->patch(route('tournaments.update', $tournament), ['name' => 'नया नाम'])
         ->assertForbidden();
 });
 
@@ -293,12 +293,12 @@ test('update patches tournament and redirects to show', function () {
     $tournament = makeTournament($user);
 
     $this->actingAs($user)
-        ->patch(route('tournaments.update', $tournament), ['name_hi' => 'अद्यतन नाम'])
+        ->patch(route('tournaments.update', $tournament), ['name' => 'अद्यतन नाम'])
         ->assertRedirect(route('tournaments.show', $tournament));
 
     $this->assertDatabaseHas('tournaments', [
         'id' => $tournament->id,
-        'name_hi' => 'अद्यतन नाम',
+        'name' => 'अद्यतन नाम',
     ]);
 });
 

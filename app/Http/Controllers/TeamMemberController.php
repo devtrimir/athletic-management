@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Teams\BackfillTeamMembersRequest;
+use App\Http\Requests\Teams\PreviewTeamMemberBackfillRequest;
+use App\Http\Requests\Teams\RemoveTeamMembersRequest;
 use App\Http\Requests\Teams\StoreTeamMemberRequest;
 use App\Http\Requests\Teams\UpdateTeamMemberRequest;
 use App\Models\Member;
 use App\Models\Team;
 use App\Models\TeamMember;
+use App\Services\Teams\TeamRosterService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -16,85 +21,28 @@ use Inertia\Inertia;
 
 class TeamMemberController extends Controller
 {
-    public function store(StoreTeamMemberRequest $request, Team $team): RedirectResponse
+    public function store(StoreTeamMemberRequest $request, Team $team, TeamRosterService $roster): RedirectResponse
     {
         Gate::authorize('update', $team);
 
         $data = $request->validated();
-        $memberIds = $data['member_ids'];
-        $sessionId = $team->session_id;
-        $sportId = $team->sport_id;
-
-        // Check: already on THIS team.
-        $onThisTeam = TeamMember::where('team_id', $team->id)
-            ->whereIn('member_id', $memberIds)
-            ->pluck('member_id')
-            ->all();
-
-        // Check: already on a team for this sport in this session.
-        $sameSportConflicts = TeamMember::with(['team:id,name_hi,sport_id', 'member:id,full_name_hi'])
-            ->where('session_id', $sessionId)
-            ->whereIn('member_id', $memberIds)
-            ->whereHas('team', fn ($query) => $query->where('sport_id', $sportId))
-            ->get(['member_id', 'team_id']);
-
-        $eligibleMembers = Member::whereIn('id', $memberIds)
-            ->where('current_status', 'ACTIVE')
-            ->whereHas('playableSports', fn ($query) => $query->where('sports.id', $sportId))
-            ->pluck('id')
-            ->all();
-
-        $errors = [];
-
-        foreach ($onThisTeam as $id) {
-            $index = array_search($id, $memberIds);
-            $errors["member_ids.{$index}"] = __('This member is already on the team.');
-        }
-
-        foreach ($sameSportConflicts as $conflict) {
-            if (in_array($conflict->member_id, $onThisTeam, true)) {
-                continue; // already reported above
-            }
-            $index = array_search($conflict->member_id, $memberIds);
-            $teamName = (string) $conflict->team->name_hi;
-            $memberName = (string) $conflict->member->full_name_hi;
-            $errors["member_ids.{$index}"] = __(':name is already assigned to team :team for this session.', [
-                'name' => $memberName,
-                'team' => $teamName,
-            ]);
-        }
-
-        foreach (array_diff($memberIds, $eligibleMembers) as $id) {
-            if (in_array($id, $onThisTeam, true)) {
-                continue;
-            }
-
-            $index = array_search($id, $memberIds);
-            $errors["member_ids.{$index}"] = __('This member is not active or is not eligible for this team sport.');
-        }
-
-        if (! empty($errors)) {
-            return back()->withErrors($errors)->withInput();
-        }
+        $sessionId = (int) $data['session_id'];
 
         $role = $data['role'] ?? 'PLAYER';
         $joinedOn = $data['joined_on'] ?? null;
-        $leftOn = $data['left_on'] ?? null;
 
-        foreach ($memberIds as $memberId) {
-            TeamMember::create([
-                'team_id' => $team->id,
-                'member_id' => $memberId,
-                'session_id' => $sessionId,
-                'role' => $role,
-                'joined_on' => $joinedOn,
-                'left_on' => $leftOn,
-            ]);
-        }
+        $roster->addMembers(
+            team: $team,
+            memberIds: $data['member_ids'],
+            sessionId: $sessionId,
+            role: $role,
+            joinedOn: $joinedOn,
+            userId: (int) $request->user()->id,
+        );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Members added to team.')]);
 
-        return to_route('teams.show', $team);
+        return to_route('teams.show', ['team' => $team, 'filter' => ['session_id' => $sessionId]]);
     }
 
     public function update(UpdateTeamMemberRequest $request, Team $team, TeamMember $teamMember): RedirectResponse
@@ -107,45 +55,85 @@ class TeamMemberController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Team member updated.')]);
 
-        return to_route('teams.show', $team);
+        return to_route('teams.show', ['team' => $team, 'filter' => ['session_id' => $teamMember->session_id]]);
     }
 
-    public function destroy(Team $team, Member $member): RedirectResponse
+    public function previewBackfill(PreviewTeamMemberBackfillRequest $request, Team $team, TeamRosterService $roster): JsonResponse
     {
         Gate::authorize('update', $team);
 
-        $tm = TeamMember::where('team_id', $team->id)
-            ->where('member_id', $member->id)
-            ->first();
+        $data = $request->validated();
 
-        $tm?->delete();
+        return response()->json($roster->previewBackfill($team, (int) $data['session_id'], $data));
+    }
+
+    public function backfill(BackfillTeamMembersRequest $request, Team $team, TeamRosterService $roster): RedirectResponse
+    {
+        Gate::authorize('update', $team);
+
+        $data = $request->validated();
+        $sessionId = (int) $data['session_id'];
+        $result = $roster->applyBackfill($team, $sessionId, $data, (int) $request->user()->id);
+
+        $message = __(':count roster rows backfilled.', ['count' => $result['applied']]);
+
+        if ($result['skipped'] > 0) {
+            $message .= ' '.__(':count blocked rows were skipped.', ['count' => $result['skipped']]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => $result['skipped'] > 0 ? 'warning' : 'success',
+            'message' => $message,
+        ]);
+
+        return to_route('teams.show', ['team' => $team, 'filter' => ['session_id' => $sessionId]]);
+    }
+
+    public function destroy(RemoveTeamMembersRequest $request, Team $team, Member $member, TeamRosterService $roster): RedirectResponse
+    {
+        Gate::authorize('update', $team);
+
+        $data = $request->validated();
+        $sessionId = (int) ($data['session_id'] ?? $this->defaultSessionId($request, $team));
+
+        $roster->removeMembers(
+            team: $team,
+            memberIds: [$member->id],
+            sessionId: $sessionId,
+            leftOn: (string) $data['left_on'],
+            reason: (string) $data['reason'],
+            userId: (int) $request->user()->id,
+        );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member removed from team.')]);
 
-        return to_route('teams.show', $team);
+        return to_route('teams.show', ['team' => $team, 'filter' => ['session_id' => $sessionId]]);
     }
 
-    public function bulkDestroy(Request $request, Team $team): RedirectResponse
+    public function bulkDestroy(RemoveTeamMembersRequest $request, Team $team, TeamRosterService $roster): RedirectResponse
     {
         Gate::authorize('update', $team);
 
-        $memberIds = $request->validate([
-            'member_ids' => ['required', 'array', 'min:1'],
-            'member_ids.*' => ['integer'],
-        ])['member_ids'];
+        $data = $request->validated();
+        $memberIds = $data['member_ids'];
+        $sessionId = (int) ($data['session_id'] ?? $this->defaultSessionId($request, $team));
 
-        $rows = TeamMember::where('team_id', $team->id)
-            ->whereIn('member_id', $memberIds)
-            ->get();
-
-        foreach ($rows as $row) {
-            $row->delete();
-        }
-
-        $deleted = $rows->count();
+        $deleted = $roster->removeMembers(
+            team: $team,
+            memberIds: $memberIds,
+            sessionId: $sessionId,
+            leftOn: (string) $data['left_on'],
+            reason: (string) $data['reason'],
+            userId: (int) $request->user()->id,
+        );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __(':count members removed from team.', ['count' => $deleted])]);
 
-        return to_route('teams.show', $team);
+        return to_route('teams.show', ['team' => $team, 'filter' => ['session_id' => $sessionId]]);
+    }
+
+    private function defaultSessionId(Request $request, Team $team): int
+    {
+        return (int) (data_get($request->query('filter', []), 'session_id') ?: $team->session_id);
     }
 }

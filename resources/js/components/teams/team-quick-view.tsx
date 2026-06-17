@@ -1,10 +1,11 @@
 import { Link } from '@inertiajs/react';
 import { useHttp } from '@inertiajs/react';
-import { ExternalLink, Printer } from 'lucide-react';
+import { CalendarDays, ExternalLink, Printer } from 'lucide-react';
 import { startTransition, useEffect, useState } from 'react';
 import TeamPreviewController from '@/actions/App/Http/Controllers/Api/V1/TeamPreviewController';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,14 +14,14 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type TeamMemberRow = {
     pno: string | null;
-    full_name_hi: string | null;
+    full_name: string | null;
     rank: string | null;
     role: string;
     session_name: string | null;
 };
 
 type TeamCoachRow = {
-    full_name_hi: string | null;
+    full_name: string | null;
     pno: string | null;
     nis_certified: boolean;
     role: string;
@@ -29,13 +30,17 @@ type TeamCoachRow = {
 
 type TeamPreview = {
     id: number;
-    name_hi: string;
-    in_charge_hi: string | null;
+    name: string;
+    in_charge: string | null;
+    location_type: 'unit' | 'district';
+    location_label: string | null;
+    is_active: boolean;
     players_count: number;
     coaches_count: number;
-    sport: { name_hi: string } | null;
+    sport: { name: string } | null;
     session: { name: string } | null;
-    unit: { name_hi: string } | null;
+    district: { name: string } | null;
+    unit: { name: string } | null;
     members: TeamMemberRow[];
     coaches: TeamCoachRow[];
 };
@@ -54,16 +59,23 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 }
 
 function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
+    const formatMemberName = (member: TeamMemberRow) => {
+        const rankLabel = member.rank ? t(member.rank) : '';
+        const fullName = member.full_name ?? '';
+
+        return rankLabel ? `${rankLabel} ${fullName}` : fullName;
+    };
+
     const memberRows = data.members.map(
-        (m) => `<tr><td class="mono">${m.pno ?? '—'}</td><td>${m.full_name_hi ?? '—'}</td><td>${m.rank ? t(m.rank) : '—'}</td><td>${t(m.role)}</td><td>${m.session_name ?? '—'}</td></tr>`,
+        (m) => `<tr><td class="mono">${m.pno ?? '—'}</td><td>${formatMemberName(m)}</td><td>${t(m.role)}</td><td>${m.session_name ?? '—'}</td></tr>`,
     ).join('');
 
     const coachRows = data.coaches.map(
-        (c) => `<tr><td>${c.full_name_hi ?? '—'}</td><td class="mono">${c.pno ?? '—'}</td><td>${c.nis_certified ? '✓' : '—'}</td><td>${t(c.role)}</td><td>${c.session_name ?? '—'}</td></tr>`,
+        (c) => `<tr><td>${c.full_name ?? '—'}</td><td class="mono">${c.pno ?? '—'}</td><td>${c.nis_certified ? '✓' : '—'}</td><td>${t(c.role)}</td><td>${c.session_name ?? '—'}</td></tr>`,
     ).join('');
 
     return `<!DOCTYPE html><html><head>
-    <meta charset="utf-8"><title>${data.name_hi}</title>
+    <meta charset="utf-8"><title>${data.name}</title>
     <style>
         body{font-family:Arial,sans-serif;padding:20px;font-size:13px;color:#111}
         h1{font-size:18px;margin:0 0 2px}
@@ -78,15 +90,16 @@ function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
         @media print{@page{margin:1cm}}
     </style></head><body>
     <div class="header">
-        <h1>${data.name_hi}</h1>
+        <h1>${data.name}</h1>
     </div>
     <h2>${t('Team info')}</h2>
-    ${data.sport ? `<div class="row"><span class="label">${t('Sport')}</span><span class="val">${data.sport.name_hi}</span></div>` : ''}
+    ${data.sport ? `<div class="row"><span class="label">${t('Sport')}</span><span class="val">${data.sport.name}</span></div>` : ''}
     ${data.session ? `<div class="row"><span class="label">${t('Session')}</span><span class="val">${data.session.name}</span></div>` : ''}
-    ${data.unit ? `<div class="row"><span class="label">${t('Unit')}</span><span class="val">${data.unit.name_hi}</span></div>` : ''}
-    ${data.in_charge_hi ? `<div class="row"><span class="label">${t('In-charge')}</span><span class="val">${data.in_charge_hi}</span></div>` : ''}
+    ${data.location_label ? `<div class="row"><span class="label">${t('Location')}</span><span class="val">${data.location_label}</span></div>` : ''}
+    <div class="row"><span class="label">${t('Status')}</span><span class="val">${data.is_active ? t('Active') : t('Inactive')}</span></div>
+    ${data.in_charge ? `<div class="row"><span class="label">${t('In-charge')}</span><span class="val">${data.in_charge}</span></div>` : ''}
     ${data.members.length ? `<h2>${t('Players')} (${data.members.length})</h2>
-    <table><thead><tr><th>${t('PNO')}</th><th>${t('Name')}</th><th>${t('Rank')}</th><th>${t('Role')}</th><th>${t('Session')}</th></tr></thead>
+    <table><thead><tr><th>${t('PNO')}</th><th>${t('Name')}</th><th>${t('Role')}</th><th>${t('Session')}</th></tr></thead>
     <tbody>${memberRows}</tbody></table>` : ''}
     ${data.coaches.length ? `<h2>${t('Coaches')} (${data.coaches.length})</h2>
     <table><thead><tr><th>${t('Name')}</th><th>${t('PNO')}</th><th>${t('NIS')}</th><th>${t('Role')}</th><th>${t('Session')}</th></tr></thead>
@@ -94,11 +107,35 @@ function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
     </body></html>`;
 }
 
-export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null; open: boolean; onClose: () => void }) {
+export function TeamQuickView({
+    teamId,
+    open,
+    sessionId,
+    sessionName,
+    historical = false,
+    onClose,
+}: {
+    teamId: number | null;
+    open: boolean;
+    sessionId?: string | null;
+    sessionName?: string | null;
+    historical?: boolean;
+    onClose: () => void;
+}) {
     const { t } = useTranslation();
     const [data, setData] = useState<TeamPreview | null>(null);
     const [error, setError] = useState(false);
+
+    function memberNameWithRank(member: TeamMemberRow): string {
+        const rankLabel = member.rank ? t(member.rank) : '';
+
+        return rankLabel
+            ? `${rankLabel} ${member.full_name ?? ''}`
+            : member.full_name ?? '';
+    }
     const { get, processing } = useHttp<Record<string, never>, TeamPreview>({});
+    const selectedSessionName = sessionName ?? data?.session?.name ?? null;
+    const hasHistoricalSession = historical;
 
     useEffect(() => {
         if (!open || teamId === null) {
@@ -109,12 +146,21 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
             setData(null);
             setError(false);
         });
-        get(TeamPreviewController.url(teamId), {
+        get(
+            TeamPreviewController.url(teamId, {
+                query: sessionId
+                    ? {
+                          'filter[session_id]': sessionId,
+                      }
+                    : undefined,
+            }),
+            {
             onSuccess: (res) => setData(res as unknown as TeamPreview),
             onError: () => setError(true),
-        });
+            },
+        );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, teamId]);
+    }, [open, teamId, sessionId]);
 
     const handlePrint = () => {
         if (!data) {
@@ -134,7 +180,15 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
 }, 300);
     };
 
-    const exportUrl = teamId !== null ? exportTeamsUrl.url() + '?ids[]=' + teamId : '#';
+    const exportUrl = teamId !== null
+        ? exportTeamsUrl.url() + '?ids[]=' + teamId
+        : '#';
+    const openProfileUrl =
+        teamId !== null
+            ? TeamController.show.url(teamId, {
+                  query: sessionId ? { 'filter[session_id]': sessionId } : {},
+              })
+            : '#';
 
     return (
         <Sheet open={open} onOpenChange={(v) => {
@@ -144,20 +198,37 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
 }}>
             <SheetContent side="right" className="flex w-full flex-col sm:max-w-2xl">
                 <SheetHeader className="border-b pb-4">
-                    {processing || !data ? (
-                        <div className="space-y-2">
-                            <SheetTitle className="sr-only">{t('Loading…')}</SheetTitle>
-                            <Skeleton className="h-6 w-48" />
-                            <Skeleton className="h-4 w-32" />
-                        </div>
-                    ) : (
-                        <>
-                            <SheetTitle className="text-lg">{data.name_hi}</SheetTitle>
-                            <div className="flex flex-wrap items-center gap-3 pt-1 text-sm text-muted-foreground">
-                                {data.sport && <span>{data.sport.name_hi}</span>}
-                                {data.session && <span>· {data.session.name}</span>}
-                                {data.unit && <span>· {data.unit.name_hi}</span>}
-                            </div>
+                            {processing || !data ? (
+                                <div className="space-y-2">
+                                    <SheetTitle className="sr-only">{t('Loading…')}</SheetTitle>
+                                    <Skeleton className="h-6 w-48" />
+                                    <Skeleton className="h-4 w-32" />
+                                </div>
+                            ) : (
+                                <>
+                                    <SheetTitle className="text-lg">{data.name}</SheetTitle>
+                                    <div className="flex flex-wrap items-center gap-3 pt-1 text-sm text-muted-foreground">
+                                        {data.sport && <span>{data.sport.name}</span>}
+                                        {selectedSessionName && (
+                                            <span>· {selectedSessionName}</span>
+                                        )}
+                                        {data.location_label && (
+                                            <span>· {data.location_label}</span>
+                                        )}
+                                        <Badge
+                                            variant="secondary"
+                                            className={
+                                                hasHistoricalSession
+                                                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                            }
+                                        >
+                                            <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                                            {hasHistoricalSession
+                                                ? t('Archived session')
+                                                : t('Active session')}
+                                        </Badge>
+                                    </div>
                             <div className="flex gap-4 pt-1 text-sm">
                                 <span><span className="font-semibold">{data.players_count}</span> {t('players')}</span>
                                 <span><span className="font-semibold">{data.coaches_count}</span> {t('coaches')}</span>
@@ -181,7 +252,12 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                         <div className="py-2">
                             <div className="border-b py-4">
                                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('Team info')}</h3>
-                                <InfoRow label={t('In-charge')} value={data.in_charge_hi} />
+                                <InfoRow label={t('In-charge')} value={data.in_charge} />
+                                <InfoRow label={t('Location')} value={data.location_label} />
+                                <InfoRow
+                                    label={t('Status')}
+                                    value={data.is_active ? t('Active') : t('Inactive')}
+                                />
                             </div>
 
                             {data.members.length > 0 && (
@@ -189,26 +265,24 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                         {t('Players')} ({data.members.length})
                                     </h3>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>{t('PNO')}</TableHead>
-                                                <TableHead>{t('Name')}</TableHead>
-                                                <TableHead>{t('Rank')}</TableHead>
-                                                <TableHead>{t('Role')}</TableHead>
-                                                <TableHead>{t('Session')}</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {data.members.map((m, i) => (
-                                                <TableRow key={i}>
-                                                    <TableCell className="font-mono text-xs">{m.pno ?? '—'}</TableCell>
-                                                    <TableCell className="font-medium">{m.full_name_hi ?? '—'}</TableCell>
-                                                    <TableCell className="text-xs">{m.rank ? t(m.rank) : '—'}</TableCell>
-                                                    <TableCell className="text-xs">{t(m.role)}</TableCell>
-                                                    <TableCell className="text-xs">{m.session_name ?? '—'}</TableCell>
-                                                </TableRow>
-                                            ))}
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>{t('PNO')}</TableHead>
+                                                        <TableHead>{t('Name')}</TableHead>
+                                                        <TableHead>{t('Role')}</TableHead>
+                                                        <TableHead>{t('Session')}</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {data.members.map((m, i) => (
+                                                        <TableRow key={i}>
+                                                            <TableCell className="font-mono text-xs">{m.pno ?? '—'}</TableCell>
+                                                            <TableCell className="font-medium">{memberNameWithRank(m)}</TableCell>
+                                                            <TableCell className="text-xs">{t(m.role)}</TableCell>
+                                                            <TableCell className="text-xs">{m.session_name ?? '—'}</TableCell>
+                                                        </TableRow>
+                                                    ))}
                                         </TableBody>
                                     </Table>
                                 </div>
@@ -232,7 +306,7 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                                         <TableBody>
                                             {data.coaches.map((c, i) => (
                                                 <TableRow key={i}>
-                                                    <TableCell className="font-medium">{c.full_name_hi ?? '—'}</TableCell>
+                                                    <TableCell className="font-medium">{c.full_name ?? '—'}</TableCell>
                                                     <TableCell className="font-mono text-xs">{c.pno ?? '—'}</TableCell>
                                                     <TableCell className="text-xs">{c.nis_certified ? '✓' : '—'}</TableCell>
                                                     <TableCell className="text-xs">{t(c.role)}</TableCell>
@@ -259,7 +333,7 @@ export function TeamQuickView({ teamId, open, onClose }: { teamId: number | null
                     </Button>
                     {teamId !== null && (
                         <Button asChild size="sm" className="ml-auto">
-                            <Link href={TeamController.show.url(teamId)}>
+                            <Link href={openProfileUrl}>
                                 <ExternalLink className="mr-1.5 h-4 w-4" />
                                 {t('Open profile')}
                             </Link>

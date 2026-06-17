@@ -25,6 +25,8 @@ class CoachAssignmentFactory extends Factory
             'coach_id' => Coach::factory(),
             'session_id' => SportSession::factory(),
             'role' => fake()->randomElement(['HEAD', 'ASSISTANT']),
+            'assigned_at' => now(),
+            'is_current' => true,
         ];
     }
 

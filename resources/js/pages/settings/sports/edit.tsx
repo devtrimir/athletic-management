@@ -17,8 +17,7 @@ const CATEGORIES = [
 
 type Sport = {
     id: number;
-    name_hi: string;
-    name_en: string;
+    name: string;
     category: string;
     slug: string;
 };
@@ -32,7 +31,7 @@ export default function Edit({ sport }: { sport: Sport }) {
                 href: SportController.index.url(),
             },
             {
-                title: sport.name_en,
+                title: sport.name,
                 href: SportController.edit.url(sport.id),
             },
         ],
@@ -40,14 +39,14 @@ export default function Edit({ sport }: { sport: Sport }) {
 
     return (
         <>
-            <Head title={`Edit ${sport.name_en}`} />
+            <Head title={`Edit ${sport.name}`} />
 
-            <h1 className="sr-only">Edit {sport.name_en}</h1>
+            <h1 className="sr-only">Edit {sport.name}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title={`${t('Edit')} ${sport.name_en}`}
+                    title={`${t('Edit')} ${sport.name}`}
                     description={t('Update sport discipline details')}
                 />
 
@@ -57,27 +56,15 @@ export default function Edit({ sport }: { sport: Sport }) {
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_hi">{t('Name (Hindi)')}</Label>
+                                        <Label htmlFor="name">{t('Name')}</Label>
                                         <Input
-                                            id="name_hi"
-                                            name="name_hi"
-                                            defaultValue={sport.name_hi}
+                                            id="name"
+                                            name="name"
+                                            defaultValue={sport.name}
                                             maxLength={100}
                                             required
                                         />
-                                        <InputError message={errors.name_hi} />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="name_en">{t('Name (English)')}</Label>
-                                        <Input
-                                            id="name_en"
-                                            name="name_en"
-                                            defaultValue={sport.name_en}
-                                            maxLength={100}
-                                            required
-                                        />
-                                        <InputError message={errors.name_en} />
+                                        <InputError message={errors.name} />
                                     </div>
                                 </div>
 

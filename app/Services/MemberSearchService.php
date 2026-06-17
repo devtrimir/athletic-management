@@ -14,7 +14,7 @@ class MemberSearchService
     private const RANK_PREFIX = '/^(दलनायक|मु\.आ\.|पी\.सी\.|म\.आ\.|आ\.)\s*/u';
 
     /** Columns returned in every search hit — the frozen contract. */
-    private const COLUMNS = ['id', 'member_code', 'pno', 'full_name_hi', 'full_name_en', 'player_category', 'player_level', 'current_status'];
+    private const COLUMNS = ['id', 'member_code', 'pno', 'full_name', 'full_name', 'player_category', 'player_level', 'current_status'];
 
     /**
      * Search members for the given org and query string. Returns at most 50 results.
@@ -102,7 +102,7 @@ class MemberSearchService
     }
 
     /**
-     * SQLite path (test environment): PNO exact + LIKE on full_name_hi OR alias_hi.
+     * SQLite path (test environment): PNO exact + LIKE on full_name OR alias.
      * Mirrors the MySQL path which also searches name_aliases via FULLTEXT.
      *
      * @param  array<string, string|int>  $filters
@@ -135,6 +135,7 @@ class MemberSearchService
                     ->join('teams as t', 't.id', '=', 'tm.team_id')
                     ->whereColumn('tm.member_id', 'members.id')
                     ->where('tm.session_id', $filters['available_session_id'])
+                    ->whereNull('tm.left_on')
                     ->where('t.sport_id', $filters['available_sport_id'])
                     ->whereNull('t.deleted_at');
             });
@@ -148,8 +149,8 @@ class MemberSearchService
 
         return (clone $base)
             ->where(function ($query) use ($q): void {
-                $query->where('full_name_hi', 'LIKE', '%'.$q.'%')
-                    ->orWhereHas('aliases', fn ($a) => $a->where('alias_hi', 'LIKE', '%'.$q.'%'));
+                $query->where('full_name', 'LIKE', '%'.$q.'%')
+                    ->orWhereHas('aliases', fn ($a) => $a->where('alias', 'LIKE', '%'.$q.'%'));
             })
             ->limit(50)
             ->get();
@@ -191,6 +192,7 @@ class MemberSearchService
                 INNER JOIN teams t ON t.id = tm.team_id
                 WHERE tm.member_id = {$alias}.id
                   AND tm.session_id = ?
+                  AND tm.left_on IS NULL
                   AND t.sport_id = ?
                   AND t.deleted_at IS NULL
             )";

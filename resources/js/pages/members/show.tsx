@@ -85,9 +85,8 @@ type Member = {
     id: number;
     member_code: string;
     pno: string | null;
-    full_name_hi: string;
-    full_name_en: string | null;
-    father_name_hi: string | null;
+    full_name: string;
+    father_name: string | null;
     rank: string | null;
     designation: string | null;
     gender: string;
@@ -97,9 +96,9 @@ type Member = {
     player_category: string;
     player_level: string;
     current_status: string;
-    home_district: { id: number; name_hi: string } | null;
-    posting_district: { id: number; name_hi: string } | null;
-    current_unit: { id: number; name_hi: string } | null;
+    home_district: { id: number; name: string } | null;
+    posting_district: { id: number; name: string } | null;
+    current_unit: { id: number; name: string } | null;
     photo_path: string | null;
     blood_group: string | null;
     caste: string | null;
@@ -107,11 +106,10 @@ type Member = {
     appointment: string | null;
     home_address: string | null;
     recruitment_type: string | null;
-    sport: { id: number; name_hi: string; name_en: string } | null;
+    sport: { id: number; name: string } | null;
     playable_sports: {
         id: number;
-        name_hi: string;
-        name_en: string;
+        name: string;
         role?: string | null;
         position?: string | null;
         notes?: string | null;
@@ -124,27 +122,13 @@ type StatusEntry = {
     id: number;
     status: string;
     effective_on: string;
-    reason_hi: string | null;
+    reason: string | null;
     recorded_by_name: string | null;
 };
-type Alias = { id: number; alias_hi: string; source: string };
+type Alias = { id: number; alias: string; source: string };
 
 function displayPostingLocation(member: Member): string | null {
-    return (
-        member.posting_district?.name_hi ?? member.current_unit?.name_hi ?? null
-    );
-}
-
-function localizedText(
-    hi: string | null | undefined,
-    en: string | null | undefined,
-    locale: string,
-): string | null {
-    if (locale === 'en') {
-        return en ?? hi ?? null;
-    }
-
-    return hi ?? en ?? null;
+    return member.posting_district?.name ?? member.current_unit?.name ?? null;
 }
 
 function parseDateValue(value: string): Date | null {
@@ -185,24 +169,24 @@ type ParticipationEntry = {
     media_files_count: number;
     tournament: {
         id: number;
-        name_hi: string;
+        name: string;
         tier_code: string | null;
         tier_weight: number | null;
         date_from: string | null;
         date_to: string | null;
         venue: string | null;
         session_id: number | null;
-        sport: { id: number; name_hi: string; name_en: string } | null;
+        sport: { id: number; name: string } | null;
     };
     event: {
         id: number;
-        name_hi: string;
+        name: string;
         gender_class: string;
         discipline: string | null;
         weight_category: string | null;
-        sport: { id: number; name_hi: string; name_en: string } | null;
+        sport: { id: number; name: string } | null;
     };
-    team: { id: number; name_hi: string } | null;
+    team: { id: number; name: string } | null;
     achievement: {
         id: number;
         medal_type: string;
@@ -245,8 +229,7 @@ type PromotionRow = {
 
 type RankOption = {
     code: string;
-    name_hi: string;
-    name_en: string;
+    name: string;
     short_name: string | null;
 };
 
@@ -260,15 +243,15 @@ type AchievementsData = {
         session: { id: number; name: string };
         tournament: {
             id: number;
-            name_hi: string;
+            name: string;
             tier_code: string | null;
             tier_weight: number | null;
             venue: string | null;
             date_from: string | null;
             date_to: string | null;
-            sport: { id: number; name_hi: string; name_en: string } | null;
+            sport: { id: number; name: string } | null;
         };
-        event: { id: number; name_hi: string };
+        event: { id: number; name: string };
         benefits: AchievementBenefitRow[];
     }>;
 };
@@ -276,6 +259,7 @@ type AchievementsData = {
 type LegacyAchievement = {
     id: number;
     period: string;
+    session: { id: number; name: string } | null;
     level: string;
     competition_details: string;
     event_date: string | null;
@@ -283,7 +267,9 @@ type LegacyAchievement = {
     sport_discipline: string | null;
     event: string | null;
     medal_type: string | null;
+    position: number | null;
     sort_order: number | null;
+    remarks: string | null;
     benefits: Array<{
         id: number;
         benefit_type: string;
@@ -299,9 +285,8 @@ type LegacyAchievement = {
 const ALL_COLUMNS: { key: string; label: string }[] = [
     // { key: 'member_code', label: 'Member code' },
     { key: 'pno', label: 'PNO' },
-    { key: 'full_name_hi', label: 'Name (Hindi)' },
-    { key: 'full_name_en', label: 'Name (English)' },
-    { key: 'father_name_hi', label: "Father's name" },
+    { key: 'full_name', label: 'Name' },
+    { key: 'father_name', label: "Father's name" },
     { key: 'gender', label: 'Gender' },
     { key: 'dob', label: 'Date of birth' },
     { key: 'rank', label: 'Rank' },
@@ -329,6 +314,7 @@ export default function MembersShow({
     promotions,
     performance,
     ranks,
+    sessions,
 }: {
     member: Member;
     statusHistory?: StatusEntry[];
@@ -338,6 +324,7 @@ export default function MembersShow({
     promotions?: PromotionRow[];
     performance?: MemberPerformanceData;
     ranks?: RankOption[];
+    sessions?: Array<{ id: number; name: string; is_current?: boolean }>;
 }) {
     const [activeTab, setActiveTab] = useState('overview');
     const [participations, setParticipations] = useState<
@@ -381,13 +368,8 @@ export default function MembersShow({
 
         return query ? `?${query}` : '';
     }, [dateFromFilter, dateToFilter]);
-    const displayName = localizedText(
-        member.full_name_hi,
-        member.full_name_en,
-        pageLocale,
-    );
-    const sportName = (sport: { name_hi: string; name_en: string }): string =>
-        localizedText(sport.name_hi, sport.name_en, pageLocale) ?? '';
+    const displayName = member.full_name;
+    const sportName = (sport: { name: string }): string => sport.name;
 
     const fetchEventData = useCallback((): void => {
         participationsFetched.current = true;
@@ -471,7 +453,7 @@ export default function MembersShow({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Members'), href: membersIndex.url() },
-            { title: displayName ?? member.full_name_hi },
+            { title: displayName ?? member.full_name },
         ],
     });
 
@@ -524,26 +506,133 @@ export default function MembersShow({
         [t],
     );
 
-    const promotionRewardMeta = useCallback(
-        (promotion: PromotionRow): string[] => {
-            const parts: string[] = [];
+    const manualLegacyAchievements = useMemo(() => {
+        return (legacyAchievements ?? [])
+            .filter((achievement) => {
+                const medalType = achievement.medal_type?.toUpperCase();
 
-            if (promotion.cash_reward_amount) {
-                parts.push(`₹${promotion.cash_reward_amount}`);
+                return (
+                    medalType === 'GOLD' ||
+                    medalType === 'SILVER' ||
+                    medalType === 'BRONZE' ||
+                    medalType === 'MERIT'
+                );
+            })
+            .sort((a, b) => {
+                const aSort = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+                const bSort = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+
+                if (aSort !== bSort) {
+                    return aSort - bSort;
+                }
+
+                return (b.event_date ?? '').localeCompare(a.event_date ?? '');
+            });
+    }, [legacyAchievements]);
+
+    const formatReadableDate = useCallback(
+        (value: string | null): string | null => {
+            if (!value) {
+                return null;
             }
 
-            if (promotion.cash_reward_date) {
-                parts.push(promotion.cash_reward_date);
+            const date = new Date(value);
+
+            if (Number.isNaN(date.getTime())) {
+                return value;
             }
 
-            if (promotion.cash_reward_reference) {
-                parts.push(promotion.cash_reward_reference);
-            }
-
-            return parts;
+            return new Intl.DateTimeFormat('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+            }).format(date);
         },
         [],
     );
+
+    const remainingLegacyAchievements = useMemo(() => {
+        const manualIds = new Set(
+            manualLegacyAchievements.map((achievement) => achievement.id),
+        );
+
+        return (legacyAchievements ?? []).filter(
+            (achievement) => !manualIds.has(achievement.id),
+        );
+    }, [legacyAchievements, manualLegacyAchievements]);
+
+    const achievementPrizeMoney = useCallback(
+        (
+            benefits: AchievementBenefitRow[] | undefined,
+            promotionsForRow: PromotionRow[],
+        ): string[] => {
+            const amounts: string[] = [];
+
+            for (const benefit of benefits ?? []) {
+                if (benefit.cash_amount) {
+                    amounts.push(
+                        [
+                            `₹${benefit.cash_amount}`,
+                            formatReadableDate(benefit.benefit_date),
+                        ]
+                            .filter(Boolean)
+                            .join(' · '),
+                    );
+                }
+            }
+
+            for (const promotion of promotionsForRow) {
+                if (promotion.cash_reward_amount) {
+                    amounts.push(
+                        [
+                            `₹${promotion.cash_reward_amount}`,
+                            formatReadableDate(promotion.cash_reward_date),
+                        ]
+                            .filter(Boolean)
+                            .join(' · '),
+                    );
+                }
+            }
+
+            return amounts;
+        },
+        [formatReadableDate],
+    );
+
+    const legacyPrizeMoney = useCallback(
+        (benefits: LegacyAchievement['benefits']): string[] => {
+            return benefits
+                .filter((benefit) => Boolean(benefit.cash_amount))
+                .map((benefit) =>
+                    [
+                        `₹${benefit.cash_amount}`,
+                        formatReadableDate(benefit.benefit_date),
+                    ]
+                        .filter(Boolean)
+                        .join(' · '),
+                );
+        },
+        [formatReadableDate],
+    );
+
+    const achievementSummary = useMemo(() => {
+        const summary = {
+            GOLD: achievementsData?.summary.GOLD ?? 0,
+            SILVER: achievementsData?.summary.SILVER ?? 0,
+            BRONZE: achievementsData?.summary.BRONZE ?? 0,
+            MERIT: achievementsData?.summary.MERIT ?? 0,
+        };
+
+        for (const achievement of manualLegacyAchievements) {
+            const medal = achievement.medal_type?.toUpperCase();
+
+            if (medal && medal in summary) {
+                summary[medal as keyof typeof summary] += 1;
+            }
+        }
+
+        return summary;
+    }, [achievementsData, manualLegacyAchievements]);
 
     const filteredSessionGroups = useMemo(() => {
         const isCurrentSession = (value: unknown): boolean =>
@@ -622,8 +711,8 @@ export default function MembersShow({
             }
 
             const haystack = [
-                item.tournament.name_hi,
-                item.event.name_hi,
+                item.tournament.name,
+                item.event.name,
                 item.tournament.tier_code ?? '',
                 item.event.gender_class ?? '',
                 item.achievement?.medal_type ?? '',
@@ -680,6 +769,67 @@ export default function MembersShow({
         sessionFilter,
         tierFilter,
     ]);
+
+    const achievementTierGroups = useMemo(() => {
+        const groups = new Map<
+            string,
+            {
+                tier: string;
+                tierWeight: number;
+                rows: Array<{
+                    group: (typeof filteredSessionGroups)[number];
+                    participation: ParticipationEntry;
+                }>;
+                manualRows: LegacyAchievement[];
+            }
+        >();
+
+        for (const group of filteredSessionGroups) {
+            for (const participation of group.participations) {
+                const tier = participation.tournament.tier_code ?? t('Unknown');
+                const existing = groups.get(tier);
+
+                if (existing) {
+                    existing.rows.push({ group, participation });
+                    existing.tierWeight = Math.max(
+                        existing.tierWeight,
+                        participation.tournament.tier_weight ?? 0,
+                    );
+                } else {
+                    groups.set(tier, {
+                        tier,
+                        tierWeight: participation.tournament.tier_weight ?? 0,
+                        rows: [{ group, participation }],
+                        manualRows: [],
+                    });
+                }
+            }
+        }
+
+        for (const achievement of manualLegacyAchievements) {
+            const tier = achievement.level || t('Unknown');
+            const existing = groups.get(tier);
+
+            if (existing) {
+                existing.manualRows.push(achievement);
+            } else {
+                groups.set(tier, {
+                    tier,
+                    tierWeight: 0,
+                    rows: [],
+                    manualRows: [achievement],
+                });
+            }
+        }
+
+        return Array.from(groups.values()).sort((a, b) => {
+            if (a.tierWeight !== b.tierWeight) {
+                return b.tierWeight - a.tierWeight;
+            }
+
+            return a.tier.localeCompare(b.tier);
+        });
+    }, [filteredSessionGroups, manualLegacyAchievements, t]);
 
     const eventPromotionRows = useCallback(
         (participation: ParticipationEntry): PromotionRow[] => {
@@ -782,12 +932,10 @@ export default function MembersShow({
             switch (key) {
                 case 'pno':
                     return member.pno ?? '';
-                case 'full_name_hi':
+                case 'full_name':
                     return displayName ?? '';
-                case 'full_name_en':
-                    return displayName ?? '';
-                case 'father_name_hi':
-                    return member.father_name_hi ?? '';
+                case 'father_name':
+                    return member.father_name ?? '';
                 case 'gender':
                     return member.gender === 'M'
                         ? t('Male')
@@ -807,9 +955,9 @@ export default function MembersShow({
                 case 'player_level':
                     return member.player_level ?? '';
                 case 'unit':
-                    return member.current_unit?.name_hi ?? '';
+                    return member.current_unit?.name ?? '';
                 case 'home_district':
-                    return member.home_district?.name_hi ?? '';
+                    return member.home_district?.name ?? '';
                 case 'joining_date':
                     return (
                         formatDisplayDate(member.joining_date, pageLocale) ?? ''
@@ -858,7 +1006,7 @@ export default function MembersShow({
                     `<td style="border:1px solid #ccc;padding:6px 10px">${getValue(c.key)}</td>`,
             )
             .join('');
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${member.full_name_hi}</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}@media print{@page{size:landscape}}</style></head><body><h2 style="margin-bottom:12px">${member.full_name_hi}</h2><table><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table></body></html>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${member.full_name}</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}@media print{@page{size:landscape}}</style></head><body><h2 style="margin-bottom:12px">${member.full_name}</h2><table><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table></body></html>`;
         const win = window.open('', '_blank', 'width=900,height=600');
 
         if (!win) {
@@ -896,7 +1044,7 @@ export default function MembersShow({
 
     return (
         <>
-            <Head title={member.full_name_hi} />
+            <Head title={member.full_name} />
 
             <div className="space-y-6">
                 <div className="flex flex-wrap items-start gap-4">
@@ -907,7 +1055,7 @@ export default function MembersShow({
                                 <div className="group relative size-20 overflow-hidden rounded-xl border bg-muted">
                                     <img
                                         src={`/storage/${member.photo_path}`}
-                                        alt={member.full_name_hi}
+                                        alt={member.full_name}
                                         className="size-full object-cover"
                                     />
                                     <button
@@ -951,11 +1099,11 @@ export default function MembersShow({
 
                         <div className="min-w-0">
                             <h1 className="text-2xl font-bold">
-                                {member.full_name_hi}
+                                {member.full_name}
                             </h1>
-                            {member.full_name_en && (
+                            {member.full_name && (
                                 <p className="text-muted-foreground">
-                                    {member.full_name_en}
+                                    {member.full_name}
                                 </p>
                             )}
                             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -999,18 +1147,12 @@ export default function MembersShow({
                         <TabsTrigger value="overview">
                             {t('Overview')}
                         </TabsTrigger>
-                        <TabsTrigger value="status">
-                            {t('Status history')}
-                        </TabsTrigger>
                         <TabsTrigger value="teams">{t('Teams')}</TabsTrigger>
                         <TabsTrigger value="events">
                             {t('Achievements')}
                         </TabsTrigger>
                         <TabsTrigger value="performance">
                             {t('Performance')}
-                        </TabsTrigger>
-                        <TabsTrigger value="legacy">
-                            {t('Legacy achievements')}
                         </TabsTrigger>
                         <TabsTrigger value="promotions">
                             {t('Promotions & rewards')}
@@ -1019,6 +1161,9 @@ export default function MembersShow({
                             {t('Change log')}
                         </TabsTrigger>
                         <TabsTrigger value="media">{t('Media')}</TabsTrigger>
+                        <TabsTrigger value="status">
+                            {t('Status history')}
+                        </TabsTrigger>
                     </TabsList>
 
                     {/* Overview */}
@@ -1032,24 +1177,8 @@ export default function MembersShow({
                                     <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
                                         {detail(t('Name'), displayName)}
                                         {detail(
-                                            t('Name (Hindi)'),
-                                            localizedText(
-                                                member.full_name_hi,
-                                                member.full_name_en,
-                                                'hi',
-                                            ),
-                                        )}
-                                        {detail(
-                                            t('Name (English)'),
-                                            localizedText(
-                                                member.full_name_hi,
-                                                member.full_name_en,
-                                                'en',
-                                            ),
-                                        )}
-                                        {detail(
                                             t("Father's name"),
-                                            member.father_name_hi,
+                                            member.father_name,
                                         )}
                                         {detail(
                                             t('Gender'),
@@ -1110,7 +1239,7 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Home district'),
-                                            member.home_district?.name_hi,
+                                            member.home_district?.name,
                                         )}
                                         {detail(
                                             t('Posting unit / district'),
@@ -1234,83 +1363,6 @@ export default function MembersShow({
                         </div>
                     </TabsContent>
 
-                    {/* Status history */}
-                    <TabsContent value="status">
-                        <div className="space-y-4 rounded-xl border bg-card p-6">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-sm font-medium">
-                                    {t('Status history')}
-                                </h3>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setStatusOpen(true)}
-                                >
-                                    {t('Change status')}
-                                </Button>
-                                <StatusChangeModal
-                                    member={member}
-                                    open={statusOpen}
-                                    onOpenChange={setStatusOpen}
-                                />
-                            </div>
-                            <Deferred
-                                data="statusHistory"
-                                fallback={
-                                    <div className="space-y-2">
-                                        {[1, 2, 3].map((n) => (
-                                            <Skeleton
-                                                key={n}
-                                                className="h-10 w-full"
-                                            />
-                                        ))}
-                                    </div>
-                                }
-                            >
-                                <div className="divide-y">
-                                    {(statusHistory ?? []).length === 0 ? (
-                                        <p className="py-4 text-sm text-muted-foreground">
-                                            {t('No status records.')}
-                                        </p>
-                                    ) : (
-                                        (statusHistory ?? []).map((row) => (
-                                            <div
-                                                key={row.id}
-                                                className="flex items-center justify-between py-3 text-sm"
-                                            >
-                                                <div className="space-y-0.5">
-                                                    <Badge variant="outline">
-                                                        {t(row.status)}
-                                                    </Badge>
-                                                    {row.reason_hi && (
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {row.reason_hi}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="text-right text-xs text-muted-foreground">
-                                                    <p>
-                                                        {formatDisplayDate(
-                                                            row.effective_on,
-                                                            pageLocale,
-                                                        )}
-                                                    </p>
-                                                    {row.recorded_by_name && (
-                                                        <p>
-                                                            {
-                                                                row.recorded_by_name
-                                                            }
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </Deferred>
-                        </div>
-                    </TabsContent>
-
                     {/* Aliases */}
                     <TabsContent value="aliases">
                         <div className="rounded-xl border bg-card p-6">
@@ -1360,6 +1412,16 @@ export default function MembersShow({
                     {/* Events */}
                     <TabsContent value="events">
                         <div className="space-y-4">
+                            <div>
+                                <h3 className="text-base font-semibold">
+                                    {t('Member achievements')}
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                    {t(
+                                        'Competition achievements recorded through tournaments, events, medals, and benefits.',
+                                    )}
+                                </p>
+                            </div>
                             {loadingParticipations ||
                             participations === null ||
                             loadingAchievements ||
@@ -1372,7 +1434,7 @@ export default function MembersShow({
                                         />
                                     ))}
                                 </div>
-                            ) : participations.length === 0 ? (
+                            ) : achievementTierGroups.length === 0 ? (
                                 <div className="rounded-xl border bg-card p-6">
                                     <p className="text-sm text-muted-foreground">
                                         {t('No events.')}
@@ -1403,10 +1465,7 @@ export default function MembersShow({
                                                         {medal.label}
                                                     </span>
                                                     <span className="text-xl font-bold">
-                                                        {
-                                                            achievementsData
-                                                                .summary[m]
-                                                        }
+                                                        {achievementSummary[m]}
                                                     </span>
                                                 </div>
                                             );
@@ -1812,87 +1871,17 @@ export default function MembersShow({
                                                             {t('Benefits')}
                                                         </TableHead>
                                                         <TableHead>
-                                                            {t('Promotion')}
+                                                            {t('Prize money')}
                                                         </TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {Object.entries(
-                                                        filteredSessionGroups
-                                                            .flatMap((group) =>
-                                                                group.participations.map(
-                                                                    (
-                                                                        participation,
-                                                                    ) => ({
-                                                                        group,
-                                                                        participation,
-                                                                    }),
-                                                                ),
-                                                            )
-                                                            .reduce<
-                                                                Record<
-                                                                    string,
-                                                                    Array<{
-                                                                        group: (typeof filteredSessionGroups)[number];
-                                                                        participation: ParticipationEntry;
-                                                                    }>
-                                                                >
-                                                            >((acc, item) => {
-                                                                const tierKey =
-                                                                    item
-                                                                        .participation
-                                                                        .tournament
-                                                                        .tier_code ??
-                                                                    t(
-                                                                        'Unknown',
-                                                                    );
-
-                                                                if (
-                                                                    !acc[
-                                                                        tierKey
-                                                                    ]
-                                                                ) {
-                                                                    acc[
-                                                                        tierKey
-                                                                    ] = [];
-                                                                }
-
-                                                                acc[
-                                                                    tierKey
-                                                                ].push(item);
-
-                                                                return acc;
-                                                            }, {}),
-                                                    )
-                                                        .sort((a, b) => {
-                                                            const aWeight =
-                                                                a[1][0]
-                                                                    ?.participation
-                                                                    .tournament
-                                                                    .tier_weight ??
-                                                                0;
-                                                            const bWeight =
-                                                                b[1][0]
-                                                                    ?.participation
-                                                                    .tournament
-                                                                    .tier_weight ??
-                                                                0;
-
-                                                            if (
-                                                                aWeight !==
-                                                                bWeight
-                                                            ) {
-                                                                return (
-                                                                    bWeight -
-                                                                    aWeight
-                                                                );
-                                                            }
-
-                                                            return a[0].localeCompare(
-                                                                b[0],
-                                                            );
-                                                        })
-                                                        .map(([tier, rows]) => {
+                                                    {achievementTierGroups.map(
+                                                        ({
+                                                            tier,
+                                                            rows,
+                                                            manualRows,
+                                                        }) => {
                                                             const medalCounts =
                                                                 rows.reduce(
                                                                     (
@@ -1927,6 +1916,21 @@ export default function MembersShow({
                                                                     },
                                                                 );
 
+                                                            for (const achievement of manualRows) {
+                                                                const medal =
+                                                                    achievement.medal_type?.toUpperCase();
+
+                                                                if (
+                                                                    medal &&
+                                                                    medal in
+                                                                        medalCounts
+                                                                ) {
+                                                                    medalCounts[
+                                                                        medal as keyof typeof medalCounts
+                                                                    ] += 1;
+                                                                }
+                                                            }
+
                                                             return (
                                                                 <Fragment
                                                                     key={`tier-${tier}`}
@@ -1950,9 +1954,8 @@ export default function MembersShow({
                                                                                         }
                                                                                     </span>
                                                                                     <span className="text-xs text-muted-foreground">
-                                                                                        {
-                                                                                            rows.length
-                                                                                        }{' '}
+                                                                                        {rows.length +
+                                                                                            manualRows.length}{' '}
                                                                                         {t(
                                                                                             'records',
                                                                                         )}
@@ -2047,7 +2050,7 @@ export default function MembersShow({
                                                                                                 {
                                                                                                     participation
                                                                                                         .tournament
-                                                                                                        .name_hi
+                                                                                                        .name
                                                                                                 }
                                                                                             </Link>
                                                                                             <p className="text-xs text-muted-foreground">
@@ -2083,7 +2086,7 @@ export default function MembersShow({
                                                                                             {
                                                                                                 participation
                                                                                                     .event
-                                                                                                    .name_hi
+                                                                                                    .name
                                                                                             }
                                                                                         </Link>
                                                                                         <p className="mt-1 text-xs text-muted-foreground">
@@ -2167,9 +2170,6 @@ export default function MembersShow({
                                                                                                             {t(
                                                                                                                 benefit.benefit_type,
                                                                                                             )}
-                                                                                                            {benefit.cash_amount
-                                                                                                                ? ` ₹${benefit.cash_amount}`
-                                                                                                                : ''}
                                                                                                         </span>
                                                                                                     ),
                                                                                                 )
@@ -2182,41 +2182,234 @@ export default function MembersShow({
                                                                                     </TableCell>
                                                                                     <TableCell>
                                                                                         <div className="space-y-1.5">
-                                                                                            {promotionsForRow.length >
+                                                                                            {achievementPrizeMoney(
+                                                                                                participation
+                                                                                                    .achievement
+                                                                                                    ?.benefits,
+                                                                                                promotionsForRow,
+                                                                                            )
+                                                                                                .length >
                                                                                             0 ? (
-                                                                                                promotionsForRow.map(
+                                                                                                achievementPrizeMoney(
+                                                                                                    participation
+                                                                                                        .achievement
+                                                                                                        ?.benefits,
+                                                                                                    promotionsForRow,
+                                                                                                ).map(
                                                                                                     (
-                                                                                                        promotion,
-                                                                                                    ) => {
-                                                                                                        const rewardMeta =
-                                                                                                            promotionRewardMeta(
-                                                                                                                promotion,
-                                                                                                            );
+                                                                                                        amount,
+                                                                                                        index,
+                                                                                                    ) => (
+                                                                                                        <div
+                                                                                                            key={`${participation.id}-amount-${index}`}
+                                                                                                            className="text-xs font-medium text-foreground"
+                                                                                                        >
+                                                                                                            {
+                                                                                                                amount
+                                                                                                            }
+                                                                                                        </div>
+                                                                                                    ),
+                                                                                                )
+                                                                                            ) : (
+                                                                                                <span className="text-xs text-muted-foreground">
+                                                                                                    —
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                </TableRow>
+                                                                            );
+                                                                        },
+                                                                    )}
+                                                                    {manualRows.map(
+                                                                        (
+                                                                            achievement,
+                                                                        ) => {
+                                                                            const nonCashBenefits =
+                                                                                achievement.benefits.filter(
+                                                                                    (
+                                                                                        benefit,
+                                                                                    ) =>
+                                                                                        !benefit.cash_amount,
+                                                                                );
+                                                                            const prizeMoney =
+                                                                                legacyPrizeMoney(
+                                                                                    achievement.benefits,
+                                                                                );
 
-                                                                                                        return (
-                                                                                                            <div
-                                                                                                                key={
-                                                                                                                    promotion.id
-                                                                                                                }
-                                                                                                                className="text-xs text-muted-foreground"
-                                                                                                            >
-                                                                                                                <span className="font-medium text-foreground">
-                                                                                                                    {t(
-                                                                                                                        'Promotion',
-                                                                                                                    )}
-                                                                                                                </span>{' '}
-                                                                                                                <span>
-                                                                                                                    {promotionSummary(
-                                                                                                                        promotion,
-                                                                                                                    )}
-                                                                                                                    {rewardMeta.length >
-                                                                                                                    0
-                                                                                                                        ? ` · ${rewardMeta.join(' · ')}`
-                                                                                                                        : ''}
-                                                                                                                </span>
-                                                                                                            </div>
+                                                                            return (
+                                                                                <TableRow
+                                                                                    key={`legacy-achievement-${achievement.id}`}
+                                                                                >
+                                                                                    <TableCell>
+                                                                                        <span
+                                                                                            className={eventBadgeClass(
+                                                                                                'tier',
+                                                                                            )}
+                                                                                        >
+                                                                                            {
+                                                                                                tier
+                                                                                            }
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1">
+                                                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                                                <span className="font-medium">
+                                                                                                    {
+                                                                                                        achievement.competition_details
+                                                                                                    }
+                                                                                                </span>
+                                                                                                <Badge
+                                                                                                    variant="outline"
+                                                                                                    className="h-5 rounded-full border-emerald-200 bg-emerald-50 px-2 text-[10px] font-semibold tracking-[0.18em] text-emerald-700 uppercase"
+                                                                                                >
+                                                                                                    {t(
+                                                                                                        'Legacy',
+                                                                                                    )}
+                                                                                                </Badge>
+                                                                                            </div>
+                                                                                            <p className="text-xs text-muted-foreground">
+                                                                                                {achievement.session
+                                                                                                    ? `${achievement.session.name} · `
+                                                                                                    : ''}
+                                                                                                {achievement.event_date ??
+                                                                                                    t(
+                                                                                                        'No date',
+                                                                                                    )}
+                                                                                                {achievement.venue
+                                                                                                    ? ` · ${achievement.venue}`
+                                                                                                    : ''}
+                                                                                            </p>
+                                                                                            {achievement.remarks ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {
+                                                                                                        achievement.remarks
+                                                                                                    }
+                                                                                                </p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1">
+                                                                                            <span className="font-medium">
+                                                                                                {achievement.event ??
+                                                                                                    achievement.sport_discipline ??
+                                                                                                    '—'}
+                                                                                            </span>
+                                                                                            {achievement.sport_discipline &&
+                                                                                            achievement.event ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {
+                                                                                                        achievement.sport_discipline
+                                                                                                    }
+                                                                                                </p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {achievement.position ? (
+                                                                                            <span className="text-xs font-medium text-foreground">
+                                                                                                #
+                                                                                                {
+                                                                                                    achievement.position
+                                                                                                }
+                                                                                            </span>
+                                                                                        ) : (
+                                                                                            <span className="text-xs text-muted-foreground">
+                                                                                                —
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {achievement.medal_type ? (
+                                                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                                                {(() => {
+                                                                                                    const medal =
+                                                                                                        medalBadgeContent(
+                                                                                                            achievement.medal_type,
                                                                                                         );
-                                                                                                    },
+
+                                                                                                    return (
+                                                                                                        <span
+                                                                                                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
+                                                                                                        >
+                                                                                                            {
+                                                                                                                medal.icon
+                                                                                                            }
+                                                                                                            {
+                                                                                                                medal.label
+                                                                                                            }
+                                                                                                        </span>
+                                                                                                    );
+                                                                                                })()}
+                                                                                                <Badge
+                                                                                                    variant="outline"
+                                                                                                    className="h-5 rounded-full px-2 text-[10px] font-semibold tracking-[0.18em] uppercase"
+                                                                                                >
+                                                                                                    {t(
+                                                                                                        'Legacy',
+                                                                                                    )}
+                                                                                                </Badge>
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <span className="text-xs text-muted-foreground">
+                                                                                                —
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <span className="text-xs text-muted-foreground">
+                                                                                            —
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                                            {nonCashBenefits.length >
+                                                                                            0 ? (
+                                                                                                nonCashBenefits.map(
+                                                                                                    (
+                                                                                                        benefit,
+                                                                                                    ) => (
+                                                                                                        <span
+                                                                                                            key={
+                                                                                                                benefit.id
+                                                                                                            }
+                                                                                                            className={eventBadgeClass(
+                                                                                                                'benefit',
+                                                                                                            )}
+                                                                                                        >
+                                                                                                            {t(
+                                                                                                                benefit.benefit_type,
+                                                                                                            )}
+                                                                                                        </span>
+                                                                                                    ),
+                                                                                                )
+                                                                                            ) : (
+                                                                                                <span className="text-xs text-muted-foreground">
+                                                                                                    —
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1.5">
+                                                                                            {prizeMoney.length >
+                                                                                            0 ? (
+                                                                                                prizeMoney.map(
+                                                                                                    (
+                                                                                                        amount,
+                                                                                                        index,
+                                                                                                    ) => (
+                                                                                                        <div
+                                                                                                            key={`legacy-achievement-${achievement.id}-amount-${index}`}
+                                                                                                            className="text-xs font-medium text-foreground"
+                                                                                                        >
+                                                                                                            {
+                                                                                                                amount
+                                                                                                            }
+                                                                                                        </div>
+                                                                                                    ),
                                                                                                 )
                                                                                             ) : (
                                                                                                 <span className="text-xs text-muted-foreground">
@@ -2231,13 +2424,33 @@ export default function MembersShow({
                                                                     )}
                                                                 </Fragment>
                                                             );
-                                                        })}
+                                                        },
+                                                    )}
                                                 </TableBody>
                                             </Table>
                                         </div>
                                     )}
                                 </div>
                             )}
+                            <div className="space-y-4">
+                                <div>
+                                    <h3 className="text-base font-semibold">
+                                        {t('Legacy achievements')}
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        {t(
+                                            'Pre-recruitment and historical achievements recorded outside the current competition workflow.',
+                                        )}
+                                    </p>
+                                </div>
+                                <LegacyAchievementsTab
+                                    member={member}
+                                    sessions={sessions ?? []}
+                                    legacyAchievements={
+                                        remainingLegacyAchievements
+                                    }
+                                />
+                            </div>
                         </div>
                     </TabsContent>
                     <TabsContent value="performance">
@@ -2260,27 +2473,6 @@ export default function MembersShow({
                                 />
                             </Deferred>
                         )}
-                    </TabsContent>
-                    {/* Legacy achievements */}
-                    <TabsContent value="legacy">
-                        <Deferred
-                            data="legacyAchievements"
-                            fallback={
-                                <div className="space-y-2">
-                                    {[1, 2, 3].map((n) => (
-                                        <Skeleton
-                                            key={n}
-                                            className="h-12 w-full"
-                                        />
-                                    ))}
-                                </div>
-                            }
-                        >
-                            <LegacyAchievementsTab
-                                member={member}
-                                legacyAchievements={legacyAchievements}
-                            />
-                        </Deferred>
                     </TabsContent>
                     {/* Promotions */}
                     <TabsContent value="promotions">
@@ -2331,13 +2523,90 @@ export default function MembersShow({
                             />
                         )}
                     </TabsContent>
+
+                    {/* Status history */}
+                    <TabsContent value="status">
+                        <div className="space-y-4 rounded-xl border bg-card p-6">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-medium">
+                                    {t('Status history')}
+                                </h3>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setStatusOpen(true)}
+                                >
+                                    {t('Change status')}
+                                </Button>
+                                <StatusChangeModal
+                                    member={member}
+                                    open={statusOpen}
+                                    onOpenChange={setStatusOpen}
+                                />
+                            </div>
+                            <Deferred
+                                data="statusHistory"
+                                fallback={
+                                    <div className="space-y-2">
+                                        {[1, 2, 3].map((n) => (
+                                            <Skeleton
+                                                key={n}
+                                                className="h-10 w-full"
+                                            />
+                                        ))}
+                                    </div>
+                                }
+                            >
+                                <div className="divide-y">
+                                    {(statusHistory ?? []).length === 0 ? (
+                                        <p className="py-4 text-sm text-muted-foreground">
+                                            {t('No status records.')}
+                                        </p>
+                                    ) : (
+                                        (statusHistory ?? []).map((row) => (
+                                            <div
+                                                key={row.id}
+                                                className="flex items-center justify-between py-3 text-sm"
+                                            >
+                                                <div className="space-y-0.5">
+                                                    <Badge variant="outline">
+                                                        {t(row.status)}
+                                                    </Badge>
+                                                    {row.reason && (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {row.reason}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="text-right text-xs text-muted-foreground">
+                                                    <p>
+                                                        {formatDisplayDate(
+                                                            row.effective_on,
+                                                            pageLocale,
+                                                        )}
+                                                    </p>
+                                                    {row.recorded_by_name && (
+                                                        <p>
+                                                            {
+                                                                row.recorded_by_name
+                                                            }
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </Deferred>
+                        </div>
+                    </TabsContent>
                 </Tabs>
             </div>
 
             {mediaParticipationId !== null && (
                 <ParticipationMediaSheet
                     participationId={mediaParticipationId.id}
-                    memberName={member.full_name_hi}
+                    memberName={member.full_name}
                     open={mediaParticipationId !== null}
                     onOpenChange={(o) => {
                         if (!o) {
@@ -2361,7 +2630,7 @@ export default function MembersShow({
 
                     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                         <p className="text-sm text-muted-foreground">
-                            {member.full_name_hi}
+                            {member.full_name}
                         </p>
 
                         <div className="space-y-2">

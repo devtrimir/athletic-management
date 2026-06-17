@@ -15,11 +15,11 @@ import { useTranslation } from '@/hooks/use-translation';
 type StatusHistoryItem = {
     status: string;
     effective_on: string;
-    reason_hi: string | null;
+    reason: string | null;
 };
 
 type TeamHistoryItem = {
-    team_name_hi: string | null;
+    team_name: string | null;
     session_name: string | null;
     role: string;
     joined_on: string | null;
@@ -39,9 +39,8 @@ type AchievementItem = {
 type MemberPreview = {
     id: number;
     pno: string | null;
-    full_name_hi: string;
-    full_name_en: string | null;
-    father_name_hi: string | null;
+    full_name: string;
+    father_name: string | null;
     rank: string | null;
     designation: string | null;
     gender: string;
@@ -59,14 +58,13 @@ type MemberPreview = {
     home_address: string | null;
     other_notes: string | null;
     team_since: string | null;
-    home_district: { name_hi: string } | null;
-    posting_district: { name_hi: string } | null;
-    current_unit: { name_hi: string } | null;
-    sport: { name_hi: string } | null;
+    home_district: { name: string } | null;
+    posting_district: { name: string } | null;
+    current_unit: { name: string } | null;
+    sport: { name: string } | null;
     playable_sports: Array<{
         id: number;
-        name_hi: string;
-        name_en: string;
+        name: string;
         role: string | null;
         position: string | null;
         notes: string | null;
@@ -141,16 +139,8 @@ function formatDisplayDate(value: string | null | undefined, locale: string): st
     }).format(date);
 }
 
-function localizedText(hi: string | null | undefined, en: string | null | undefined, locale: string): string | null {
-    if (locale === 'en') {
-        return en ?? hi ?? null;
-    }
-
-    return hi ?? en ?? null;
-}
-
 function postingLocation(data: MemberPreview): string | null {
-    return data.posting_district?.name_hi ?? data.current_unit?.name_hi ?? null;
+    return data.posting_district?.name ?? data.current_unit?.name ?? null;
 }
 
 function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
@@ -159,12 +149,12 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
 
     const statusRows = data.status_history.map(
         (h) =>
-            `<tr><td>${formatDisplayDate(h.effective_on, 'hi') ?? '—'}</td><td>${t(h.status)}</td><td>${h.reason_hi ?? '—'}</td></tr>`,
+            `<tr><td>${formatDisplayDate(h.effective_on, 'hi') ?? '—'}</td><td>${t(h.status)}</td><td>${h.reason ?? '—'}</td></tr>`,
     ).join('');
 
     const teamRows = data.team_history.map(
         (th) =>
-            `<tr><td>${th.team_name_hi ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${formatDisplayDate(th.joined_on, 'hi') ?? '—'}</td><td>${formatDisplayDate(th.left_on, 'hi') ?? t('Present')}</td></tr>`,
+            `<tr><td>${th.team_name ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${formatDisplayDate(th.joined_on, 'hi') ?? '—'}</td><td>${formatDisplayDate(th.left_on, 'hi') ?? t('Present')}</td></tr>`,
     ).join('');
 
     const achievementRows = data.achievements.map(
@@ -173,7 +163,7 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     ).join('');
 
     return `<!DOCTYPE html><html><head>
-    <meta charset="utf-8"><title>${data.full_name_hi}</title>
+    <meta charset="utf-8"><title>${data.full_name}</title>
     <style>
         body{font-family:Arial,sans-serif;padding:16px;font-size:11px;line-height:1.35;color:#111}
         h1{font-size:15px;margin:0 0 2px}
@@ -189,27 +179,27 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     </style>
     </head><body>
     <div class="header">
-        <h1>${localizedText(data.full_name_hi, data.full_name_en, 'hi') ?? data.full_name_hi}</h1>
+        <h1>${data.full_name}</h1>
         <span class="meta">${data.pno ? data.pno + ' · ' : ''}${t(data.current_status)}</span>
     </div>
     <h2>${t('Personal')}</h2>
-    ${row(t("Father's name"), data.father_name_hi)}
+    ${row(t("Father's name"), data.father_name)}
     ${row(t('Date of birth'), formatDisplayDate(data.dob, 'hi'))}
     ${row(t('Gender'), data.gender ? t(data.gender) : null)}
     ${row(t('Blood group'), data.blood_group)}
     ${row(t('Caste'), data.caste)}
     ${row(t('Mobile'), data.mobile)}
-    ${row(t('Home district'), data.home_district?.name_hi)}
+    ${row(t('Home district'), data.home_district?.name)}
     <h2>${t('Service')}</h2>
     ${row(t('Rank'), data.rank ? t(data.rank) : null)}
     ${row(t('Designation'), data.designation ? t(data.designation) : null)}
-    ${row(t('Current unit'), data.current_unit?.name_hi)}
+    ${row(t('Current unit'), data.current_unit?.name)}
     ${row(t('Posting unit / district'), postingLocation(data))}
     ${row(t('Joining date'), formatDisplayDate(data.joining_date, 'hi'))}
     ${row(t('Promotion date'), formatDisplayDate(data.promotion_date, 'hi'))}
     ${row(t('Appointment'), data.appointment)}
-    ${row(t('Sport'), data.sport?.name_hi)}
-    ${data.playable_sports.length ? `<div class="section"><h2>${t('Playable sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name_hi}</span><span class="val">${[sport.role, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
+    ${row(t('Sport'), data.sport?.name)}
+    ${data.playable_sports.length ? `<div class="section"><h2>${t('Playable sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name}</span><span class="val">${[sport.role, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
     ${row(t('Home address'), data.home_address)}
     ${row(t('Other notes'), data.other_notes)}
     ${row(t('Player level'), data.player_level ? t(data.player_level) : null)}
@@ -286,12 +276,7 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                         </div>
                     ) : (
                         <>
-                            <SheetTitle className="text-lg">{localizedText(data.full_name_hi, data.full_name_en, 'hi') ?? data.full_name_hi}</SheetTitle>
-                            {localizedText(data.full_name_hi, data.full_name_en, 'en') && (
-                                <p className="text-sm text-muted-foreground">
-                                    {localizedText(data.full_name_hi, data.full_name_en, 'en')}
-                                </p>
-                            )}
+                            <SheetTitle className="text-lg">{data.full_name}</SheetTitle>
                             <div className="flex flex-wrap items-center gap-2 pt-1">
                                 {data.pno && <span className="font-mono text-xs text-muted-foreground">{data.pno}</span>}
                                 {data.rank && <span className="text-xs font-medium">{t(data.rank)}</span>}
@@ -317,23 +302,23 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                     {data && (
                         <div className="py-2">
                             <Section title={t('Personal')}>
-                                <InfoRow label={t("Father's name")} value={data.father_name_hi} />
+                                <InfoRow label={t("Father's name")} value={data.father_name} />
                                 <InfoRow label={t('Date of birth')} value={formatDisplayDate(data.dob, 'hi')} />
                                 <InfoRow label={t('Gender')} value={data.gender ? t(data.gender) : null} />
                                 <InfoRow label={t('Blood group')} value={data.blood_group} />
                                 <InfoRow label={t('Caste')} value={data.caste} />
                                 <InfoRow label={t('Mobile')} value={data.mobile} />
-                                <InfoRow label={t('Home district')} value={data.home_district?.name_hi} />
+                                <InfoRow label={t('Home district')} value={data.home_district?.name} />
                             </Section>
 
                             <Section title={t('Service')}>
-                                <InfoRow label={t('Current unit')} value={data.current_unit?.name_hi} />
+                                <InfoRow label={t('Current unit')} value={data.current_unit?.name} />
                                 <InfoRow label={t('Posting unit / district')} value={postingLocation(data)} />
                                 <InfoRow label={t('Joining date')} value={formatDisplayDate(data.joining_date, 'hi')} />
                                 <InfoRow label={t('Promotion date')} value={formatDisplayDate(data.promotion_date, 'hi')} />
                                 <InfoRow label={t('Appointment')} value={data.appointment} />
                                 <InfoRow label={t('Designation')} value={data.designation ? t(data.designation) : null} />
-                                <InfoRow label={t('Sport')} value={data.sport?.name_hi} />
+                                <InfoRow label={t('Sport')} value={data.sport?.name} />
                                 <InfoRow label={t('Home address')} value={data.home_address} />
                                 <InfoRow label={t('Other notes')} value={data.other_notes} />
                                 <InfoRow label={t('Player level')} value={data.player_level ? t(data.player_level) : null} />
@@ -345,7 +330,7 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('Playable sports')}</p>
                                         {data.playable_sports.map((sport) => (
                                             <div key={sport.id} className="rounded-md border p-2 text-sm">
-                                                <p className="font-medium">{sport.name_hi}</p>
+                                                <p className="font-medium">{sport.name}</p>
                                                 <p className="text-xs text-muted-foreground">
                                                     {[sport.role, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}
                                                 </p>
@@ -369,7 +354,7 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                                 <div className="pb-3">
                                                     <span className="font-mono text-xs text-muted-foreground">{formatDisplayDate(h.effective_on, 'hi')}</span>
                                                     <p className="font-semibold">{t(h.status)}</p>
-                                                    {h.reason_hi && <p className="text-muted-foreground">{h.reason_hi}</p>}
+                                                    {h.reason && <p className="text-muted-foreground">{h.reason}</p>}
                                                 </div>
                                             </div>
                                         ))}
@@ -392,7 +377,7 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                         <TableBody>
                                             {data.team_history.map((th, i) => (
                                                 <TableRow key={i}>
-                                                    <TableCell className="font-medium">{th.team_name_hi ?? '—'}</TableCell>
+                                                    <TableCell className="font-medium">{th.team_name ?? '—'}</TableCell>
                                                     <TableCell>{th.session_name ?? '—'}</TableCell>
                                                     <TableCell>{t(th.role)}</TableCell>
                                                     <TableCell className="font-mono text-xs">{formatDisplayDate(th.joined_on, 'hi') ?? '—'}</TableCell>

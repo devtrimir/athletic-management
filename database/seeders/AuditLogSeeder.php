@@ -73,7 +73,7 @@ class AuditLogSeeder extends Seeder
         $members = DB::table('members')
             ->where('organization_id', $orgId)
             ->select([
-                'id', 'pno', 'full_name_hi', 'rank', 'gender',
+                'id', 'pno', 'full_name', 'rank', 'gender',
                 'player_category', 'player_level', 'current_status',
                 'joining_date', 'current_unit_id', 'home_district_id', 'posting_district_id', 'sport_id',
                 'created_at',
@@ -96,7 +96,7 @@ class AuditLogSeeder extends Seeder
 
             $diff = array_filter([
                 'pno' => $member->pno,
-                'full_name_hi' => $member->full_name_hi,
+                'full_name' => $member->full_name,
                 'rank' => $member->rank,
                 'gender' => $member->gender,
                 'player_category' => $member->player_category,
@@ -195,7 +195,7 @@ class AuditLogSeeder extends Seeder
                 'member_id' => $member->id,
                 'status' => $member->current_status,
                 'effective_on' => $effectiveOn->toDateString(),
-                'reason_hi' => $reasonHi,
+                'reason' => $reasonHi,
                 'recorded_by' => $userId,
                 'created_at' => $effectiveOn->toDateTimeString(),
                 'updated_at' => $effectiveOn->toDateTimeString(),
@@ -210,7 +210,7 @@ class AuditLogSeeder extends Seeder
         // Re-fetch to get auto-increment IDs for audit entries.
         $inserted = DB::table('member_status_history')
             ->whereIn('member_id', $nonActive->pluck('id'))
-            ->select(['id', 'member_id', 'status', 'effective_on', 'reason_hi', 'recorded_by', 'created_at'])
+            ->select(['id', 'member_id', 'status', 'effective_on', 'reason', 'recorded_by', 'created_at'])
             ->get()
             ->keyBy('member_id');
 
@@ -225,7 +225,7 @@ class AuditLogSeeder extends Seeder
                     'member_id' => $row->member_id,
                     'status' => $row->status,
                     'effective_on' => $row->effective_on,
-                    'reason_hi' => $row->reason_hi,
+                    'reason' => $row->reason,
                     'recorded_by' => $row->recorded_by,
                 ], static fn ($v) => $v !== null)),
                 'at' => $row->created_at,

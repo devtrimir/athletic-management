@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $organization_id
  * @property int $member_id
+ * @property int|null $session_id
  * @property string $period PRE_RECRUITMENT|POST_RECRUITMENT
  * @property string $level INTERNATIONAL|NATIONAL|AIPSC|STATE|ZONAL|OTHER
  * @property string $competition_details
@@ -33,15 +34,19 @@ use Illuminate\Support\Carbon;
  * @property string|null $sport_discipline
  * @property string|null $event
  * @property string|null $medal_type
+ * @property int|null $position
  * @property int|null $sort_order
+ * @property string|null $remarks
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Member $member
+ * @property-read SportSession|null $session
  * @property-read Collection<int, AchievementBenefit> $benefits
  */
 #[Fillable([
     'organization_id',
     'member_id',
+    'session_id',
     'period',
     'level',
     'competition_details',
@@ -50,7 +55,9 @@ use Illuminate\Support\Carbon;
     'sport_discipline',
     'event',
     'medal_type',
+    'position',
     'sort_order',
+    'remarks',
 ])]
 #[ObservedBy([AuditObserver::class])]
 class MemberLegacyAchievement extends Model
@@ -65,6 +72,7 @@ class MemberLegacyAchievement extends Model
     {
         return [
             'event_date' => 'date',
+            'position' => 'integer',
             'sort_order' => 'integer',
         ];
     }
@@ -73,6 +81,12 @@ class MemberLegacyAchievement extends Model
     public function member(): BelongsTo
     {
         return $this->belongsTo(Member::class);
+    }
+
+    /** @return BelongsTo<SportSession, $this> */
+    public function session(): BelongsTo
+    {
+        return $this->belongsTo(SportSession::class, 'session_id');
     }
 
     /**

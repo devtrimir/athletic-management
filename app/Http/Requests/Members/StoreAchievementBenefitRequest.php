@@ -31,4 +31,17 @@ class StoreAchievementBenefitRequest extends FormRequest
             'remarks' => ['nullable', 'string'],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'benefitable_type.in' => 'Cash reward can only be added for an event that has a recorded achievement.',
+            'cash_amount.numeric' => 'Enter the cash amount using digits only, without commas or currency symbols.',
+            'cash_amount.min' => 'The cash amount must be zero or more.',
+            'cash_amount.max' => 'The cash amount may not be greater than 99999999.99.',
+        ];
+    }
 }

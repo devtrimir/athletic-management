@@ -9,7 +9,7 @@ test('member_status_history table is created by migration', function () {
 });
 
 test('member_status_history table has all required columns', function () {
-    $columns = ['id', 'member_id', 'status', 'effective_on', 'reason_hi', 'recorded_by', 'created_at', 'updated_at'];
+    $columns = ['id', 'member_id', 'status', 'effective_on', 'reason', 'recorded_by', 'created_at', 'updated_at'];
 
     foreach ($columns as $column) {
         expect(Schema::hasColumn('member_status_history', $column))

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 // --- permissions ---
 
 test('permissions table has expected columns', function (): void {
-    expect(Schema::hasColumns('permissions', ['id', 'code', 'group', 'name_hi', 'name_en', 'description']))->toBeTrue();
+    expect(Schema::hasColumns('permissions', ['id', 'code', 'group', 'name', 'name', 'description']))->toBeTrue();
 });
 
 test('permission factory creates a valid record', function (): void {
@@ -30,7 +30,7 @@ test('permission code enforces unique constraint', function (): void {
 // --- roles ---
 
 test('roles table has expected columns', function (): void {
-    expect(Schema::hasColumns('roles', ['id', 'organization_id', 'code', 'name_hi', 'name_en', 'is_system', 'description']))->toBeTrue();
+    expect(Schema::hasColumns('roles', ['id', 'organization_id', 'code', 'name', 'name', 'is_system', 'description']))->toBeTrue();
 });
 
 test('role factory creates a valid record with organization', function (): void {

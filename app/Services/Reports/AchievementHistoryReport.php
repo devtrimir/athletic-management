@@ -19,9 +19,9 @@ class AchievementHistoryReport
      *
      * @param  array{session_id?: int|null, sport_id?: int|null, unit_id?: int|null, tier_id?: int|null, member_name?: string|null, pno?: string|null, tournament_id?: int|null, event_name?: string|null}  $filters
      * @return Collection<int, array{
-     *     member: array{id: int, member_code: string, pno: string|null, full_name_hi: string, rank: string|null},
-     *     tournament: array{id: int, name_hi: string, date_from: string|null, tier_label_hi: string|null, sport_name_hi: string|null},
-     *     event: array{id: int, name_hi: string, discipline: string|null},
+     *     member: array{id: int, member_code: string, pno: string|null, full_name: string, rank: string|null},
+     *     tournament: array{id: int, name: string, date_from: string|null, tier_label_hi: string|null, sport_name: string|null},
+     *     event: array{id: int, name: string, discipline: string|null},
      *     session: array{name: string},
      *     medal_type: string,
      *     position: int|null,
@@ -50,15 +50,15 @@ class AchievementHistoryReport
                 'm.id as member_id',
                 'm.member_code',
                 'm.pno',
-                'm.full_name_hi',
+                'm.full_name',
                 'm.rank',
                 't.id as tournament_id',
-                't.name_hi as tournament_name_hi',
+                't.name as tournament_name',
                 't.date_from',
                 'tt.label_hi as tier_label_hi',
-                's.name_hi as sport_name_hi',
+                's.name as sport_name',
                 'e.id as event_id',
-                'e.name_hi as event_name_hi',
+                'e.name as event_name',
                 'e.discipline',
                 'ss.name as session_name',
                 'a.medal_type',
@@ -71,12 +71,12 @@ class AchievementHistoryReport
             ->when($sportId, fn ($q) => $q->where('e.sport_id', $sportId))
             ->when($tierId, fn ($q) => $q->where('t.tier_id', $tierId))
             ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))
-            ->when($memberName, fn ($q) => $q->where('m.full_name_hi', 'like', "%{$memberName}%"))
+            ->when($memberName, fn ($q) => $q->where('m.full_name', 'like', "%{$memberName}%"))
             ->when($pno, fn ($q) => $q->where('m.pno', 'like', "%{$pno}%"))
             ->when($tournamentId, fn ($q) => $q->where('t.id', $tournamentId))
-            ->when($eventName, fn ($q) => $q->where('e.name_hi', 'like', "%{$eventName}%"))
+            ->when($eventName, fn ($q) => $q->where('e.name', 'like', "%{$eventName}%"))
             ->orderByDesc('t.date_from')
-            ->orderBy('m.full_name_hi')
+            ->orderBy('m.full_name')
             ->get();
 
         return $rows->map(fn (object $row): array => [
@@ -84,19 +84,19 @@ class AchievementHistoryReport
                 'id' => $row->member_id,
                 'member_code' => $row->member_code,
                 'pno' => $row->pno,
-                'full_name_hi' => $row->full_name_hi,
+                'full_name' => $row->full_name,
                 'rank' => $row->rank,
             ],
             'tournament' => [
                 'id' => $row->tournament_id,
-                'name_hi' => $row->tournament_name_hi,
+                'name' => $row->tournament_name,
                 'date_from' => $row->date_from !== null ? substr((string) $row->date_from, 0, 10) : null,
                 'tier_label_hi' => $row->tier_label_hi,
-                'sport_name_hi' => $row->sport_name_hi,
+                'sport_name' => $row->sport_name,
             ],
             'event' => [
                 'id' => $row->event_id,
-                'name_hi' => $row->event_name_hi,
+                'name' => $row->event_name,
                 'discipline' => $row->discipline,
             ],
             'session' => ['name' => $row->session_name ?? ''],

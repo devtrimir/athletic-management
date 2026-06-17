@@ -34,23 +34,23 @@ class EventController extends Controller
     {
         Gate::authorize('view', $tournament);
 
-        $event->load('sport:id,name_hi,name_en');
+        $event->load('sport:id,name');
 
         $orgId = $tournament->organization_id;
-        $sports = Sport::select(['id', 'name_hi', 'name_en'])
+        $sports = Sport::select(['id', 'name'])
             ->where('organization_id', $orgId)
-            ->orderBy('name_hi')
+            ->orderBy('name')
             ->get();
 
         return Inertia::render('events/show', [
             'tournament' => [
                 'id' => $tournament->id,
-                'name_hi' => $tournament->name_hi,
+                'name' => $tournament->name,
             ],
             'event' => [
                 'id' => $event->id,
                 'sport_id' => $event->sport_id,
-                'name_hi' => $event->name_hi,
+                'name' => $event->name,
                 'discipline' => $event->discipline,
                 'weight_category' => $event->weight_category,
                 'gender_class' => $event->gender_class,
@@ -61,7 +61,7 @@ class EventController extends Controller
             ],
             'sports' => $sports,
             'participations' => Inertia::defer(fn () => $event->participations()
-                ->with(['member:id,full_name_hi,member_code,pno', 'achievement'])
+                ->with(['member:id,full_name,member_code,pno', 'achievement'])
                 ->withCount('media')
                 ->orderBy('position')
                 ->get()
@@ -71,7 +71,7 @@ class EventController extends Controller
                     'media_files_count' => $p->media_count,
                     'member' => $p->member ? [
                         'id' => $p->member->id,
-                        'full_name_hi' => $p->member->full_name_hi,
+                        'full_name' => $p->member->full_name,
                         'member_code' => $p->member->member_code,
                         'pno' => $p->member->pno,
                     ] : null,

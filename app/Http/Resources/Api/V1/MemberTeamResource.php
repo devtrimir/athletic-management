@@ -24,7 +24,7 @@ class MemberTeamResource extends JsonResource
             'left_on' => $this->left_on?->toDateString(),
             'team' => [
                 'id' => $this->team->id,
-                'name_hi' => $this->team->name_hi,
+                'name' => $this->team->name,
             ],
             'sport' => [
                 'id' => $this->team->sport->id,

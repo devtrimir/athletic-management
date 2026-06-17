@@ -94,14 +94,14 @@ test('same member on different teams is allowed', function () {
         'sport_id' => $sport->id,
         'session_id' => $session->id,
         'unit_id' => $unit->id,
-        'name_hi' => 'टीम अ',
+        'name' => 'टीम अ',
     ]);
     $teamB = Team::factory()->create([
         'organization_id' => $org->id,
         'sport_id' => $sport->id,
         'session_id' => $session->id,
         'unit_id' => $unit->id,
-        'name_hi' => 'टीम ब',
+        'name' => 'टीम ब',
     ]);
     $member = Member::factory()->create(['organization_id' => $org->id]);
 

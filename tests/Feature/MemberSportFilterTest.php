@@ -49,15 +49,19 @@ function sportMemberUser(string ...$permissions): User
     return $user;
 }
 
-test('filter by sport_id returns only members of that sport', function () {
+test('filter by sport_id uses playable sports instead of legacy direct sport column', function () {
     $user = sportFilterUser();
     $org = $user->organization;
 
     $sportA = Sport::factory()->create(['organization_id' => $org->id]);
     $sportB = Sport::factory()->create(['organization_id' => $org->id]);
 
-    $inSport = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportA->id]);
-    Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportB->id]);
+    $inSport = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportB->id]);
+    $inSport->playableSports()->sync([$sportA->id]);
+
+    $legacyDirectSportOnly = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportA->id]);
+    $legacyDirectSportOnly->playableSports()->sync([$sportB->id]);
+
     Member::factory()->create(['organization_id' => $org->id, 'sport_id' => null]);
 
     $this->actingAs($user)
@@ -67,6 +71,38 @@ test('filter by sport_id returns only members of that sport', function () {
             ->component('members/index')
             ->where('members.total', 1)
             ->where('members.data.0.id', $inSport->id)
+        );
+});
+
+test('filter by sport_ids supports multiple playable sports', function () {
+    $user = sportFilterUser();
+    $org = $user->organization;
+
+    $sportA = Sport::factory()->create(['organization_id' => $org->id]);
+    $sportB = Sport::factory()->create(['organization_id' => $org->id]);
+    $sportC = Sport::factory()->create(['organization_id' => $org->id]);
+
+    $firstMatch = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportC->id]);
+    $firstMatch->playableSports()->sync([$sportA->id]);
+
+    $secondMatch = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => null]);
+    $secondMatch->playableSports()->sync([$sportB->id]);
+
+    $legacyDirectSportOnly = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportA->id]);
+    $legacyDirectSportOnly->playableSports()->sync([$sportC->id]);
+
+    $this->actingAs($user)
+        ->get(route('members.index', ['filter' => ['sport_ids' => [$sportA->id, $sportB->id]]]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('members.total', 2)
+            ->where('filters.sport_ids', [(string) $sportA->id, (string) $sportB->id])
+            ->where('members.data', fn ($members) => collect($members)
+                ->pluck('id')
+                ->sort()
+                ->values()
+                ->all() === collect([$firstMatch->id, $secondMatch->id])->sort()->values()->all())
         );
 });
 
@@ -80,14 +116,14 @@ test('member can be created without sport entries', function () {
     foreach (['members.view', 'members.create'] as $code) {
         $perm = Permission::firstOrCreate(
             ['code' => $code],
-            ['group' => 'members', 'name_hi' => $code, 'name_en' => $code],
+            ['group' => 'members', 'name_hi' => 'members.view', 'name_en' => 'members.view'],
         );
         DB::table('role_permission')->insert(['role_id' => $role->id, 'permission_id' => $perm->id]);
     }
 
     $this->actingAs($user)
         ->post(route('members.store'), [
-            'full_name_hi' => 'परीक्षण सदस्य',
+            'full_name' => 'परीक्षण सदस्य',
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
@@ -107,14 +143,14 @@ test('playable sports entries must exist in sports table', function () {
     foreach (['members.view', 'members.create'] as $code) {
         $perm = Permission::firstOrCreate(
             ['code' => $code],
-            ['group' => 'members', 'name_hi' => $code, 'name_en' => $code],
+            ['group' => 'members', 'name_hi' => 'members.view', 'name_en' => 'members.view'],
         );
         DB::table('role_permission')->insert(['role_id' => $role->id, 'permission_id' => $perm->id]);
     }
 
     $this->actingAs($user)
         ->post(route('members.store'), [
-            'full_name_hi' => 'परीक्षण',
+            'full_name' => 'परीक्षण',
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
@@ -136,7 +172,7 @@ test('store saves playable sports with metadata', function () {
 
     $this->actingAs($user)
         ->post(route('members.store'), [
-            'full_name_hi' => 'परीक्षण सदस्य',
+            'full_name' => 'परीक्षण सदस्य',
             'gender' => 'M',
             'player_category' => 'GD',
             'player_level' => 'ZONAL',

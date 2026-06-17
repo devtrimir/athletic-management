@@ -21,7 +21,7 @@ class MemberAliasController extends Controller
 
         NameAlias::create([
             'member_id' => $member->id,
-            'alias_hi' => $data['alias_hi'],
+            'alias' => $data['alias'],
             'source' => $data['source'],
         ]);
 

@@ -20,7 +20,7 @@ use Illuminate\Support\Carbon;
  * @property int $session_id
  * @property int $tier_id
  * @property int|null $sport_id
- * @property string $name_hi
+ * @property string $name
  * @property string|null $venue
  * @property Carbon|null $date_from
  * @property Carbon|null $date_to
@@ -38,7 +38,7 @@ use Illuminate\Support\Carbon;
     'session_id',
     'tier_id',
     'sport_id',
-    'name_hi',
+    'name',
     'venue',
     'date_from',
     'date_to',

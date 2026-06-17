@@ -46,7 +46,7 @@ test('rank prefix in query is stripped and finds member', function () {
     $user = normSearchUser('members.view');
     Member::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'राम कुमार',
+        'full_name' => 'राम कुमार',
     ]);
 
     // "दलनायक राम कुमार" normalizes to "राम कुमार" → should match the member
@@ -55,7 +55,7 @@ test('rank prefix in query is stripped and finds member', function () {
         ->assertOk();
 
     expect($response->json('meta.count'))->toBe(1)
-        ->and($response->json('data.0.full_name_hi'))->toBe('राम कुमार');
+        ->and($response->json('data.0.full_name'))->toBe('राम कुमार');
 });
 
 // ---------------------------------------------------------------------------
@@ -66,15 +66,15 @@ test('member is found when query matches an alias', function () {
     $user = normSearchUser('members.view');
     $member = Member::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'रामकुमार शर्मा',
+        'full_name' => 'रामकुमार शर्मा',
     ]);
     NameAlias::create([
         'member_id' => $member->id,
-        'alias_hi' => 'राम शर्मा',
+        'alias' => 'राम शर्मा',
         'source' => 'krutidev',
     ]);
 
-    // "राम शर्मा" does not appear in full_name_hi, only in alias
+    // "राम शर्मा" does not appear in full_name, only in alias
     $response = $this->actingAs($user)
         ->getJson(route('v1.search.members', ['q' => 'राम शर्मा']))
         ->assertOk();
@@ -87,11 +87,11 @@ test('soft-deleted member is not returned when found only via alias', function (
     $user = normSearchUser('members.view');
     $member = Member::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'रामकुमार शर्मा',
+        'full_name' => 'रामकुमार शर्मा',
     ]);
     NameAlias::create([
         'member_id' => $member->id,
-        'alias_hi' => 'राम शर्मा',
+        'alias' => 'राम शर्मा',
         'source' => 'manual',
     ]);
     $member->delete();
@@ -128,7 +128,7 @@ test('ZWJ in stored name is normalized by trigger; clean query finds member', fu
     DB::table('members')->insert([
         'organization_id' => $orgId,
         'member_code' => 'UPP-2026-ZWJ01',
-        'full_name_hi' => "राम\u{200D}कुमार",
+        'full_name' => "राम\u{200D}कुमार",
         'gender' => 'M',
         'player_category' => 'GD',
         'player_level' => 'ZONAL',

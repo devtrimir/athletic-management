@@ -18,14 +18,12 @@ const UNIT_TYPES = [
 
 type District = {
     id: number;
-    name_hi: string;
-    name_en: string;
+    name: string;
 };
 
 type Unit = {
     id: number;
-    name_hi: string;
-    name_en: string;
+    name: string;
     unit_type: string;
     commandant: string | null;
     district_id: number | null;
@@ -40,7 +38,7 @@ export default function Edit({ unit, districts }: { unit: Unit; districts: Distr
                 href: UnitController.index.url(),
             },
             {
-                title: unit.name_en,
+                title: unit.name,
                 href: UnitController.edit.url(unit.id),
             },
         ],
@@ -48,14 +46,14 @@ export default function Edit({ unit, districts }: { unit: Unit; districts: Distr
 
     return (
         <>
-            <Head title={`${t('Edit')} ${unit.name_en}`} />
+            <Head title={`${t('Edit')} ${unit.name}`} />
 
-            <h1 className="sr-only">{t('Edit')} {unit.name_en}</h1>
+            <h1 className="sr-only">{t('Edit')} {unit.name}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title={`${t('Edit')} ${unit.name_en}`}
+                    title={`${t('Edit')} ${unit.name}`}
                     description={t('Update unit details')}
                 />
 
@@ -65,27 +63,15 @@ export default function Edit({ unit, districts }: { unit: Unit; districts: Distr
                             <div className="rounded-xl border bg-card p-6 space-y-5">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name_hi">{t('Name (Hindi)')}</Label>
+                                        <Label htmlFor="name">{t('Name')}</Label>
                                         <Input
-                                            id="name_hi"
-                                            name="name_hi"
-                                            defaultValue={unit.name_hi}
+                                            id="name"
+                                            name="name"
+                                            defaultValue={unit.name}
                                             maxLength={100}
                                             required
                                         />
-                                        <InputError message={errors.name_hi} />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="name_en">{t('Name (English)')}</Label>
-                                        <Input
-                                            id="name_en"
-                                            name="name_en"
-                                            defaultValue={unit.name_en}
-                                            maxLength={100}
-                                            required
-                                        />
-                                        <InputError message={errors.name_en} />
+                                        <InputError message={errors.name} />
                                     </div>
                                 </div>
 
@@ -130,7 +116,7 @@ export default function Edit({ unit, districts }: { unit: Unit; districts: Distr
                                             <SelectContent>
                                                 {districts.map((d) => (
                                                     <SelectItem key={d.id} value={String(d.id)}>
-                                                        {d.name_en}
+                                                        {d.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

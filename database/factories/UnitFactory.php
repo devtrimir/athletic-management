@@ -22,8 +22,7 @@ class UnitFactory extends Factory
 
         return [
             'organization_id' => Organization::factory(),
-            'name_hi' => fake()->words(2, true),
-            'name_en' => fake()->words(2, true),
+            'name' => fake()->words(2, true),
             'unit_type' => fake()->randomElement($types),
             'commandant' => null,
             'district_id' => null,

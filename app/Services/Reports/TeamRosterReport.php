@@ -17,8 +17,8 @@ class TeamRosterReport
      *
      * @param  array{session_id: int|null, sport_id: int|null, unit_id: int|null, tier_id: int|null}  $filters
      * @return Collection<int, array{
-     *     team: array{id: int, name_hi: string, in_charge_hi: string|null, sport: array{id: int, name_hi: string}, session: array{id: int, name: string}, unit: array{name_hi: string}},
-     *     members: list<array{member: array{id: int, member_code: string, full_name_hi: string, rank: string|null, player_level: string|null}, role: string, joined_on: string|null, left_on: string|null}>
+     *     team: array{id: int, name: string, in_charge: string|null, sport: array{id: int, name: string}, session: array{id: int, name: string}, unit: array{name: string}},
+     *     members: list<array{member: array{id: int, member_code: string, full_name: string, rank: string|null, player_level: string|null}, role: string, joined_on: string|null, left_on: string|null}>
      * }>
      */
     public function run(int $orgId, array $filters): Collection
@@ -38,16 +38,16 @@ class TeamRosterReport
             })
             ->select([
                 't.id as team_id',
-                't.name_hi as team_name_hi',
-                't.in_charge_hi',
+                't.name as team_name',
+                't.in_charge',
                 'sp.id as sport_id',
-                'sp.name_hi as sport_name_hi',
+                'sp.name as sport_name',
                 'ss.id as session_id',
                 'ss.name as session_name',
-                'u.name_hi as unit_name_hi',
+                'u.name as unit_name',
                 'm.id as member_id',
                 'm.member_code',
-                'm.full_name_hi as member_name_hi',
+                'm.full_name as member_name',
                 'm.rank',
                 'm.player_level',
                 'tm.role',
@@ -60,7 +60,7 @@ class TeamRosterReport
             ->when($sportId, fn ($q) => $q->where('t.sport_id', $sportId))
             ->when($unitId, fn ($q) => $q->where('t.unit_id', $unitId))
             ->orderByDesc('ss.start_year')
-            ->orderBy('t.name_hi')
+            ->orderBy('t.name')
             ->orderByRaw("CASE tm.role WHEN 'CAPTAIN' THEN 0 WHEN 'PLAYER' THEN 1 ELSE 2 END")
             ->get();
 
@@ -74,7 +74,7 @@ class TeamRosterReport
                         'member' => [
                             'id' => $r->member_id,
                             'member_code' => $r->member_code,
-                            'full_name_hi' => $r->member_name_hi,
+                            'full_name' => $r->member_name,
                             'rank' => $r->rank,
                             'player_level' => $r->player_level,
                         ],
@@ -88,11 +88,11 @@ class TeamRosterReport
                 return [
                     'team' => [
                         'id' => $first->team_id,
-                        'name_hi' => $first->team_name_hi,
-                        'in_charge_hi' => $first->in_charge_hi,
-                        'sport' => ['id' => $first->sport_id,    'name_hi' => $first->sport_name_hi],
+                        'name' => $first->team_name,
+                        'in_charge' => $first->in_charge,
+                        'sport' => ['id' => $first->sport_id,    'name' => $first->sport_name],
                         'session' => ['id' => $first->session_id,  'name' => $first->session_name],
-                        'unit' => ['name_hi' => $first->unit_name_hi],
+                        'unit' => ['name' => $first->unit_name],
                     ],
                     'members' => $members,
                 ];

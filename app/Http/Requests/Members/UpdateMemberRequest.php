@@ -24,9 +24,8 @@ class UpdateMemberRequest extends FormRequest
 
         return [
             'pno' => ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('members', 'pno')->where('organization_id', $orgId)->ignore($memberId)],
-            'full_name_hi' => ['sometimes', 'required', 'string', 'max:255'],
-            'full_name_en' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'father_name_hi' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'full_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'father_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'rank' => ['sometimes', 'nullable', 'string', 'max:100'],
             'designation' => ['sometimes', 'nullable', 'string', 'max:100'],
             'gender' => ['sometimes', 'required', Rule::in(['M', 'F', 'O'])],

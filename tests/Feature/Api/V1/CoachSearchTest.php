@@ -72,24 +72,24 @@ test('returns matching coaches in correct contract shape', function () {
     $user = coachSearchUser('coaches.view');
     Coach::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'राम प्रसाद',
+        'full_name' => 'राम प्रसाद',
     ]);
     Coach::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'श्याम सुंदर',
+        'full_name' => 'श्याम सुंदर',
     ]);
 
     $response = $this->actingAs($user)
         ->getJson(route('v1.search.coaches', ['q' => 'राम']))
         ->assertOk()
         ->assertJsonStructure([
-            'data' => [['id', 'full_name_hi', 'full_name_en', 'pno', 'nis_certified']],
+            'data' => [['id', 'full_name', 'full_name', 'pno', 'nis_certified']],
             'meta' => ['q', 'count'],
         ]);
 
     $data = $response->json('data');
     expect(count($data))->toBe(1)
-        ->and($data[0]['full_name_hi'])->toBe('राम प्रसाद');
+        ->and($data[0]['full_name'])->toBe('राम प्रसाद');
 });
 
 test('PNO exact match returns the correct coach', function () {
@@ -97,7 +97,7 @@ test('PNO exact match returns the correct coach', function () {
     Coach::factory()->create([
         'organization_id' => $user->organization_id,
         'pno' => '9876543',
-        'full_name_hi' => 'राम प्रसाद',
+        'full_name' => 'राम प्रसाद',
     ]);
 
     $response = $this->actingAs($user)
@@ -113,7 +113,7 @@ test('cross-org coaches are not returned', function () {
     $otherOrg = Organization::factory()->create();
     Coach::factory()->create([
         'organization_id' => $otherOrg->id,
-        'full_name_hi' => 'राम प्रसाद',
+        'full_name' => 'राम प्रसाद',
     ]);
 
     $response = $this->actingAs($user)
@@ -127,7 +127,7 @@ test('soft-deleted coach is not returned', function () {
     $user = coachSearchUser('coaches.view');
     $coach = Coach::factory()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'राम प्रसाद',
+        'full_name' => 'राम प्रसाद',
     ]);
     $coach->delete();
 
@@ -142,7 +142,7 @@ test('nis_certified field is cast to boolean', function () {
     $user = coachSearchUser('coaches.view');
     Coach::factory()->nisCertified()->create([
         'organization_id' => $user->organization_id,
-        'full_name_hi' => 'राम प्रसाद',
+        'full_name' => 'राम प्रसाद',
     ]);
 
     $response = $this->actingAs($user)

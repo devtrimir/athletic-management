@@ -20,8 +20,7 @@ class StoreUnitRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name_hi' => ['required', 'string', 'max:100'],
-            'name_en' => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100'],
             'unit_type' => ['required', 'string', Rule::in(['PAC', 'GRP', 'DISTRICT', 'HQ', 'OTHER'])],
             'commandant' => ['nullable', 'string', 'max:100'],
             'district_id' => ['nullable', 'integer', 'exists:districts,id'],

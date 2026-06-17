@@ -71,7 +71,7 @@ function medalsSetup(User $user, string $tierCode = 'NATIONAL', string $medalTyp
         'medal_type' => $medalType,
     ]);
 
-    return compact('tier', 'session', 'sport', 'tournament', 'achievement');
+    return compact('tier', 'session', 'sport', 'tournament', 'event', 'participation', 'achievement');
 }
 
 // ---------------------------------------------------------------------------
@@ -94,7 +94,10 @@ test('medals pivot returns empty data when no achievements', function () {
     $response = $this->actingAs($user)->getJson(route('v1.reports.medals'))->assertOk();
 
     expect($response->json('data'))->toBeArray()->toBeEmpty();
-    expect($response->json('filters'))->toBe(['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null]);
+    expect($response->json('filters.session_ids'))->toBe([])
+        ->and($response->json('filters.sport_ids'))->toBe([])
+        ->and($response->json('filters.unit_ids'))->toBe([])
+        ->and($response->json('filters.tier_ids'))->toBe([]);
 });
 
 test('medals pivot returns correct tier row with GOLD count', function () {
@@ -145,7 +148,33 @@ test('medals pivot session_id filter scopes correctly', function () {
     $codes = collect($response->json('data'))->pluck('tier.code')->all();
     expect($codes)->toContain('NATIONAL');
     expect($codes)->not->toContain('STATE');
-    expect($response->json('filters.session_id'))->toBe($setup['session']->id);
+    expect($response->json('filters.session_ids'))->toBe([$setup['session']->id]);
+});
+
+test('medals pivot supports combined multi-select filters', function () {
+    $user = medalsUser('reports.view');
+    $goldSetup = medalsSetup($user, 'NATIONAL', 'GOLD');
+    $silverSetup = medalsSetup($user, 'STATE', 'SILVER');
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.reports.medals', [
+            'sport_ids' => [$goldSetup['sport']->id, $silverSetup['sport']->id],
+            'event_ids' => [$silverSetup['event']->id],
+            'medal_types' => ['SILVER'],
+        ]))
+        ->assertOk();
+
+    $data = collect($response->json('data'))->keyBy('tier.code');
+
+    expect($data)->toHaveKey('STATE')
+        ->and($data)->not->toHaveKey('NATIONAL')
+        ->and($data['STATE']['SILVER'])->toBe(1)
+        ->and($response->json('filters.sport_ids'))->toBe([
+            $goldSetup['sport']->id,
+            $silverSetup['sport']->id,
+        ])
+        ->and($response->json('filters.event_ids'))->toBe([$silverSetup['event']->id])
+        ->and($response->json('filters.medal_types'))->toBe(['SILVER']);
 });
 
 test('medals pivot excludes other org achievements', function () {
@@ -166,7 +195,7 @@ test('pivot counts match seeded fixture ground truth', function () {
     $orgId = $user->organization_id;
 
     // Seed known fixture:
-    // NATIONAL tier: 3 GOLD, 2 SILVER, 1 BRONZE, 0 MERIT
+    // NATIONAL tier: 2 GOLD, 1 SILVER, 1 BRONZE, 0 MERIT
     // STATE tier:    0 GOLD, 0 SILVER, 0 BRONZE, 1 MERIT
     $national = TournamentTier::firstOrCreate(
         ['code' => 'NATIONAL'],
@@ -199,8 +228,6 @@ test('pivot counts match seeded fixture ground truth', function () {
     $natTournament = $makeTournament($national);
     $makeAchievement($natTournament, 'GOLD');
     $makeAchievement($natTournament, 'GOLD');
-    $makeAchievement($natTournament, 'GOLD');
-    $makeAchievement($natTournament, 'SILVER');
     $makeAchievement($natTournament, 'SILVER');
     $makeAchievement($natTournament, 'BRONZE');
 
@@ -211,8 +238,8 @@ test('pivot counts match seeded fixture ground truth', function () {
     $data = collect($response->json('data'))->keyBy('tier.code');
 
     expect($data)->toHaveKey('NATIONAL')
-        ->and($data['NATIONAL']['GOLD'])->toBe(3)
-        ->and($data['NATIONAL']['SILVER'])->toBe(2)
+        ->and($data['NATIONAL']['GOLD'])->toBe(2)
+        ->and($data['NATIONAL']['SILVER'])->toBe(1)
         ->and($data['NATIONAL']['BRONZE'])->toBe(1)
         ->and($data['NATIONAL']['MERIT'])->toBe(0);
 

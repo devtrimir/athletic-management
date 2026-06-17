@@ -332,8 +332,8 @@ class PlayerPerformanceReportPage
                 }
 
                 return strcmp(
-                    (string) data_get($left, 'member.full_name_hi', ''),
-                    (string) data_get($right, 'member.full_name_hi', ''),
+                    (string) data_get($left, 'member.full_name', ''),
+                    (string) data_get($right, 'member.full_name', ''),
                 );
             })
             ->values();
@@ -409,7 +409,7 @@ class PlayerPerformanceReportPage
             ],
             'sport' => [
                 'key' => (string) data_get($row, 'sport.id', '0'),
-                'label' => (string) (data_get($row, 'sport.name_hi') ?? '—'),
+                'label' => (string) (data_get($row, 'sport.name') ?? '—'),
                 'dimension' => 'sport',
                 'dimension_id' => data_get($row, 'sport.id'),
             ],
@@ -421,19 +421,19 @@ class PlayerPerformanceReportPage
             ],
             'district' => [
                 'key' => (string) data_get($row, 'member.district.id', '0'),
-                'label' => (string) (data_get($row, 'member.district.name_hi') ?? '—'),
+                'label' => (string) (data_get($row, 'member.district.name') ?? '—'),
                 'dimension' => 'district',
                 'dimension_id' => data_get($row, 'member.district.id'),
             ],
             'unit' => [
                 'key' => (string) data_get($row, 'member.unit.id', '0'),
-                'label' => (string) (data_get($row, 'member.unit.name_hi') ?? '—'),
+                'label' => (string) (data_get($row, 'member.unit.name') ?? '—'),
                 'dimension' => 'unit',
                 'dimension_id' => data_get($row, 'member.unit.id'),
             ],
             'member' => [
                 'key' => (string) data_get($row, 'member.id', '0'),
-                'label' => (string) (data_get($row, 'member.full_name_hi') ?? '—'),
+                'label' => (string) (data_get($row, 'member.full_name') ?? '—'),
                 'dimension' => 'member',
                 'dimension_id' => data_get($row, 'member.id'),
             ],

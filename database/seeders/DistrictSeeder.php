@@ -23,16 +23,15 @@ class DistrictSeeder extends Seeder
                 continue;
             }
 
-            [$nameHi, $nameEn, $code] = $line;
+            [$name, $code] = $line;
 
             $rows[] = [
-                'name_hi' => $nameHi,
-                'name_en' => $nameEn,
+                'name' => $name,
                 'state' => 'Uttar Pradesh',
                 'code' => $code,
             ];
         }
 
-        District::upsert($rows, uniqueBy: ['code'], update: ['name_hi', 'name_en', 'state', 'updated_at']);
+        District::upsert($rows, uniqueBy: ['code'], update: ['name', 'state', 'updated_at']);
     }
 }

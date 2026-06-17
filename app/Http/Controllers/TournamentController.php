@@ -37,12 +37,12 @@ class TournamentController extends Controller
                 AllowedFilter::exact('session_id'),
                 AllowedFilter::exact('tier_id'),
                 AllowedFilter::exact('sport_id'),
-                AllowedFilter::partial('q', 'name_hi'),
+                AllowedFilter::partial('q', 'name'),
             ])
-            ->allowedSorts(['name_hi', 'date_from', 'created_at'])
+            ->allowedSorts(['name', 'date_from', 'created_at'])
             ->defaultSort('-date_from')
             ->withCount('events')
-            ->with(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name_hi,name_en'])
+            ->with(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name'])
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
                 fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -55,8 +55,8 @@ class TournamentController extends Controller
             ->orderBy('name')
             ->get();
 
-        $sports = Sport::select(['id', 'name_hi', 'name_en'])
-            ->orderBy('name_hi')
+        $sports = Sport::select(['id', 'name'])
+            ->orderBy('name')
             ->get();
 
         $tiers = TournamentTier::select(['id', 'code', 'label_hi', 'label_en'])
@@ -100,26 +100,26 @@ class TournamentController extends Controller
     {
         Gate::authorize('view', $tournament);
 
-        $tournament->load(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name_hi,name_en']);
+        $tournament->load(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name']);
 
         $orgId = (int) $tournament->organization_id;
 
-        $sports = Sport::select(['id', 'name_hi', 'name_en'])
+        $sports = Sport::select(['id', 'name'])
             ->where('organization_id', $orgId)
-            ->orderBy('name_hi')
+            ->orderBy('name')
             ->get();
 
         return Inertia::render('tournaments/show', [
             'tournament' => (new TournamentResource($tournament))->resolve(),
             'sports' => $sports,
             'events' => Inertia::defer(fn () => $tournament->events()
-                ->with('sport:id,name_hi,name_en')
+                ->with('sport:id,name')
                 ->withCount('participations')
-                ->orderBy('name_hi')
+                ->orderBy('name')
                 ->get()
                 ->map(fn ($event) => [
                     'id' => $event->id,
-                    'name_hi' => $event->name_hi,
+                    'name' => $event->name,
                     'discipline' => $event->discipline,
                     'weight_category' => $event->weight_category,
                     'gender_class' => $event->gender_class,
@@ -140,7 +140,7 @@ class TournamentController extends Controller
 
         return Inertia::render('tournaments/edit', array_merge(
             $this->formOptions($orgId),
-            ['tournament' => $tournament->load(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name_hi,name_en'])],
+            ['tournament' => $tournament->load(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name'])],
         ));
     }
 
@@ -176,8 +176,8 @@ class TournamentController extends Controller
                 ->where('organization_id', $orgId)
                 ->orderBy('name')
                 ->get(),
-            'sports' => Sport::select(['id', 'name_hi', 'name_en'])
-                ->orderBy('name_hi')
+            'sports' => Sport::select(['id', 'name'])
+                ->orderBy('name')
                 ->get(),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en'])
                 ->orderByDesc('weight')

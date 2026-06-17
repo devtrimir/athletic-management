@@ -9,7 +9,7 @@ test('name_aliases table is created by migration', function () {
 });
 
 test('name_aliases table has all required columns', function () {
-    $columns = ['id', 'member_id', 'alias_hi', 'alias_normalized', 'source', 'created_at', 'updated_at'];
+    $columns = ['id', 'member_id', 'alias', 'alias_normalized', 'source', 'created_at', 'updated_at'];
 
     foreach ($columns as $column) {
         expect(Schema::hasColumn('name_aliases', $column))

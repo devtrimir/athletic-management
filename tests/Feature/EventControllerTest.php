@@ -62,7 +62,7 @@ function makeEventPayload(User $user): array
 
     return [
         'sport_id' => $sport->id,
-        'name_hi' => 'दौड़ 100 मीटर',
+        'name' => 'दौड़ 100 मीटर',
         'discipline' => null,
         'weight_category' => null,
         'gender_class' => 'M',
@@ -99,20 +99,20 @@ test('store creates event and redirects to event show', function () {
 
     $this->assertDatabaseHas('events', [
         'tournament_id' => $tournament->id,
-        'name_hi' => 'दौड़ 100 मीटर',
+        'name' => 'दौड़ 100 मीटर',
         'gender_class' => 'M',
     ]);
 });
 
-test('store requires name_hi', function () {
+test('store requires name', function () {
     $user = eventUser('tournaments.update');
     $tournament = makeTournamentForUser($user);
     $payload = makeEventPayload($user);
-    unset($payload['name_hi']);
+    unset($payload['name']);
 
     $this->actingAs($user)
         ->post(route('tournaments.events.store', $tournament), $payload)
-        ->assertSessionHasErrors('name_hi');
+        ->assertSessionHasErrors('name');
 });
 
 test('store requires valid gender_class', function () {
@@ -188,7 +188,7 @@ test('show returns event in Inertia props', function () {
             ->component('events/show')
             ->has('tournament.id')
             ->has('event.id')
-            ->has('event.name_hi')
+            ->has('event.name')
             ->has('event.gender_class')
         );
 });

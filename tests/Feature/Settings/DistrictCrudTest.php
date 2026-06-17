@@ -61,8 +61,8 @@ test('create page redirects guest', function (): void {
 test('store creates district and redirects', function (): void {
     $this->actingAs($this->admin)
         ->post(route('districts.store'), [
-            'name_hi' => 'लखनऊ',
-            'name_en' => 'Lucknow',
+            'name' => 'लखनऊ',
+            'name' => 'Lucknow',
             'state' => 'Uttar Pradesh',
             'code' => 'LKO',
         ])
@@ -74,7 +74,7 @@ test('store creates district and redirects', function (): void {
 test('store validates required fields', function (): void {
     $this->actingAs($this->admin)
         ->post(route('districts.store'), [])
-        ->assertSessionHasErrors(['name_hi', 'name_en', 'state', 'code']);
+        ->assertSessionHasErrors(['name', 'name', 'state', 'code']);
 });
 
 test('store validates code uniqueness', function (): void {
@@ -82,8 +82,8 @@ test('store validates code uniqueness', function (): void {
 
     $this->actingAs($this->admin)
         ->post(route('districts.store'), [
-            'name_hi' => 'लखनऊ नया',
-            'name_en' => 'Lucknow New',
+            'name' => 'लखनऊ नया',
+            'name' => 'Lucknow New',
             'state' => 'Uttar Pradesh',
             'code' => 'LKO',
         ])
@@ -98,8 +98,8 @@ test('store returns 403 for user without permission', function (): void {
 
     $this->actingAs($user)
         ->post(route('districts.store'), [
-            'name_hi' => 'लखनऊ',
-            'name_en' => 'Lucknow',
+            'name' => 'लखनऊ',
+            'name' => 'Lucknow',
             'state' => 'Uttar Pradesh',
             'code' => 'LKO',
         ])
@@ -128,20 +128,20 @@ test('edit page redirects guest', function (): void {
 
 test('update saves changes and redirects', function (): void {
     $district = District::factory()->create([
-        'name_en' => 'Lucknow',
+        'name' => 'Lucknow',
         'code' => 'LKO',
     ]);
 
     $this->actingAs($this->admin)
         ->patch(route('districts.update', $district), [
-            'name_hi' => 'लखनऊ',
-            'name_en' => 'Lucknow Updated',
+            'name' => 'लखनऊ',
+            'name' => 'Lucknow Updated',
             'state' => 'Uttar Pradesh',
             'code' => 'LKO',
         ])
         ->assertRedirect(route('districts.index'));
 
-    expect($district->refresh()->name_en)->toBe('Lucknow Updated');
+    expect($district->refresh()->name)->toBe('Lucknow Updated');
 });
 
 test('update allows same code on self', function (): void {
@@ -149,8 +149,8 @@ test('update allows same code on self', function (): void {
 
     $this->actingAs($this->admin)
         ->patch(route('districts.update', $district), [
-            'name_hi' => 'लखनऊ',
-            'name_en' => 'Lucknow',
+            'name' => 'लखनऊ',
+            'name' => 'Lucknow',
             'state' => 'Uttar Pradesh',
             'code' => 'LKO',
         ])
@@ -162,7 +162,7 @@ test('update validates required fields', function (): void {
 
     $this->actingAs($this->admin)
         ->patch(route('districts.update', $district), [])
-        ->assertSessionHasErrors(['name_hi', 'name_en', 'state', 'code']);
+        ->assertSessionHasErrors(['name', 'name', 'state', 'code']);
 });
 
 test('update returns 403 for user without permission', function (): void {
@@ -174,8 +174,8 @@ test('update returns 403 for user without permission', function (): void {
 
     $this->actingAs($user)
         ->patch(route('districts.update', $district), [
-            'name_hi' => 'लखनऊ',
-            'name_en' => 'Lucknow',
+            'name' => 'लखनऊ',
+            'name' => 'Lucknow',
             'state' => 'Uttar Pradesh',
             'code' => 'LKO',
         ])
