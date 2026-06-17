@@ -128,9 +128,7 @@ type StatusEntry = {
 type Alias = { id: number; alias: string; source: string };
 
 function displayPostingLocation(member: Member): string | null {
-    return (
-        member.posting_district?.name ?? member.current_unit?.name ?? null
-    );
+    return member.posting_district?.name ?? member.current_unit?.name ?? null;
 }
 
 function parseDateValue(value: string): Date | null {
@@ -788,8 +786,7 @@ export default function MembersShow({
 
         for (const group of filteredSessionGroups) {
             for (const participation of group.participations) {
-                const tier =
-                    participation.tournament.tier_code ?? t('Unknown');
+                const tier = participation.tournament.tier_code ?? t('Unknown');
                 const existing = groups.get(tier);
 
                 if (existing) {
@@ -1150,9 +1147,6 @@ export default function MembersShow({
                         <TabsTrigger value="overview">
                             {t('Overview')}
                         </TabsTrigger>
-                        <TabsTrigger value="status">
-                            {t('Status history')}
-                        </TabsTrigger>
                         <TabsTrigger value="teams">{t('Teams')}</TabsTrigger>
                         <TabsTrigger value="events">
                             {t('Achievements')}
@@ -1167,6 +1161,9 @@ export default function MembersShow({
                             {t('Change log')}
                         </TabsTrigger>
                         <TabsTrigger value="media">{t('Media')}</TabsTrigger>
+                        <TabsTrigger value="status">
+                            {t('Status history')}
+                        </TabsTrigger>
                     </TabsList>
 
                     {/* Overview */}
@@ -1366,83 +1363,6 @@ export default function MembersShow({
                         </div>
                     </TabsContent>
 
-                    {/* Status history */}
-                    <TabsContent value="status">
-                        <div className="space-y-4 rounded-xl border bg-card p-6">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-sm font-medium">
-                                    {t('Status history')}
-                                </h3>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setStatusOpen(true)}
-                                >
-                                    {t('Change status')}
-                                </Button>
-                                <StatusChangeModal
-                                    member={member}
-                                    open={statusOpen}
-                                    onOpenChange={setStatusOpen}
-                                />
-                            </div>
-                            <Deferred
-                                data="statusHistory"
-                                fallback={
-                                    <div className="space-y-2">
-                                        {[1, 2, 3].map((n) => (
-                                            <Skeleton
-                                                key={n}
-                                                className="h-10 w-full"
-                                            />
-                                        ))}
-                                    </div>
-                                }
-                            >
-                                <div className="divide-y">
-                                    {(statusHistory ?? []).length === 0 ? (
-                                        <p className="py-4 text-sm text-muted-foreground">
-                                            {t('No status records.')}
-                                        </p>
-                                    ) : (
-                                        (statusHistory ?? []).map((row) => (
-                                            <div
-                                                key={row.id}
-                                                className="flex items-center justify-between py-3 text-sm"
-                                            >
-                                                <div className="space-y-0.5">
-                                                    <Badge variant="outline">
-                                                        {t(row.status)}
-                                                    </Badge>
-                                                    {row.reason && (
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {row.reason}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="text-right text-xs text-muted-foreground">
-                                                    <p>
-                                                        {formatDisplayDate(
-                                                            row.effective_on,
-                                                            pageLocale,
-                                                        )}
-                                                    </p>
-                                                    {row.recorded_by_name && (
-                                                        <p>
-                                                            {
-                                                                row.recorded_by_name
-                                                            }
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </Deferred>
-                        </div>
-                    </TabsContent>
-
                     {/* Aliases */}
                     <TabsContent value="aliases">
                         <div className="rounded-xl border bg-card p-6">
@@ -1497,7 +1417,9 @@ export default function MembersShow({
                                     {t('Member achievements')}
                                 </h3>
                                 <p className="text-sm text-muted-foreground">
-                                    {t('Competition achievements recorded through tournaments, events, medals, and benefits.')}
+                                    {t(
+                                        'Competition achievements recorded through tournaments, events, medals, and benefits.',
+                                    )}
                                 </p>
                             </div>
                             {loadingParticipations ||
@@ -1543,11 +1465,7 @@ export default function MembersShow({
                                                         {medal.label}
                                                     </span>
                                                     <span className="text-xl font-bold">
-                                                        {
-                                                            achievementSummary[
-                                                                m
-                                                            ]
-                                                        }
+                                                        {achievementSummary[m]}
                                                     </span>
                                                 </div>
                                             );
@@ -2036,10 +1954,8 @@ export default function MembersShow({
                                                                                         }
                                                                                     </span>
                                                                                     <span className="text-xs text-muted-foreground">
-                                                                                        {
-                                                                                            rows.length +
-                                                                                                manualRows.length
-                                                                                        }{' '}
+                                                                                        {rows.length +
+                                                                                            manualRows.length}{' '}
                                                                                         {t(
                                                                                             'records',
                                                                                         )}
@@ -2305,204 +2221,211 @@ export default function MembersShow({
                                                                             );
                                                                         },
                                                                     )}
-                                                                    {manualRows.map((achievement) => {
-                                                                        const nonCashBenefits =
-                                                                            achievement.benefits.filter(
-                                                                                (
-                                                                                    benefit,
-                                                                                ) =>
-                                                                                    !benefit.cash_amount,
-                                                                            );
-                                                                        const prizeMoney =
-                                                                            legacyPrizeMoney(
-                                                                                achievement.benefits,
-                                                                            );
+                                                                    {manualRows.map(
+                                                                        (
+                                                                            achievement,
+                                                                        ) => {
+                                                                            const nonCashBenefits =
+                                                                                achievement.benefits.filter(
+                                                                                    (
+                                                                                        benefit,
+                                                                                    ) =>
+                                                                                        !benefit.cash_amount,
+                                                                                );
+                                                                            const prizeMoney =
+                                                                                legacyPrizeMoney(
+                                                                                    achievement.benefits,
+                                                                                );
 
-                                                                        return (
-                                                                            <TableRow
-                                                                                key={`legacy-achievement-${achievement.id}`}
-                                                                            >
-                                                                                <TableCell>
-                                                                                    <span
-                                                                                        className={eventBadgeClass(
-                                                                                            'tier',
-                                                                                        )}
-                                                                                    >
-                                                                                        {tier}
-                                                                                    </span>
-                                                                                </TableCell>
-                                                                                <TableCell>
-                                                                                    <div className="space-y-1">
-                                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                            return (
+                                                                                <TableRow
+                                                                                    key={`legacy-achievement-${achievement.id}`}
+                                                                                >
+                                                                                    <TableCell>
+                                                                                        <span
+                                                                                            className={eventBadgeClass(
+                                                                                                'tier',
+                                                                                            )}
+                                                                                        >
+                                                                                            {
+                                                                                                tier
+                                                                                            }
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1">
+                                                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                                                <span className="font-medium">
+                                                                                                    {
+                                                                                                        achievement.competition_details
+                                                                                                    }
+                                                                                                </span>
+                                                                                                <Badge
+                                                                                                    variant="outline"
+                                                                                                    className="h-5 rounded-full border-emerald-200 bg-emerald-50 px-2 text-[10px] font-semibold tracking-[0.18em] text-emerald-700 uppercase"
+                                                                                                >
+                                                                                                    {t(
+                                                                                                        'Legacy',
+                                                                                                    )}
+                                                                                                </Badge>
+                                                                                            </div>
+                                                                                            <p className="text-xs text-muted-foreground">
+                                                                                                {achievement.session
+                                                                                                    ? `${achievement.session.name} · `
+                                                                                                    : ''}
+                                                                                                {achievement.event_date ??
+                                                                                                    t(
+                                                                                                        'No date',
+                                                                                                    )}
+                                                                                                {achievement.venue
+                                                                                                    ? ` · ${achievement.venue}`
+                                                                                                    : ''}
+                                                                                            </p>
+                                                                                            {achievement.remarks ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {
+                                                                                                        achievement.remarks
+                                                                                                    }
+                                                                                                </p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1">
                                                                                             <span className="font-medium">
+                                                                                                {achievement.event ??
+                                                                                                    achievement.sport_discipline ??
+                                                                                                    '—'}
+                                                                                            </span>
+                                                                                            {achievement.sport_discipline &&
+                                                                                            achievement.event ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {
+                                                                                                        achievement.sport_discipline
+                                                                                                    }
+                                                                                                </p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {achievement.position ? (
+                                                                                            <span className="text-xs font-medium text-foreground">
+                                                                                                #
                                                                                                 {
-                                                                                                    achievement.competition_details
+                                                                                                    achievement.position
                                                                                                 }
                                                                                             </span>
-                                                                                            <Badge
-                                                                                                variant="outline"
-                                                                                                className="h-5 rounded-full border-emerald-200 bg-emerald-50 px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700"
-                                                                                        >
-                                                                                            {t(
-                                                                                                'Legacy',
-                                                                                            )}
-                                                                                        </Badge>
-                                                                                        </div>
-                                                                                    <p className="text-xs text-muted-foreground">
-                                                                                        {achievement.session
-                                                                                            ? `${achievement.session.name} · `
-                                                                                            : ''}
-                                                                                        {achievement.event_date ??
-                                                                                            t(
-                                                                                                'No date',
-                                                                                            )}
-                                                                                        {achievement.venue
-                                                                                            ? ` · ${achievement.venue}`
-                                                                                            : ''}
-                                                                                    </p>
-                                                                                    {achievement.remarks ? (
-                                                                                        <p className="text-xs text-muted-foreground">
-                                                                                            {
-                                                                                                achievement.remarks
-                                                                                            }
-                                                                                        </p>
-                                                                                    ) : null}
-                                                                                </div>
-                                                                            </TableCell>
-                                                                                <TableCell>
-                                                                                    <div className="space-y-1">
-                                                                                        <span className="font-medium">
-                                                                                            {achievement.event ??
-                                                                                                achievement.sport_discipline ??
-                                                                                                '—'}
-                                                                                        </span>
-                                                                                        {achievement.sport_discipline &&
-                                                                                        achievement.event ? (
-                                                                                            <p className="text-xs text-muted-foreground">
-                                                                                                {
-                                                                                                    achievement.sport_discipline
-                                                                                                }
-                                                                                            </p>
-                                                                                        ) : null}
-                                                                                    </div>
-                                                                                </TableCell>
-                                                                            <TableCell>
-                                                                                {achievement.position ? (
-                                                                                    <span className="text-xs font-medium text-foreground">
-                                                                                        #
-                                                                                        {
-                                                                                            achievement.position
-                                                                                        }
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span className="text-xs text-muted-foreground">
-                                                                                        —
-                                                                                    </span>
-                                                                                )}
-                                                                            </TableCell>
-                                                                                <TableCell>
-                                                                                    {achievement.medal_type ? (
-                                                                                        <div className="flex flex-wrap items-center gap-2">
-                                                                                            {(() => {
-                                                                                                const medal =
-                                                                                                    medalBadgeContent(
-                                                                                                        achievement.medal_type,
-                                                                                                    );
+                                                                                        ) : (
+                                                                                            <span className="text-xs text-muted-foreground">
+                                                                                                —
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {achievement.medal_type ? (
+                                                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                                                {(() => {
+                                                                                                    const medal =
+                                                                                                        medalBadgeContent(
+                                                                                                            achievement.medal_type,
+                                                                                                        );
 
-                                                                                                return (
-                                                                                                    <span
-                                                                                                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
-                                                                                                    >
-                                                                                                        {
-                                                                                                            medal.icon
-                                                                                                        }
-                                                                                                        {
-                                                                                                            medal.label
-                                                                                                        }
-                                                                                                    </span>
-                                                                                                );
-                                                                                            })()}
-                                                                                            <Badge
-                                                                                                variant="outline"
-                                                                                                className="h-5 rounded-full px-2 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                                                                                        >
-                                                                                            {t(
-                                                                                                'Legacy',
-                                                                                            )}
-                                                                                        </Badge>
-                                                                                        </div>
-                                                                                    ) : (
+                                                                                                    return (
+                                                                                                        <span
+                                                                                                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
+                                                                                                        >
+                                                                                                            {
+                                                                                                                medal.icon
+                                                                                                            }
+                                                                                                            {
+                                                                                                                medal.label
+                                                                                                            }
+                                                                                                        </span>
+                                                                                                    );
+                                                                                                })()}
+                                                                                                <Badge
+                                                                                                    variant="outline"
+                                                                                                    className="h-5 rounded-full px-2 text-[10px] font-semibold tracking-[0.18em] uppercase"
+                                                                                                >
+                                                                                                    {t(
+                                                                                                        'Legacy',
+                                                                                                    )}
+                                                                                                </Badge>
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <span className="text-xs text-muted-foreground">
+                                                                                                —
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
                                                                                         <span className="text-xs text-muted-foreground">
                                                                                             —
                                                                                         </span>
-                                                                                    )}
-                                                                                </TableCell>
-                                                                                <TableCell>
-                                                                                    <span className="text-xs text-muted-foreground">
-                                                                                        —
-                                                                                    </span>
-                                                                                </TableCell>
-                                                                                <TableCell>
-                                                                                    <div className="flex flex-wrap gap-1.5">
-                                                                                        {nonCashBenefits.length >
-                                                                                        0 ? (
-                                                                                            nonCashBenefits.map(
-                                                                                                (
-                                                                                                    benefit,
-                                                                                                ) => (
-                                                                                                    <span
-                                                                                                        key={
-                                                                                                            benefit.id
-                                                                                                        }
-                                                                                                        className={eventBadgeClass(
-                                                                                                            'benefit',
-                                                                                                        )}
-                                                                                                    >
-                                                                                                        {t(
-                                                                                                            benefit.benefit_type,
-                                                                                                        )}
-                                                                                                    </span>
-                                                                                                ),
-                                                                                            )
-                                                                                        ) : (
-                                                                                            <span className="text-xs text-muted-foreground">
-                                                                                                —
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </TableCell>
-                                                                                <TableCell>
-                                                                                    <div className="space-y-1.5">
-                                                                                        {prizeMoney.length >
-                                                                                        0 ? (
-                                                                                            prizeMoney.map(
-                                                                                                (
-                                                                                                    amount,
-                                                                                                    index,
-                                                                                                ) => (
-                                                                                                    <div
-                                                                                                        key={`legacy-achievement-${achievement.id}-amount-${index}`}
-                                                                                                        className="text-xs font-medium text-foreground"
-                                                                                                    >
-                                                                                                        {
-                                                                                                            amount
-                                                                                                        }
-                                                                                                    </div>
-                                                                                                ),
-                                                                                            )
-                                                                                        ) : (
-                                                                                            <span className="text-xs text-muted-foreground">
-                                                                                                —
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </TableCell>
-                                                                            </TableRow>
-                                                                        );
-                                                                    })}
-                                                        </Fragment>
-                                                    );
-                                                })}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                                            {nonCashBenefits.length >
+                                                                                            0 ? (
+                                                                                                nonCashBenefits.map(
+                                                                                                    (
+                                                                                                        benefit,
+                                                                                                    ) => (
+                                                                                                        <span
+                                                                                                            key={
+                                                                                                                benefit.id
+                                                                                                            }
+                                                                                                            className={eventBadgeClass(
+                                                                                                                'benefit',
+                                                                                                            )}
+                                                                                                        >
+                                                                                                            {t(
+                                                                                                                benefit.benefit_type,
+                                                                                                            )}
+                                                                                                        </span>
+                                                                                                    ),
+                                                                                                )
+                                                                                            ) : (
+                                                                                                <span className="text-xs text-muted-foreground">
+                                                                                                    —
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1.5">
+                                                                                            {prizeMoney.length >
+                                                                                            0 ? (
+                                                                                                prizeMoney.map(
+                                                                                                    (
+                                                                                                        amount,
+                                                                                                        index,
+                                                                                                    ) => (
+                                                                                                        <div
+                                                                                                            key={`legacy-achievement-${achievement.id}-amount-${index}`}
+                                                                                                            className="text-xs font-medium text-foreground"
+                                                                                                        >
+                                                                                                            {
+                                                                                                                amount
+                                                                                                            }
+                                                                                                        </div>
+                                                                                                    ),
+                                                                                                )
+                                                                                            ) : (
+                                                                                                <span className="text-xs text-muted-foreground">
+                                                                                                    —
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                </TableRow>
+                                                                            );
+                                                                        },
+                                                                    )}
+                                                                </Fragment>
+                                                            );
+                                                        },
+                                                    )}
                                                 </TableBody>
                                             </Table>
                                         </div>
@@ -2515,7 +2438,9 @@ export default function MembersShow({
                                         {t('Legacy achievements')}
                                     </h3>
                                     <p className="text-sm text-muted-foreground">
-                                        {t('Pre-recruitment and historical achievements recorded outside the current competition workflow.')}
+                                        {t(
+                                            'Pre-recruitment and historical achievements recorded outside the current competition workflow.',
+                                        )}
                                     </p>
                                 </div>
                                 <LegacyAchievementsTab
@@ -2597,6 +2522,83 @@ export default function MembersShow({
                                 canDelete={canDeleteMedia}
                             />
                         )}
+                    </TabsContent>
+
+                    {/* Status history */}
+                    <TabsContent value="status">
+                        <div className="space-y-4 rounded-xl border bg-card p-6">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-medium">
+                                    {t('Status history')}
+                                </h3>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setStatusOpen(true)}
+                                >
+                                    {t('Change status')}
+                                </Button>
+                                <StatusChangeModal
+                                    member={member}
+                                    open={statusOpen}
+                                    onOpenChange={setStatusOpen}
+                                />
+                            </div>
+                            <Deferred
+                                data="statusHistory"
+                                fallback={
+                                    <div className="space-y-2">
+                                        {[1, 2, 3].map((n) => (
+                                            <Skeleton
+                                                key={n}
+                                                className="h-10 w-full"
+                                            />
+                                        ))}
+                                    </div>
+                                }
+                            >
+                                <div className="divide-y">
+                                    {(statusHistory ?? []).length === 0 ? (
+                                        <p className="py-4 text-sm text-muted-foreground">
+                                            {t('No status records.')}
+                                        </p>
+                                    ) : (
+                                        (statusHistory ?? []).map((row) => (
+                                            <div
+                                                key={row.id}
+                                                className="flex items-center justify-between py-3 text-sm"
+                                            >
+                                                <div className="space-y-0.5">
+                                                    <Badge variant="outline">
+                                                        {t(row.status)}
+                                                    </Badge>
+                                                    {row.reason && (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {row.reason}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="text-right text-xs text-muted-foreground">
+                                                    <p>
+                                                        {formatDisplayDate(
+                                                            row.effective_on,
+                                                            pageLocale,
+                                                        )}
+                                                    </p>
+                                                    {row.recorded_by_name && (
+                                                        <p>
+                                                            {
+                                                                row.recorded_by_name
+                                                            }
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </Deferred>
+                        </div>
                     </TabsContent>
                 </Tabs>
             </div>

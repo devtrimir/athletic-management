@@ -7,7 +7,9 @@ namespace App\Services;
 use App\Models\Achievement;
 use App\Models\AuditLog;
 use App\Models\Coach;
+use App\Models\CoachAlias;
 use App\Models\CoachAssignment;
+use App\Models\CoachStatusHistory;
 use App\Models\District;
 use App\Models\Member;
 use App\Models\MemberLegacyAchievement;
@@ -455,8 +457,31 @@ class AuditLogBuilder
     public function forCoach(Coach $coach): array
     {
         $coachAssignmentIds = CoachAssignment::where('coach_id', $coach->id)->pluck('id');
+        $coachAliasIds = CoachAlias::where('coach_id', $coach->id)->pluck('id');
+        $coachStatusHistoryIds = CoachStatusHistory::where('coach_id', $coach->id)->pluck('id');
 
         $logs = AuditLog::where('entity', 'Coach')->where('entity_id', $coach->id)->get();
+
+        foreach ([
+            ['entity' => 'CoachAlias', 'ids' => $coachAliasIds],
+            ['entity' => 'CoachStatusHistory', 'ids' => $coachStatusHistoryIds],
+        ] as ['entity' => $entity, 'ids' => $ids]) {
+            $logs = $logs->merge(
+                AuditLog::where('entity', $entity)
+                    ->whereIn('action', ['created', 'deleted'])
+                    ->whereRaw("JSON_EXTRACT(diff, '$.coach_id') = ?", [$coach->id])
+                    ->get()
+            );
+
+            if ($ids->isNotEmpty()) {
+                $logs = $logs->merge(
+                    AuditLog::where('entity', $entity)
+                        ->where('action', 'updated')
+                        ->whereIn('entity_id', $ids)
+                        ->get()
+                );
+            }
+        }
 
         $logs = $logs->merge(
             AuditLog::where('entity', 'CoachAssignment')
@@ -482,6 +507,8 @@ class AuditLogBuilder
 
         $subjectMap = [
             'Coach' => 'Coach',
+            'CoachAlias' => 'Alias',
+            'CoachStatusHistory' => 'Status',
             'CoachAssignment' => 'Team assignment',
         ];
 
@@ -492,6 +519,18 @@ class AuditLogBuilder
                 'mobile' => 'Mobile',
                 'nis_certified' => 'NIS certified',
                 'member_id' => 'Linked member',
+                'coach_status' => 'Status',
+                'photo_path' => 'Photo',
+            ],
+            'CoachAlias' => [
+                'alias' => 'Alias',
+                'source' => 'Source',
+            ],
+            'CoachStatusHistory' => [
+                'status' => 'Status',
+                'effective_on' => 'Effective on',
+                'reason' => 'Reason',
+                'recorded_by' => 'Recorded by',
             ],
             'CoachAssignment' => [
                 'team_id' => 'Team',
@@ -502,11 +541,13 @@ class AuditLogBuilder
 
         $hiddenFields = [
             'Coach' => ['id', 'organization_id', 'deleted_at'],
+            'CoachAlias' => ['id', 'coach_id', 'alias_normalized'],
+            'CoachStatusHistory' => ['id', 'coach_id'],
             'CoachAssignment' => ['id', 'coach_id'],
         ];
 
         $resolve = function (string $entity, string $field, mixed $value, array $diff = []) use (
-            $sessionMap, $teamMap, $memberMap
+            $sessionMap, $teamMap, $memberMap, $userMap
         ): ?string {
             if ($value === null) {
                 return null;
@@ -516,6 +557,7 @@ class AuditLogBuilder
                 $field === 'session_id' => $sessionMap->get((int) $value) ?? (string) $value,
                 $field === 'team_id' => $teamMap->get((int) $value) ?? (string) $value,
                 $field === 'member_id' => $memberMap->get((int) $value) ?? (string) $value,
+                $field === 'recorded_by' => $userMap->get((int) $value) ?? (string) $value,
                 default => (string) $value,
             };
         };

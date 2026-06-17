@@ -94,6 +94,10 @@ return new class extends Migration
             return;
         }
 
+        if (! $this->isMySqlDriver()) {
+            return;
+        }
+
         Schema::table('coaches', function (Blueprint $table): void {
             if (! Schema::hasColumn('coaches', 'blood_group')) {
                 $table->enum('blood_group', ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'])->nullable()->after('photo_path');
@@ -146,10 +150,6 @@ return new class extends Migration
                 );
             }
         });
-
-        if (! $this->isMySqlDriver()) {
-            return;
-        }
 
         Schema::table('coaches', function (Blueprint $table): void {
             if (Schema::hasColumn('coaches', 'tier_master_id') && $this->foreignKeyExists('coaches_tier_master_id_foreign')) {

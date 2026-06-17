@@ -33,6 +33,18 @@ return [
         ['code' => 'coaches.create', 'group' => 'coaches', 'name_hi' => 'कोच जोड़ें',    'name_en' => 'Create coaches'],
         ['code' => 'coaches.update', 'group' => 'coaches', 'name_hi' => 'कोच अपडेट करें', 'name_en' => 'Update coaches'],
         ['code' => 'coaches.delete', 'group' => 'coaches', 'name_hi' => 'कोच हटाएं',     'name_en' => 'Delete coaches'],
+        ['code' => 'coaches.export', 'group' => 'coaches', 'name_hi' => 'कोच निर्यात करें', 'name_en' => 'Export coaches'],
+        ['code' => 'coaches.print', 'group' => 'coaches', 'name_hi' => 'कोच प्रिंट करें', 'name_en' => 'Print coaches'],
+        ['code' => 'coaches.uploadMedia', 'group' => 'coaches', 'name_hi' => 'कोच मीडिया अपलोड करें', 'name_en' => 'Upload coach media'],
+        ['code' => 'coaches.deleteMedia', 'group' => 'coaches', 'name_hi' => 'कोच मीडिया हटाएं', 'name_en' => 'Delete coach media'],
+        ['code' => 'coaches.manageCertifications', 'group' => 'coaches', 'name_hi' => 'कोच प्रमाणपत्र प्रबंधित करें', 'name_en' => 'Manage coach certifications'],
+        ['code' => 'coaches.manageSports', 'group' => 'coaches', 'name_hi' => 'कोच खेल प्रबंधित करें', 'name_en' => 'Manage coach sports'],
+        ['code' => 'coaches.manageTeamAssignments', 'group' => 'coaches', 'name_hi' => 'कोच टीम असाइनमेंट प्रबंधित करें', 'name_en' => 'Manage coach team assignments'],
+        ['code' => 'coaches.manageStatus', 'group' => 'coaches', 'name_hi' => 'कोच स्थिति प्रबंधित करें', 'name_en' => 'Manage coach status'],
+        ['code' => 'coaches.manageAchievements', 'group' => 'coaches', 'name_hi' => 'कोच उपलब्धियाँ प्रबंधित करें', 'name_en' => 'Manage coach achievements'],
+        ['code' => 'coaches.managePromotions', 'group' => 'coaches', 'name_hi' => 'कोच पदोन्नति प्रबंधित करें', 'name_en' => 'Manage coach promotions'],
+        ['code' => 'coaches.manageRewards', 'group' => 'coaches', 'name_hi' => 'कोच पुरस्कार प्रबंधित करें', 'name_en' => 'Manage coach rewards'],
+        ['code' => 'coaches.viewAuditLog', 'group' => 'coaches', 'name_hi' => 'कोच ऑडिट लॉग देखें', 'name_en' => 'View coach audit log'],
 
         // ── Teams ─────────────────────────────────────────────────────────────
         ['code' => 'teams.view',   'group' => 'teams', 'name_hi' => 'टीम देखें',    'name_en' => 'View teams'],

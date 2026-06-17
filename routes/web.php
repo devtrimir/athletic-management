@@ -2,8 +2,11 @@
 
 use App\Http\Controllers\AchievementBenefitController;
 use App\Http\Controllers\Api\V1\MemberAuditLogController;
+use App\Http\Controllers\CoachAliasController;
 use App\Http\Controllers\CoachController;
 use App\Http\Controllers\CoachExportController;
+use App\Http\Controllers\CoachPhotoController;
+use App\Http\Controllers\CoachStatusController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventParticipantController;
@@ -42,6 +45,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('coaches/export', [CoachExportController::class, 'index'])->name('coaches.export');
     Route::resource('coaches', CoachController::class);
     Route::get('coaches/{coach}/export', [CoachExportController::class, 'show'])->name('coaches.export.show');
+    Route::post('coaches/{coach}/status', [CoachStatusController::class, 'store'])->name('coaches.status.store');
+    Route::post('coaches/{coach}/aliases', [CoachAliasController::class, 'store'])->name('coaches.aliases.store');
+    Route::delete('coaches/{coach}/aliases/{alias}', [CoachAliasController::class, 'destroy'])->name('coaches.aliases.destroy');
+    Route::post('coaches/{coach}/photo', [CoachPhotoController::class, 'store'])->name('coaches.photo.store');
+    Route::delete('coaches/{coach}/photo', [CoachPhotoController::class, 'destroy'])->name('coaches.photo.destroy');
     Route::get('teams/export', [TeamExportController::class, 'index'])->name('teams.export');
     Route::resource('teams', TeamController::class);
     Route::get('tournaments/export', [TournamentExportController::class, 'index'])->name('tournaments.export');

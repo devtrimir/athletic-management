@@ -6,7 +6,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Coaches\StoreCoachRequest;
 use App\Http\Requests\Coaches\UpdateCoachRequest;
+use App\Http\Resources\CoachAliasResource;
 use App\Http\Resources\CoachResource;
+use App\Http\Resources\CoachStatusHistoryResource;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\Designation;
@@ -283,7 +285,8 @@ class CoachController extends Controller
                     $query->where(function (Builder $q) use ($term): void {
                         $q->whereRaw('LOWER(full_name) LIKE ?', [$term])
                             ->orWhereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$term])
-                            ->orWhereRaw('LOWER(COALESCE(pno, \'\')) LIKE ?', [$term]);
+                            ->orWhereRaw('LOWER(COALESCE(pno, \'\')) LIKE ?', [$term])
+                            ->orWhereHas('aliases', fn (Builder $aliasQuery) => $aliasQuery->whereRaw('LOWER(alias) LIKE ?', [$term]));
                     });
                 }),
             ])
@@ -328,7 +331,7 @@ class CoachController extends Controller
                 ->pluck('coach_certifications.certificate_type')
                 ->filter()
                 ->values(),
-            'coachStatuses' => ['ACTIVE', 'INACTIVE', 'RETIRED'],
+            'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
         ]);
     }
@@ -350,7 +353,7 @@ class CoachController extends Controller
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
             'nisMasters' => NisMaster::query()->active()->ordered()->get(),
-            'coachStatuses' => ['ACTIVE', 'INACTIVE', 'RETIRED'],
+            'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
         ]);
     }
@@ -363,7 +366,7 @@ class CoachController extends Controller
 
         $coach = DB::transaction(function () use ($request, $payload): Coach {
             $payload['organization_id'] = (int) $request->user()->organization_id;
-            $payload['display_name'] = $payload['display_name'] ?: $payload['full_name'];
+            $payload['display_name'] = ($payload['display_name'] ?? null) ?: $payload['full_name'];
             $payload['coach_status'] = $payload['coach_status'] ?? 'ACTIVE';
             $payload['designation'] = $payload['designation'] ?? null;
 
@@ -393,6 +396,11 @@ class CoachController extends Controller
             'rankMaster:id,code,name,short_name',
             'designationMaster:id,code,name,short_name',
             'member:id,member_code,full_name,pno,rank,designation,mobile,home_unit_id',
+            'aliases:id,coach_id,alias,source',
+            'statusHistory' => fn ($q) => $q
+                ->with('recorder:id,name')
+                ->orderByDesc('effective_on')
+                ->orderByDesc('id'),
             'certifications:id,coach_id,name,certificate_type,issuer,issued_at,expired_at,attachment_path,metadata',
             'assignmentHistory' => fn ($q) => $q
                 ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
@@ -418,6 +426,8 @@ class CoachController extends Controller
                     'sport' => $ca->team?->sport ? ['id' => $ca->team->sport->id, 'name' => $ca->team->sport->name] : null,
                     'session' => $ca->session ? ['id' => $ca->session->id, 'name' => $ca->session->name] : null,
                 ])),
+            'aliases' => Inertia::defer(fn () => CoachAliasResource::collection($coach->aliases)->resolve()),
+            'statusHistory' => Inertia::defer(fn () => CoachStatusHistoryResource::collection($coach->statusHistory)->resolve()),
             'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forCoach($coach)),
         ]);
     }
@@ -460,7 +470,7 @@ class CoachController extends Controller
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
             'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'protectedSports' => $protectedSports,
-            'coachStatuses' => ['ACTIVE', 'INACTIVE', 'RETIRED'],
+            'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
         ]);
     }

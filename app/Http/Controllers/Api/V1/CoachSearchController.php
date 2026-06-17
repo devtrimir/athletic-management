@@ -69,7 +69,8 @@ class CoachSearchController extends Controller
                     ->orWhere('mobile', 'LIKE', '%'.$q.'%')
                     ->orWhere('designation', 'LIKE', '%'.$q.'%')
                     ->orWhere('email', 'LIKE', '%'.$q.'%')
-                    ->orWhere('coach_status', 'LIKE', '%'.$q.'%');
+                    ->orWhere('coach_status', 'LIKE', '%'.$q.'%')
+                    ->orWhereHas('aliases', fn ($aliasQuery) => $aliasQuery->where('alias', 'LIKE', '%'.$q.'%'));
             })
             ->with('member:id,member_code')
             ->with([

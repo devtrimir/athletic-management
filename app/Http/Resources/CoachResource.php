@@ -56,6 +56,22 @@ class CoachResource extends JsonResource
                 'rank' => $this->member->rank,
                 'mobile' => $this->member->mobile,
             ]),
+            'aliases' => $this->whenLoaded('aliases', fn () => $this->aliases
+                ->map(fn ($alias) => [
+                    'id' => $alias->id,
+                    'alias' => $alias->alias,
+                    'source' => $alias->source,
+                ])
+                ->values()),
+            'status_history' => $this->whenLoaded('statusHistory', fn () => $this->statusHistory
+                ->map(fn ($history) => [
+                    'id' => $history->id,
+                    'status' => $history->status,
+                    'effective_on' => $history->effective_on->toDateString(),
+                    'reason' => $history->reason,
+                    'recorded_by_name' => $history->recorder?->name,
+                ])
+                ->values()),
             'certifications' => $this->whenLoaded('certifications', fn () => $this->certifications
                 ->map(fn ($cert) => [
                     'id' => $cert->id,

@@ -283,6 +283,25 @@ test('member promotion updates cash reward fields', function () {
     expect($promotion->cash_reward_remarks)->toBe('Updated reward.');
 });
 
+test('cash reward validation explains when selected event has no achievement', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $tournament = Tournament::factory()->forOrganization($member->organization)->create();
+    $event = Event::factory()->forTournament($tournament)->create();
+    $participation = Participation::factory()->for($member)->forEvent($event)->create();
+
+    $response = $this->actingAs($user)->postJson(route('achievement-benefits.store'), [
+        'benefitable_type' => 'participation',
+        'benefitable_id' => $participation->id,
+        'benefit_type' => 'CASH_AWARD',
+        'cash_amount' => '5000.00',
+    ]);
+
+    $response->assertInvalid([
+        'benefitable_type' => 'Cash reward can only be added for an event that has a recorded achievement.',
+    ]);
+});
+
 test('member promotion accepts uploaded order documents', function () {
     Storage::fake('public');
 

@@ -38,7 +38,7 @@ class StoreCoachRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'gender' => ['nullable', Rule::in(['M', 'F', 'O'])],
             'date_of_birth' => ['nullable', 'date'],
-            'coach_status' => ['nullable', Rule::in(['ACTIVE', 'INACTIVE', 'RETIRED'])],
+            'coach_status' => ['nullable', Rule::in(['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'])],
             'bio' => ['nullable', 'string', 'max:4000'],
             'address' => ['nullable', 'string', 'max:4000'],
             'photo_path' => ['nullable', 'string', 'max:255'],

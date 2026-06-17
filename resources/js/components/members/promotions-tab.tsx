@@ -1,5 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Combobox } from '@/components/combobox';
 import type { ComboboxItem } from '@/components/combobox';
@@ -18,6 +19,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 import {
@@ -46,7 +54,14 @@ type LiveAchievement = {
     session: { id: number; name: string };
     tournament: { id: number; name: string; tier_code: string | null };
     event: { id: number; name: string };
-    benefits: { id: number; benefit_type: string }[];
+    benefits: {
+        id: number;
+        benefit_type: string;
+        cash_amount: string | null;
+        benefit_date: string | null;
+        order_reference: string | null;
+        remarks: string | null;
+    }[];
 };
 
 type ParticipationItem = {
@@ -60,6 +75,7 @@ type ParticipationItem = {
     };
     event: { id: number; name: string; gender_class: string };
     achievement: {
+        id: number;
         medal_type: string;
         position: number | null;
         remarks: string | null;
@@ -69,12 +85,13 @@ type ParticipationItem = {
             cash_amount: string | null;
             benefit_date: string | null;
             order_reference: string | null;
+            remarks: string | null;
         }[];
     } | null;
 };
 
 type ParticipationGroup = {
-    session: { id: number; name: string };
+    session: { id: number; name: string; is_current?: boolean };
     participations: ParticipationItem[];
 };
 
@@ -87,7 +104,10 @@ type PromotionEvidenceRef = { type: PromotionEvidence['type']; id: number };
 type RewardOption = {
     key: string;
     label: string;
-    target: { type: 'participation'; id: number } | null;
+    target: { type: 'achievement'; id: number } | null;
+};
+type SelectedRewardOption = RewardOption & {
+    target: NonNullable<RewardOption['target']>;
 };
 type PromotionBenefit = {
     id: number;
@@ -154,6 +174,52 @@ function evidenceKey(type: string, id: number): string {
     return `${type}:${id}`;
 }
 
+function currentSessionId(participations: ParticipationGroup[]): string {
+    return String(
+        participations.find((group) => group.session.is_current)?.session.id ??
+            participations[0]?.session.id ??
+            '',
+    );
+}
+
+function participationGroupsForSession(
+    participations: ParticipationGroup[],
+    sessionId: string,
+): ParticipationGroup[] {
+    if (!sessionId) {
+        return [];
+    }
+
+    return participations.filter(
+        (group) => String(group.session.id) === sessionId,
+    );
+}
+
+function sessionById(
+    participations: ParticipationGroup[],
+    sessionId: string,
+): ParticipationGroup['session'] | undefined {
+    return participations.find(
+        (group) => String(group.session.id) === sessionId,
+    )?.session;
+}
+
+function sessionStartDate(
+    session?: ParticipationGroup['session'],
+): string | undefined {
+    if (!session?.is_current) {
+        return undefined;
+    }
+
+    const match = session.name.match(/(\d{4})/);
+
+    return match ? `${match[1]}-01-01` : undefined;
+}
+
+function isBeforeDate(value: string, minDate?: string): boolean {
+    return Boolean(value && minDate && value < minDate);
+}
+
 function rankDisplay(rank: RankOption): string {
     const label = rank.name;
 
@@ -207,7 +273,7 @@ function benefitBadgeText(
 }
 
 function medalBadgeContent(medalType: string): {
-    icon: JSX.Element;
+    icon: ReactElement;
     label: string;
     className: string;
 } {
@@ -246,10 +312,7 @@ function medalBadgeContent(medalType: string): {
     }
 }
 
-function resolveRankLabel(
-    value: string | null,
-    ranks: RankOption[],
-): string {
+function resolveRankLabel(value: string | null, ranks: RankOption[]): string {
     if (!value) {
         return '';
     }
@@ -680,6 +743,16 @@ function PromotionDialog({
         [promotion],
     );
     const [selected, setSelected] = useState<string[]>(selectedDefaults);
+    const [selectedSessionId, setSelectedSessionId] = useState(() =>
+        currentSessionId(participations),
+    );
+    const selectedParticipationGroups = useMemo(
+        () => participationGroupsForSession(participations, selectedSessionId),
+        [participations, selectedSessionId],
+    );
+    const selectedSession = sessionById(participations, selectedSessionId);
+    const currentSessionMinDate = sessionStartDate(selectedSession);
+
     const rankItems: ComboboxItem[] = useMemo(() => {
         const items = availableRanks.map((rank) => ({
             value: rank.code,
@@ -728,6 +801,7 @@ function PromotionDialog({
             }),
         });
         setSelected(selectedDefaults);
+        setSelectedSessionId(currentSessionId(participations));
         form.clearErrors();
         setPendingPayload(null);
         setConfirmOpen(false);
@@ -760,7 +834,7 @@ function PromotionDialog({
             }
         >();
 
-        for (const group of participations) {
+        for (const group of selectedParticipationGroups) {
             for (const item of group.participations) {
                 const key = `event:${item.tournament.id}:${item.event.id}`;
                 const evidences: PromotionEvidenceRef[] = [
@@ -784,6 +858,10 @@ function PromotionDialog({
         }
 
         for (const item of achievements) {
+            if (String(item.session.id) !== selectedSessionId) {
+                continue;
+            }
+
             const key = `event:${item.tournament.id}:${item.event.id}`;
 
             if (!deduped.has(key)) {
@@ -814,7 +892,13 @@ function PromotionDialog({
         return Array.from(deduped.values()).map(
             ({ key, label, evidences }) => ({ key, label, evidences }),
         );
-    }, [achievements, legacyAchievements, participations, t]);
+    }, [
+        achievements,
+        legacyAchievements,
+        selectedParticipationGroups,
+        selectedSessionId,
+        t,
+    ]);
 
     function buildPayload() {
         return {
@@ -866,6 +950,29 @@ function PromotionDialog({
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+
+        if (isBeforeDate(form.data.promotion_date, currentSessionMinDate)) {
+            form.setError(
+                'promotion_date',
+                t(
+                    'Current session dates cannot be older than the selected session year. Choose an older session to back fill older entries.',
+                ),
+            );
+
+            return;
+        }
+
+        if (isBeforeDate(form.data.cash_reward_date, currentSessionMinDate)) {
+            form.setError(
+                'cash_reward_date',
+                t(
+                    'Current session dates cannot be older than the selected session year. Choose an older session to back fill older entries.',
+                ),
+            );
+
+            return;
+        }
+
         setPendingPayload(buildPayload());
         setConfirmOpen(true);
     }
@@ -915,6 +1022,7 @@ function PromotionDialog({
                             <Label>{t('Promotion date')}</Label>
                             <DatePicker
                                 value={form.data.promotion_date}
+                                minDate={currentSessionMinDate}
                                 onChange={(v) =>
                                     form.setData('promotion_date', v)
                                 }
@@ -979,6 +1087,7 @@ function PromotionDialog({
                             <Label>{t('Cash reward date')}</Label>
                             <DatePicker
                                 value={form.data.cash_reward_date}
+                                minDate={currentSessionMinDate}
                                 onChange={(v) =>
                                     form.setData('cash_reward_date', v)
                                 }
@@ -1041,6 +1150,41 @@ function PromotionDialog({
                             rows={3}
                         />
                         <InputError message={form.errors.remarks} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>{t('Session')}</Label>
+                        <Select
+                            value={selectedSessionId}
+                            onValueChange={(value) => {
+                                setSelectedSessionId(value);
+                                setSelected([]);
+                                form.setData('evidences', []);
+                            }}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue
+                                    placeholder={t('Select session')}
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {participations.map((group) => (
+                                    <SelectItem
+                                        key={group.session.id}
+                                        value={String(group.session.id)}
+                                    >
+                                        {group.session.name}
+                                        {group.session.is_current
+                                            ? ` · ${t('Current session')}`
+                                            : ''}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            {t(
+                                'Only current session participations are shown by default. To back fill an older entry, choose that session and load its events here.',
+                            )}
+                        </p>
                     </div>
                     <div className="grid gap-2">
                         <Label>
@@ -1113,14 +1257,14 @@ function PromotionDialog({
                                 <Badge variant="outline">
                                     {resolveRankLabel(
                                         form.data.from_rank,
-                                        ranks ,
+                                        ranks,
                                     ) || t('Unknown')}
                                 </Badge>
                                 <span className="text-muted-foreground">→</span>
                                 <Badge>
                                     {resolveRankLabel(
                                         form.data.to_rank,
-                                        ranks ,
+                                        ranks,
                                     ) || t('Unknown')}
                                 </Badge>
                             </div>
@@ -1178,17 +1322,26 @@ function CashRewardDialog({
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [selected, setSelected] = useState<string[]>([]);
+    const [selectedSessionId, setSelectedSessionId] = useState(() =>
+        currentSessionId(participations),
+    );
     const [data, setData] = useState({
         cash_amount: '',
         benefit_date: '',
         order_reference: '',
         remarks: '',
     });
+    const selectedParticipationGroups = useMemo(
+        () => participationGroupsForSession(participations, selectedSessionId),
+        [participations, selectedSessionId],
+    );
+    const selectedSession = sessionById(participations, selectedSessionId);
+    const currentSessionMinDate = sessionStartDate(selectedSession);
 
     const rewardOptions = useMemo<RewardOption[]>(() => {
         const deduped = new Map<string, RewardOption>();
 
-        for (const group of participations) {
+        for (const group of selectedParticipationGroups) {
             for (const item of group.participations) {
                 const key = `participation:${item.id}`;
                 const label = `${group.session.name} · ${item.tournament.name} · ${item.event.name}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}`;
@@ -1196,13 +1349,15 @@ function CashRewardDialog({
                 deduped.set(key, {
                     key,
                     label,
-                    target: { type: 'participation', id: item.id },
+                    target: item.achievement
+                        ? { type: 'achievement', id: item.achievement.id }
+                        : null,
                 });
             }
         }
 
         return Array.from(deduped.values());
-    }, [participations, t]);
+    }, [selectedParticipationGroups, t]);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -1216,12 +1371,28 @@ function CashRewardDialog({
                 return;
             }
 
+            if (isBeforeDate(data.benefit_date, currentSessionMinDate)) {
+                setErrors({
+                    benefit_date: t(
+                        'Current session dates cannot be older than the selected session year. Choose an older session to back fill older entries.',
+                    ),
+                });
+
+                return;
+            }
+
             const selectedOptions = selected
                 .map((key) => rewardOptions.find((item) => item.key === key))
-                .filter((item): item is RewardOption => Boolean(item?.target));
+                .filter((item): item is SelectedRewardOption =>
+                    Boolean(item?.target),
+                );
 
-            if (selectedOptions.length === 0) {
-                setErrors({ benefitable_id: t('Select at least one event.') });
+            if (selectedOptions.length !== selected.length) {
+                setErrors({
+                    benefitable_id: t(
+                        'Cash reward can only be added for an event that has a recorded achievement.',
+                    ),
+                });
 
                 return;
             }
@@ -1283,7 +1454,18 @@ function CashRewardDialog({
     }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (nextOpen) {
+                    setSelectedSessionId(currentSessionId(participations));
+                    setSelected([]);
+                    setErrors({});
+                }
+            }}
+        >
             <DialogTrigger asChild>
                 <Button type="button" variant="outline" size="sm">
                     <Plus className="mr-1.5 size-3.5" />
@@ -1296,6 +1478,41 @@ function CashRewardDialog({
                 </DialogHeader>
 
                 <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div className="grid gap-2">
+                        <Label>{t('Session')}</Label>
+                        <Select
+                            value={selectedSessionId}
+                            onValueChange={(value) => {
+                                setSelectedSessionId(value);
+                                setSelected([]);
+                                setErrors({});
+                            }}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue
+                                    placeholder={t('Select session')}
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {participations.map((group) => (
+                                    <SelectItem
+                                        key={group.session.id}
+                                        value={String(group.session.id)}
+                                    >
+                                        {group.session.name}
+                                        {group.session.is_current
+                                            ? ` · ${t('Current session')}`
+                                            : ''}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            {t(
+                                'Only current session participations are shown by default. To back fill an older entry, choose that session and load its events here.',
+                            )}
+                        </p>
+                    </div>
                     <div className="grid gap-2">
                         <Label>{t('Events')}</Label>
                         <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
@@ -1324,7 +1541,11 @@ function CashRewardDialog({
                                 </label>
                             ))}
                         </div>
-                        <InputError message={errors.benefitable_id} />
+                        <InputError
+                            message={
+                                errors.benefitable_id ?? errors.benefitable_type
+                            }
+                        />
                         <p className="text-xs text-muted-foreground">
                             {selected.length > 0
                                 ? t('{{count}} events selected').replace(
@@ -1355,6 +1576,7 @@ function CashRewardDialog({
                             <Label>{t('Benefit date')}</Label>
                             <DatePicker
                                 value={data.benefit_date}
+                                minDate={currentSessionMinDate}
                                 onChange={(v) =>
                                     setData((prev) => ({
                                         ...prev,
@@ -1637,7 +1859,7 @@ export function PromotionsTab({
             : `${t('Achievement')} #${evidence.evidence_id}`;
     }
 
-    function labelForEvidence(evidence: PromotionEvidence): JSX.Element {
+    function labelForEvidence(evidence: PromotionEvidence): ReactElement {
         if (evidence.type === 'achievement') {
             const item = achievements.find(
                 (a) => a.id === evidence.evidence_id,
@@ -1772,10 +1994,7 @@ export function PromotionsTab({
                     <p className="text-xs text-muted-foreground">
                         {t('Current rank')}:{' '}
                         {memberRank
-                            ? resolveRankLabel(
-                                  memberRank,
-                                  ranks ,
-                              )
+                            ? resolveRankLabel(memberRank, ranks)
                             : t('Unknown')}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -1818,7 +2037,7 @@ export function PromotionsTab({
                                         <Badge variant="outline">
                                             {resolveRankLabel(
                                                 promotion.from_rank,
-                                                ranks ,
+                                                ranks,
                                             ) || t('Unknown')}
                                         </Badge>
                                         <span className="text-muted-foreground">
@@ -1827,7 +2046,7 @@ export function PromotionsTab({
                                         <Badge>
                                             {resolveRankLabel(
                                                 promotion.to_rank,
-                                                ranks ,
+                                                ranks,
                                             )}
                                         </Badge>
                                         {promotion.promotion_date && (

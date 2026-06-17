@@ -49,6 +49,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  * @property-read Organization $organization
  * @property-read Member|null $member
+ * @property-read Collection<int, CoachAlias> $aliases
+ * @property-read Collection<int, CoachStatusHistory> $statusHistory
  * @property-read Collection<int, CoachCertification> $certifications
  * @property-read Collection<int, Sport> $sports
  * @property-read Collection<int, CoachAssignment> $assignmentHistory
@@ -139,6 +141,18 @@ class Coach extends Model
         return $this->belongsTo(Member::class);
     }
 
+    /** @return HasMany<CoachAlias, $this> */
+    public function aliases(): HasMany
+    {
+        return $this->hasMany(CoachAlias::class);
+    }
+
+    /** @return HasMany<CoachStatusHistory, $this> */
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(CoachStatusHistory::class);
+    }
+
     /** @return HasMany<CoachCertification, $this> */
     public function certifications(): HasMany
     {
@@ -186,6 +200,11 @@ class Coach extends Model
             'ACTIVE' => 'Active',
             'INACTIVE' => 'Inactive',
             'RETIRED' => 'Retired',
+            'TRANSFERRED' => 'Transferred',
+            'RESIGNED' => 'Resigned',
+            'DISMISSED' => 'Dismissed',
+            'DECEASED' => 'Deceased',
+            'SUSPENDED' => 'Suspended',
             default => 'Unknown',
         };
     }

@@ -29,4 +29,16 @@ class UpdateAchievementBenefitRequest extends FormRequest
             'remarks' => ['sometimes', 'nullable', 'string'],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'cash_amount.numeric' => 'Enter the cash amount using digits only, without commas or currency symbols.',
+            'cash_amount.min' => 'The cash amount must be zero or more.',
+            'cash_amount.max' => 'The cash amount may not be greater than 99999999.99.',
+        ];
+    }
 }
