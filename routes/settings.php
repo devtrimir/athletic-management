@@ -42,7 +42,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->names('sessions');
 
     Route::resource('settings/sports', SportController::class)
-        ->except(['show'])
         ->names('sports');
 
     Route::resource('settings/units', UnitController::class)

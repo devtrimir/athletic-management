@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import SportController from '@/actions/App/Http/Controllers/Settings/SportController';
 import Heading from '@/components/heading';
@@ -20,8 +20,14 @@ const CATEGORY_VARIANTS: Record<string, string> = {
 type Sport = {
     id: number;
     name: string;
+    code: string | null;
     category: string;
     slug: string;
+    description: string | null;
+    is_active: boolean;
+    sort_order: number;
+    sport_events_count: number;
+    event_variants_count: number;
 };
 
 const CATEGORIES = ['INDIVIDUAL', 'TEAM', 'COMBAT', 'WATER'] as const;
@@ -38,7 +44,9 @@ export default function Index({ sports }: { sports: Sport[] }) {
             const matchesQuery =
                 !q ||
                 s.name.toLowerCase().includes(q) ||
-                s.slug.toLowerCase().includes(q);
+                s.slug.toLowerCase().includes(q) ||
+                (s.code?.toLowerCase().includes(q) ?? false) ||
+                (s.description?.toLowerCase().includes(q) ?? false);
             const matchesCategory = categoryFilter === 'all' || s.category === categoryFilter;
 
             return matchesQuery && matchesCategory;
@@ -47,9 +55,9 @@ export default function Index({ sports }: { sports: Sport[] }) {
 
     return (
         <>
-            <Head title="Sports" />
+            <Head title={t('Sports')} />
 
-            <h1 className="sr-only">Sports</h1>
+            <h1 className="sr-only">{t('Sports')}</h1>
 
             <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
@@ -94,21 +102,43 @@ export default function Index({ sports }: { sports: Sport[] }) {
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
                                 <TableHead>{t('Name')}</TableHead>
+                                <TableHead>{t('Code')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
+                                <TableHead className="text-right">{t('Events')}</TableHead>
+                                <TableHead className="text-right">{t('Variants')}</TableHead>
+                                <TableHead>{t('Status')}</TableHead>
                                 <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
                                         {sports.length === 0 ? t('No sports yet.') : t('No sports match your filters.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filtered.map((sport) => (
                                     <TableRow key={sport.id}>
-                                        <TableCell className="font-medium">{sport.name}</TableCell>
+                                        <TableCell className="min-w-64">
+                                            <div className="space-y-1">
+                                                <div className="font-medium">{sport.name}</div>
+                                                {sport.description && (
+                                                    <div className="line-clamp-2 max-w-md text-xs text-muted-foreground">
+                                                        {sport.description}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {sport.code ? (
+                                                <Badge variant="outline" className="font-mono">
+                                                    {sport.code}
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-muted-foreground">-</span>
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             <Badge
                                                 variant="outline"
@@ -117,8 +147,18 @@ export default function Index({ sports }: { sports: Sport[] }) {
                                                 {t(sport.category)}
                                             </Badge>
                                         </TableCell>
+                                        <TableCell className="text-right tabular-nums">{sport.sport_events_count}</TableCell>
+                                        <TableCell className="text-right tabular-nums">{sport.event_variants_count}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={sport.is_active ? 'default' : 'secondary'}>
+                                                {sport.is_active ? t('Active') : t('Inactive')}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center justify-end gap-1">
+                                                <Button variant="ghost" size="icon" title={t('View')} asChild>
+                                                    <Link href={SportController.show.url(sport.id)}><Eye className="h-4 w-4" /></Link>
+                                                </Button>
                                                 <Button variant="ghost" size="icon" title={t('Edit')} asChild>
                                                     <Link href={SportController.edit.url(sport.id)}><Pencil className="h-4 w-4" /></Link>
                                                 </Button>

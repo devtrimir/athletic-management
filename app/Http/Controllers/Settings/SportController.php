@@ -8,6 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreSportRequest;
 use App\Http\Requests\Settings\UpdateSportRequest;
 use App\Models\Sport;
+use App\Models\SportEvent;
+use App\Models\SportEventVariant;
+use App\Models\WeightCategory;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -22,10 +26,53 @@ class SportController extends Controller
         Gate::authorize('viewAny', Sport::class);
 
         $sports = Sport::where('organization_id', $request->user()->organization_id)
+            ->withCount(['sportEvents', 'eventVariants'])
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
         return Inertia::render('settings/sports/index', [
+            'sports' => $sports->map(fn (Sport $sport): array => $this->sportIndexData($sport))->values(),
+        ]);
+    }
+
+    public function show(Request $request, Sport $sport): Response
+    {
+        Gate::authorize('view', $sport);
+
+        $sport->load([
+            'sportEvents' => fn ($query) => $query
+                ->with([
+                    'variants' => fn ($query) => $query
+                        ->with([
+                            'participationFormat',
+                            'genderCategory',
+                            'ageCategory',
+                            'weightCategory',
+                            'measurementUnit',
+                            'resultType',
+                        ])
+                        ->orderBy('sort_order')
+                        ->orderBy('name'),
+                ])
+                ->orderBy('sort_order')
+                ->orderBy('name'),
+            'weightCategories' => fn ($query) => $query
+                ->with('genderCategory')
+                ->orderBy('sort_order')
+                ->orderBy('name'),
+        ])->loadCount(['sportEvents', 'eventVariants', 'weightCategories']);
+
+        $sports = Sport::where('organization_id', $request->user()->organization_id)
+            ->withCount(['sportEvents', 'eventVariants'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Sport $sport): array => $this->sportSwitcherData($sport))
+            ->values();
+
+        return Inertia::render('settings/sports/show', [
+            'sport' => $this->sportShowData($sport),
             'sports' => $sports,
         ]);
     }
@@ -94,5 +141,125 @@ class SportController extends Controller
         $slug = Str::slug($name);
 
         return $slug !== '' ? $slug : 'sport-'.substr(sha1($name), 0, 10);
+    }
+
+    /**
+     * @return array{id: int, name: string, code: string|null, category: string, slug: string, description: string|null, is_active: bool, sort_order: int, sport_events_count: int, event_variants_count: int}
+     */
+    private function sportIndexData(Sport $sport): array
+    {
+        return [
+            'id' => $sport->id,
+            'name' => $sport->name,
+            'code' => $sport->code,
+            'category' => $sport->category,
+            'slug' => $sport->slug,
+            'description' => $sport->description,
+            'is_active' => $sport->is_active,
+            'sort_order' => $sport->sort_order,
+            'sport_events_count' => (int) ($sport->sport_events_count ?? 0),
+            'event_variants_count' => (int) ($sport->event_variants_count ?? 0),
+        ];
+    }
+
+    /**
+     * @return array{id: int, name: string, code: string|null, category: string, sport_events_count: int, event_variants_count: int}
+     */
+    private function sportSwitcherData(Sport $sport): array
+    {
+        return [
+            'id' => $sport->id,
+            'name' => $sport->name,
+            'code' => $sport->code,
+            'category' => $sport->category,
+            'sport_events_count' => (int) ($sport->sport_events_count ?? 0),
+            'event_variants_count' => (int) ($sport->event_variants_count ?? 0),
+        ];
+    }
+
+    /**
+     * @return array{id: int, name: string, code: string|null, category: string, slug: string, description: string|null, is_active: bool, sort_order: int, sport_events_count: int, event_variants_count: int, weight_categories_count: int, events: list<array<string, mixed>>, weight_categories: list<array<string, mixed>>}
+     */
+    private function sportShowData(Sport $sport): array
+    {
+        return [
+            ...$this->sportIndexData($sport),
+            'weight_categories_count' => (int) ($sport->weight_categories_count ?? 0),
+            'events' => $this->sportEventsData($sport->sportEvents),
+            'weight_categories' => $this->weightCategoriesData($sport->weightCategories),
+        ];
+    }
+
+    /**
+     * @param  EloquentCollection<int, SportEvent>  $events
+     * @return list<array{id: int, name: string, code: string, discipline_type: string|null, is_active: bool, variants_count: int, variants: list<array<string, mixed>>}>
+     */
+    private function sportEventsData(EloquentCollection $events): array
+    {
+        return $events
+            ->map(fn (SportEvent $event): array => [
+                'id' => $event->id,
+                'name' => $event->name,
+                'code' => $event->code,
+                'discipline_type' => $event->discipline_type,
+                'is_active' => $event->is_active,
+                'variants_count' => $event->variants->count(),
+                'variants' => $event->variants
+                    ->map(fn (SportEventVariant $variant): array => $this->variantData($variant))
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function variantData(SportEventVariant $variant): array
+    {
+        return [
+            'id' => $variant->id,
+            'name' => $variant->name,
+            'code' => $variant->code,
+            'participation_format' => $variant->participationFormat?->name,
+            'gender_category' => $variant->genderCategory?->name,
+            'age_category' => $variant->ageCategory?->name,
+            'weight_category' => $variant->weightCategory?->name,
+            'measurement_unit' => $variant->measurementUnit?->name,
+            'measurement_symbol' => $variant->measurementUnit?->symbol,
+            'result_type' => $variant->resultType?->name,
+            'min_participants' => $variant->min_participants,
+            'max_participants' => $variant->max_participants,
+            'min_male_participants' => $variant->min_male_participants,
+            'max_male_participants' => $variant->max_male_participants,
+            'min_female_participants' => $variant->min_female_participants,
+            'max_female_participants' => $variant->max_female_participants,
+            'substitute_allowed' => $variant->substitute_allowed,
+            'substitute_limit' => $variant->substitute_limit,
+            'is_team_based' => $variant->is_team_based,
+            'is_medal_event' => $variant->is_medal_event,
+            'is_active' => $variant->is_active,
+        ];
+    }
+
+    /**
+     * @param  EloquentCollection<int, WeightCategory>  $weightCategories
+     * @return list<array{id: int, name: string, code: string, gender_category: string|null, min_weight: string|null, max_weight: string|null, is_active: bool}>
+     */
+    private function weightCategoriesData(EloquentCollection $weightCategories): array
+    {
+        return $weightCategories
+            ->map(fn (WeightCategory $category): array => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'code' => $category->code,
+                'gender_category' => $category->genderCategory?->name,
+                'min_weight' => $category->min_weight,
+                'max_weight' => $category->max_weight,
+                'is_active' => $category->is_active,
+            ])
+            ->values()
+            ->all();
     }
 }

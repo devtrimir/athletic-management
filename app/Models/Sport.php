@@ -51,6 +51,12 @@ class Sport extends Model
         return $this->hasMany(SportEventVariant::class);
     }
 
+    /** @return HasMany<WeightCategory, $this> */
+    public function weightCategories(): HasMany
+    {
+        return $this->hasMany(WeightCategory::class);
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
