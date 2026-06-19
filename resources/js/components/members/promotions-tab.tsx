@@ -2486,63 +2486,6 @@ export function PromotionsTab({
         );
     }
 
-    function evidenceSummary(evidence: PromotionEvidence): string {
-        if (evidence.type === 'participation') {
-            if (evidence.summary) {
-                return evidence.summary;
-            }
-
-            for (const group of participations) {
-                const item = group.participations.find(
-                    (p) => p.id === evidence.evidence_id,
-                );
-
-                if (item) {
-                    if (!item.tournament || !item.event) {
-                        return `${t('Participation')} #${evidence.evidence_id}`;
-                    }
-
-                    const benefitSummary = item.achievement?.benefits?.length
-                        ? ` · ${summarizeBenefits(item.achievement.benefits, t)}`
-                        : '';
-                    const medalSummary = item.achievement?.medal_type
-                        ? ` · ${t(item.achievement.medal_type)}`
-                        : '';
-                    const positionSummary = item.position
-                        ? ` · #${item.position}`
-                        : '';
-
-                    return `${group.session.name} · ${item.tournament.name} · ${item.event.name} · ${item.tournament.date_from ?? t('No date')}${item.event.gender_class ? ` · ${item.event.gender_class}` : ''}${medalSummary}${positionSummary}${benefitSummary}`;
-                }
-            }
-
-            return `${t('Participation')} #${evidence.evidence_id}`;
-        }
-
-        if (evidence.type === 'member_legacy_achievement') {
-            if (evidence.summary) {
-                return evidence.summary;
-            }
-
-            const item = legacyAchievements.find(
-                (a) => a.id === evidence.evidence_id,
-            );
-
-            return item
-                ? `${t(item.period)} · ${t(item.level)} · ${item.competition_details}${item.event_date ? ` · ${item.event_date}` : ''}${item.venue ? ` · ${item.venue}` : ''}${item.medal_type ? ` · ${t(item.medal_type)}` : ''}`
-                : `${t('Legacy achievement')} #${evidence.evidence_id}`;
-        }
-
-        if (evidence.summary) {
-            return evidence.summary;
-        }
-
-        const item = achievements.find((a) => a.id === evidence.evidence_id);
-
-        return item
-            ? `${medalBadgeContent(item.medal_type).label} · ${item.tournament.name} · ${item.event.name}${item.tournament.tier_code ? ` · ${item.tournament.tier_code}` : ''}${item.benefits.length > 0 ? ` · ${summarizeBenefits(item.benefits, t)}` : ''}`
-            : `${t('Achievement')} #${evidence.evidence_id}`;
-    }
     function promotionCategory(promotion: PromotionRow): string {
         const hasRewardFields =
             !!(
