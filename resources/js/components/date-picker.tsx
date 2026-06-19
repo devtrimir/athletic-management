@@ -46,7 +46,13 @@ function parseDateValue(value: string): Date | undefined {
 
     const parsed = parseISO(value);
 
-    return isValid(parsed) ? parsed : undefined;
+    if (isValid(parsed)) {
+        return parsed;
+    }
+
+    const fallback = new Date(value);
+
+    return isValid(fallback) ? fallback : undefined;
 }
 
 function normalizeTypedDate(value: string): string {
@@ -70,10 +76,10 @@ function normalizeTypedDate(value: string): string {
 }
 
 function displayDateValue(value: string): string {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const parsed = parseISO(value);
+    const parsed = parseDateValue(value);
 
-        return isValid(parsed) ? format(parsed, 'dd/MM/yyyy') : value;
+    if (parsed) {
+        return format(parsed, 'dd/MM/yyyy');
     }
 
     return value;

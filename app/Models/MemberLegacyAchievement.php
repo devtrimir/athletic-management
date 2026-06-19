@@ -31,8 +31,12 @@ use Illuminate\Support\Carbon;
  * @property string $competition_details
  * @property Carbon|null $event_date
  * @property string|null $venue
+ * @property int|null $sport_id
  * @property string|null $sport_discipline
  * @property string|null $event
+ * @property string|null $discipline
+ * @property string|null $weight_category
+ * @property string|null $gender_class
  * @property string|null $medal_type
  * @property int|null $position
  * @property int|null $sort_order
@@ -41,6 +45,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  * @property-read Member $member
  * @property-read SportSession|null $session
+ * @property-read Sport|null $sport
  * @property-read Collection<int, AchievementBenefit> $benefits
  */
 #[Fillable([
@@ -52,8 +57,12 @@ use Illuminate\Support\Carbon;
     'competition_details',
     'event_date',
     'venue',
+    'sport_id',
     'sport_discipline',
     'event',
+    'discipline',
+    'weight_category',
+    'gender_class',
     'medal_type',
     'position',
     'sort_order',
@@ -72,6 +81,7 @@ class MemberLegacyAchievement extends Model
     {
         return [
             'event_date' => 'date',
+            'sport_id' => 'integer',
             'position' => 'integer',
             'sort_order' => 'integer',
         ];
@@ -87,6 +97,12 @@ class MemberLegacyAchievement extends Model
     public function session(): BelongsTo
     {
         return $this->belongsTo(SportSession::class, 'session_id');
+    }
+
+    /** @return BelongsTo<Sport, $this> */
+    public function sport(): BelongsTo
+    {
+        return $this->belongsTo(Sport::class);
     }
 
     /**

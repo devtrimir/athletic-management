@@ -6,6 +6,7 @@ use App\Models\Member;
 use App\Models\MemberStatusHistory;
 use App\Models\NameAlias;
 use App\Models\Organization;
+use App\Models\SportSession;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -15,7 +16,7 @@ uses(RefreshDatabase::class);
 // ---------------------------------------------------------------------------
 
 test('show returns member resource in Inertia props', function (): void {
-    $user = memberUser('members.view');
+    $user = rcUser('members.view');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
 
     $this->actingAs($user)
@@ -46,8 +47,37 @@ test('show returns member resource in Inertia props', function (): void {
         );
 });
 
+test('show returns sports and sessions for the achievements workflow', function (): void {
+    $user = rcUser('members.view');
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $currentSession = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => '2025-26',
+        'is_current' => true,
+    ]);
+
+    SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => '2024-25',
+        'is_current' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.show', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/show')
+            ->has('sports')
+            ->has('sessions', 2)
+            ->has('sessions.0.id')
+            ->has('sessions.0.name')
+            ->has('sessions.0.is_current')
+        );
+});
+
 test('show defers statusHistory prop', function (): void {
-    $user = memberUser('members.view');
+    $user = rcUser('members.view');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
 
     MemberStatusHistory::factory()->create([
@@ -64,7 +94,7 @@ test('show defers statusHistory prop', function (): void {
 });
 
 test('show defers aliases prop', function (): void {
-    $user = memberUser('members.view');
+    $user = rcUser('members.view');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
 
     NameAlias::factory()->create(['member_id' => $member->id]);
@@ -76,7 +106,7 @@ test('show defers aliases prop', function (): void {
 });
 
 test('show returns 403 without members.view', function (): void {
-    $user = memberUser();
+    $user = rcUser();
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
 
     $this->actingAs($user)
@@ -85,7 +115,7 @@ test('show returns 403 without members.view', function (): void {
 });
 
 test('show returns 404 for member in another org', function (): void {
-    $user = memberUser('members.view');
+    $user = rcUser('members.view');
     $otherOrg = Organization::factory()->create();
     $member = Member::withoutGlobalScopes()->create(
         Member::factory()->make(['organization_id' => $otherOrg->id])->getAttributes()

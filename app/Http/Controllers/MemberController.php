@@ -355,6 +355,10 @@ class MemberController extends Controller
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'sessions' => SportSession::select(['id', 'name', 'is_current'])
+                ->orderByDesc('start_year')
+                ->orderByDesc('id')
+                ->get(),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
@@ -371,7 +375,7 @@ class MemberController extends Controller
                     'session' => $tm->session ? ['id' => $tm->session->id, 'name' => $tm->session->name] : null,
                 ])),
             'legacyAchievements' => Inertia::defer(fn () => $member->legacyAchievements()
-                ->with(['benefits', 'session:id,name'])
+                ->with(['benefits', 'session:id,name', 'sport:id,name'])
                 ->orderBy('period')
                 ->orderBy('sort_order')
                 ->orderBy('event_date')
@@ -387,8 +391,16 @@ class MemberController extends Controller
                     'competition_details' => $la->competition_details,
                     'event_date' => $la->event_date?->toDateString(),
                     'venue' => $la->venue,
+                    'sport_id' => $la->sport_id,
+                    'sport' => $la->sport ? [
+                        'id' => $la->sport->id,
+                        'name' => $la->sport->name,
+                    ] : null,
                     'sport_discipline' => $la->sport_discipline,
                     'event' => $la->event,
+                    'discipline' => $la->discipline,
+                    'weight_category' => $la->weight_category,
+                    'gender_class' => $la->gender_class,
                     'medal_type' => $la->medal_type,
                     'position' => $la->position,
                     'sort_order' => $la->sort_order,

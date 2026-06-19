@@ -14,7 +14,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
-export type ComboboxItem = { value: string; label: string };
+export type ComboboxItem = {
+    value: string;
+    label: string;
+    badge?: string;
+};
 
 type Props = {
     value: string;
@@ -80,7 +84,16 @@ export function Combobox({
                                         setOpen(false);
                                     }}
                                 >
-                                    {item.label}
+                                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                                        <span className="truncate">
+                                            {item.label}
+                                        </span>
+                                        {item.badge ? (
+                                            <span className="rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+                                                {item.badge}
+                                            </span>
+                                        ) : null}
+                                    </div>
                                     <CheckIcon
                                         className={cn(
                                             'ml-auto size-4',

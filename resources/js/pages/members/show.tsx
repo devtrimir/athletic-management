@@ -11,6 +11,7 @@ import {
     ArrowLeft,
     Award,
     Download,
+    ExternalLink,
     Medal,
     Minus,
     Trophy,
@@ -18,12 +19,14 @@ import {
 } from 'lucide-react';
 import {
     Fragment,
+    
     useCallback,
     useEffect,
     useMemo,
     useRef,
-    useState,
+    useState
 } from 'react';
+import type {ReactElement} from 'react';
 import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
 import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
@@ -38,6 +41,7 @@ import {
     destroy as destroyMemberPhoto,
 } from '@/actions/App/Http/Controllers/MemberPhotoController';
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
@@ -126,9 +130,30 @@ type StatusEntry = {
     recorded_by_name: string | null;
 };
 type Alias = { id: number; alias: string; source: string };
+type SportOption = { id: number; name: string };
 
 function displayPostingLocation(member: Member): string | null {
-    return member.posting_district?.name ?? member.current_unit?.name ?? null;
+    return member.current_unit?.name ?? member.posting_district?.name ?? null;
+}
+
+function eventClassLabel(
+    value: string | null | undefined,
+    t: (key: string) => string,
+): string {
+    switch (value) {
+        case 'M':
+            return t('Male');
+        case 'F':
+            return t('Female');
+        case 'O':
+            return t('Other gender');
+        default:
+            return value ?? '—';
+    }
+}
+
+function isOtherTierOrLevel(value: string | null | undefined): boolean {
+    return value?.toUpperCase() === 'OTHER';
 }
 
 function parseDateValue(value: string): Date | null {
@@ -224,7 +249,11 @@ type PromotionRow = {
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
-    evidences: { id: number; type: string; evidence_id: number }[];
+    evidences: {
+        id: number;
+        type: 'member_legacy_achievement' | 'achievement' | 'participation';
+        evidence_id: number;
+    }[];
 };
 
 type RankOption = {
@@ -232,6 +261,19 @@ type RankOption = {
     name: string;
     short_name: string | null;
 };
+
+type AchievementPreviewTarget =
+    | {
+          kind: 'tournament';
+          tournament: ParticipationEntry['tournament'];
+          session: ParticipationGroup['session'];
+      }
+    | {
+          kind: 'event';
+          tournament: ParticipationEntry['tournament'];
+          event: ParticipationEntry['event'];
+          session: ParticipationGroup['session'];
+      };
 
 type AchievementsData = {
     summary: { GOLD: number; SILVER: number; BRONZE: number; MERIT: number };
@@ -256,6 +298,17 @@ type AchievementsData = {
     }>;
 };
 
+type AchievementFiltersState = {
+    dateFrom: string;
+    dateTo: string;
+    search: string;
+    session: 'all' | 'current' | string;
+    medal: 'all' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'none';
+    tier: string;
+    eventClass: string;
+    benefit: 'all' | 'benefit' | 'promotion' | 'cash' | 'both';
+};
+
 type LegacyAchievement = {
     id: number;
     period: string;
@@ -264,8 +317,13 @@ type LegacyAchievement = {
     competition_details: string;
     event_date: string | null;
     venue: string | null;
+    sport_id: number | null;
+    sport: { id: number; name: string } | null;
     sport_discipline: string | null;
     event: string | null;
+    discipline: string | null;
+    weight_category: string | null;
+    gender_class: string | null;
     medal_type: string | null;
     position: number | null;
     sort_order: number | null;
@@ -294,7 +352,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'current_status', label: 'Status' },
     { key: 'player_category', label: 'Category' },
     { key: 'player_level', label: 'Level' },
-    { key: 'unit', label: 'Unit' },
+    { key: 'unit', label: 'Posting / District' },
     { key: 'home_district', label: 'Home district' },
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
@@ -315,6 +373,7 @@ export default function MembersShow({
     performance,
     ranks,
     sessions,
+    sports,
 }: {
     member: Member;
     statusHistory?: StatusEntry[];
@@ -325,8 +384,24 @@ export default function MembersShow({
     performance?: MemberPerformanceData;
     ranks?: RankOption[];
     sessions?: Array<{ id: number; name: string; is_current?: boolean }>;
+    sports: SportOption[];
 }) {
-    const [activeTab, setActiveTab] = useState('overview');
+    const memberId = member.id;
+    const memberTabStorageKey = `member-show-tab:${memberId}`;
+    const [activeTab, setActiveTab] = useState(() => {
+        if (typeof window === 'undefined') {
+            return 'overview';
+        }
+
+        return window.localStorage.getItem(memberTabStorageKey) ?? 'overview';
+    });
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        window.localStorage.setItem(memberTabStorageKey, activeTab);
+    }, [activeTab, memberTabStorageKey]);
     const [participations, setParticipations] = useState<
         ParticipationGroup[] | null
     >(null);
@@ -341,7 +416,6 @@ export default function MembersShow({
     const participationsFetched = useRef(false);
     const achievementsFetched = useRef(false);
     const promotionsFetched = useRef(false);
-    const memberId = member.id;
     const permissions = usePage().props.auth.permissions;
     const { t } = useTranslation();
     const { locale: pageLocale } = usePage().props;
@@ -421,8 +495,6 @@ export default function MembersShow({
 
         router.reload({
             only: ['member', 'promotions', 'auditLog'],
-            preserveScroll: true,
-            preserveState: true,
         });
 
         fetchEventData();
@@ -443,8 +515,6 @@ export default function MembersShow({
             promotionsFetched.current = true;
             router.reload({
                 only: ['promotions'],
-                preserveScroll: true,
-                preserveState: true,
             });
         }
     }, [activeTab, fetchEventData]);
@@ -459,10 +529,13 @@ export default function MembersShow({
 
     const [statusOpen, setStatusOpen] = useState(false);
     const [exportOpen, setExportOpen] = useState(false);
+    const [achievementPreview, setAchievementPreview] =
+        useState<AchievementPreviewTarget | null>(null);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
     const [eventSearch, setEventSearch] = useState('');
+    const [achievementFiltersOpen, setAchievementFiltersOpen] = useState(false);
     const [sessionFilter, setSessionFilter] = useState<
         'all' | 'current' | string
     >('current');
@@ -474,6 +547,17 @@ export default function MembersShow({
     const [benefitFilter, setBenefitFilter] = useState<
         'all' | 'benefit' | 'promotion' | 'cash' | 'both'
     >('all');
+    const [draftAchievementFilters, setDraftAchievementFilters] =
+        useState<AchievementFiltersState>({
+            dateFrom: '',
+            dateTo: '',
+            search: '',
+            session: 'current',
+            medal: 'all',
+            tier: 'all',
+            eventClass: 'all',
+            benefit: 'all',
+        });
     const promotionLookup = useMemo(() => {
         const map = new Map<string, PromotionRow[]>();
 
@@ -506,9 +590,13 @@ export default function MembersShow({
         [t],
     );
 
-    const manualLegacyAchievements = useMemo(() => {
+    const postRecruitmentLegacyMedalAchievements = useMemo(() => {
         return (legacyAchievements ?? [])
             .filter((achievement) => {
+                if (achievement.period !== 'POST_RECRUITMENT') {
+                    return false;
+                }
+
                 const medalType = achievement.medal_type?.toUpperCase();
 
                 return (
@@ -551,16 +639,6 @@ export default function MembersShow({
         [],
     );
 
-    const remainingLegacyAchievements = useMemo(() => {
-        const manualIds = new Set(
-            manualLegacyAchievements.map((achievement) => achievement.id),
-        );
-
-        return (legacyAchievements ?? []).filter(
-            (achievement) => !manualIds.has(achievement.id),
-        );
-    }, [legacyAchievements, manualLegacyAchievements]);
-
     const achievementPrizeMoney = useCallback(
         (
             benefits: AchievementBenefitRow[] | undefined,
@@ -599,31 +677,31 @@ export default function MembersShow({
         [formatReadableDate],
     );
 
-    const legacyPrizeMoney = useCallback(
-        (benefits: LegacyAchievement['benefits']): string[] => {
-            return benefits
-                .filter((benefit) => Boolean(benefit.cash_amount))
-                .map((benefit) =>
-                    [
-                        `₹${benefit.cash_amount}`,
-                        formatReadableDate(benefit.benefit_date),
-                    ]
-                        .filter(Boolean)
-                        .join(' · '),
-                );
-        },
-        [formatReadableDate],
-    );
-
     const achievementSummary = useMemo(() => {
         const summary = {
-            GOLD: achievementsData?.summary.GOLD ?? 0,
-            SILVER: achievementsData?.summary.SILVER ?? 0,
-            BRONZE: achievementsData?.summary.BRONZE ?? 0,
-            MERIT: achievementsData?.summary.MERIT ?? 0,
+            GOLD: 0,
+            SILVER: 0,
+            BRONZE: 0,
+            MERIT: 0,
         };
 
-        for (const achievement of manualLegacyAchievements) {
+        for (const achievement of achievementsData?.achievements ?? []) {
+            if (isOtherTierOrLevel(achievement.tournament.tier_code)) {
+                continue;
+            }
+
+            const medal = achievement.medal_type?.toUpperCase();
+
+            if (medal && medal in summary) {
+                summary[medal as keyof typeof summary] += 1;
+            }
+        }
+
+        for (const achievement of postRecruitmentLegacyMedalAchievements) {
+            if (isOtherTierOrLevel(achievement.level)) {
+                continue;
+            }
+
             const medal = achievement.medal_type?.toUpperCase();
 
             if (medal && medal in summary) {
@@ -632,7 +710,7 @@ export default function MembersShow({
         }
 
         return summary;
-    }, [achievementsData, manualLegacyAchievements]);
+    }, [achievementsData, postRecruitmentLegacyMedalAchievements]);
 
     const filteredSessionGroups = useMemo(() => {
         const isCurrentSession = (value: unknown): boolean =>
@@ -780,7 +858,6 @@ export default function MembersShow({
                     group: (typeof filteredSessionGroups)[number];
                     participation: ParticipationEntry;
                 }>;
-                manualRows: LegacyAchievement[];
             }
         >();
 
@@ -800,36 +877,130 @@ export default function MembersShow({
                         tier,
                         tierWeight: participation.tournament.tier_weight ?? 0,
                         rows: [{ group, participation }],
-                        manualRows: [],
                     });
                 }
             }
         }
 
-        for (const achievement of manualLegacyAchievements) {
-            const tier = achievement.level || t('Unknown');
-            const existing = groups.get(tier);
-
-            if (existing) {
-                existing.manualRows.push(achievement);
-            } else {
-                groups.set(tier, {
-                    tier,
-                    tierWeight: 0,
-                    rows: [],
-                    manualRows: [achievement],
-                });
-            }
-        }
-
         return Array.from(groups.values()).sort((a, b) => {
+            if (a.tier === 'OTHER' && b.tier !== 'OTHER') {
+                return 1;
+            }
+
+            if (b.tier === 'OTHER' && a.tier !== 'OTHER') {
+                return -1;
+            }
+
             if (a.tierWeight !== b.tierWeight) {
                 return b.tierWeight - a.tierWeight;
             }
 
             return a.tier.localeCompare(b.tier);
         });
-    }, [filteredSessionGroups, manualLegacyAchievements, t]);
+    }, [filteredSessionGroups, t]);
+
+    const syncDraftAchievementFilters = useCallback((): void => {
+        setDraftAchievementFilters({
+            dateFrom: dateFromFilter,
+            dateTo: dateToFilter,
+            search: eventSearch,
+            session: sessionFilter,
+            medal: medalFilter,
+            tier: tierFilter,
+            eventClass: classFilter,
+            benefit: benefitFilter,
+        });
+    }, [
+        benefitFilter,
+        classFilter,
+        dateFromFilter,
+        dateToFilter,
+        eventSearch,
+        medalFilter,
+        sessionFilter,
+        tierFilter,
+    ]);
+
+    const clearAchievementFilters = useCallback((): void => {
+        setDateFromFilter('');
+        setDateToFilter('');
+        setEventSearch('');
+        setSessionFilter('current');
+        setMedalFilter('all');
+        setTierFilter('all');
+        setClassFilter('all');
+        setBenefitFilter('all');
+    }, []);
+
+    const clearDraftAchievementFilters = useCallback((): void => {
+        setDraftAchievementFilters({
+            dateFrom: '',
+            dateTo: '',
+            search: '',
+            session: 'current',
+            medal: 'all',
+            tier: 'all',
+            eventClass: 'all',
+            benefit: 'all',
+        });
+    }, []);
+
+    const applyAchievementFilters = useCallback((): void => {
+        setDateFromFilter(draftAchievementFilters.dateFrom);
+        setDateToFilter(draftAchievementFilters.dateTo);
+        setEventSearch(draftAchievementFilters.search);
+        setSessionFilter(draftAchievementFilters.session);
+        setMedalFilter(draftAchievementFilters.medal);
+        setTierFilter(draftAchievementFilters.tier);
+        setClassFilter(draftAchievementFilters.eventClass);
+        setBenefitFilter(draftAchievementFilters.benefit);
+        setAchievementFiltersOpen(false);
+    }, [draftAchievementFilters]);
+
+    const activeAchievementFilterChips = useMemo(() => {
+        const chips: string[] = [];
+
+        if (dateFromFilter) {
+            chips.push(`${t('Date from')}: ${dateFromFilter}`);
+        }
+
+        if (dateToFilter) {
+            chips.push(`${t('Date to')}: ${dateToFilter}`);
+        }
+
+        if (medalFilter !== 'all') {
+            chips.push(`${t('Medal')}: ${t(medalFilter)}`);
+        }
+
+        if (tierFilter !== 'all') {
+            chips.push(`${t('Tier')}: ${tierFilter}`);
+        }
+
+        if (classFilter !== 'all') {
+            chips.push(
+                `${t('Class')}: ${eventClassLabel(classFilter, t)}`,
+            );
+        }
+
+        if (benefitFilter !== 'all') {
+            chips.push(`${t('Benefits')}: ${t(benefitFilter)}`);
+        }
+
+        if (eventSearch) {
+            chips.push(`${t('Search')}: ${eventSearch}`);
+        }
+
+        return chips;
+    }, [
+        benefitFilter,
+        classFilter,
+        dateFromFilter,
+        dateToFilter,
+        eventSearch,
+        medalFilter,
+        t,
+        tierFilter,
+    ]);
 
     const eventPromotionRows = useCallback(
         (participation: ParticipationEntry): PromotionRow[] => {
@@ -886,7 +1057,7 @@ export default function MembersShow({
     }
 
     function medalBadgeContent(medalType: string): {
-        icon: JSX.Element;
+        icon: ReactElement;
         label: string;
         className: string;
     } {
@@ -926,6 +1097,16 @@ export default function MembersShow({
         }
     }
 
+    const previewUrl =
+        achievementPreview?.kind === 'tournament'
+            ? showTournament.url(achievementPreview.tournament.id)
+            : achievementPreview?.kind === 'event'
+              ? showEvent.url({
+                    tournament: achievementPreview.tournament.id,
+                    event: achievementPreview.event.id,
+                })
+              : null;
+
     function handlePrint(): void {
         const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
         const getValue = (key: string): string => {
@@ -955,7 +1136,7 @@ export default function MembersShow({
                 case 'player_level':
                     return member.player_level ?? '';
                 case 'unit':
-                    return member.current_unit?.name ?? '';
+                    return displayPostingLocation(member) ?? '';
                 case 'home_district':
                     return member.home_district?.name ?? '';
                 case 'joining_date':
@@ -1142,7 +1323,7 @@ export default function MembersShow({
                     </div>
                 </div>
 
-                <Tabs defaultValue="overview" onValueChange={setActiveTab}>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList>
                         <TabsTrigger value="overview">
                             {t('Overview')}
@@ -1242,7 +1423,7 @@ export default function MembersShow({
                                             member.home_district?.name,
                                         )}
                                         {detail(
-                                            t('Posting unit / district'),
+                                            t('Posting / District'),
                                             displayPostingLocation(member),
                                         )}
                                         {detail(
@@ -1411,7 +1592,7 @@ export default function MembersShow({
 
                     {/* Events */}
                     <TabsContent value="events">
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             <div>
                                 <h3 className="text-base font-semibold">
                                     {t('Member achievements')}
@@ -1425,462 +1606,181 @@ export default function MembersShow({
                             {loadingParticipations ||
                             participations === null ||
                             loadingAchievements ||
-                            achievementsData === null ? (
-                                <div className="space-y-2">
-                                    {[1, 2, 3].map((n) => (
-                                        <Skeleton
-                                            key={n}
-                                            className="h-10 w-full"
-                                        />
-                                    ))}
-                                </div>
-                            ) : achievementTierGroups.length === 0 ? (
-                                <div className="rounded-xl border bg-card p-6">
-                                    <p className="text-sm text-muted-foreground">
-                                        {t('No events.')}
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="flex flex-wrap gap-3">
-                                        {(
-                                            [
-                                                'GOLD',
-                                                'SILVER',
-                                                'BRONZE',
-                                                'MERIT',
-                                            ] as const
-                                        ).map((m) => {
-                                            const medal = medalBadgeContent(m);
+                            achievementsData === null ? null : (
+                                <div className="flex flex-wrap gap-3">
+                                    {(
+                                        [
+                                            'GOLD',
+                                            'SILVER',
+                                            'BRONZE',
+                                            'MERIT',
+                                        ] as const
+                                    ).map((m) => {
+                                        const medal = medalBadgeContent(m);
 
-                                            return (
-                                                <div
-                                                    key={m}
-                                                    className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3"
-                                                >
-                                                    <span
-                                                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
-                                                    >
-                                                        {medal.icon}
-                                                        {medal.label}
-                                                    </span>
-                                                    <span className="text-xl font-bold">
-                                                        {achievementSummary[m]}
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <div className="rounded-xl border bg-card p-3">
-                                        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                                            <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto text-xs text-muted-foreground">
-                                                <span className="rounded-md border bg-white px-2 py-1">
-                                                    {t('Date from')}:{' '}
-                                                    {dateFromFilter || t('Any')}
-                                                </span>
-                                                <span className="rounded-md border bg-white px-2 py-1">
-                                                    {t('Date to')}:{' '}
-                                                    {dateToFilter || t('Any')}
-                                                </span>
-                                                <span className="rounded-md border bg-white px-2 py-1">
-                                                    {t('Current')}{' '}
-                                                    {sessionFilter === 'current'
-                                                        ? 'on'
-                                                        : 'off'}
-                                                </span>
-                                                {medalFilter !== 'all' && (
-                                                    <span className="rounded-md border bg-white px-2 py-1">
-                                                        {t('Medal')}:{' '}
-                                                        {t(medalFilter)}
-                                                    </span>
-                                                )}
-                                                {tierFilter !== 'all' && (
-                                                    <span className="rounded-md border bg-white px-2 py-1">
-                                                        {t('Tier')}:{' '}
-                                                        {tierFilter}
-                                                    </span>
-                                                )}
-                                                {classFilter !== 'all' && (
-                                                    <span className="rounded-md border bg-white px-2 py-1">
-                                                        {t('Class')}:{' '}
-                                                        {classFilter}
-                                                    </span>
-                                                )}
-                                                {benefitFilter !== 'all' && (
-                                                    <span className="rounded-md border bg-white px-2 py-1">
-                                                        {t('Benefits')}:{' '}
-                                                        {t(benefitFilter)}
-                                                    </span>
-                                                )}
-                                                {eventSearch && (
-                                                    <span className="rounded-md border bg-white px-2 py-1">
-                                                        {t('Search')}:{' '}
-                                                        {eventSearch}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => {
-                                                    setDateFromFilter('');
-                                                    setDateToFilter('');
-                                                    setEventSearch('');
-                                                    setSessionFilter('current');
-                                                    setMedalFilter('all');
-                                                    setTierFilter('all');
-                                                    setClassFilter('all');
-                                                    setBenefitFilter('all');
-                                                }}
+                                        return (
+                                            <div
+                                                key={m}
+                                                className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3"
                                             >
-                                                {t('Clear filters')}
-                                            </Button>
+                                                <span
+                                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
+                                                >
+                                                    {medal.icon}
+                                                    {medal.label}
+                                                </span>
+                                                <span className="text-xl font-bold">
+                                                    {achievementSummary[m]}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            <LegacyAchievementsTab
+                                member={member}
+                                sessions={sessions ?? []}
+                                sports={sports}
+                                legacyAchievements={legacyAchievements}
+                                postRecruitmentContent={
+                                    loadingParticipations ||
+                                    participations === null ||
+                                    loadingAchievements ||
+                                    achievementsData === null ? (
+                                        <div className="space-y-2">
+                                            {[1, 2, 3].map((n) => (
+                                                <Skeleton
+                                                    key={n}
+                                                    className="h-10 w-full"
+                                                />
+                                            ))}
                                         </div>
-                                        <div className="flex flex-wrap items-end gap-2">
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="date-from"
-                                                    className="text-xs font-medium text-muted-foreground"
-                                                >
-                                                    {t('Date from')}
-                                                </Label>
-                                                <Input
-                                                    id="date-from"
-                                                    type="date"
-                                                    className="h-8 border-slate-200 bg-white shadow-sm"
-                                                    value={dateFromFilter}
-                                                    onChange={(e) =>
-                                                        setDateFromFilter(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="date-to"
-                                                    className="text-xs font-medium text-muted-foreground"
-                                                >
-                                                    {t('Date to')}
-                                                </Label>
-                                                <Input
-                                                    id="date-to"
-                                                    type="date"
-                                                    className="h-8 border-slate-200 bg-white shadow-sm"
-                                                    value={dateToFilter}
-                                                    onChange={(e) =>
-                                                        setDateToFilter(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="event-search"
-                                                    className="text-xs font-medium text-muted-foreground"
-                                                >
-                                                    {t('Search…')}
-                                                </Label>
-                                                <Input
-                                                    id="event-search"
-                                                    className="h-8 border-slate-200 bg-white shadow-sm"
-                                                    value={eventSearch}
-                                                    onChange={(e) =>
-                                                        setEventSearch(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    placeholder={t(
-                                                        'Search events, medals, benefits…',
-                                                    )}
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                    {t('Session')}
-                                                </Label>
-                                                <Select
-                                                    value={sessionFilter}
-                                                    onValueChange={(v) =>
-                                                        setSessionFilter(
-                                                            v as
-                                                                | 'all'
-                                                                | 'current'
-                                                                | string,
-                                                        )
-                                                    }
-                                                >
-                                                    <SelectTrigger className="h-8 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue
-                                                            placeholder={t(
-                                                                'All sessions',
-                                                            )}
-                                                        />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="current">
-                                                            {t('Current')}
-                                                        </SelectItem>
-                                                        <SelectItem value="all">
-                                                            {t('All sessions')}
-                                                        </SelectItem>
-                                                        {(
-                                                            participations ?? []
-                                                        ).map((group) => (
-                                                            <SelectItem
-                                                                key={
-                                                                    group
-                                                                        .session
-                                                                        .id
-                                                                }
-                                                                value={String(
-                                                                    group
-                                                                        .session
-                                                                        .id,
-                                                                )}
-                                                            >
-                                                                {
-                                                                    group
-                                                                        .session
-                                                                        .name
-                                                                }
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                    {t('Medal')}
-                                                </Label>
-                                                <Select
-                                                    value={medalFilter}
-                                                    onValueChange={(v) =>
-                                                        setMedalFilter(
-                                                            v as typeof medalFilter,
-                                                        )
-                                                    }
-                                                >
-                                                    <SelectTrigger className="h-8 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue
-                                                            placeholder={t(
-                                                                'All medals',
-                                                            )}
-                                                        />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">
-                                                            {t('All medals')}
-                                                        </SelectItem>
-                                                        <SelectItem value="GOLD">
-                                                            {t('Gold')}
-                                                        </SelectItem>
-                                                        <SelectItem value="SILVER">
-                                                            {t('Silver')}
-                                                        </SelectItem>
-                                                        <SelectItem value="BRONZE">
-                                                            {t('Bronze')}
-                                                        </SelectItem>
-                                                        <SelectItem value="MERIT">
-                                                            {t('MERIT')}
-                                                        </SelectItem>
-                                                        <SelectItem value="none">
-                                                            {t('No medal')}
-                                                        </SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                    {t('Tier')}
-                                                </Label>
-                                                <Select
-                                                    value={tierFilter}
-                                                    onValueChange={
-                                                        setTierFilter
-                                                    }
-                                                >
-                                                    <SelectTrigger className="h-8 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue
-                                                            placeholder={t(
-                                                                'All tiers',
-                                                            )}
-                                                        />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">
-                                                            {t('All tiers')}
-                                                        </SelectItem>
-                                                        {Array.from(
-                                                            new Set(
-                                                                (
-                                                                    participations ??
-                                                                    []
-                                                                ).flatMap(
-                                                                    (group) =>
-                                                                        group.participations
-                                                                            .map(
-                                                                                (
-                                                                                    p,
-                                                                                ) =>
-                                                                                    p
-                                                                                        .tournament
-                                                                                        .tier_code,
-                                                                            )
-                                                                            .filter(
-                                                                                Boolean,
-                                                                            ) as string[],
-                                                                ),
-                                                            ),
-                                                        ).map((tier) => (
-                                                            <SelectItem
-                                                                key={tier}
-                                                                value={tier}
-                                                            >
-                                                                {tier}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                    {t('Class')}
-                                                </Label>
-                                                <Select
-                                                    value={classFilter}
-                                                    onValueChange={
-                                                        setClassFilter
-                                                    }
-                                                >
-                                                    <SelectTrigger className="h-8 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue
-                                                            placeholder={t(
-                                                                'All types',
-                                                            )}
-                                                        />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">
-                                                            {t('All types')}
-                                                        </SelectItem>
-                                                        {Array.from(
-                                                            new Set(
-                                                                (
-                                                                    participations ??
-                                                                    []
-                                                                ).flatMap(
-                                                                    (group) =>
-                                                                        group.participations.map(
-                                                                            (
-                                                                                p,
-                                                                            ) =>
-                                                                                p
-                                                                                    .event
-                                                                                    .gender_class,
-                                                                        ),
-                                                                ),
-                                                            ),
-                                                        ).map((item) => (
-                                                            <SelectItem
-                                                                key={item}
-                                                                value={item}
-                                                            >
-                                                                {item}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                    {t('Benefits')}
-                                                </Label>
-                                                <Select
-                                                    value={benefitFilter}
-                                                    onValueChange={(v) =>
-                                                        setBenefitFilter(
-                                                            v as typeof benefitFilter,
-                                                        )
-                                                    }
-                                                >
-                                                    <SelectTrigger className="h-10 border-slate-200 bg-white shadow-sm">
-                                                        <SelectValue
-                                                            placeholder={t(
-                                                                'All types',
-                                                            )}
-                                                        />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">
-                                                            {t('All types')}
-                                                        </SelectItem>
-                                                        <SelectItem value="benefit">
-                                                            {t(
-                                                                'Benefit recorded',
-                                                            )}
-                                                        </SelectItem>
-                                                        <SelectItem value="promotion">
-                                                            {t('Promotion')}
-                                                        </SelectItem>
-                                                        <SelectItem value="cash">
-                                                            {t('Cash reward')}
-                                                        </SelectItem>
-                                                        <SelectItem value="both">
-                                                            {t('Promotion')} +{' '}
-                                                            {t('Cash reward')}
-                                                        </SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {filteredSessionGroups.length === 0 ? (
+                                    ) : achievementTierGroups.length === 0 ? (
                                         <div className="rounded-xl border bg-card p-6">
                                             <p className="text-sm text-muted-foreground">
-                                                {t('No results')}
+                                                {t('No events.')}
                                             </p>
                                         </div>
                                     ) : (
-                                        <div className="rounded-xl border bg-card">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>
-                                                            {t('Tier')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Tournament')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Event')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Class')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Medal')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Position')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Benefits')}
-                                                        </TableHead>
-                                                        <TableHead>
-                                                            {t('Prize money')}
-                                                        </TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
+                                        <div className="space-y-3">
+                                            <div className="sticky top-3 z-10 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/85">
+                                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                                    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5 text-xs text-muted-foreground">
+                                                        <span className="rounded-md border bg-white px-2 py-1">
+                                                            {t('Session')}:{' '}
+                                                            {sessionFilter ===
+                                                            'current'
+                                                                ? t('Current')
+                                                                : sessionFilter ===
+                                                                    'all'
+                                                                  ? t(
+                                                                        'All sessions',
+                                                                    )
+                                                                  : sessionFilter}
+                                                        </span>
+                                                        {activeAchievementFilterChips.map(
+                                                            (chip) => (
+                                                                <span
+                                                                    key={chip}
+                                                                    className="rounded-md border bg-white px-2 py-1"
+                                                                >
+                                                                    {chip}
+                                                                </span>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-8 border-slate-200 bg-white shadow-sm"
+                                                            onClick={() => {
+                                                                syncDraftAchievementFilters();
+                                                                setAchievementFiltersOpen(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                        >
+                                                            {t('Filters')}
+                                                            {activeAchievementFilterChips.length >
+                                                            0
+                                                                ? ` (${activeAchievementFilterChips.length})`
+                                                                : ''}
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8"
+                                                            onClick={
+                                                                clearAchievementFilters
+                                                            }
+                                                        >
+                                                            {t(
+                                                                'Clear filters',
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {filteredSessionGroups.length ===
+                                            0 ? (
+                                                <div className="rounded-xl border bg-card p-6">
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {t('No results')}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-xl border bg-card">
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow>
+                                                                <TableHead>
+                                                                    {t('Tier')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Tier / Level')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Tournament')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Session')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Venue')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Event')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Discipline')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Date')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Class')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Medal')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Position')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Benefits')}
+                                                                </TableHead>
+                                                                <TableHead>
+                                                                    {t('Prize money')}
+                                                                </TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
                                                     {achievementTierGroups.map(
                                                         ({
                                                             tier,
                                                             rows,
-                                                            manualRows,
                                                         }) => {
                                                             const medalCounts =
                                                                 rows.reduce(
@@ -1916,29 +1816,14 @@ export default function MembersShow({
                                                                     },
                                                                 );
 
-                                                            for (const achievement of manualRows) {
-                                                                const medal =
-                                                                    achievement.medal_type?.toUpperCase();
-
-                                                                if (
-                                                                    medal &&
-                                                                    medal in
-                                                                        medalCounts
-                                                                ) {
-                                                                    medalCounts[
-                                                                        medal as keyof typeof medalCounts
-                                                                    ] += 1;
-                                                                }
-                                                            }
-
                                                             return (
                                                                 <Fragment
                                                                     key={`tier-${tier}`}
                                                                 >
                                                                     <TableRow className="bg-primary/5 hover:bg-primary/5">
-                                                                        <TableCell
+                                                                            <TableCell
                                                                             colSpan={
-                                                                                8
+                                                                                13
                                                                             }
                                                                             className="border-l-4 border-primary py-3 font-medium"
                                                                         >
@@ -1954,8 +1839,7 @@ export default function MembersShow({
                                                                                         }
                                                                                     </span>
                                                                                     <span className="text-xs text-muted-foreground">
-                                                                                        {rows.length +
-                                                                                            manualRows.length}{' '}
+                                                                                        {rows.length}{' '}
                                                                                         {t(
                                                                                             'records',
                                                                                         )}
@@ -2038,71 +1922,119 @@ export default function MembersShow({
                                                                                         )}
                                                                                     </TableCell>
                                                                                     <TableCell>
+                                                                                        <span
+                                                                                            className={eventBadgeClass(
+                                                                                                'tier',
+                                                                                            )}
+                                                                                        >
+                                                                                            {
+                                                                                                participation
+                                                                                                    .tournament
+                                                                                                    .tier_code ??
+                                                                                                tier
+                                                                                            }
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
                                                                                         <div className="space-y-1">
-                                                                                            <Link
-                                                                                                href={showTournament.url(
-                                                                                                    participation
-                                                                                                        .tournament
-                                                                                                        .id,
-                                                                                                )}
-                                                                                                className="block font-medium hover:underline"
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                className="block text-left font-medium hover:underline"
+                                                                                                onClick={() =>
+                                                                                                    setAchievementPreview(
+                                                                                                        {
+                                                                                                            kind: 'tournament',
+                                                                                                            tournament:
+                                                                                                                participation.tournament,
+                                                                                                            session:
+                                                                                                                group.session,
+                                                                                                        },
+                                                                                                    )
+                                                                                                }
                                                                                             >
                                                                                                 {
                                                                                                     participation
                                                                                                         .tournament
                                                                                                         .name
                                                                                                 }
-                                                                                            </Link>
-                                                                                            <p className="text-xs text-muted-foreground">
-                                                                                                {
-                                                                                                    group
-                                                                                                        .session
-                                                                                                        .name
-                                                                                                }
-                                                                                            </p>
-                                                                                            <p className="text-xs text-muted-foreground">
-                                                                                                {participation
-                                                                                                    .tournament
-                                                                                                    .venue ??
-                                                                                                    '—'}
-                                                                                            </p>
+                                                                                            </button>
                                                                                         </div>
                                                                                     </TableCell>
                                                                                     <TableCell>
-                                                                                        <Link
-                                                                                            href={showEvent.url(
-                                                                                                {
-                                                                                                    tournament:
-                                                                                                        participation
-                                                                                                            .tournament
-                                                                                                            .id,
-                                                                                                    event: participation
-                                                                                                        .event
-                                                                                                        .id,
-                                                                                                },
-                                                                                            )}
-                                                                                            className="font-medium hover:underline"
-                                                                                        >
-                                                                                            {
-                                                                                                participation
-                                                                                                    .event
-                                                                                                    .name
-                                                                                            }
-                                                                                        </Link>
-                                                                                        <p className="mt-1 text-xs text-muted-foreground">
-                                                                                            {participation
-                                                                                                .tournament
-                                                                                                .date_from ??
-                                                                                                t(
-                                                                                                    'No date',
-                                                                                                )}
-                                                                                        </p>
+                                                                                        {
+                                                                                            group
+                                                                                                .session
+                                                                                                .name
+                                                                                        }
                                                                                     </TableCell>
                                                                                     <TableCell>
                                                                                         {participation
-                                                                                            .event
-                                                                                            .gender_class ||
+                                                                                            .tournament
+                                                                                            .venue ??
                                                                                             '—'}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1">
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                className="text-left font-medium hover:underline"
+                                                                                                onClick={() =>
+                                                                                                    setAchievementPreview(
+                                                                                                        {
+                                                                                                            kind: 'event',
+                                                                                                            tournament:
+                                                                                                                participation.tournament,
+                                                                                                            event: participation.event,
+                                                                                                            session:
+                                                                                                                group.session,
+                                                                                                        },
+                                                                                                    )
+                                                                                                }
+                                                                                            >
+                                                                                                {
+                                                                                                    participation
+                                                                                                        .event
+                                                                                                        .name
+                                                                                                }
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1">
+                                                                                            <span>
+                                                                                                {participation
+                                                                                                    .event
+                                                                                                    .discipline ??
+                                                                                                    '—'}
+                                                                                            </span>
+                                                                                            {participation
+                                                                                                .event
+                                                                                                .weight_category ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {
+                                                                                                        participation
+                                                                                                            .event
+                                                                                                            .weight_category
+                                                                                                    }
+                                                                                                </p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {participation
+                                                                                            .tournament
+                                                                                            .date_from ??
+                                                                                            t(
+                                                                                                'No date',
+                                                                                            )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {eventClassLabel(
+                                                                                            participation
+                                                                                                .event
+                                                                                                .gender_class,
+                                                                                            t,
+                                                                                        )}
                                                                                     </TableCell>
                                                                                     <TableCell>
                                                                                         {participation
@@ -2221,236 +2153,18 @@ export default function MembersShow({
                                                                             );
                                                                         },
                                                                     )}
-                                                                    {manualRows.map(
-                                                                        (
-                                                                            achievement,
-                                                                        ) => {
-                                                                            const nonCashBenefits =
-                                                                                achievement.benefits.filter(
-                                                                                    (
-                                                                                        benefit,
-                                                                                    ) =>
-                                                                                        !benefit.cash_amount,
-                                                                                );
-                                                                            const prizeMoney =
-                                                                                legacyPrizeMoney(
-                                                                                    achievement.benefits,
-                                                                                );
-
-                                                                            return (
-                                                                                <TableRow
-                                                                                    key={`legacy-achievement-${achievement.id}`}
-                                                                                >
-                                                                                    <TableCell>
-                                                                                        <span
-                                                                                            className={eventBadgeClass(
-                                                                                                'tier',
-                                                                                            )}
-                                                                                        >
-                                                                                            {
-                                                                                                tier
-                                                                                            }
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-1">
-                                                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                                                <span className="font-medium">
-                                                                                                    {
-                                                                                                        achievement.competition_details
-                                                                                                    }
-                                                                                                </span>
-                                                                                                <Badge
-                                                                                                    variant="outline"
-                                                                                                    className="h-5 rounded-full border-emerald-200 bg-emerald-50 px-2 text-[10px] font-semibold tracking-[0.18em] text-emerald-700 uppercase"
-                                                                                                >
-                                                                                                    {t(
-                                                                                                        'Legacy',
-                                                                                                    )}
-                                                                                                </Badge>
-                                                                                            </div>
-                                                                                            <p className="text-xs text-muted-foreground">
-                                                                                                {achievement.session
-                                                                                                    ? `${achievement.session.name} · `
-                                                                                                    : ''}
-                                                                                                {achievement.event_date ??
-                                                                                                    t(
-                                                                                                        'No date',
-                                                                                                    )}
-                                                                                                {achievement.venue
-                                                                                                    ? ` · ${achievement.venue}`
-                                                                                                    : ''}
-                                                                                            </p>
-                                                                                            {achievement.remarks ? (
-                                                                                                <p className="text-xs text-muted-foreground">
-                                                                                                    {
-                                                                                                        achievement.remarks
-                                                                                                    }
-                                                                                                </p>
-                                                                                            ) : null}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-1">
-                                                                                            <span className="font-medium">
-                                                                                                {achievement.event ??
-                                                                                                    achievement.sport_discipline ??
-                                                                                                    '—'}
-                                                                                            </span>
-                                                                                            {achievement.sport_discipline &&
-                                                                                            achievement.event ? (
-                                                                                                <p className="text-xs text-muted-foreground">
-                                                                                                    {
-                                                                                                        achievement.sport_discipline
-                                                                                                    }
-                                                                                                </p>
-                                                                                            ) : null}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        {achievement.position ? (
-                                                                                            <span className="text-xs font-medium text-foreground">
-                                                                                                #
-                                                                                                {
-                                                                                                    achievement.position
-                                                                                                }
-                                                                                            </span>
-                                                                                        ) : (
-                                                                                            <span className="text-xs text-muted-foreground">
-                                                                                                —
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        {achievement.medal_type ? (
-                                                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                                                {(() => {
-                                                                                                    const medal =
-                                                                                                        medalBadgeContent(
-                                                                                                            achievement.medal_type,
-                                                                                                        );
-
-                                                                                                    return (
-                                                                                                        <span
-                                                                                                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
-                                                                                                        >
-                                                                                                            {
-                                                                                                                medal.icon
-                                                                                                            }
-                                                                                                            {
-                                                                                                                medal.label
-                                                                                                            }
-                                                                                                        </span>
-                                                                                                    );
-                                                                                                })()}
-                                                                                                <Badge
-                                                                                                    variant="outline"
-                                                                                                    className="h-5 rounded-full px-2 text-[10px] font-semibold tracking-[0.18em] uppercase"
-                                                                                                >
-                                                                                                    {t(
-                                                                                                        'Legacy',
-                                                                                                    )}
-                                                                                                </Badge>
-                                                                                            </div>
-                                                                                        ) : (
-                                                                                            <span className="text-xs text-muted-foreground">
-                                                                                                —
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <span className="text-xs text-muted-foreground">
-                                                                                            —
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                                            {nonCashBenefits.length >
-                                                                                            0 ? (
-                                                                                                nonCashBenefits.map(
-                                                                                                    (
-                                                                                                        benefit,
-                                                                                                    ) => (
-                                                                                                        <span
-                                                                                                            key={
-                                                                                                                benefit.id
-                                                                                                            }
-                                                                                                            className={eventBadgeClass(
-                                                                                                                'benefit',
-                                                                                                            )}
-                                                                                                        >
-                                                                                                            {t(
-                                                                                                                benefit.benefit_type,
-                                                                                                            )}
-                                                                                                        </span>
-                                                                                                    ),
-                                                                                                )
-                                                                                            ) : (
-                                                                                                <span className="text-xs text-muted-foreground">
-                                                                                                    —
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-1.5">
-                                                                                            {prizeMoney.length >
-                                                                                            0 ? (
-                                                                                                prizeMoney.map(
-                                                                                                    (
-                                                                                                        amount,
-                                                                                                        index,
-                                                                                                    ) => (
-                                                                                                        <div
-                                                                                                            key={`legacy-achievement-${achievement.id}-amount-${index}`}
-                                                                                                            className="text-xs font-medium text-foreground"
-                                                                                                        >
-                                                                                                            {
-                                                                                                                amount
-                                                                                                            }
-                                                                                                        </div>
-                                                                                                    ),
-                                                                                                )
-                                                                                            ) : (
-                                                                                                <span className="text-xs text-muted-foreground">
-                                                                                                    —
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                </TableRow>
-                                                                            );
-                                                                        },
-                                                                    )}
                                                                 </Fragment>
                                                             );
                                                         },
                                                     )}
                                                 </TableBody>
-                                            </Table>
+                                                    </Table>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            )}
-                            <div className="space-y-4">
-                                <div>
-                                    <h3 className="text-base font-semibold">
-                                        {t('Legacy achievements')}
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            'Pre-recruitment and historical achievements recorded outside the current competition workflow.',
-                                        )}
-                                    </p>
-                                </div>
-                                <LegacyAchievementsTab
-                                    member={member}
-                                    sessions={sessions ?? []}
-                                    legacyAchievements={
-                                        remainingLegacyAchievements
-                                    }
-                                />
-                            </div>
+                                    )
+                                }
+                            />
                         </div>
                     </TabsContent>
                     <TabsContent value="performance">
@@ -2715,6 +2429,453 @@ export default function MembersShow({
                             <Download className="mr-1.5 h-4 w-4" />
                             {t('Download Excel')}
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={achievementPreview !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setAchievementPreview(null);
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {achievementPreview?.kind === 'tournament'
+                                ? t('Tournament details')
+                                : t('Event details')}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {achievementPreview ? (
+                        <div className="space-y-4 text-sm">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        {t('Session')}
+                                    </p>
+                                    <p>{achievementPreview.session.name}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        {t('Tier / Level')}
+                                    </p>
+                                    <p>
+                                        {achievementPreview.tournament.tier_code ??
+                                            t('Unknown')}
+                                    </p>
+                                </div>
+                                <div className="space-y-1 sm:col-span-2">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        {t('Tournament')}
+                                    </p>
+                                    <p>{achievementPreview.tournament.name}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        {t('Venue')}
+                                    </p>
+                                    <p>
+                                        {achievementPreview.tournament.venue ??
+                                            '—'}
+                                    </p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        {t('Date')}
+                                    </p>
+                                    <p>
+                                        {[
+                                            formatDisplayDate(
+                                                achievementPreview.tournament
+                                                    .date_from,
+                                                pageLocale,
+                                            ),
+                                            formatDisplayDate(
+                                                achievementPreview.tournament
+                                                    .date_to,
+                                                pageLocale,
+                                            ),
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' - ') || t('No date')}
+                                    </p>
+                                </div>
+                                {achievementPreview.kind === 'event' ? (
+                                    <>
+                                        <div className="space-y-1 sm:col-span-2">
+                                            <p className="text-xs font-medium text-muted-foreground">
+                                                {t('Event')}
+                                            </p>
+                                            <p>{achievementPreview.event.name}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-medium text-muted-foreground">
+                                                {t('Discipline')}
+                                            </p>
+                                            <p>
+                                                {achievementPreview.event
+                                                    .discipline ?? '—'}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-medium text-muted-foreground">
+                                                {t('Class')}
+                                            </p>
+                                            <p>
+                                                {eventClassLabel(
+                                                    achievementPreview.event
+                                                        .gender_class,
+                                                    t,
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1 sm:col-span-2">
+                                            <p className="text-xs font-medium text-muted-foreground">
+                                                {t('Event type')}
+                                            </p>
+                                            <p>
+                                                {achievementPreview.event
+                                                    .weight_category ?? '—'}
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : null}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setAchievementPreview(null)}
+                        >
+                            {t('Close')}
+                        </Button>
+                        {previewUrl ? (
+                            <Button asChild>
+                                <a
+                                    href={previewUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    <ExternalLink className="mr-1.5 h-4 w-4" />
+                                    {t('Open in new tab')}
+                                </a>
+                            </Button>
+                        ) : null}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={achievementFiltersOpen}
+                onOpenChange={(open) => {
+                    setAchievementFiltersOpen(open);
+
+                    if (!open) {
+                        syncDraftAchievementFilters();
+                    }
+                }}
+            >
+                <DialogContent className="overflow-hidden p-0 sm:max-w-3xl" aria-describedby={undefined}>
+                    <DialogHeader>
+                        <div className="border-b bg-muted/30 px-6 py-5">
+                            <DialogTitle className="text-base font-semibold">
+                                {t('Filters')}
+                            </DialogTitle>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {t('Refine post-recruitment achievements without leaving the table.')}
+                            </p>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="space-y-5 px-6 py-5">
+                        <section className="space-y-4 rounded-xl border bg-muted/20 p-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Search & scope')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t('Narrow the list by text, session, medal, and event dates.')}
+                                </p>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-1.5 sm:col-span-2">
+                                    <Label
+                                        htmlFor="achievement-filter-search"
+                                        className="text-xs font-medium text-muted-foreground"
+                                    >
+                                        {t('Search…')}
+                                    </Label>
+                                    <Input
+                                        id="achievement-filter-search"
+                                        value={draftAchievementFilters.search}
+                                        onChange={(e) =>
+                                            setDraftAchievementFilters((current) => ({
+                                                ...current,
+                                                search: e.target.value,
+                                            }))
+                                        }
+                                        placeholder={t('Search events, medals, benefits…')}
+                                        className="h-10 bg-white"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">
+                                        {t('Session')}
+                                    </Label>
+                                    <Select
+                                        value={draftAchievementFilters.session}
+                                        onValueChange={(value) =>
+                                            setDraftAchievementFilters((current) => ({
+                                                ...current,
+                                                session: value as 'all' | 'current' | string,
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger className="h-10 bg-white">
+                                            <SelectValue placeholder={t('All sessions')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="current">
+                                                {t('Current')}
+                                            </SelectItem>
+                                            <SelectItem value="all">
+                                                {t('All sessions')}
+                                            </SelectItem>
+                                            {(participations ?? []).map((group) => (
+                                                <SelectItem
+                                                    key={group.session.id}
+                                                    value={String(group.session.id)}
+                                                >
+                                                    {group.session.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">
+                                        {t('Medal')}
+                                    </Label>
+                                    <Select
+                                        value={draftAchievementFilters.medal}
+                                        onValueChange={(value) =>
+                                            setDraftAchievementFilters((current) => ({
+                                                ...current,
+                                                medal: value as AchievementFiltersState['medal'],
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger className="h-10 bg-white">
+                                            <SelectValue placeholder={t('All medals')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">{t('All medals')}</SelectItem>
+                                            <SelectItem value="GOLD">{t('Gold')}</SelectItem>
+                                            <SelectItem value="SILVER">{t('Silver')}</SelectItem>
+                                            <SelectItem value="BRONZE">{t('Bronze')}</SelectItem>
+                                            <SelectItem value="MERIT">{t('MERIT')}</SelectItem>
+                                            <SelectItem value="none">{t('No medal')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label
+                                        htmlFor="achievement-filter-date-from"
+                                        className="text-xs font-medium text-muted-foreground"
+                                    >
+                                        {t('Date from')}
+                                    </Label>
+                                    <DatePicker
+                                        id="achievement-filter-date-from"
+                                        value={draftAchievementFilters.dateFrom}
+                                        onChange={(value) =>
+                                            setDraftAchievementFilters((current) => ({
+                                                ...current,
+                                                dateFrom: value,
+                                            }))
+                                        }
+                                        className="gap-2"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label
+                                        htmlFor="achievement-filter-date-to"
+                                        className="text-xs font-medium text-muted-foreground"
+                                    >
+                                        {t('Date to')}
+                                    </Label>
+                                    <DatePicker
+                                        id="achievement-filter-date-to"
+                                        value={draftAchievementFilters.dateTo}
+                                        onChange={(value) =>
+                                            setDraftAchievementFilters((current) => ({
+                                                ...current,
+                                                dateTo: value,
+                                            }))
+                                        }
+                                        className="gap-2"
+                                    />
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="space-y-4 rounded-xl border bg-muted/20 p-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Classification')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t('Filter by competition level, event class, and recorded benefits.')}
+                                </p>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">
+                                        {t('Tier')}
+                                    </Label>
+                                    <Select
+                                        value={draftAchievementFilters.tier}
+                                        onValueChange={(value) =>
+                                            setDraftAchievementFilters((current) => ({
+                                                ...current,
+                                                tier: value,
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger className="h-10 bg-white">
+                                            <SelectValue placeholder={t('All tiers')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">{t('All tiers')}</SelectItem>
+                                            {Array.from(
+                                                new Set(
+                                                    (participations ?? []).flatMap(
+                                                        (group) =>
+                                                            group.participations
+                                                                .map((participation) => participation.tournament.tier_code)
+                                                                .filter(Boolean) as string[],
+                                                    ),
+                                                ),
+                                            ).map((tier) => (
+                                                <SelectItem key={tier} value={tier}>
+                                                    {tier}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">
+                                        {t('Class')}
+                                    </Label>
+                                    <Select
+                                        value={draftAchievementFilters.eventClass}
+                                        onValueChange={(value) =>
+                                            setDraftAchievementFilters((current) => ({
+                                                ...current,
+                                                eventClass: value,
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger className="h-10 bg-white">
+                                            <SelectValue placeholder={t('All types')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">{t('All types')}</SelectItem>
+                                            {Array.from(
+                                                new Set(
+                                                    (participations ?? []).flatMap((group) =>
+                                                        group.participations.map(
+                                                            (participation) => participation.event.gender_class,
+                                                        ),
+                                                    ),
+                                                ),
+                                            ).map((item) => (
+                                                <SelectItem key={item} value={item}>
+                                                    {eventClassLabel(item, t)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5 sm:col-span-2">
+                                    <Label className="text-xs font-medium text-muted-foreground">
+                                        {t('Benefits')}
+                                    </Label>
+                                    <Select
+                                        value={draftAchievementFilters.benefit}
+                                        onValueChange={(value) =>
+                                            setDraftAchievementFilters((current) => ({
+                                                ...current,
+                                                benefit: value as AchievementFiltersState['benefit'],
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger className="h-10 bg-white sm:max-w-80">
+                                            <SelectValue placeholder={t('All types')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">{t('All types')}</SelectItem>
+                                            <SelectItem value="benefit">
+                                                {t('Benefit recorded')}
+                                            </SelectItem>
+                                            <SelectItem value="promotion">
+                                                {t('Promotion')}
+                                            </SelectItem>
+                                            <SelectItem value="cash">
+                                                {t('Cash reward')}
+                                            </SelectItem>
+                                            <SelectItem value="both">
+                                                {t('Promotion')} + {t('Cash reward')}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </section>
+
+                        {activeAchievementFilterChips.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                                {activeAchievementFilterChips.map((chip) => (
+                                    <span
+                                        key={chip}
+                                        className="rounded-md border bg-background px-2.5 py-1 text-xs text-muted-foreground"
+                                    >
+                                        {chip}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : null}
+                    </div>
+
+                    <DialogFooter className="border-t bg-muted/20 px-6 py-4 sm:justify-between">
+                        <Button
+                            variant="ghost"
+                            onClick={clearDraftAchievementFilters}
+                            className="sm:mr-auto"
+                        >
+                            {t('Clear filters')}
+                        </Button>
+                        <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    syncDraftAchievementFilters();
+                                    setAchievementFiltersOpen(false);
+                                }}
+                            >
+                                {t('Close')}
+                            </Button>
+                            <Button onClick={applyAchievementFilters}>
+                                {t('Apply filters')}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

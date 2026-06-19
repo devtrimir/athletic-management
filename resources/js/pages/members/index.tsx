@@ -96,7 +96,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'player_level', label: 'Level' },
     { key: 'unit', label: 'Unit' },
     { key: 'home_district', label: 'Home district' },
-    { key: 'posting_district', label: 'Posting unit / district' },
+    { key: 'posting_district', label: 'Posting / District' },
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
@@ -136,7 +136,7 @@ function localeName(entity: { name: string }, locale: string): string {
 }
 
 function postingLocation(member: Member): string | null {
-    return member.posting_district?.name ?? member.current_unit?.name ?? null;
+    return member.current_unit?.name ?? member.posting_district?.name ?? null;
 }
 
 function genderLabel(value: string | null | undefined, t: (key: string) => string): string {
@@ -575,7 +575,7 @@ return `<td>${m.home_district?.name ?? '\u2014'}</td>`;
 }
 
                             if (c.key === 'posting_district') {
-return `<td>${m.posting_district?.name ?? m.current_unit?.name ?? '\u2014'}</td>`;
+return `<td>${m.current_unit?.name ?? m.posting_district?.name ?? '\u2014'}</td>`;
                             }
 
                             if (['dob', 'joining_date', 'promotion_date', 'team_since'].includes(c.key)) {
@@ -892,8 +892,7 @@ next.add(id);
                                 <TableHead>{t('Playable sports')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
-                                <TableHead>{t('Location')}</TableHead>
-                                <TableHead>{t('Designation')}</TableHead>
+                                <TableHead>{t('Posting / District')}</TableHead>
                                 <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
                                     {t('Actions')}
                                 </TableHead>
@@ -902,7 +901,7 @@ next.add(id);
                         <TableBody>
                             {members.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={10} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={11} className="py-12 text-center text-muted-foreground">
                                         {hasAnyFilter
                                             ? t('No members match your filters.')
                                             : t('No members yet.')}
@@ -987,9 +986,6 @@ next.add(id);
                                                     <span>{postingLocation(member)}</span>
                                                 </div>
                                             ) : null}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {member.designation ?? '—'}
                                         </TableCell>
                                         <TableCell className="sticky right-0 z-10 w-0 bg-card text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end">

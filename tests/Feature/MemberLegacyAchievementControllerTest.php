@@ -7,6 +7,7 @@ use App\Models\MemberLegacyAchievement;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -52,6 +53,10 @@ test('member legacy achievement can be stored for pre or post recruitment histor
         'end_year' => 2020,
         'name' => '2019-20',
     ]);
+    $sport = Sport::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'Athletics',
+    ]);
 
     $response = $this->actingAs($user)->post(
         route('members.legacy-achievements.store', $member),
@@ -62,10 +67,13 @@ test('member legacy achievement can be stored for pre or post recruitment histor
             'competition_details' => 'State Police Games 2019',
             'event_date' => '2019-09-14',
             'venue' => 'Lucknow',
+            'sport_id' => $sport->id,
             'sport_discipline' => 'Athletics',
             'event' => '100m Sprint',
+            'discipline' => 'Sprint',
+            'weight_category' => null,
+            'gender_class' => 'M',
             'medal_type' => 'GOLD',
-            'position' => 1,
             'remarks' => 'Recorded from legacy register.',
         ],
     );
@@ -79,6 +87,9 @@ test('member legacy achievement can be stored for pre or post recruitment histor
         ->and($achievement->member_id)->toBe($member->id)
         ->and($achievement->period)->toBe('POST_RECRUITMENT')
         ->and($achievement->session_id)->toBe($session->id)
+        ->and($achievement->sport_id)->toBe($sport->id)
+        ->and($achievement->discipline)->toBe('Sprint')
+        ->and($achievement->gender_class)->toBe('M')
         ->and($achievement->medal_type)->toBe('GOLD')
         ->and($achievement->position)->toBe(1)
         ->and($achievement->remarks)->toBe('Recorded from legacy register.');
@@ -120,7 +131,7 @@ test('member legacy achievement store validates required tournament fields', fun
 
     $response
         ->assertRedirect(route('members.show', $member))
-        ->assertSessionHasErrors(['level', 'competition_details']);
+        ->assertSessionHasErrors(['level', 'competition_details', 'event_date']);
 
     expect(MemberLegacyAchievement::query()->count())->toBe(0);
 });
@@ -149,6 +160,26 @@ test('member legacy achievement guesses session from event date for post recruit
     expect($achievement)
         ->not->toBeNull()
         ->and($achievement->session_id)->toBe($session->id);
+});
+
+test('member legacy achievement derives position from medal type', function (): void {
+    $user = legacyAchievementUser('members.manageLegacyAchievements');
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)->post(route('members.legacy-achievements.store', $member), [
+        'period' => 'POST_RECRUITMENT',
+        'level' => 'STATE',
+        'competition_details' => 'Police Meet',
+        'event_date' => '2019-01-20',
+        'event' => 'Relay',
+        'medal_type' => 'BRONZE',
+    ])->assertRedirect(route('members.show', $member));
+
+    $achievement = MemberLegacyAchievement::query()->first();
+
+    expect($achievement)
+        ->not->toBeNull()
+        ->and($achievement->position)->toBe(3);
 });
 
 test('member legacy achievement does not retain session for pre recruitment records', function (): void {
