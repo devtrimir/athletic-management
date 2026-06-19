@@ -103,7 +103,7 @@ class MemberController extends Controller
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'totalCount' => Member::count(),
         ]);
@@ -140,7 +140,7 @@ class MemberController extends Controller
                 ->orderByDesc('start_year')
                 ->orderByDesc('id')
                 ->get(),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
     }
@@ -190,7 +190,7 @@ class MemberController extends Controller
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
     }
@@ -359,7 +359,7 @@ class MemberController extends Controller
                 ->orderByDesc('start_year')
                 ->orderByDesc('id')
                 ->get(),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
                 ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
@@ -474,10 +474,6 @@ class MemberController extends Controller
                     'promotion_date' => $promotion->promotion_date?->toDateString(),
                     'from_rank' => $promotion->from_rank,
                     'to_rank' => $promotion->to_rank,
-                    'cash_reward_amount' => $promotion->cash_reward_amount,
-                    'cash_reward_date' => $promotion->cash_reward_date?->toDateString(),
-                    'cash_reward_reference' => $promotion->cash_reward_reference,
-                    'cash_reward_remarks' => $promotion->cash_reward_remarks,
                     'reason' => $promotion->reason,
                     'remarks' => $promotion->remarks,
                     'recorded_by_name' => $promotion->recorder?->name,
@@ -497,14 +493,20 @@ class MemberController extends Controller
      */
     private function promotionEvidencePayload(PromotionEvidence $evidence): array
     {
+        $resolvedType = $this->resolvePromotionEvidenceType($evidence->evidencable_type);
+
         $payload = [
             'id' => $evidence->id,
-            'type' => $evidence->evidencable_type,
+            'type' => $resolvedType ?? $evidence->evidencable_type,
             'evidence_id' => $evidence->evidencable_id,
             'summary' => null,
         ];
 
-        if ($evidence->evidencable_type === 'participation') {
+        if ($resolvedType === null) {
+            return $payload;
+        }
+
+        if ($resolvedType === 'participation') {
             $participation = Participation::query()
                 ->with([
                     'session:id,name',
@@ -558,7 +560,7 @@ class MemberController extends Controller
             ]);
         }
 
-        if ($evidence->evidencable_type === 'achievement') {
+        if ($resolvedType === 'achievement') {
             $achievement = Achievement::query()
                 ->with([
                     'participation.session:id,name',
@@ -613,7 +615,7 @@ class MemberController extends Controller
         }
 
         $legacyAchievement = MemberLegacyAchievement::query()
-            ->with('benefits')
+            ->with('benefits', 'session:id,name')
             ->find($evidence->evidencable_id);
 
         if ($legacyAchievement === null) {
@@ -640,9 +642,30 @@ class MemberController extends Controller
                 'venue' => $legacyAchievement->venue,
                 'sport_discipline' => $legacyAchievement->sport_discipline,
                 'medal_type' => $legacyAchievement->medal_type,
+                'position' => $legacyAchievement->position,
                 'benefits' => $this->achievementBenefitsPayload($legacyAchievement->benefits),
+                'session' => $legacyAchievement->session ? [
+                    'id' => $legacyAchievement->session->id,
+                    'name' => $legacyAchievement->session->name,
+                ] : null,
+                'remarks' => $legacyAchievement->remarks,
             ],
         ]);
+    }
+
+    private function resolvePromotionEvidenceType(string $type): ?string
+    {
+        return match ($type) {
+            'participation',
+            'App\\Models\\Participation',
+            'participations' => 'participation',
+            'achievement',
+            'App\\Models\\Achievement',
+            'achievements' => 'achievement',
+            'member_legacy_achievement',
+            'App\\Models\\MemberLegacyAchievement' => 'member_legacy_achievement',
+            default => null,
+        };
     }
 
     /**

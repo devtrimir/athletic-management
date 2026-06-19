@@ -71,6 +71,8 @@ type Props = {
     legacyAchievements: LegacyAchievement[] | undefined;
     showActions?: boolean;
     postRecruitmentContent?: ReactNode;
+    supplementaryNoPadding?: boolean;
+    hidePostRecruitmentRows?: boolean;
 };
 
 const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
@@ -992,7 +994,7 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
     );
 }
 
-function EditAchievementDialog({
+export function EditAchievementDialog({
     achievement,
     member,
     sessions,
@@ -1646,6 +1648,7 @@ function PeriodSection({
     supplementaryContent,
     compact = false,
     supplementaryFirst = false,
+    supplementaryNoPadding = false,
 }: {
     period: 'PRE_RECRUITMENT' | 'POST_RECRUITMENT';
     achievements: LegacyAchievement[];
@@ -1656,7 +1659,14 @@ function PeriodSection({
     supplementaryContent?: ReactNode;
     compact?: boolean;
     supplementaryFirst?: boolean;
+    supplementaryNoPadding?: boolean;
 }) {
+    const supplementaryPadding =
+        supplementaryNoPadding
+            ? ''
+            : compact
+              ? 'p-3 sm:p-4'
+              : 'p-4';
     const { t } = useTranslation();
 
     return (
@@ -1697,7 +1707,7 @@ function PeriodSection({
             ) : (
                 <div className="divide-y">
                     {supplementaryContent && supplementaryFirst ? (
-                        <div className={compact ? 'p-3 sm:p-4' : 'p-4'}>
+                        <div className={supplementaryPadding}>
                             {supplementaryContent}
                         </div>
                     ) : null}
@@ -1711,7 +1721,7 @@ function PeriodSection({
                         />
                     ))}
                     {supplementaryContent && !supplementaryFirst ? (
-                        <div className={compact ? 'p-3 sm:p-4' : 'p-4'}>
+                        <div className={supplementaryPadding}>
                             {supplementaryContent}
                         </div>
                     ) : null}
@@ -1728,9 +1738,15 @@ export function LegacyAchievementsTab({
     legacyAchievements,
     showActions = true,
     postRecruitmentContent,
+    supplementaryNoPadding = false,
+    hidePostRecruitmentRows = false,
 }: Props) {
     const preRecruitment = (legacyAchievements ?? []).filter((a) => a.period === 'PRE_RECRUITMENT');
-    const postRecruitment = (legacyAchievements ?? []).filter((a) => a.period === 'POST_RECRUITMENT');
+    const postRecruitment = hidePostRecruitmentRows
+        ? []
+        : (legacyAchievements ?? []).filter(
+              (a) => a.period === 'POST_RECRUITMENT',
+          );
 
     return (
         <div className="space-y-4">
@@ -1743,6 +1759,7 @@ export function LegacyAchievementsTab({
                 showActions={showActions}
                 supplementaryContent={postRecruitmentContent}
                 supplementaryFirst
+                supplementaryNoPadding={supplementaryNoPadding}
             />
             <PeriodSection
                 period="PRE_RECRUITMENT"

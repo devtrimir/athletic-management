@@ -36,11 +36,7 @@ class MemberPromotionController extends Controller
         ));
 
         $this->syncEvidences($promotion, $member, $request->validated('evidences', []));
-        $this->syncMemberPromotionDate($member);
-
-        if (! empty($promotion->to_rank)) {
-            $member->update(['rank' => $promotion->to_rank]);
-        }
+        $this->syncMemberPromotionState($member);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion recorded.')]);
 
@@ -64,11 +60,7 @@ class MemberPromotionController extends Controller
             $this->syncEvidences($promotion, $member, $request->validated('evidences', []));
         }
 
-        $this->syncMemberPromotionDate($member);
-
-        if (! empty($promotion->to_rank)) {
-            $member->update(['rank' => $promotion->to_rank]);
-        }
+        $this->syncMemberPromotionState($member);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion updated.')]);
 
@@ -82,7 +74,7 @@ class MemberPromotionController extends Controller
         abort_if($promotion->member_id !== $member->id, 404);
 
         $promotion->delete();
-        $this->syncMemberPromotionDate($member);
+        $this->syncMemberPromotionState($member);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion removed.')]);
 
@@ -127,17 +119,25 @@ class MemberPromotionController extends Controller
         }
     }
 
-    private function syncMemberPromotionDate(Member $member): void
+    private function syncMemberPromotionState(Member $member): void
     {
         $latestPromotionDate = MemberPromotion::query()
             ->where('member_id', $member->id)
             ->whereNotNull('promotion_date')
             ->orderByDesc('promotion_date')
             ->orderByDesc('id')
-            ->value('promotion_date');
+            ->first();
+
+        $latestPromotionForRank = MemberPromotion::query()
+            ->where('member_id', $member->id)
+            ->orderByRaw('promotion_date IS NULL')
+            ->orderByDesc('promotion_date')
+            ->orderByDesc('id')
+            ->first();
 
         $member->update([
-            'promotion_date' => $latestPromotionDate,
+            'promotion_date' => $latestPromotionDate?->promotion_date,
+            'rank' => $latestPromotionForRank?->to_rank ?? $member->rank,
         ]);
     }
 }

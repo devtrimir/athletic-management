@@ -14,12 +14,11 @@ import {
     ExternalLink,
     Medal,
     Minus,
+    Trash2,
     Trophy,
     Printer,
 } from 'lucide-react';
 import {
-    Fragment,
-    
     useCallback,
     useEffect,
     useMemo,
@@ -36,6 +35,7 @@ import {
     preview as previewMember,
 } from '@/actions/App/Http/Controllers/MemberController';
 import { show as exportMember } from '@/actions/App/Http/Controllers/MemberExportController';
+import { destroy as destroyLegacyAchievement } from '@/actions/App/Http/Controllers/MemberLegacyAchievementController';
 import {
     store as storeMemberPhoto,
     destroy as destroyMemberPhoto,
@@ -43,7 +43,10 @@ import {
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
-import { LegacyAchievementsTab } from '@/components/members/legacy-achievements-tab';
+import {
+    EditAchievementDialog,
+    LegacyAchievementsTab,
+} from '@/components/members/legacy-achievements-tab';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
 import { MemberPerformanceTab } from '@/components/members/member-performance-tab';
 import type { MemberPerformanceData } from '@/components/members/member-performance-tab';
@@ -53,6 +56,16 @@ import { ParticipationMediaSheet } from '@/components/members/participation-medi
 import { PromotionsTab } from '@/components/members/promotions-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { ChangeLog } from '@/components/shared/change-log';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -242,10 +255,6 @@ type PromotionRow = {
     promotion_date: string | null;
     from_rank: string | null;
     to_rank: string;
-    cash_reward_amount: string | null;
-    cash_reward_date: string | null;
-    cash_reward_reference: string | null;
-    cash_reward_remarks: string | null;
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
@@ -306,7 +315,7 @@ type AchievementFiltersState = {
     medal: 'all' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'none';
     tier: string;
     eventClass: string;
-    benefit: 'all' | 'benefit' | 'promotion' | 'cash' | 'both';
+    benefit: 'all' | 'benefit' | 'promotion';
 };
 
 type LegacyAchievement = {
@@ -363,6 +372,19 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'team_since', label: 'Team since' },
 ];
 
+const MEMBER_SHOW_TABS = [
+    'overview',
+    'teams',
+    'events',
+    'performance',
+    'promotions',
+    'changelog',
+    'media',
+    'status',
+] as const;
+
+type MemberShowTab = (typeof MEMBER_SHOW_TABS)[number];
+
 export default function MembersShow({
     member,
     statusHistory,
@@ -388,13 +410,22 @@ export default function MembersShow({
 }) {
     const memberId = member.id;
     const memberTabStorageKey = `member-show-tab:${memberId}`;
-    const [activeTab, setActiveTab] = useState(() => {
+    const [activeTab, setActiveTab] = useState<MemberShowTab>('overview');
+    useEffect(() => {
         if (typeof window === 'undefined') {
-            return 'overview';
+            return;
         }
 
-        return window.localStorage.getItem(memberTabStorageKey) ?? 'overview';
-    });
+        const savedTab = window.localStorage.getItem(memberTabStorageKey);
+
+        if (
+            savedTab &&
+            MEMBER_SHOW_TABS.includes(savedTab as MemberShowTab)
+        ) {
+            setActiveTab(savedTab as MemberShowTab);
+        }
+    }, [memberTabStorageKey]);
+
     useEffect(() => {
         if (typeof window === 'undefined') {
             return;
@@ -425,6 +456,8 @@ export default function MembersShow({
         id: number;
         eventName: string;
     } | null>(null);
+    const [pendingLegacyAchievementDelete, setPendingLegacyAchievementDelete] =
+        useState<LegacyAchievement | null>(null);
     const [dateFromFilter, setDateFromFilter] = useState('');
     const [dateToFilter, setDateToFilter] = useState('');
     const eventQueryParams = useMemo(() => {
@@ -538,21 +571,21 @@ export default function MembersShow({
     const [achievementFiltersOpen, setAchievementFiltersOpen] = useState(false);
     const [sessionFilter, setSessionFilter] = useState<
         'all' | 'current' | string
-    >('current');
+    >('all');
     const [medalFilter, setMedalFilter] = useState<
         'all' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'none'
     >('all');
     const [tierFilter, setTierFilter] = useState<string>('all');
     const [classFilter, setClassFilter] = useState<string>('all');
     const [benefitFilter, setBenefitFilter] = useState<
-        'all' | 'benefit' | 'promotion' | 'cash' | 'both'
+        'all' | 'benefit' | 'promotion'
     >('all');
     const [draftAchievementFilters, setDraftAchievementFilters] =
         useState<AchievementFiltersState>({
             dateFrom: '',
             dateTo: '',
             search: '',
-            session: 'current',
+            session: 'all',
             medal: 'all',
             tier: 'all',
             eventClass: 'all',
@@ -614,9 +647,127 @@ export default function MembersShow({
                     return aSort - bSort;
                 }
 
-                return (b.event_date ?? '').localeCompare(a.event_date ?? '');
-            });
+                    return (b.event_date ?? '').localeCompare(a.event_date ?? '');
+                });
     }, [legacyAchievements]);
+
+        const legacyAchievementParticipationGroups = useMemo(() => {
+        const sessionById = new Map<
+            number,
+            {
+                id: number;
+                name: string;
+                is_current?: boolean;
+            }
+        >();
+
+        for (const session of sessions ?? []) {
+            sessionById.set(session.id, session);
+        }
+
+        const groups = new Map<number, ParticipationGroup>();
+
+        for (const group of participations ?? []) {
+            groups.set(group.session.id, {
+                ...group,
+                participations: [...group.participations],
+            });
+        }
+
+        const buildSyntheticParticipation = (
+            achievement: LegacyAchievement,
+        ): ParticipationEntry => {
+            const fallbackSessionName = achievement.session?.name || t('Other session');
+            const tournamentName =
+                achievement.competition_details?.trim() || fallbackSessionName;
+            const eventName =
+                achievement.event?.trim() ||
+                achievement.competition_details?.trim() ||
+                fallbackSessionName;
+
+            return {
+                id: -achievement.id,
+                position: achievement.position,
+                media_files_count: 0,
+                tournament: {
+                    id: -achievement.id,
+                    name: tournamentName,
+                    tier_code: achievement.level || null,
+                    tier_weight: null,
+                    date_from: achievement.event_date ?? null,
+                    date_to: null,
+                    venue: achievement.venue ?? null,
+                    session_id: achievement.session?.id ?? null,
+                    sport: achievement.sport
+                        ? {
+                              id: achievement.sport.id,
+                              name: achievement.sport.name,
+                          }
+                        : null,
+                },
+                event: {
+                    id: -achievement.id,
+                    name: eventName,
+                    gender_class: achievement.gender_class ?? '',
+                    discipline:
+                        achievement.discipline ?? achievement.sport_discipline ?? null,
+                    weight_category: achievement.weight_category ?? null,
+                    sport: achievement.sport
+                        ? {
+                              id: achievement.sport.id,
+                              name: achievement.sport.name,
+                          }
+                        : null,
+                },
+                team: null,
+                achievement: {
+                    id: -achievement.id,
+                    medal_type: achievement.medal_type ?? '',
+                    position: achievement.position,
+                    remarks: achievement.remarks ?? null,
+                    benefits: achievement.benefits.map((benefit) => ({
+                        id: benefit.id,
+                        benefit_type: benefit.benefit_type,
+                        promoted_from_rank: benefit.promoted_from_rank,
+                        promoted_to_rank: benefit.promoted_to_rank,
+                        cash_amount: benefit.cash_amount,
+                        benefit_date: benefit.benefit_date,
+                        order_reference: benefit.order_reference,
+                        remarks: benefit.remarks,
+                    })),
+                },
+            };
+        };
+
+        for (const achievement of postRecruitmentLegacyMedalAchievements) {
+            const session = achievement.session;
+            const groupSessionId = session?.id ?? -achievement.id - 10_000_000;
+            const fallbackSessionName = session?.name || t('Other session');
+            const sessionCurrent = true;
+
+            const group = groups.get(groupSessionId);
+
+            if (group) {
+                group.participations = [
+                    ...group.participations,
+                    buildSyntheticParticipation(achievement),
+                ];
+                continue;
+            }
+
+            groups.set(groupSessionId, {
+                session: {
+                    id: groupSessionId,
+                    name: sessionById.get(session?.id ?? -1)?.name ??
+                        fallbackSessionName,
+                    is_current: sessionCurrent,
+                },
+                participations: [buildSyntheticParticipation(achievement)],
+            });
+        }
+
+        return Array.from(groups.values());
+    }, [postRecruitmentLegacyMedalAchievements, sessions, t, participations]);
 
     const formatReadableDate = useCallback(
         (value: string | null): string | null => {
@@ -642,7 +793,6 @@ export default function MembersShow({
     const achievementPrizeMoney = useCallback(
         (
             benefits: AchievementBenefitRow[] | undefined,
-            promotionsForRow: PromotionRow[],
         ): string[] => {
             const amounts: string[] = [];
 
@@ -659,22 +809,24 @@ export default function MembersShow({
                 }
             }
 
-            for (const promotion of promotionsForRow) {
-                if (promotion.cash_reward_amount) {
-                    amounts.push(
-                        [
-                            `₹${promotion.cash_reward_amount}`,
-                            formatReadableDate(promotion.cash_reward_date),
-                        ]
-                            .filter(Boolean)
-                            .join(' · '),
-                    );
-                }
-            }
-
             return amounts;
         },
         [formatReadableDate],
+    );
+
+    const achievementBenefitTypes = useCallback(
+        (
+            benefits: AchievementBenefitRow[] | undefined,
+        ): string[] => {
+            const types: string[] = [];
+
+            for (const benefit of benefits ?? []) {
+                types.push(benefit.benefit_type);
+            }
+
+            return [...new Set(types)];
+        },
+        [t],
     );
 
     const achievementSummary = useMemo(() => {
@@ -718,28 +870,44 @@ export default function MembersShow({
 
         const matchesFilters = (item: ParticipationEntry): boolean => {
             const search = eventSearch.trim().toLowerCase();
-            const promotionMatches =
-                (promotionLookup.get(`participation:${item.id}`)?.length ?? 0) +
-                (item.achievement?.id
-                    ? (promotionLookup.get(`achievement:${item.achievement.id}`)
-                          ?.length ?? 0)
-                    : 0);
-            const hasBenefit = !!item.achievement?.benefits?.length;
+            const promotionRowsForItem = (() => {
+                const seen = new Map<number, PromotionRow>();
+                const legacyAchievementId =
+                    item.id < 0 ? Math.abs(item.id) : null;
+
+                for (const promotion of promotionLookup.get(
+                    `participation:${item.id}`,
+                ) ?? []) {
+                    seen.set(promotion.id, promotion);
+                }
+
+                if (item.achievement?.id) {
+                    for (const promotion of promotionLookup.get(
+                        `achievement:${item.achievement.id}`,
+                    ) ?? []) {
+                        seen.set(promotion.id, promotion);
+                    }
+                }
+
+                if (legacyAchievementId !== null) {
+                    for (const promotion of promotionLookup.get(
+                        `member_legacy_achievement:${legacyAchievementId}`,
+                    ) ?? []) {
+                        seen.set(promotion.id, promotion);
+                    }
+                }
+
+                return Array.from(seen.values());
+            })();
+            const promotionMatches = promotionRowsForItem.length;
+            const hasBenefit = !!(
+                item.achievement?.benefits?.length ||
+                achievementBenefitTypes(
+                    item.achievement?.benefits,
+                    promotionRowsForItem,
+                ).length
+            );
             const hasPromotion = promotionMatches > 0;
-            const hasCashReward =
-                (promotionLookup
-                    .get(`participation:${item.id}`)
-                    ?.some((promotion) =>
-                        Boolean(promotion.cash_reward_amount),
-                    ) ??
-                    false) ||
-                (item.achievement?.id
-                    ? (promotionLookup
-                          .get(`achievement:${item.achievement.id}`)
-                          ?.some((promotion) =>
-                              Boolean(promotion.cash_reward_amount),
-                          ) ?? false)
-                    : false);
 
             if (medalFilter !== 'all') {
                 if (medalFilter === 'none' && item.achievement?.medal_type) {
@@ -776,14 +944,6 @@ export default function MembersShow({
                 return false;
             }
 
-            if (benefitFilter === 'cash' && !hasCashReward) {
-                return false;
-            }
-
-            if (benefitFilter === 'both' && (!hasBenefit || !hasPromotion)) {
-                return false;
-            }
-
             if (!search) {
                 return true;
             }
@@ -794,18 +954,17 @@ export default function MembersShow({
                 item.tournament.tier_code ?? '',
                 item.event.gender_class ?? '',
                 item.achievement?.medal_type ?? '',
-                item.achievement?.benefits
-                    ?.map((benefit) => benefit.benefit_type)
-                    .join(' ') ?? '',
-                promotionLookup
-                    .get(`participation:${item.id}`)
-                    ?.map((promotion) => promotionSummary(promotion))
+                achievementBenefitTypes(
+                    item.achievement?.benefits,
+                    promotionRowsForItem,
+                ).join(' '),
+                promotionRowsForItem
+                    .map((promotion) => promotionSummary(promotion))
                     .join(' ') ?? '',
                 item.achievement?.id
-                    ? (promotionLookup
-                          .get(`achievement:${item.achievement.id}`)
-                          ?.map((promotion) => promotionSummary(promotion))
-                          .join(' ') ?? '')
+                    ? promotionRowsForItem
+                          .map((promotion) => promotionSummary(promotion))
+                          .join(' ') ?? ''
                     : '',
             ]
                 .join(' ')
@@ -814,7 +973,7 @@ export default function MembersShow({
             return haystack.includes(search);
         };
 
-        return (participations ?? [])
+        return legacyAchievementParticipationGroups
             .filter((group) => {
                 if (sessionFilter === 'current') {
                     return isCurrentSession(group.session.is_current);
@@ -841,7 +1000,7 @@ export default function MembersShow({
         classFilter,
         eventSearch,
         medalFilter,
-        participations,
+        legacyAchievementParticipationGroups,
         promotionLookup,
         promotionSummary,
         sessionFilter,
@@ -849,6 +1008,15 @@ export default function MembersShow({
     ]);
 
     const achievementTierGroups = useMemo(() => {
+        const tierHierarchy = new Map<string, number>([
+            ['INTERNATIONAL', 1],
+            ['NATIONAL', 2],
+            ['AIPSC', 3],
+            ['APSC', 3],
+            ['STATE', 4],
+            ['ZONAL', 5],
+        ]);
+
         const groups = new Map<
             string,
             {
@@ -883,12 +1051,30 @@ export default function MembersShow({
         }
 
         return Array.from(groups.values()).sort((a, b) => {
-            if (a.tier === 'OTHER' && b.tier !== 'OTHER') {
+            const aTier = a.tier.toUpperCase();
+            const bTier = b.tier.toUpperCase();
+
+            if (aTier === 'OTHER' && bTier !== 'OTHER') {
                 return 1;
             }
 
-            if (b.tier === 'OTHER' && a.tier !== 'OTHER') {
+            if (bTier === 'OTHER' && aTier !== 'OTHER') {
                 return -1;
+            }
+
+            const aHierarchy = tierHierarchy.get(aTier);
+            const bHierarchy = tierHierarchy.get(bTier);
+
+            if (aHierarchy !== undefined && bHierarchy !== undefined) {
+                return aHierarchy - bHierarchy;
+            }
+
+            if (aHierarchy !== undefined) {
+                return -1;
+            }
+
+            if (bHierarchy !== undefined) {
+                return 1;
             }
 
             if (a.tierWeight !== b.tierWeight) {
@@ -925,7 +1111,7 @@ export default function MembersShow({
         setDateFromFilter('');
         setDateToFilter('');
         setEventSearch('');
-        setSessionFilter('current');
+        setSessionFilter('all');
         setMedalFilter('all');
         setTierFilter('all');
         setClassFilter('all');
@@ -937,7 +1123,7 @@ export default function MembersShow({
             dateFrom: '',
             dateTo: '',
             search: '',
-            session: 'current',
+            session: 'all',
             medal: 'all',
             tier: 'all',
             eventClass: 'all',
@@ -1020,10 +1206,39 @@ export default function MembersShow({
                 }
             }
 
+            if (participation.id < 0) {
+                for (const promotion of promotionLookup.get(
+                    `member_legacy_achievement:${Math.abs(participation.id)}`,
+                ) ?? []) {
+                    seen.set(promotion.id, promotion);
+                }
+            }
+
             return Array.from(seen.values());
         },
         [promotionLookup],
     );
+
+    function isLegacyAchievementLinked(
+        participation: ParticipationEntry,
+    ): boolean {
+        return eventPromotionRows(participation).length > 0;
+    }
+
+    function confirmDeleteLegacyAchievement(
+        achievement: LegacyAchievement | null,
+    ): void {
+        if (!achievement) {
+            return;
+        }
+
+        router.delete(destroyLegacyAchievement.url({
+            member: {
+                id: member.id,
+            },
+            legacyAchievement: achievement,
+        }));
+    }
 
     function eventBadgeClass(
         kind:
@@ -1032,8 +1247,7 @@ export default function MembersShow({
             | 'class'
             | 'medal'
             | 'promotion'
-            | 'benefit'
-            | 'cash',
+            | 'benefit',
     ): string {
         const base =
             'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium';
@@ -1051,8 +1265,6 @@ export default function MembersShow({
                 return `${base} border-blue-200 bg-blue-50 text-blue-700`;
             case 'benefit':
                 return `${base} border-violet-200 bg-violet-50 text-violet-700`;
-            case 'cash':
-                return `${base} border-rose-200 bg-rose-50 text-rose-700`;
         }
     }
 
@@ -1336,7 +1548,7 @@ export default function MembersShow({
                             {t('Performance')}
                         </TabsTrigger>
                         <TabsTrigger value="promotions">
-                            {t('Promotions & rewards')}
+                            {t('Promotions')}
                         </TabsTrigger>
                         <TabsTrigger value="changelog">
                             {t('Change log')}
@@ -1642,12 +1854,14 @@ export default function MembersShow({
                                 sessions={sessions ?? []}
                                 sports={sports}
                                 legacyAchievements={legacyAchievements}
+                                supplementaryNoPadding
+                                hidePostRecruitmentRows
                                 postRecruitmentContent={
                                     loadingParticipations ||
                                     participations === null ||
                                     loadingAchievements ||
                                     achievementsData === null ? (
-                                        <div className="space-y-2">
+                                        <div className="space-y-2 p-4">
                                             {[1, 2, 3].map((n) => (
                                                 <Skeleton
                                                     key={n}
@@ -1662,7 +1876,7 @@ export default function MembersShow({
                                             </p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-3">
+                                        <div className="space-y-3 p-4">
                                             <div className="sticky top-3 z-10 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/85">
                                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                                     <div className="flex min-w-0 flex-1 flex-wrap gap-1.5 text-xs text-muted-foreground">
@@ -1731,69 +1945,33 @@ export default function MembersShow({
                                                     </p>
                                                 </div>
                                             ) : (
-                                                <div className="rounded-xl border bg-card">
-                                                    <Table>
-                                                        <TableHeader>
-                                                            <TableRow>
-                                                                <TableHead>
-                                                                    {t('Tier')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Tier / Level')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Tournament')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Session')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Venue')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Event')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Discipline')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Date')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Class')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Medal')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Position')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Benefits')}
-                                                                </TableHead>
-                                                                <TableHead>
-                                                                    {t('Prize money')}
-                                                                </TableHead>
-                                                            </TableRow>
-                                                        </TableHeader>
-                                                        <TableBody>
-                                                    {achievementTierGroups.map(
-                                                        ({
-                                                            tier,
-                                                            rows,
-                                                        }) => {
-                                                            const medalCounts =
-                                                                rows.reduce(
-                                                                    (
-                                                                        acc,
-                                                                        {
-                                                                            participation,
-                                                                        },
-                                                                    ) => {
-                                                                        const medal =
-                                                                            participation
-                                                                                .achievement
-                                                                                ?.medal_type;
+                                                <div className="space-y-4">
+                                                        {achievementTierGroups.map(
+                                                            ({
+                                                                tier,
+                                                                rows,
+                                                            }) => {
+                                                                const medalCounts =
+                                                                    rows.reduce(
+                                                                        (
+                                                                            acc,
+                                                                            {
+                                                                                participation,
+                                                                            },
+                                                                        ) => {
+                                                                            if (
+                                                                                participation
+                                                                                    .tournament
+                                                                                    .tier_code ===
+                                                                                'OTHER'
+                                                                            ) {
+                                                                                return acc;
+                                                                            }
+
+                                                                            const medal =
+                                                                                participation
+                                                                                    .achievement
+                                                                                    ?.medal_type;
 
                                                                         if (
                                                                             medal &&
@@ -1815,350 +1993,501 @@ export default function MembersShow({
                                                                         MERIT: 0,
                                                                     },
                                                                 );
+                                                            let tierAchievementSerial =
+                                                                0;
 
                                                             return (
-                                                                <Fragment
+                                                                <div
                                                                     key={`tier-${tier}`}
+                                                                    className="overflow-hidden rounded-xl border bg-card"
                                                                 >
-                                                                    <TableRow className="bg-primary/5 hover:bg-primary/5">
-                                                                            <TableCell
-                                                                            colSpan={
-                                                                                13
-                                                                            }
-                                                                            className="border-l-4 border-primary py-3 font-medium"
-                                                                        >
-                                                                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                                                                <div className="flex flex-wrap items-center gap-2">
-                                                                                    <span
-                                                                                        className={eventBadgeClass(
-                                                                                            'tier',
-                                                                                        )}
-                                                                                    >
-                                                                                        {
-                                                                                            tier
-                                                                                        }
-                                                                                    </span>
-                                                                                    <span className="text-xs text-muted-foreground">
-                                                                                        {rows.length}{' '}
-                                                                                        {t(
-                                                                                            'records',
-                                                                                        )}
-                                                                                    </span>
-                                                                                </div>
-                                                                                <span className="flex flex-wrap gap-1.5">
-                                                                                    {(
-                                                                                        [
-                                                                                            'GOLD',
-                                                                                            'SILVER',
-                                                                                            'BRONZE',
-                                                                                            'MERIT',
-                                                                                        ] as const
-                                                                                    ).map(
-                                                                                        (
-                                                                                            medal,
-                                                                                        ) =>
-                                                                                            medalCounts[
-                                                                                                medal
-                                                                                            ] >
-                                                                                            0 ? (
-                                                                                                <span
-                                                                                                    key={
-                                                                                                        medal
-                                                                                                    }
-                                                                                                    className={eventBadgeClass(
-                                                                                                        'medal',
-                                                                                                    )}
-                                                                                                >
-                                                                                                    {t(
-                                                                                                        medal,
-                                                                                                    )}
-
-                                                                                                    :{' '}
-                                                                                                    {
-                                                                                                        medalCounts[
-                                                                                                            medal
-                                                                                                        ]
-                                                                                                    }
-                                                                                                </span>
-                                                                                            ) : null,
-                                                                                    )}
-                                                                                </span>
-                                                                            </div>
-                                                                        </TableCell>
-                                                                    </TableRow>
-                                                                    {rows.map(
-                                                                        ({
-                                                                            group,
-                                                                            participation,
-                                                                        }) => {
-                                                                            const promotionsForRow =
-                                                                                eventPromotionRows(
-                                                                                    participation,
-                                                                                );
-
-                                                                            return (
-                                                                                <TableRow
-                                                                                    key={
-                                                                                        participation.id
-                                                                                    }
-                                                                                >
-                                                                                    <TableCell>
-                                                                                        {group
-                                                                                            .session
-                                                                                            .is_current ? (
-                                                                                            <span
-                                                                                                className={eventBadgeClass(
-                                                                                                    'session',
-                                                                                                )}
-                                                                                            >
-                                                                                                {t(
-                                                                                                    'Current',
-                                                                                                )}
-                                                                                            </span>
-                                                                                        ) : (
-                                                                                            <span className="text-xs text-muted-foreground">
-                                                                                                —
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
+                                                                    <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                            <span
+                                                                                className={eventBadgeClass(
+                                                                                    'tier',
+                                                                                )}
+                                                                            >
+                                                                                {tier}
+                                                                            </span>
+                                                                            <span className="text-xs text-muted-foreground">
+                                                                                {rows.length}{' '}
+                                                                                {t(
+                                                                                    'records',
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                        <span className="flex flex-wrap gap-1.5">
+                                                                            {(
+                                                                                [
+                                                                                    'GOLD',
+                                                                                    'SILVER',
+                                                                                    'BRONZE',
+                                                                                    'MERIT',
+                                                                                ] as const
+                                                                            ).map(
+                                                                                (
+                                                                                    medal,
+                                                                                ) =>
+                                                                                    medalCounts[
+                                                                                        medal
+                                                                                    ] >
+                                                                                    0 ? (
                                                                                         <span
+                                                                                            key={
+                                                                                                medal
+                                                                                            }
                                                                                             className={eventBadgeClass(
-                                                                                                'tier',
+                                                                                                'medal',
                                                                                             )}
                                                                                         >
+                                                                                            {t(
+                                                                                                medal,
+                                                                                            )}
+
+                                                                                            :{' '}
                                                                                             {
-                                                                                                participation
-                                                                                                    .tournament
-                                                                                                    .tier_code ??
-                                                                                                tier
+                                                                                                medalCounts[
+                                                                                                    medal
+                                                                                                ]
                                                                                             }
                                                                                         </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-1">
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                className="block text-left font-medium hover:underline"
-                                                                                                onClick={() =>
-                                                                                                    setAchievementPreview(
-                                                                                                        {
-                                                                                                            kind: 'tournament',
-                                                                                                            tournament:
-                                                                                                                participation.tournament,
-                                                                                                            session:
-                                                                                                                group.session,
-                                                                                                        },
-                                                                                                    )
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    participation
-                                                                                                        .tournament
-                                                                                                        .name
-                                                                                                }
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        {
-                                                                                            group
-                                                                                                .session
-                                                                                                .name
-                                                                                        }
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        {participation
-                                                                                            .tournament
-                                                                                            .venue ??
-                                                                                            '—'}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-1">
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                className="text-left font-medium hover:underline"
-                                                                                                onClick={() =>
-                                                                                                    setAchievementPreview(
-                                                                                                        {
-                                                                                                            kind: 'event',
-                                                                                                            tournament:
-                                                                                                                participation.tournament,
-                                                                                                            event: participation.event,
-                                                                                                            session:
-                                                                                                                group.session,
-                                                                                                        },
-                                                                                                    )
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    participation
-                                                                                                        .event
-                                                                                                        .name
-                                                                                                }
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-1">
-                                                                                            <span>
-                                                                                                {participation
-                                                                                                    .event
-                                                                                                    .discipline ??
-                                                                                                    '—'}
-                                                                                            </span>
-                                                                                            {participation
-                                                                                                .event
-                                                                                                .weight_category ? (
-                                                                                                <p className="text-xs text-muted-foreground">
-                                                                                                    {
-                                                                                                        participation
-                                                                                                            .event
-                                                                                                            .weight_category
-                                                                                                    }
-                                                                                                </p>
-                                                                                            ) : null}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        {participation
-                                                                                            .tournament
-                                                                                            .date_from ??
-                                                                                            t(
-                                                                                                'No date',
-                                                                                            )}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        {eventClassLabel(
+                                                                                    ) : null,
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                    <Table className="text-xs [&_th]:py-1.5 [&_td]:py-1.5 [&_th]:px-2 [&_td]:px-2">
+                                                                        <TableHeader>
+                                                                            <TableRow>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'S.No.',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Tier',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Tier / Level',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Tournament',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Session',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Venue',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Event',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Discipline',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Date',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Class',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Medal',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Position',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Benefits',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Prize money',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                                <TableHead>
+                                                                                    {t(
+                                                                                        'Actions',
+                                                                                    )}
+                                                                                </TableHead>
+                                                                            </TableRow>
+                                                                        </TableHeader>
+                                                                            <TableBody>
+                                                                            {rows.map(
+                                                                                ({
+                                                                                    group,
+                                                                                    participation,
+                                                                                }) => {
+                                                                                    const isSyntheticParticipation =
+                                                                                        participation.id <
+                                                                                        0;
+                                                                                    const legacyAchievement =
+                                                                                        legacyAchievements?.find(
+                                                                                            (
+                                                                                                achievement,
+                                                                                            ) =>
+                                                                                                achievement.id ===
+                                                                                                -participation.id,
+                                                                                        );
+                                                                                    const isCurrentSessionFilterActive =
+                                                                                        sessionFilter ===
+                                                                                        'current';
+                                                                                    const promotionsForRow =
+                                                                                        eventPromotionRows(
+                                                                                            participation,
+                                                                                        );
+                                                                                    const achievementBenefits =
+                                                                                        achievementBenefitTypes(
                                                                                             participation
-                                                                                                .event
-                                                                                                .gender_class,
-                                                                                            t,
-                                                                                        )}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        {participation
-                                                                                            .achievement
-                                                                                            ?.medal_type ? (
-                                                                                            (() => {
-                                                                                                const medal =
-                                                                                                    medalBadgeContent(
-                                                                                                        participation
-                                                                                                            .achievement
-                                                                                                            .medal_type,
-                                                                                                    );
+                                                                                                .achievement
+                                                                                                ?.benefits,
+                                                                                            promotionsForRow,
+                                                                                        );
+                                                                                    const legacyAchievementIsLinked =
+                                                                                        isSyntheticParticipation &&
+                                                                                        legacyAchievement !==
+                                                                                            null &&
+                                                                                        isLegacyAchievementLinked(
+                                                                                            participation,
+                                                                                        );
 
-                                                                                                return (
-                                                                                                    <span
-                                                                                                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
-                                                                                                    >
+                                                                                    return (
+                                                                                        <TableRow
+                                                                                            key={
+                                                                                                participation.id
+                                                                                            }
+                                                                                        >
+                                                                                            <TableCell>
+                                                                                                {
+                                                                                                    ++tierAchievementSerial
+                                                                                                }
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                {isSyntheticParticipation ? (
+                                                                                                    <span className="text-xs text-muted-foreground">
                                                                                                         {
-                                                                                                            medal.icon
-                                                                                                        }
-                                                                                                        {
-                                                                                                            medal.label
+                                                                                                            group
+                                                                                                                .session
+                                                                                                                .name
                                                                                                         }
                                                                                                     </span>
-                                                                                                );
-                                                                                            })()
-                                                                                        ) : (
-                                                                                            <span
-                                                                                                className={eventBadgeClass(
-                                                                                                    'medal',
+                                                                                                ) : isCurrentSessionFilterActive &&
+                                                                                                    group
+                                                                                                        .session
+                                                                                                        .is_current ? (
+                                                                                                    <span
+                                                                                                        className={eventBadgeClass(
+                                                                                                            'session',
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {t(
+                                                                                                            'Current',
+                                                                                                        )}
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    <span className="text-xs text-muted-foreground">
+                                                                                                        —
+                                                                                                    </span>
                                                                                                 )}
-                                                                                            >
-                                                                                                {t(
-                                                                                                    'No medal',
-                                                                                                )}
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        #
-                                                                                        {participation
-                                                                                            .achievement
-                                                                                            ?.position ??
-                                                                                            participation.position ??
-                                                                                            '—'}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                                            {participation
-                                                                                                .achievement
-                                                                                                ?.benefits
-                                                                                                ?.length ? (
-                                                                                                participation.achievement.benefits.map(
-                                                                                                    (
-                                                                                                        benefit,
-                                                                                                    ) => (
-                                                                                                        <span
-                                                                                                            key={
-                                                                                                                benefit.id
-                                                                                                            }
-                                                                                                            className={eventBadgeClass(
-                                                                                                                'benefit',
-                                                                                                            )}
-                                                                                                        >
-                                                                                                            {t(
-                                                                                                                benefit.benefit_type,
-                                                                                                            )}
-                                                                                                        </span>
-                                                                                                    ),
-                                                                                                )
-                                                                                            ) : (
-                                                                                                <span className="text-xs text-muted-foreground">
-                                                                                                    —
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                <span
+                                                                                                    className={eventBadgeClass(
+                                                                                                        'tier',
+                                                                                                    )}
+                                                                                                >
+                                                                                                    {
+                                                                                                        participation
+                                                                                                            .tournament
+                                                                                                            .tier_code ??
+                                                                                                        tier
+                                                                                                    }
                                                                                                 </span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-1.5">
-                                                                                            {achievementPrizeMoney(
-                                                                                                participation
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                <div className="space-y-1">
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        className="block text-left font-medium hover:underline"
+                                                                                                        onClick={() =>
+                                                                                                            setAchievementPreview(
+                                                                                                                {
+                                                                                                                    kind: 'tournament',
+                                                                                                                    tournament:
+                                                                                                                        participation.tournament,
+                                                                                                                    session:
+                                                                                                                        group.session,
+                                                                                                                },
+                                                                                                            )
+                                                                                                        }
+                                                                                                    >
+                                                                                                        {
+                                                                                                            participation
+                                                                                                                .tournament
+                                                                                                                .name
+                                                                                                        }
+                                                                                                    </button>
+                                                                                                    <p className="text-xs text-muted-foreground">
+                                                                                                        {
+                                                                                                            participation
+                                                                                                                .team
+                                                                                                                ?.name
+                                                                                                        }
+                                                                                                    </p>
+                                                                                                </div>
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                {
+                                                                                                    group
+                                                                                                        .session
+                                                                                                        .name
+                                                                                                }
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                {participation
+                                                                                                    .tournament
+                                                                                                    .venue ??
+                                                                                                    '—'}
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                <div className="space-y-1">
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        className="text-left font-medium hover:underline"
+                                                                                                        onClick={() =>
+                                                                                                            setAchievementPreview(
+                                                                                                                {
+                                                                                                                    kind: 'event',
+                                                                                                                    tournament:
+                                                                                                                        participation.tournament,
+                                                                                                                    event: participation.event,
+                                                                                                                    session:
+                                                                                                                        group.session,
+                                                                                                                },
+                                                                                                            )
+                                                                                                        }
+                                                                                                    >
+                                                                                                        {
+                                                                                                            participation
+                                                                                                                .event
+                                                                                                                .name
+                                                                                                        }
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                <div className="space-y-1">
+                                                                                                    <span>
+                                                                                                        {participation
+                                                                                                            .event
+                                                                                                            .discipline ??
+                                                                                                            '—'}
+                                                                                                    </span>
+                                                                                                    {participation
+                                                                                                        .event
+                                                                                                        .weight_category ? (
+                                                                                                        <p className="text-xs text-muted-foreground">
+                                                                                                            {
+                                                                                                                participation
+                                                                                                                    .event
+                                                                                                                    .weight_category
+                                                                                                            }
+                                                                                                        </p>
+                                                                                                    ) : null}
+                                                                                                </div>
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                {participation
+                                                                                                    .tournament
+                                                                                                    .date_from ??
+                                                                                                    t(
+                                                                                                        'No date',
+                                                                                                    )}
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                {eventClassLabel(
+                                                                                                    participation
+                                                                                                        .event
+                                                                                                        .gender_class,
+                                                                                                    t,
+                                                                                                )}
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                {participation
                                                                                                     .achievement
-                                                                                                    ?.benefits,
-                                                                                                promotionsForRow,
-                                                                                            )
-                                                                                                .length >
-                                                                                            0 ? (
-                                                                                                achievementPrizeMoney(
+                                                                                                    ?.medal_type ? (
+                                                                                                    (() => {
+                                                                                                        const medal =
+                                                                                                            medalBadgeContent(
+                                                                                                                participation
+                                                                                                                    .achievement
+                                                                                                                    .medal_type,
+                                                                                                            );
+
+                                                                                                        return (
+                                                                                                            <span
+                                                                                                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
+                                                                                                            >
+                                                                                                                {
+                                                                                                                    medal
+                                                                                                                        .icon
+                                                                                                                }
+                                                                                                                {
+                                                                                                                    medal.label
+                                                                                                                }
+                                                                                                            </span>
+                                                                                                        );
+                                                                                                    })()
+                                                                                                ) : (
+                                                                                                    <span
+                                                                                                        className={eventBadgeClass(
+                                                                                                            'medal',
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {t(
+                                                                                                            'No medal',
+                                                                                                        )}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                #{
                                                                                                     participation
                                                                                                         .achievement
-                                                                                                        ?.benefits,
-                                                                                                    promotionsForRow,
-                                                                                                ).map(
-                                                                                                    (
-                                                                                                        amount,
-                                                                                                        index,
-                                                                                                    ) => (
-                                                                                                        <div
-                                                                                                            key={`${participation.id}-amount-${index}`}
-                                                                                                            className="text-xs font-medium text-foreground"
-                                                                                                        >
-                                                                                                            {
-                                                                                                                amount
+                                                                                                        ?.position ??
+                                                                                                    participation.position ??
+                                                                                                    '—'
+                                                                                                }
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                <div className="flex flex-wrap gap-1.5">
+                                                                                                    {achievementBenefits.length ? (
+                                                                                                        achievementBenefits.map(
+                                                                                                            (
+                                                                                                                benefitType,
+                                                                                                                index,
+                                                                                                            ) => (
+                                                                                                                <span
+                                                                                                                    key={`${participation.id}-benefit-${index}`}
+                                                                                                                    className={eventBadgeClass(
+                                                                                                                        'benefit',
+                                                                                                                    )}
+                                                                                                                >
+                                                                                                                    {t(
+                                                                                                                        benefitType,
+                                                                                                                    )}
+                                                                                                                </span>
+                                                                                                            ),
+                                                                                                        )
+                                                                                                    ) : (
+                                                                                                        <span className="text-xs text-muted-foreground">
+                                                                                                            —
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                <div className="space-y-1.5">
+                                                                                                    {achievementPrizeMoney(
+                                                                                                        participation
+                                                                                                            .achievement
+                                                                                                            ?.benefits,
+                                                                                                        promotionsForRow,
+                                                                                                    )
+                                                                                                        .length >
+                                                                                                    0 ? (
+                                                                                                        achievementPrizeMoney(
+                                                                                                            participation
+                                                                                                                .achievement
+                                                                                                                ?.benefits,
+                                                                                                            promotionsForRow,
+                                                                                                        ).map(
+                                                                                                            (
+                                                                                                                amount,
+                                                                                                                index,
+                                                                                                            ) => (
+                                                                                                                <div
+                                                                                                                    key={`${participation.id}-amount-${index}`}
+                                                                                                                    className="text-xs font-medium text-foreground"
+                                                                                                                >
+                                                                                                                    {
+                                                                                                                        amount
+                                                                                                                    }
+                                                                                                                </div>
+                                                                                                            ),
+                                                                                                        )
+                                                                                                    ) : (
+                                                                                                        <span className="text-xs text-muted-foreground">
+                                                                                                            —
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                {isSyntheticParticipation &&
+                                                                                                legacyAchievement ? (
+                                                                                                    <div className="flex items-center justify-end gap-1">
+                                                                                                        <EditAchievementDialog
+                                                                                                            achievement={
+                                                                                                                legacyAchievement
                                                                                                             }
-                                                                                                        </div>
-                                                                                                    ),
-                                                                                                )
-                                                                                            ) : (
-                                                                                                <span className="text-xs text-muted-foreground">
-                                                                                                    —
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                </TableRow>
-                                                                            );
-                                                                        },
-                                                                    )}
-                                                                </Fragment>
+                                                                                                            member={{
+                                                                                                                id: member.id,
+                                                                                                            }}
+                                                                                                            sessions={sessions ?? []}
+                                                                                                            sports={sports}
+                                                                                                        />
+                                                                                                        {!legacyAchievementIsLinked ? (
+                                                                                                        <Button
+                                                                                                            variant="ghost"
+                                                                                                            size="icon"
+                                                                                                            className="size-7 text-destructive hover:text-destructive"
+                                                                                                            onClick={() => {
+                                                                                                                setPendingLegacyAchievementDelete(
+                                                                                                                    legacyAchievement,
+                                                                                                                );
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            <Trash2 className="size-4" />
+                                                                                                        </Button>
+                                                                                                        ) : null}
+                                                                                                    </div>
+                                                                                                ) : null}
+                                                                                            </TableCell>
+                                                                                        </TableRow>
+                                                                                    );
+                                                                                },
+                                                                            )}
+                                                                        </TableBody>
+                                                                    </Table>
+                                                                </div>
                                                             );
                                                         },
                                                     )}
-                                                </TableBody>
-                                                    </Table>
                                                 </div>
                                             )}
                                         </div>
@@ -2647,7 +2976,7 @@ export default function MembersShow({
                                             <SelectItem value="all">
                                                 {t('All sessions')}
                                             </SelectItem>
-                                            {(participations ?? []).map((group) => (
+                                            {legacyAchievementParticipationGroups.map((group) => (
                                                 <SelectItem
                                                     key={group.session.id}
                                                     value={String(group.session.id)}
@@ -2755,7 +3084,7 @@ export default function MembersShow({
                                             <SelectItem value="all">{t('All tiers')}</SelectItem>
                                             {Array.from(
                                                 new Set(
-                                                    (participations ?? []).flatMap(
+                                                    legacyAchievementParticipationGroups.flatMap(
                                                         (group) =>
                                                             group.participations
                                                                 .map((participation) => participation.tournament.tier_code)
@@ -2790,7 +3119,7 @@ export default function MembersShow({
                                             <SelectItem value="all">{t('All types')}</SelectItem>
                                             {Array.from(
                                                 new Set(
-                                                    (participations ?? []).flatMap((group) =>
+                                                    legacyAchievementParticipationGroups.flatMap((group) =>
                                                         group.participations.map(
                                                             (participation) => participation.event.gender_class,
                                                         ),
@@ -2827,12 +3156,6 @@ export default function MembersShow({
                                             </SelectItem>
                                             <SelectItem value="promotion">
                                                 {t('Promotion')}
-                                            </SelectItem>
-                                            <SelectItem value="cash">
-                                                {t('Cash reward')}
-                                            </SelectItem>
-                                            <SelectItem value="both">
-                                                {t('Promotion')} + {t('Cash reward')}
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -2879,6 +3202,43 @@ export default function MembersShow({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog
+                open={pendingLegacyAchievementDelete !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingLegacyAchievementDelete(null);
+                    }
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {t('Delete legacy achievement?')}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t(
+                                'This will permanently remove the selected legacy achievement record.',
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setPendingLegacyAchievementDelete(null)}>
+                            {t('Cancel')}
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                confirmDeleteLegacyAchievement(
+                                    pendingLegacyAchievementDelete,
+                                );
+                                setPendingLegacyAchievementDelete(null);
+                            }}
+                        >
+                            {t('Delete')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

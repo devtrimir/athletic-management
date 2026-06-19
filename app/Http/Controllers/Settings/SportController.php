@@ -71,9 +71,36 @@ class SportController extends Controller
             ->map(fn (Sport $sport): array => $this->sportSwitcherData($sport))
             ->values();
 
+        $eventDirectory = SportEvent::query()
+            ->whereHas('sport', function ($query) use ($request): void {
+                $query->where('organization_id', $request->user()->organization_id);
+            })
+            ->with('sport:id,name,code')
+            ->withCount([
+                'variants as team_variant_count' => fn ($query): mixed => $query
+                    ->where('is_team_based', true),
+                'variants as individual_variant_count' => fn ($query): mixed => $query
+                    ->where('is_team_based', false),
+            ])
+            ->orderBy('name')
+            ->orderBy('code')
+            ->get(['id', 'sport_id', 'name', 'code']);
+
         return Inertia::render('settings/sports/show', [
             'sport' => $this->sportShowData($sport),
             'sports' => $sports,
+            'event_directory' => $eventDirectory
+                ->map(fn (SportEvent $event): array => [
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'code' => $event->code,
+                    'sport_id' => $event->sport_id,
+                    'sport_name' => $event->sport?->name,
+                    'sport_code' => $event->sport?->code,
+                    'team_variant_count' => (int) $event->team_variant_count,
+                    'individual_variant_count' => (int) $event->individual_variant_count,
+                ])
+                ->values(),
         ]);
     }
 

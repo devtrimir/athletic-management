@@ -1,9 +1,11 @@
 import { Head, Link, router, setLayoutProps } from '@inertiajs/react';
-import { ArrowLeft, CheckCircle2, CircleOff, ListTree, Medal, Ruler, Users } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, CircleOff, ListTree, Medal, Ruler, Search, Users } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import SportController from '@/actions/App/Http/Controllers/Settings/SportController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
@@ -78,6 +80,17 @@ type Sport = SportSwitcherItem & {
     weight_categories: WeightCategory[];
 };
 
+type EventDirectoryItem = {
+    id: number;
+    name: string;
+    code: string | null;
+    sport_id: number;
+    sport_name: string | null;
+    sport_code: string | null;
+    team_variant_count: number;
+    individual_variant_count: number;
+};
+
 function fallback(value: string | number | null | undefined): string {
     if (value === null || value === undefined || value === '') {
         return '-';
@@ -117,8 +130,13 @@ function statItems(sport: Sport, t: (key: string) => string) {
     ];
 }
 
-export default function Show({ sport, sports }: { sport: Sport; sports: SportSwitcherItem[] }) {
+export default function Show({ sport, sports, event_directory: eventDirectory }: {
+    sport: Sport;
+    sports: SportSwitcherItem[];
+    event_directory: EventDirectoryItem[];
+}) {
     const { t } = useTranslation();
+    const [eventQuery, setEventQuery] = useState('');
 
     setLayoutProps({
         breadcrumbs: [
@@ -142,6 +160,27 @@ export default function Show({ sport, sports }: { sport: Sport; sports: SportSwi
 
         router.visit(SportController.show.url(id));
     }
+
+    const filteredEvents = useMemo(() => {
+        const query = eventQuery.trim().toLowerCase();
+
+        if (query.length === 0) {
+            return [];
+        }
+
+        return eventDirectory
+            .filter((event) => {
+                if (event.sport_id === sport.id) {
+                    return false;
+                }
+
+                const name = event.name.toLowerCase();
+                const code = event.code ? event.code.toLowerCase() : '';
+
+                return name.includes(query) || code.includes(query);
+            })
+            .slice(0, 20);
+    }, [eventQuery, eventDirectory, sport.id]);
 
     return (
         <>
@@ -213,6 +252,69 @@ export default function Show({ sport, sports }: { sport: Sport; sports: SportSwi
                 </div>
 
                 <section className="space-y-3">
+                    <div className="rounded-lg border bg-card/50 p-4">
+                        <label className="mb-2 block text-sm font-medium" htmlFor="event-search">
+                            <span className="inline-flex items-center gap-2">
+                                <Search className="h-4 w-4" />
+                                {t('Find event')}
+                            </span>
+                        </label>
+                        <Input
+                            id="event-search"
+                            value={eventQuery}
+                            onChange={(e) => setEventQuery(e.target.value)}
+                            placeholder={t('Search event by name or code…')}
+                            className="mb-3"
+                        />
+
+                        {filteredEvents.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                {eventQuery.trim() === '' ? t('Search event by name or code…') : t('No matching event.')}
+                            </p>
+                        ) : (
+                            <div className="space-y-2">
+                                <p className="text-sm text-muted-foreground">{t('Matches in other sports')}</p>
+                                <div className="space-y-2">
+                                    {filteredEvents.map((event) => (
+                                        <div
+                                            key={event.id}
+                                            className="flex flex-col gap-2 border p-2.5 sm:flex-row sm:items-center sm:justify-between"
+                                        >
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-medium">{event.name}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {event.code}
+                                                    {event.sport_name ? ` • ${event.sport_name}` : ''}
+                                                    {event.sport_code ? ` (${event.sport_code})` : ''}
+                                                </p>
+                                                <div className="inline-flex gap-1">
+                                                    {event.team_variant_count > 0 ? (
+                                                        <Badge variant="outline">{t('Team')}</Badge>
+                                                    ) : null}
+                                                    {event.individual_variant_count > 0 ? (
+                                                        <Badge variant="outline">{t('Individual')}</Badge>
+                                                    ) : null}
+                                                    {event.team_variant_count === 0 && event.individual_variant_count === 0 ? (
+                                                        <Badge variant="outline">{t('No variants recorded.')}</Badge>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    router.visit(SportController.show.url(event.sport_id));
+                                                }}
+                                            >
+                                                {t('Go to sport')}
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex items-center justify-between gap-3">
                         <h2 className="text-base font-semibold">{t('Events and variants')}</h2>
                         <Badge variant="outline">{t('Read only')}</Badge>
