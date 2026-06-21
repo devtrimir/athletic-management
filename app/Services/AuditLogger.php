@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 class AuditLogger
 {
     /**
-     * @param array<string, mixed>|null $diff
+     * @param  array<string, mixed>|null  $diff
      */
     public function log(string $action, Model $model, ?array $diff = null): void
     {

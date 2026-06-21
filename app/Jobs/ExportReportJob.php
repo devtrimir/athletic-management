@@ -45,21 +45,21 @@ class ExportReportJob implements ShouldQueue
         AchievementHistoryReport $achievementHistory,
     ): void {
         $data = match ($this->key) {
-            'medal-tally'             => $medalTally->run($this->orgId, $this->filters),
-            'medals-by-member'        => $medalsByMember->run($this->orgId, $this->filters, (int) ($this->filters['limit'] ?? 50)),
-            'team-roster'             => $teamRoster->run($this->orgId, $this->filters),
+            'medal-tally' => $medalTally->run($this->orgId, $this->filters),
+            'medals-by-member' => $medalsByMember->run($this->orgId, $this->filters, (int) ($this->filters['limit'] ?? 50)),
+            'team-roster' => $teamRoster->run($this->orgId, $this->filters),
             'resignation-dismissal-log' => $resignationDismissal->run(
                 $this->orgId,
                 $this->filters,
                 $this->filters['from_date'] ?? null,
-                $this->filters['to_date']   ?? null,
-                $this->filters['status']    ?? null,
+                $this->filters['to_date'] ?? null,
+                $this->filters['status'] ?? null,
             ),
-            'unit-headcount'          => $unitHeadcount->run($this->orgId, $this->filters),
-            'player-level-summary'    => $playerLevelSummary->run($this->orgId, $this->filters),
-            'new-joiners'             => $newJoiners->run($this->orgId, $this->filters),
-            'achievement-history'     => $achievementHistory->run($this->orgId, $this->filters),
-            default                   => collect(),
+            'unit-headcount' => $unitHeadcount->run($this->orgId, $this->filters),
+            'player-level-summary' => $playerLevelSummary->run($this->orgId, $this->filters),
+            'new-joiners' => $newJoiners->run($this->orgId, $this->filters),
+            'achievement-history' => $achievementHistory->run($this->orgId, $this->filters),
+            default => collect(),
         };
 
         /** @var array<int, string> $headings */
@@ -72,7 +72,7 @@ class ExportReportJob implements ShouldQueue
 
         Cache::put("export:{$this->uuid}", [
             'status' => 'ready',
-            'path'   => "exports/{$this->uuid}.xlsx",
+            'path' => "exports/{$this->uuid}.xlsx",
         ], now()->addMinutes(30));
     }
 }

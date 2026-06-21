@@ -1,8 +1,8 @@
 <?php
 
-use App\Models\Permission;
 use App\Models\Member;
 use App\Models\Organization;
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;

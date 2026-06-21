@@ -101,11 +101,11 @@ test('show page returns seeded sport master details and switcher list', function
     $sport = Sport::withoutGlobalScopes()->where('code', 'ATHLETICS')->firstOrFail();
 
     $this->actingAs($this->admin)
-            ->get(route('sports.show', $sport))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('settings/sports/show')
-                ->has('sports', 41)
+        ->get(route('sports.show', $sport))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/sports/show')
+            ->has('sports', 41)
             ->has('sports.0', fn (Assert $switcherSport) => $switcherSport
                 ->has('id')
                 ->has('name')
@@ -131,9 +131,9 @@ test('show page returns seeded sport master details and switcher list', function
                     ->has('variants_count')
                     ->has('variants')
                 )
-                    ->has('events.0.variants.0', fn (Assert $variant) => $variant
-                        ->has('id')
-                        ->has('name')
+                ->has('events.0.variants.0', fn (Assert $variant) => $variant
+                    ->has('id')
+                    ->has('name')
                     ->has('code')
                     ->has('participation_format')
                     ->has('gender_category')
@@ -143,23 +143,23 @@ test('show page returns seeded sport master details and switcher list', function
                     ->has('max_participants')
                     ->has('substitute_allowed')
                     ->has('is_team_based')
-                        ->has('is_medal_event')
-                        ->has('is_active')
-                        ->etc()
-                    )
-                    ->has('weight_categories', 0)
-                    ->has('event_directory')
-                    ->has('event_directory.0', fn (Assert $eventEntry) => $eventEntry
-                        ->has('id')
-                        ->has('name')
-                        ->has('code')
-                        ->has('sport_id')
-                        ->has('sport_name')
-                        ->has('sport_code')
-                    )
+                    ->has('is_medal_event')
+                    ->has('is_active')
                     ->etc()
                 )
-            );
+                ->has('weight_categories', 0)
+                ->has('event_directory')
+                ->has('event_directory.0', fn (Assert $eventEntry) => $eventEntry
+                    ->has('id')
+                    ->has('name')
+                    ->has('code')
+                    ->has('sport_id')
+                    ->has('sport_name')
+                    ->has('sport_code')
+                )
+                ->etc()
+            )
+        );
 });
 
 test('show page redirects guest', function (): void {

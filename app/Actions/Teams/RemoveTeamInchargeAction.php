@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 class RemoveTeamInchargeAction
 {
     /**
-     * @param array{removed_at?:string|null,removal_reason?:string|null,remarks?:string|null} $data
+     * @param  array{removed_at?:string|null,removal_reason?:string|null,remarks?:string|null}  $data
      */
     public function __invoke(Team $team, array $data, User $actor): TeamInchargeAssignment
     {

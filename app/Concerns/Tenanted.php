@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Models\Scopes\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Auto-applies the BelongsToOrganization global scope to any model
@@ -13,7 +14,7 @@ use App\Models\Scopes\BelongsToOrganization;
  *
  * Never bypass the scope in user-facing controllers or policies.
  *
- * @mixin \Illuminate\Database\Eloquent\Model
+ * @mixin Model
  */
 trait Tenanted
 {

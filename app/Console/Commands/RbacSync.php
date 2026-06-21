@@ -31,11 +31,11 @@ class RbacSync extends Command
             return self::SUCCESS;
         }
 
-        $now  = Carbon::now();
+        $now = Carbon::now();
         $rows = array_map(fn (array $entry) => array_merge($entry, [
             'description' => null,
-            'created_at'  => $now,
-            'updated_at'  => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
         ]), $catalog);
 
         Permission::upsert(
@@ -53,4 +53,3 @@ class RbacSync extends Command
         return self::SUCCESS;
     }
 }
-

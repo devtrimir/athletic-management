@@ -8,7 +8,6 @@ use App\Http\Resources\MemberResource;
 use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
 use App\Models\Achievement;
-use App\Models\AuditLog;
 use App\Models\Designation;
 use App\Models\District;
 use App\Models\MediaFile;
