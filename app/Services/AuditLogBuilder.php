@@ -11,6 +11,7 @@ use App\Models\CoachAlias;
 use App\Models\CoachAssignment;
 use App\Models\CoachStatusHistory;
 use App\Models\District;
+use App\Models\Incharge;
 use App\Models\Member;
 use App\Models\MemberLegacyAchievement;
 use App\Models\MemberPromotion;
@@ -20,6 +21,7 @@ use App\Models\PromotionEvidence;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
+use App\Models\TeamInchargeAssignment;
 use App\Models\TeamMember;
 use App\Models\Unit;
 use App\Models\User;
@@ -472,6 +474,86 @@ class AuditLogBuilder
                 $field === 'session_id' => $sessionMap->get((int) $value) ?? (string) $value,
                 $field === 'member_id' => $memberMap->get((int) $value) ?? (string) $value,
                 $field === 'coach_id' => $coachMap->get((int) $value) ?? (string) $value,
+                default => (string) $value,
+            };
+        };
+
+        return $this->mapLogs($allLogs, $subjectMap, $fieldLabelMap, $hiddenFields, $resolve, $userMap);
+    }
+
+    /**
+     * Build the audit timeline for an incharge and their team assignments.
+     *
+     * @return array<int, array{id: int, action: string, subject: string, at: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
+     */
+    public function forIncharge(Incharge $incharge): array
+    {
+        $assignmentIds = TeamInchargeAssignment::where('incharge_id', $incharge->id)->pluck('id');
+
+        $logs = AuditLog::where('entity', 'Incharge')->where('entity_id', $incharge->id)->get();
+
+        $logs = $logs->merge(
+            AuditLog::where('entity', 'TeamInchargeAssignment')
+                ->whereIn('action', ['created', 'deleted'])
+                ->whereRaw("JSON_EXTRACT(diff, '$.incharge_id') = ?", [$incharge->id])
+                ->get()
+        );
+
+        if ($assignmentIds->isNotEmpty()) {
+            $logs = $logs->merge(
+                AuditLog::where('entity', 'TeamInchargeAssignment')
+                    ->where('action', 'updated')
+                    ->whereIn('entity_id', $assignmentIds)
+                    ->get()
+            );
+        }
+
+        $allLogs = $logs->unique('id')->sortByDesc('at')->values();
+
+        $teamMap = Team::withoutGlobalScopes()->pluck('name', 'id');
+        $userMap = User::pluck('name', 'id');
+
+        $subjectMap = [
+            'Incharge' => 'Incharge',
+            'TeamInchargeAssignment' => 'Team assignment',
+        ];
+
+        $fieldLabelMap = [
+            'Incharge' => [
+                'full_name' => 'Name',
+                'pno' => 'PNO',
+                'rank' => 'Rank',
+                'designation' => 'Designation',
+                'mobile' => 'Mobile',
+                'email' => 'Email',
+                'is_active' => 'Active',
+                'remarks' => 'Remarks',
+            ],
+            'TeamInchargeAssignment' => [
+                'team_id' => 'Team',
+                'incharge_id' => 'Incharge',
+                'assigned_at' => 'Assigned on',
+                'removed_at' => 'Removed on',
+                'assignment_reason' => 'Assignment reason',
+                'removal_reason' => 'Removal reason',
+                'is_current' => 'Current',
+            ],
+        ];
+
+        $hiddenFields = [
+            'Incharge' => ['id', 'organization_id', 'deleted_at'],
+            'TeamInchargeAssignment' => ['id', 'current_team_id'],
+        ];
+
+        $resolve = function (string $entity, string $field, mixed $value) use ($teamMap, $incharge): ?string {
+            if ($value === null) {
+                return null;
+            }
+
+            return match (true) {
+                $field === 'team_id' => $teamMap->get((int) $value) ?? (string) $value,
+                $field === 'incharge_id' => (int) $value === $incharge->id ? $incharge->full_name : (string) $value,
+                is_bool($value) => $value ? 'Yes' : 'No',
                 default => (string) $value,
             };
         };

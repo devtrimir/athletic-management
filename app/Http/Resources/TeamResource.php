@@ -52,6 +52,7 @@ class TeamResource extends JsonResource
             ]),
             'current_incharge_assignment' => $this->whenLoaded('currentInchargeAssignment', fn () => $this->currentInchargeAssignment ? [
                 'id' => $this->currentInchargeAssignment->id,
+                'incharge_id' => $this->currentInchargeAssignment->incharge_id,
                 'full_name' => $this->currentInchargeAssignment->full_name,
                 'pno' => $this->currentInchargeAssignment->pno,
                 'rank' => $this->currentInchargeAssignment->rank,

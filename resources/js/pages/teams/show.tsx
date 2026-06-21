@@ -5,7 +5,6 @@ import {
     router,
     setLayoutProps,
     usePage,
-    useRemember,
 } from '@inertiajs/react';
 import {
     Download,
@@ -25,7 +24,7 @@ import {
     UserPlus,
     Users,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
     destroy as destroyTeamCoach,
@@ -95,6 +94,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import {
+    changelog as teamChangelogRoute,
+    coaches as teamCoachesRoute,
+    incharge as teamInchargeRoute,
+    players as teamPlayersRoute,
+    show as teamOverviewRoute,
+} from '@/routes/teams';
 
 type Team = {
     id: number;
@@ -115,6 +121,7 @@ type Team = {
     unit: { id: number; name: string } | null;
     current_incharge_assignment: {
         id: number;
+        incharge_id: number | null;
         full_name: string;
         pno: string | null;
         rank: string | null;
@@ -191,17 +198,23 @@ type InchargeHistoryRow = {
     assigned_by: { id: number; name: string } | null;
     removed_by: { id: number; name: string } | null;
 };
-type MasterOption = {
-    code: string;
-    name: string;
-    short_name: string | null;
+type InchargeOption = {
+    id: number;
+    full_name: string;
+    pno: string;
+    rank: string | null;
+    designation: string | null;
+    mobile: string | null;
+    email: string | null;
 };
 
 const MEMBER_ROLES = ['PLAYER', 'CAPTAIN', 'RESERVE'] as const;
 const COACH_ROLES = ['HEAD', 'ASSISTANT'] as const;
+type TeamProfileTab = 'overview' | 'players' | 'coaches' | 'incharge' | 'changelog';
 
 export default function TeamsShow({
     team,
+    activeTab,
     counts,
     sessions,
     selectedSessionId,
@@ -211,10 +224,10 @@ export default function TeamsShow({
     coaches,
     inchargeHistory,
     auditLog,
-    ranks,
-    designations,
+    incharges,
 }: {
     team: Team;
+    activeTab: TeamProfileTab;
     counts?: Counts;
     sessions: Session[];
     selectedSessionId: number | null;
@@ -224,8 +237,7 @@ export default function TeamsShow({
     coaches?: CoachAssignmentRow[];
     inchargeHistory?: InchargeHistoryRow[];
     auditLog?: AuditEntry[];
-    ranks: MasterOption[];
-    designations: MasterOption[];
+    incharges: InchargeOption[];
 }) {
     const { t } = useTranslation();
     const page = usePage<{
@@ -255,15 +267,49 @@ export default function TeamsShow({
         left_on: '',
     });
 
-    const [activeTab, setActiveTab] = useRemember(
-        'overview',
-        `teams.${team.id}.active-tab`,
-    );
     const [highlightedMemberIds, setHighlightedMemberIds] = useState<
         Set<number>
     >(new Set());
     const tabContentClass =
         'data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-bottom-2 data-[state=active]:duration-300';
+
+    const tabQuery = useMemo(
+        () =>
+            selectedSessionId
+                ? { query: { filter: { session_id: selectedSessionId } } }
+                : undefined,
+        [selectedSessionId],
+    );
+
+    const tabUrl = useCallback(
+        (tab: TeamProfileTab): string => {
+            if (tab === 'players') {
+                return teamPlayersRoute.url(team, tabQuery);
+            }
+
+            if (tab === 'coaches') {
+                return teamCoachesRoute.url(team, tabQuery);
+            }
+
+            if (tab === 'incharge') {
+                return teamInchargeRoute.url(team, tabQuery);
+            }
+
+            if (tab === 'changelog') {
+                return teamChangelogRoute.url(team, tabQuery);
+            }
+
+            return teamOverviewRoute.url(team, tabQuery);
+        },
+        [tabQuery, team],
+    );
+
+    const visitTab = useCallback((tab: TeamProfileTab) => {
+        router.visit(tabUrl(tab), {
+            preserveScroll: true,
+            preserveState: true,
+        });
+    }, [tabUrl]);
 
     useEffect(() => {
         const errors = page.props.errors;
@@ -276,9 +322,11 @@ export default function TeamsShow({
             (errors?.removeIncharge &&
                 Object.keys(errors.removeIncharge).length > 0)
         ) {
-            setActiveTab('incharge');
+            if (activeTab !== 'incharge') {
+                visitTab('incharge');
+            }
         }
-    }, [page.props.errors, setActiveTab]);
+    }, [activeTab, page.props.errors, visitTab]);
 
     // Selection state for bulk remove
     const [selectedMemberIds, setSelectedMemberIds] = useState<Set<number>>(
@@ -402,7 +450,7 @@ export default function TeamsShow({
     function handleMembersAdded(addedMembers: MemberOption[]) {
         const count = addedMembers.length;
 
-        setActiveTab('players');
+        visitTab('players');
         setSelectedMemberIds(new Set());
         highlightMembers(addedMembers.map((member) => member.id));
 
@@ -453,7 +501,7 @@ export default function TeamsShow({
                 {
                     preserveScroll: true,
                     onSuccess: () => {
-                        setActiveTab('players');
+                        visitTab('players');
                         highlightMembers(restoredIds);
 
                         if (!restoreToastShown) {
@@ -1149,7 +1197,7 @@ export default function TeamsShow({
         },
         {
             value: 'incharge',
-            label: t('Incharge'),
+            label: t('Team Prabhari'),
             icon: ShieldCheck,
         },
         {
@@ -1608,11 +1656,7 @@ export default function TeamsShow({
                     </div>
                 </section>
 
-                <Tabs
-                    value={activeTab}
-                    onValueChange={setActiveTab}
-                    className="space-y-3"
-                >
+                <Tabs value={activeTab} className="space-y-3">
                     <div className="overflow-x-auto">
                         <TabsList>
                             {tabs.map((tab) => {
@@ -1622,14 +1666,23 @@ export default function TeamsShow({
                                     <TabsTrigger
                                         key={tab.value}
                                         value={tab.value}
+                                        asChild
                                     >
-                                        <Icon className="h-4 w-4 shrink-0" />
-                                        <span>{tab.label}</span>
-                                        {tab.count !== undefined ? (
-                                            <span className="rounded-full border border-muted bg-muted/80 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                                                {tab.count}
-                                            </span>
-                                        ) : null}
+                                        <Link
+                                            href={tabUrl(
+                                                tab.value as TeamProfileTab,
+                                            )}
+                                            preserveScroll
+                                            prefetch
+                                        >
+                                            <Icon className="h-4 w-4 shrink-0" />
+                                            <span>{tab.label}</span>
+                                            {tab.count !== undefined ? (
+                                                <span className="rounded-full border border-muted bg-muted/80 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                                    {tab.count}
+                                                </span>
+                                            ) : null}
+                                        </Link>
                                     </TabsTrigger>
                                 );
                             })}
@@ -2705,8 +2758,7 @@ export default function TeamsShow({
                                     team.current_incharge_assignment
                                 }
                                 history={inchargeHistory}
-                                ranks={ranks}
-                                designations={designations}
+                                incharges={incharges}
                             />
                         </Deferred>
                     </TabsContent>

@@ -10,17 +10,13 @@ use App\Http\Requests\Teams\StoreTeamRequest;
 use App\Http\Requests\Teams\UpdateTeamRequest;
 use App\Http\Resources\TeamResource;
 use App\Models\CoachAssignment;
-use App\Models\Designation;
 use App\Models\District;
-use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
-use App\Models\TeamInchargeAssignment;
 use App\Models\TeamMember;
-use App\Models\TeamMemberMovement;
 use App\Models\Unit;
-use App\Services\AuditLogBuilder;
+use App\Support\Teams\TeamProfileData;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -116,6 +112,14 @@ class TeamController extends Controller
                 fn ($q) => $q->where('is_active', true)
             )
             ->paginate(25)
+            ->through(function (Team $team) use ($defaultSessionId): Team {
+                $team->setAttribute(
+                    'listing_is_active',
+                    $team->is_active && (int) $team->session_id === (int) $defaultSessionId,
+                );
+
+                return $team;
+            })
             ->withQueryString();
 
         $sessions = SportSession::select(['id', 'name', 'is_current'])
@@ -172,189 +176,17 @@ class TeamController extends Controller
         return to_route('teams.show', $team);
     }
 
-    public function show(Team $team, Request $request, AuditLogBuilder $auditLogBuilder): Response
+    public function show(Team $team, Request $request, TeamProfileData $profileData): Response
     {
         Gate::authorize('view', $team);
 
-        $team->load([
-            'sport:id,name',
-            'session:id,name',
-            'district:id,name',
-            'unit:id,name,district_id',
-            'currentInchargeAssignment',
-        ]);
+        $sessionId = $request->input('filter.session_id');
 
-        $orgId = (int) $request->user()->organization_id;
-
-        $sessions = SportSession::select(['id', 'name', 'is_current'])
-            ->where('organization_id', $orgId)
-            ->orderBy('name')
-            ->get();
-        $defaultSessionId = $sessions->firstWhere('is_current', true)?->id
-            ?? SportSession::where('organization_id', $orgId)->where('is_current', true)->value('id')
-            ?? $team->session_id;
-        $selectedSessionId = (int) ($request->input('filter.session_id') ?: $defaultSessionId);
-
-        return Inertia::render('teams/show', [
-            'team' => (new TeamResource($team))->resolve(),
-            'sessions' => $sessions,
-            'selectedSessionId' => $selectedSessionId,
-            'counts' => Inertia::defer(fn () => [
-                'players_count' => $team->teamMembers()
-                    ->where('session_id', $selectedSessionId)
-                    ->whereNull('left_on')
-                    ->count(),
-                'coaches_count' => $team->coachAssignments()
-                    ->where('session_id', $selectedSessionId)
-                    ->count(),
-            ]),
-            'members' => Inertia::defer(fn () => $team->teamMembers()
-                ->with([
-                    'member:id,full_name,member_code,pno,rank,designation,mobile,current_unit_id',
-                    'member.currentUnit:id,name',
-                    'session:id,name',
-                ])
-                ->where('session_id', $selectedSessionId)
-                ->whereNull('left_on')
-                ->orderBy('id')
-                ->get()
-                ->map(fn ($tm) => [
-                    'id' => $tm->id,
-                    'role' => $tm->role,
-                    'joined_on' => $tm->joined_on?->toDateString(),
-                    'left_on' => $tm->left_on?->toDateString(),
-                    'member' => $tm->member ? [
-                        'id' => $tm->member->id,
-                        'full_name' => $tm->member->full_name,
-                        'member_code' => $tm->member->member_code,
-                        'pno' => $tm->member->pno,
-                        'rank' => $tm->member->rank,
-                        'designation' => $tm->member->designation,
-                        'mobile' => $tm->member->mobile,
-                        'current_unit' => $tm->member->currentUnit ? [
-                            'id' => $tm->member->currentUnit->id,
-                            'name' => $tm->member->currentUnit->name,
-                        ] : null,
-                    ] : null,
-                    'session' => $tm->session ? [
-                        'id' => $tm->session->id,
-                        'name' => $tm->session->name,
-                    ] : null,
-                ])),
-            'removedMembers' => Inertia::defer(fn () => $team->teamMembers()
-                ->with([
-                    'member:id,full_name,member_code,pno,rank,designation,mobile,current_unit_id',
-                    'member.currentUnit:id,name',
-                    'session:id,name',
-                ])
-                ->where('session_id', $selectedSessionId)
-                ->whereNotNull('left_on')
-                ->orderByDesc('left_on')
-                ->get()
-                ->map(fn ($tm) => [
-                    'id' => $tm->id,
-                    'role' => $tm->role,
-                    'joined_on' => $tm->joined_on?->toDateString(),
-                    'left_on' => $tm->left_on?->toDateString(),
-                    'member' => $tm->member ? [
-                        'id' => $tm->member->id,
-                        'full_name' => $tm->member->full_name,
-                        'member_code' => $tm->member->member_code,
-                        'pno' => $tm->member->pno,
-                        'rank' => $tm->member->rank,
-                        'designation' => $tm->member->designation,
-                        'mobile' => $tm->member->mobile,
-                        'current_unit' => $tm->member->currentUnit ? [
-                            'id' => $tm->member->currentUnit->id,
-                            'name' => $tm->member->currentUnit->name,
-                        ] : null,
-                    ] : null,
-                    'session' => $tm->session ? [
-                        'id' => $tm->session->id,
-                        'name' => $tm->session->name,
-                    ] : null,
-                ])),
-            'coaches' => Inertia::defer(fn () => $team->coachAssignments()
-                ->with(['coach:id,full_name,pno', 'session:id,name'])
-                ->where('session_id', $selectedSessionId)
-                ->orderBy('id')
-                ->get()
-                ->map(fn ($ca) => [
-                    'id' => $ca->id,
-                    'role' => $ca->role,
-                    'coach' => $ca->coach ? [
-                        'id' => $ca->coach->id,
-                        'full_name' => $ca->coach->full_name,
-                        'pno' => $ca->coach->pno,
-                    ] : null,
-                    'session' => $ca->session ? [
-                        'id' => $ca->session->id,
-                        'name' => $ca->session->name,
-                    ] : null,
-                ])),
-            'memberMovements' => Inertia::defer(fn () => TeamMemberMovement::query()
-                ->where('team_id', $team->id)
-                ->where('session_id', $selectedSessionId)
-                ->with(['member:id,full_name,member_code,pno', 'createdBy:id,name'])
-                ->latest()
-                ->limit(100)
-                ->get()
-                ->map(fn (TeamMemberMovement $movement) => [
-                    'id' => $movement->id,
-                    'action' => $movement->action,
-                    'role' => $movement->role,
-                    'effective_on' => $movement->effective_on?->toDateString(),
-                    'reason' => $movement->reason,
-                    'source' => $movement->source,
-                    'batch_uuid' => $movement->batch_uuid,
-                    'created_at' => $movement->created_at?->toDateTimeString(),
-                    'member' => $movement->member ? [
-                        'id' => $movement->member->id,
-                        'full_name' => $movement->member->full_name,
-                        'member_code' => $movement->member->member_code,
-                        'pno' => $movement->member->pno,
-                    ] : null,
-                    'created_by' => $movement->createdBy ? [
-                        'id' => $movement->createdBy->id,
-                        'name' => $movement->createdBy->name,
-                    ] : null,
-                ])),
-            'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forTeam($team)),
-            'inchargeHistory' => Inertia::defer(fn () => TeamInchargeAssignment::query()
-                ->where('team_id', $team->id)
-                ->with([
-                    'assignedBy:id,name',
-                    'removedBy:id,name',
-                ])
-                ->latest('assigned_at')
-                ->get()
-                ->map(fn (TeamInchargeAssignment $assignment) => [
-                    'id' => $assignment->id,
-                    'full_name' => $assignment->full_name,
-                    'pno' => $assignment->pno,
-                    'rank' => $assignment->rank,
-                    'designation' => $assignment->designation,
-                    'mobile' => $assignment->mobile,
-                    'email' => $assignment->email,
-                    'assigned_at' => $assignment->assigned_at?->toDateTimeString(),
-                    'removed_at' => $assignment->removed_at?->toDateTimeString(),
-                    'assignment_reason' => $assignment->assignment_reason,
-                    'removal_reason' => $assignment->removal_reason,
-                    'remarks' => $assignment->remarks,
-                    'is_current' => $assignment->is_current,
-                    'assigned_by' => $assignment->assignedBy ? [
-                        'id' => $assignment->assignedBy->id,
-                        'name' => $assignment->assignedBy->name,
-                    ] : null,
-                    'removed_by' => $assignment->removedBy ? [
-                        'id' => $assignment->removedBy->id,
-                        'name' => $assignment->removedBy->name,
-                    ] : null,
-                ])),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')
-                ->get(['code', 'name', 'short_name', 'mapped_rank_code']),
-        ]);
+        return Inertia::render('teams/show', $profileData->overview(
+            $team,
+            (int) $request->user()->organization_id,
+            is_numeric($sessionId) ? (int) $sessionId : null,
+        ));
     }
 
     public function edit(Team $team, Request $request): Response

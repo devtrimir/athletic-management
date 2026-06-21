@@ -104,6 +104,7 @@ type Team = {
     location_type: 'unit' | 'district';
     location_label: string | null;
     is_active: boolean;
+    listing_is_active: boolean;
     players_count: number;
     removed_players_count: number;
     male_players_count: number;
@@ -398,7 +399,7 @@ export default function TeamsIndex({
         }
 
         if (column === 'is_active') {
-            return team.is_active ? t('Active') : t('Inactive');
+            return team.listing_is_active ? t('Active') : t('Inactive');
         }
 
         if (column === 'in_charge') {
@@ -847,17 +848,17 @@ export default function TeamsIndex({
                                             <TableCell>
                                                 <Badge
                                                     variant={
-                                                        team.is_active
+                                                        team.listing_is_active
                                                             ? 'default'
                                                             : 'secondary'
                                                     }
                                                     className={
-                                                        team.is_active
+                                                        team.listing_is_active
                                                             ? 'border border-emerald-300 bg-emerald-100/80 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200'
                                                             : 'border border-amber-300 bg-amber-100/80 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200'
                                                     }
                                                 >
-                                                    {team.is_active
+                                                    {team.listing_is_active
                                                         ? t('Active')
                                                         : t('Inactive')}
                                                 </Badge>

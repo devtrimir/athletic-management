@@ -170,6 +170,41 @@ test('teams index roster counts follow selected session without duplicating team
         );
 });
 
+test('teams index marks only current session active teams as active for listing status', function (): void {
+    $user = teamIndexUser('teams.view');
+    $currentSession = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'is_current' => true,
+    ]);
+    $oldSession = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'is_current' => false,
+    ]);
+
+    $currentTeam = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $currentSession->id,
+        'is_active' => true,
+        'name' => 'Current Session Team',
+    ]);
+    $oldTeam = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $oldSession->id,
+        'is_active' => true,
+        'name' => 'Old Session Team',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('teams.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('teams.data.0.id', $currentTeam->id)
+            ->where('teams.data.0.listing_is_active', true)
+            ->where('teams.data.1.id', $oldTeam->id)
+            ->where('teams.data.1.listing_is_active', false)
+        );
+});
+
 test('teams export supports redesigned listing columns', function (): void {
     Excel::fake();
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Members;
 
+use App\Rules\UniquePnoAcrossPeople;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,7 +24,7 @@ class UpdateMemberRequest extends FormRequest
         $memberId = (int) $this->route('member')?->getKey();
 
         return [
-            'pno' => ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('members', 'pno')->where('organization_id', $orgId)->ignore($memberId)],
+            'pno' => ['sometimes', 'nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, 'members', $memberId)],
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
             'father_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'rank' => ['sometimes', 'nullable', 'string', 'max:100'],

@@ -55,6 +55,12 @@ class TeamInchargeAssignment extends Model
         return $this->belongsTo(Team::class);
     }
 
+    /** @return BelongsTo<Incharge, $this> */
+    public function incharge(): BelongsTo
+    {
+        return $this->belongsTo(Incharge::class);
+    }
+
     /** @return BelongsTo<User, $this> */
     public function assignedBy(): BelongsTo
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Coaches;
 
+use App\Rules\UniquePnoAcrossPeople;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,7 +25,7 @@ class UpdateCoachRequest extends FormRequest
 
         return [
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
-            'pno' => ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('coaches', 'pno')->where('organization_id', $orgId)->ignore($coachId)],
+            'pno' => ['sometimes', 'nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, 'coaches', $coachId)],
             'mobile' => ['sometimes', 'nullable', 'string', 'max:20'],
             'blood_group' => ['sometimes', 'nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'])],
             'nis_certified' => ['sometimes', 'boolean'],

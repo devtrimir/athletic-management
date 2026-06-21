@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Members;
 
+use App\Rules\UniquePnoAcrossPeople;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,7 +23,7 @@ class StoreMemberRequest extends FormRequest
         $orgId = (int) $this->user()->organization_id;
 
         return [
-            'pno' => ['nullable', 'string', 'max:20', Rule::unique('members', 'pno')->where('organization_id', $orgId)],
+            'pno' => ['nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId)],
             'full_name' => ['required', 'string', 'max:255'],
             'father_name' => ['nullable', 'string', 'max:255'],
             'rank' => ['nullable', 'string', 'max:100'],

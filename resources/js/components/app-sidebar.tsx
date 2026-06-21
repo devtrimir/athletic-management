@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, Settings2, Shield, Trophy, UserCheck, Users } from 'lucide-react';
+import { LayoutGrid, Settings2, Shield, Trophy, UserCheck, UserRoundCheck, Users } from 'lucide-react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
+import InchargeController from '@/actions/App/Http/Controllers/InchargeController';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import TournamentController from '@/actions/App/Http/Controllers/TournamentController';
@@ -31,6 +32,7 @@ export function AppSidebar() {
 
     const mainNavItems: NavItem[] = [
         { title: t('Dashboard'), href: dashboard(), icon: LayoutGrid },
+        { title: t('Team Prabhari'), href: InchargeController.index.url(), icon: UserRoundCheck },
         { title: t('Teams'), href: TeamController.index.url(), icon: Shield },
         { title: t('Tournaments'), href: TournamentController.index.url(), icon: Trophy },
         { title: t('Athletes'), href: MemberController.index.url(), icon: Users },
