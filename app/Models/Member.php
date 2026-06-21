@@ -10,6 +10,7 @@ use App\Observers\AuditObserver;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -191,5 +192,37 @@ class Member extends Model
     public function participations(): HasMany
     {
         return $this->hasMany(Participation::class);
+    }
+
+    /** @return HasMany<TeamMember, $this> */
+    public function teamMemberships(): HasMany
+    {
+        return $this->hasMany(TeamMember::class);
+    }
+
+    /** @param  Builder<Member>  $query */
+    public function scopeRosterActive(Builder $query): void
+    {
+        $query
+            ->where('current_status', 'ACTIVE')
+            ->whereHas('teamMemberships', function (Builder $query): void {
+                $query
+                    ->whereNull('left_on')
+                    ->whereHas('team', fn (Builder $query): Builder => $query->where('is_active', true));
+            });
+    }
+
+    /** @param  Builder<Member>  $query */
+    public function scopeRosterInactive(Builder $query): void
+    {
+        $query->where(function (Builder $query): void {
+            $query
+                ->where('current_status', '!=', 'ACTIVE')
+                ->orWhereDoesntHave('teamMemberships', function (Builder $query): void {
+                    $query
+                        ->whereNull('left_on')
+                        ->whereHas('team', fn (Builder $query): Builder => $query->where('is_active', true));
+                });
+        });
     }
 }

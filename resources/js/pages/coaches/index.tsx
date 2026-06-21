@@ -22,6 +22,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachExportController';
 import Heading from '@/components/heading';
+import { ListingPagination } from '@/components/listing-pagination';
 import { CoachQuickView } from '@/components/teams/coach-quick-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -1105,6 +1106,7 @@ export default function CoachesIndex({
                         </div>
                     </div>
 
+                    <ListingPagination paginator={coaches} itemLabel={t('coaches')} className="sticky top-0 z-40 shadow-sm" />
                     <div className="rounded-xl border bg-card">
                         <Table className="min-w-[980px] border-separate border border-border/60 [&_td]:border-r [&_td]:border-b [&_td]:border-border/45 [&_th]:border-r [&_th]:border-b [&_th]:border-border/45">
                             <TableHeader>
@@ -1369,64 +1371,6 @@ export default function CoachesIndex({
                         </Table>
                     </div>
 
-                    {coaches.last_page > 1 && (
-                        <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
-                            <span>
-                                {coaches.from !== null
-                                    ? t('Showing :from–:to of :total')
-                                          .replace(
-                                              ':from',
-                                              String(coaches.from),
-                                          )
-                                          .replace(
-                                              ':to',
-                                              String(coaches.to ?? ''),
-                                          )
-                                          .replace(
-                                              ':total',
-                                              String(coaches.total),
-                                          )
-                                    : ''}
-                            </span>
-                            <div className="flex items-center gap-1 overflow-x-auto">
-                                {coaches.links.map((link, i) =>
-                                    link.url ? (
-                                        <Button
-                                            key={i}
-                                            variant={
-                                                link.active
-                                                    ? 'default'
-                                                    : 'outline'
-                                            }
-                                            size="sm"
-                                            className="h-8 min-w-8 px-2"
-                                            onClick={() =>
-                                                router.get(
-                                                    link.url!,
-                                                    {},
-                                                    { preserveState: true },
-                                                )
-                                            }
-                                            dangerouslySetInnerHTML={{
-                                                __html: link.label,
-                                            }}
-                                        />
-                                    ) : (
-                                        <Button
-                                            key={i}
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-8 min-w-8 px-2"
-                                            disabled
-                                            dangerouslySetInnerHTML={{
-                                                __html: link.label,
-                                            }}
-                                        />
-                                    ),
-                                )}
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 

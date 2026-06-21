@@ -23,6 +23,7 @@ use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
 use App\Models\TeamMember;
+use App\Models\TeamSessionStatus;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -382,6 +383,7 @@ class AuditLogBuilder
     {
         $teamMemberIds = TeamMember::where('team_id', $team->id)->pluck('id');
         $coachAssignmentIds = CoachAssignment::where('team_id', $team->id)->pluck('id');
+        $teamSessionStatusIds = TeamSessionStatus::where('team_id', $team->id)->pluck('id');
 
         // Team own events
         $logs = AuditLog::where('entity', 'Team')->where('entity_id', $team->id)->get();
@@ -418,6 +420,21 @@ class AuditLogBuilder
             );
         }
 
+        $logs = $logs->merge(
+            AuditLog::where('entity', 'TeamSessionStatus')
+                ->whereIn('action', ['created', 'deleted'])
+                ->whereRaw("JSON_EXTRACT(diff, '$.team_id') = ?", [$team->id])
+                ->get()
+        );
+        if ($teamSessionStatusIds->isNotEmpty()) {
+            $logs = $logs->merge(
+                AuditLog::where('entity', 'TeamSessionStatus')
+                    ->where('action', 'updated')
+                    ->whereIn('entity_id', $teamSessionStatusIds)
+                    ->get()
+            );
+        }
+
         $allLogs = $logs->unique('id')->sortByDesc('at')->values();
 
         $sportMap = Sport::pluck('name', 'id');
@@ -431,6 +448,7 @@ class AuditLogBuilder
             'Team' => 'Team',
             'TeamMember' => 'Player',
             'CoachAssignment' => 'Coach assignment',
+            'TeamSessionStatus' => 'Team session status',
         ];
 
         $fieldLabelMap = [
@@ -453,12 +471,21 @@ class AuditLogBuilder
                 'session_id' => 'Session',
                 'role' => 'Role',
             ],
+            'TeamSessionStatus' => [
+                'session_id' => 'Session',
+                'status' => 'Status',
+                'carried_forward_to_session_id' => 'Carried forward to',
+                'carried_forward_at' => 'Carried forward at',
+                'closed_at' => 'Closed at',
+                'closed_reason' => 'Reason',
+            ],
         ];
 
         $hiddenFields = [
             'Team' => ['id', 'organization_id', 'deleted_at'],
             'TeamMember' => ['id', 'team_id'],
             'CoachAssignment' => ['id', 'team_id'],
+            'TeamSessionStatus' => ['id', 'team_id', 'organization_id', 'carried_forward_by'],
         ];
 
         $resolve = function (string $entity, string $field, mixed $value, array $diff = []) use (
@@ -471,7 +498,7 @@ class AuditLogBuilder
             return match (true) {
                 $field === 'sport_id' => $sportMap->get((int) $value) ?? (string) $value,
                 $field === 'unit_id' => $unitMap->get((int) $value) ?? (string) $value,
-                $field === 'session_id' => $sessionMap->get((int) $value) ?? (string) $value,
+                $field === 'session_id' || $field === 'carried_forward_to_session_id' => $sessionMap->get((int) $value) ?? (string) $value,
                 $field === 'member_id' => $memberMap->get((int) $value) ?? (string) $value,
                 $field === 'coach_id' => $coachMap->get((int) $value) ?? (string) $value,
                 default => (string) $value,

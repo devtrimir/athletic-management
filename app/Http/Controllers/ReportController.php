@@ -340,7 +340,8 @@ class ReportController extends Controller
         return [
             'sessions' => SportSession::select(['id', 'name'])
                 ->where('organization_id', $orgId)
-                ->orderBy('name')
+                ->orderByDesc('start_year')
+                ->orderByDesc('id')
                 ->get(),
             'sports' => Sport::select(['id', 'name'])
                 ->orderBy('name')

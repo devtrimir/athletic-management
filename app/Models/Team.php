@@ -42,6 +42,7 @@ use Illuminate\Support\Carbon;
  * @property-read int|null $team_members_count
  * @property-read int|null $coach_assignments_count
  * @property-read int|null $team_member_movements_count
+ * @property-read int|null $session_statuses_count
  */
 #[Fillable([
     'organization_id',
@@ -109,6 +110,12 @@ class Team extends Model
     public function teamMemberMovements(): HasMany
     {
         return $this->hasMany(TeamMemberMovement::class);
+    }
+
+    /** @return HasMany<TeamSessionStatus, $this> */
+    public function sessionStatuses(): HasMany
+    {
+        return $this->hasMany(TeamSessionStatus::class);
     }
 
     /** @return HasMany<CoachAssignment, $this> */

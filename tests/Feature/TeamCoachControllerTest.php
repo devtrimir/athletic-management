@@ -6,6 +6,7 @@ use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\Organization;
 use App\Models\Team;
+use App\Models\TeamSessionStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -231,6 +232,31 @@ test('remove coach marks current assignment historical and redirects to teams.sh
         'team_id' => $team->id,
         'coach_id' => $coach->id,
         'is_current' => false,
+    ]);
+});
+
+test('removing the last current coach marks the team session inactive when no active members remain', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $coach = coachForTeam($team);
+
+    CoachAssignment::factory()->create([
+        'team_id' => $team->id,
+        'coach_id' => $coach->id,
+        'role' => 'HEAD',
+        'session_id' => $team->session_id,
+        'is_current' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('teams.coaches.destroy', [$team, $coach]))
+        ->assertRedirect(route('teams.show', $team));
+
+    $this->assertDatabaseHas('team_session_statuses', [
+        'team_id' => $team->id,
+        'session_id' => $team->session_id,
+        'status' => TeamSessionStatus::STATUS_INACTIVE,
     ]);
 });
 

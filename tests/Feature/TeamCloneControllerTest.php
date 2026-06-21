@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamMember;
+use App\Models\TeamSessionStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -143,6 +144,17 @@ test('clone route does not create a new team for the target session', function (
     $this->assertDatabaseMissing('teams', [
         'session_id' => $targetSession->id,
         'name' => $team->name,
+    ]);
+    $this->assertDatabaseHas('team_session_statuses', [
+        'team_id' => $team->id,
+        'session_id' => $team->session_id,
+        'status' => TeamSessionStatus::STATUS_CARRIED_FORWARD,
+        'carried_forward_to_session_id' => $targetSession->id,
+    ]);
+    $this->assertDatabaseHas('team_session_statuses', [
+        'team_id' => $team->id,
+        'session_id' => $targetSession->id,
+        'status' => TeamSessionStatus::STATUS_ACTIVE,
     ]);
 });
 

@@ -3,6 +3,7 @@ import { Edit, Eye, Plus, Search, UserRoundCheck } from 'lucide-react';
 import { useState } from 'react';
 import InchargeController from '@/actions/App/Http/Controllers/InchargeController';
 import Heading from '@/components/heading';
+import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -108,6 +109,7 @@ export default function InchargesIndex({
                     </Button>
                 </div>
 
+                <ListingPagination paginator={incharges} itemLabel={t('team prabhari')} className="sticky top-0 z-40 shadow-sm" />
                 <div className="overflow-hidden rounded-md border bg-card">
                     <Table>
                         <TableHeader>
@@ -191,31 +193,6 @@ export default function InchargesIndex({
                     </Table>
                 </div>
 
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>
-                        {t('Showing')} {displayValue(incharges.from)} {t('to')} {displayValue(incharges.to)} {t('of')}{' '}
-                        {incharges.total}
-                    </span>
-                    <div className="flex gap-1">
-                        {incharges.links.map((link, index) => (
-                            <Button
-                                key={`${link.label}-${index}`}
-                                asChild={!!link.url}
-                                variant={link.active ? 'default' : 'outline'}
-                                size="sm"
-                                disabled={!link.url}
-                            >
-                                {link.url ? (
-                                    <Link href={link.url} preserveScroll>
-                                        <span dangerouslySetInnerHTML={{ __html: link.label }} />
-                                    </Link>
-                                ) : (
-                                    <span dangerouslySetInnerHTML={{ __html: link.label }} />
-                                )}
-                            </Button>
-                        ))}
-                    </div>
-                </div>
             </div>
         </>
     );

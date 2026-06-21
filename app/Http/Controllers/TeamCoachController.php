@@ -8,8 +8,10 @@ use App\Http\Requests\Teams\StoreTeamCoachRequest;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\Team;
+use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -17,7 +19,11 @@ use Inertia\Inertia;
 
 class TeamCoachController extends Controller
 {
-    public function store(StoreTeamCoachRequest $request, Team $team): RedirectResponse
+    public function __construct(
+        private readonly TeamSessionStatusManager $teamSessionStatusManager,
+    ) {}
+
+    public function store(StoreTeamCoachRequest $request, Team $team, TeamSessionStatusManager $teamSessionStatusManager): RedirectResponse
     {
         Gate::authorize('update', $team);
 
@@ -52,6 +58,7 @@ class TeamCoachController extends Controller
                 'is_current' => true,
             ]);
         });
+        $teamSessionStatusManager->ensureActive($team, $sessionId);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach assigned to team.')]);
 
@@ -62,15 +69,18 @@ class TeamCoachController extends Controller
     {
         Gate::authorize('update', $team);
 
-        CoachAssignment::where('team_id', $team->id)
+        $rows = CoachAssignment::where('team_id', $team->id)
             ->where('coach_id', $coach->id)
             ->where('is_current', true)
-            ->get()
-            ->each(fn (CoachAssignment $row) => $row->update([
-                'is_current' => false,
-                'removed_at' => now(),
-                'notes' => __('Removed from team.'),
-            ]));
+            ->get();
+
+        $rows->each(fn (CoachAssignment $row) => $row->update([
+            'is_current' => false,
+            'removed_at' => now(),
+            'notes' => __('Removed from team.'),
+        ]));
+
+        $this->markTouchedSessionsInactiveIfEmpty($team, $rows);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach removed from team.')]);
 
@@ -99,10 +109,23 @@ class TeamCoachController extends Controller
             ]);
         }
 
+        $this->markTouchedSessionsInactiveIfEmpty($team, $rows);
+
         $deleted = $rows->count();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __(':count coaches removed from team.', ['count' => $deleted])]);
 
         return to_route('teams.show', $team);
+    }
+
+    /**
+     * @param  Collection<int, CoachAssignment>  $rows
+     */
+    private function markTouchedSessionsInactiveIfEmpty(Team $team, Collection $rows): void
+    {
+        $rows
+            ->pluck('session_id')
+            ->unique()
+            ->each(fn (int $sessionId) => $this->teamSessionStatusManager->markInactiveIfSessionEmpty($team, $sessionId));
     }
 }

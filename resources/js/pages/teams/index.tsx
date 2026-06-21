@@ -22,6 +22,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import Heading from '@/components/heading';
+import { ListingPagination } from '@/components/listing-pagination';
 import { TeamQuickView } from '@/components/teams/team-quick-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -105,6 +106,8 @@ type Team = {
     location_label: string | null;
     is_active: boolean;
     listing_is_active: boolean;
+    session_status: 'active' | 'carried_forward' | 'inactive';
+    session_status_label: string;
     players_count: number;
     removed_players_count: number;
     male_players_count: number;
@@ -399,7 +402,7 @@ export default function TeamsIndex({
         }
 
         if (column === 'is_active') {
-            return team.listing_is_active ? t('Active') : t('Inactive');
+            return t(team.session_status_label);
         }
 
         if (column === 'in_charge') {
@@ -744,6 +747,7 @@ export default function TeamsIndex({
                 </div>
 
                 {/* Table */}
+                <ListingPagination paginator={teams} itemLabel={t('teams')} className="sticky top-0 z-40 shadow-sm" />
                 <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
                     <div className="min-w-[1160px]">
                         <Table>
@@ -847,20 +851,20 @@ export default function TeamsIndex({
                                             </TableCell>
                                             <TableCell>
                                                 <Badge
-                                                    variant={
-                                                        team.listing_is_active
-                                                            ? 'default'
-                                                            : 'secondary'
-                                                    }
+                                                    variant="secondary"
                                                     className={
-                                                        team.listing_is_active
+                                                        team.session_status ===
+                                                        'active'
                                                             ? 'border border-emerald-300 bg-emerald-100/80 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200'
-                                                            : 'border border-amber-300 bg-amber-100/80 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200'
+                                                            : team.session_status ===
+                                                                'carried_forward'
+                                                              ? 'border border-sky-300 bg-sky-100/80 text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200'
+                                                              : 'border border-amber-300 bg-amber-100/80 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200'
                                                     }
                                                 >
-                                                    {team.listing_is_active
-                                                        ? t('Active')
-                                                        : t('Inactive')}
+                                                    {t(
+                                                        team.session_status_label,
+                                                    )}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
@@ -1038,54 +1042,6 @@ export default function TeamsIndex({
                     </div>
                 </div>
 
-                {/* Pagination */}
-                {teams.last_page > 1 && (
-                    <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-                        <span>
-                            {teams.from !== null
-                                ? t('Showing :from–:to of :total')
-                                      .replace(':from', String(teams.from))
-                                      .replace(':to', String(teams.to ?? ''))
-                                      .replace(':total', String(teams.total))
-                                : ''}
-                        </span>
-                        <div className="flex items-center gap-1">
-                            {teams.links.map((link, i) =>
-                                link.url ? (
-                                    <Button
-                                        key={i}
-                                        variant={
-                                            link.active ? 'default' : 'outline'
-                                        }
-                                        size="sm"
-                                        className="h-8 min-w-8 px-2"
-                                        onClick={() =>
-                                            router.get(
-                                                link.url!,
-                                                {},
-                                                { preserveState: true },
-                                            )
-                                        }
-                                        dangerouslySetInnerHTML={{
-                                            __html: link.label,
-                                        }}
-                                    />
-                                ) : (
-                                    <Button
-                                        key={i}
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 min-w-8 px-2"
-                                        disabled
-                                        dangerouslySetInnerHTML={{
-                                            __html: link.label,
-                                        }}
-                                    />
-                                ),
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
 
             <ExportDialog

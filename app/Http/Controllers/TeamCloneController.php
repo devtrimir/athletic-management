@@ -9,6 +9,7 @@ use App\Models\CoachAssignment;
 use App\Models\Team;
 use App\Models\TeamMember;
 use App\Services\Teams\TeamRosterService;
+use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -26,6 +27,13 @@ class TeamCloneController extends Controller
         $coachRowIds = $data['coach_ids'] ?? [];
 
         DB::transaction(function () use ($request, $team, $targetSessionId, $memberRowIds, $coachRowIds): void {
+            app(TeamSessionStatusManager::class)->carryForward(
+                $team,
+                (int) $team->session_id,
+                $targetSessionId,
+                (int) $request->user()->id,
+            );
+
             $skippedMembers = 0;
             if (! empty($memberRowIds)) {
                 $rows = TeamMember::whereIn('id', $memberRowIds)

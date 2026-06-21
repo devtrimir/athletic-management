@@ -9,6 +9,8 @@ use App\Models\CoachAssignment;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamMember;
+use App\Models\TeamSessionStatus;
+use App\Support\Teams\TeamSessionStatusManager;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -105,6 +107,7 @@ class TeamExportController extends Controller
         } else {
             $resolvedSessionId = null;
         }
+        $statusSessionId = $resolvedSessionId ?? ($defaultSessionId ? (int) $defaultSessionId : null);
 
         /** @var array<int, string> $columns */
         $columns = $request->query('columns', array_keys(self::COLUMN_LABELS));
@@ -121,12 +124,44 @@ class TeamExportController extends Controller
         } else {
             $teams = QueryBuilder::for(Team::class)
                 ->allowedFilters([
-                    AllowedFilter::exact('session_id'),
+                    AllowedFilter::callback('session_id', fn ($query, $value): null => null),
                     AllowedFilter::exact('sport_id'),
                     AllowedFilter::exact('district_id'),
                     AllowedFilter::exact('unit_id'),
                     AllowedFilter::exact('location_type'),
-                    AllowedFilter::exact('is_active'),
+                    AllowedFilter::callback('is_active', function ($query, $value) use ($statusSessionId): void {
+                        if ($statusSessionId === null) {
+                            return;
+                        }
+
+                        $isActive = filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+
+                        $query->where(function ($statusAwareQuery) use ($statusSessionId, $isActive): void {
+                            $statusAwareQuery->whereHas('sessionStatuses', function ($statusQuery) use ($statusSessionId, $isActive): void {
+                                $statusQuery->where('session_id', $statusSessionId);
+
+                                if ($isActive === true) {
+                                    $statusQuery->where('status', TeamSessionStatus::STATUS_ACTIVE);
+                                }
+
+                                if ($isActive === false) {
+                                    $statusQuery->where('status', '!=', TeamSessionStatus::STATUS_ACTIVE);
+                                }
+                            })->orWhere(function ($legacyQuery) use ($statusSessionId, $isActive): void {
+                                $legacyQuery->whereDoesntHave('sessionStatuses', fn ($statusQuery) => $statusQuery->where('session_id', $statusSessionId));
+
+                                if ($isActive === true) {
+                                    $legacyQuery->where('is_active', true)->where('session_id', $statusSessionId);
+                                }
+
+                                if ($isActive === false) {
+                                    $legacyQuery->where(function ($inactiveLegacyQuery) use ($statusSessionId): void {
+                                        $inactiveLegacyQuery->where('is_active', false)->orWhere('session_id', '!=', $statusSessionId);
+                                    });
+                                }
+                            });
+                        });
+                    }),
                     AllowedFilter::partial('q', 'name'),
                 ])
                 ->allowedSorts(['name', 'created_at'])
@@ -137,11 +172,24 @@ class TeamExportController extends Controller
                     ! $request->has('filter.is_active'),
                     fn ($q) => $q->where('is_active', true)
                 )
-                ->when(
-                    ! $request->has('filter.session_id') && $defaultSessionId,
-                    fn ($q) => $q->where('session_id', $defaultSessionId)
-                )
                 ->get();
+        }
+
+        if ($statusSessionId !== null) {
+            $sessionStatuses = app(TeamSessionStatusManager::class)->statusesForTeams($teams, $statusSessionId);
+
+            $teams->each(function (Team $team) use ($sessionStatuses): void {
+                /** @var TeamSessionStatus|null $sessionStatus */
+                $sessionStatus = $sessionStatuses->get($team->id);
+                $status = $sessionStatus?->status ?? TeamSessionStatus::STATUS_INACTIVE;
+
+                $team->setAttribute('session_status', $status);
+                $team->setAttribute('session_status_label', match ($status) {
+                    TeamSessionStatus::STATUS_ACTIVE => __('Active'),
+                    TeamSessionStatus::STATUS_CARRIED_FORWARD => __('Carried forward'),
+                    default => __('Inactive'),
+                });
+            });
         }
 
         $validColumns = array_values(array_intersect($columns, array_keys(self::COLUMN_LABELS)));
@@ -262,7 +310,7 @@ class TeamExportController extends Controller
             'location_type' => $this->translateText($team->location_type === 'unit' ? 'Unit' : 'District'),
             'district' => $team->district?->name,
             'unit' => $team->unit?->name,
-            'is_active' => $this->translateText($team->is_active ? 'Active' : 'Inactive'),
+            'is_active' => $this->translateText((string) ($team->getAttribute('session_status_label') ?? ($team->is_active ? 'Active' : 'Inactive'))),
             'in_charge' => $team->currentInchargeAssignment?->full_name ?? $team->in_charge,
             'incharge_pno' => $team->currentInchargeAssignment?->pno,
             'incharge_rank' => $team->currentInchargeAssignment?->rank,

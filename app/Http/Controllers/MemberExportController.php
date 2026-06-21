@@ -91,11 +91,22 @@ class MemberExportController extends Controller
                 ->orderBy('full_name')
                 ->get();
         } else {
+            $filters = $request->query('filter', []);
+            $filters = is_array($filters) ? $filters : [];
+            $hasStatusScope = array_key_exists('status_scope', $filters);
+            $hasCurrentStatus = array_key_exists('current_status', $filters);
+
+            $baseQuery->when(
+                ! $hasStatusScope && ! $hasCurrentStatus,
+                fn ($query) => $query->rosterActive()
+            );
+
             $members = QueryBuilder::for($baseQuery)
                 ->allowedFilters([
                     AllowedFilter::exact('player_category'),
                     AllowedFilter::exact('player_level'),
-                    AllowedFilter::exact('current_status'),
+                    AllowedFilter::callback('status_scope', fn ($query, string $value): mixed => $this->filterByStatusScope($query, $value)),
+                    AllowedFilter::callback('current_status', fn ($query, string $value): mixed => $this->filterByCurrentStatus($query, $value)),
                     AllowedFilter::exact('home_district_id'),
                     AllowedFilter::exact('posting_district_id'),
                     AllowedFilter::exact('current_unit_id'),
@@ -164,6 +175,21 @@ class MemberExportController extends Controller
             'playableSports',
             fn ($query) => $query->whereIn('sports.id', $sportIds->all()),
         );
+    }
+
+    private function filterByStatusScope(mixed $query, string $value): mixed
+    {
+        return match ($value) {
+            'inactive' => $query->rosterInactive(),
+            default => $query->rosterActive(),
+        };
+    }
+
+    private function filterByCurrentStatus(mixed $query, string $value): mixed
+    {
+        return $value === 'ACTIVE'
+            ? $query->rosterActive()
+            : $query->where('current_status', $value);
     }
 
     public function show(Member $member, Request $request): BinaryFileResponse

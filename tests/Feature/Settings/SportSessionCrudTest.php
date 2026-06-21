@@ -37,6 +37,37 @@ test('index returns 200 for admin', function (): void {
         ->assertInertia(fn ($page) => $page->component('settings/sessions/index'));
 });
 
+test('index lists sessions in descending year order', function (): void {
+    SportSession::factory()->create([
+        'organization_id' => $this->org->id,
+        'name' => '2024-25',
+        'start_year' => 2024,
+        'end_year' => 2025,
+    ]);
+    SportSession::factory()->create([
+        'organization_id' => $this->org->id,
+        'name' => '2026-27',
+        'start_year' => 2026,
+        'end_year' => 2027,
+    ]);
+    SportSession::factory()->create([
+        'organization_id' => $this->org->id,
+        'name' => '2025-26',
+        'start_year' => 2025,
+        'end_year' => 2026,
+    ]);
+
+    $this->actingAs($this->admin)
+        ->get(route('sessions.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('settings/sessions/index')
+            ->where('sessions.0.name', '2026-27')
+            ->where('sessions.1.name', '2025-26')
+            ->where('sessions.2.name', '2024-25')
+        );
+});
+
 test('index redirects guest to login', function (): void {
     $this->get(route('sessions.index'))
         ->assertRedirect(route('login'));

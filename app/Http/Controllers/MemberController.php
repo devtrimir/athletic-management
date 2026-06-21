@@ -44,11 +44,13 @@ class MemberController extends Controller
 
         $filters = $request->query('filter', []);
         $filters = is_array($filters) ? $filters : [];
+        $hasStatusScope = array_key_exists('status_scope', $filters);
+        $hasCurrentStatus = array_key_exists('current_status', $filters);
 
         $query = Member::query()
             ->when(
-                ! array_key_exists('current_status', $filters),
-                fn ($query) => $query->where('current_status', 'ACTIVE')
+                ! $hasStatusScope && ! $hasCurrentStatus,
+                fn ($query) => $query->rosterActive()
             );
 
         $members = QueryBuilder::for($query)
@@ -59,7 +61,8 @@ class MemberController extends Controller
                         : $query->where('player_category', $value);
                 }),
                 AllowedFilter::exact('player_level'),
-                AllowedFilter::exact('current_status'),
+                AllowedFilter::callback('status_scope', fn ($query, string $value): mixed => $this->filterByStatusScope($query, $value)),
+                AllowedFilter::callback('current_status', fn ($query, string $value): mixed => $this->filterByCurrentStatus($query, $value)),
                 AllowedFilter::exact('home_district_id'),
                 AllowedFilter::exact('posting_district_id'),
                 AllowedFilter::exact('current_unit_id'),
@@ -97,9 +100,15 @@ class MemberController extends Controller
             ->paginate(min((int) ($request->query('per_page', 25)), 100))
             ->withQueryString();
 
+        $statusScope = $this->statusScopeFromFilters($filters);
+
         return Inertia::render('members/index', [
             'members' => $members,
-            'filters' => ['current_status' => 'ACTIVE', ...$filters],
+            'filters' => [
+                'status_scope' => $statusScope,
+                'current_status' => $filters['current_status'] ?? ($statusScope === 'active' ? 'ACTIVE' : null),
+                ...$filters,
+            ],
             'perPage' => min((int) ($request->query('per_page', 25)), 100),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'districts' => District::orderBy('name')->get(['id', 'name']),
@@ -127,6 +136,37 @@ class MemberController extends Controller
             'playableSports',
             fn ($query) => $query->whereIn('sports.id', $sportIds->all()),
         );
+    }
+
+    private function filterByStatusScope(mixed $query, string $value): mixed
+    {
+        return match ($value) {
+            'inactive' => $query->rosterInactive(),
+            default => $query->rosterActive(),
+        };
+    }
+
+    private function filterByCurrentStatus(mixed $query, string $value): mixed
+    {
+        return $value === 'ACTIVE'
+            ? $query->rosterActive()
+            : $query->where('current_status', $value);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function statusScopeFromFilters(array $filters): string
+    {
+        if (($filters['status_scope'] ?? null) === 'inactive') {
+            return 'inactive';
+        }
+
+        if (($filters['current_status'] ?? null) !== null && $filters['current_status'] !== 'ACTIVE') {
+            return 'inactive';
+        }
+
+        return 'active';
     }
 
     public function create(): Response

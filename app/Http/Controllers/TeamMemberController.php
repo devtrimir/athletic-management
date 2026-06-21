@@ -13,6 +13,7 @@ use App\Models\Member;
 use App\Models\Team;
 use App\Models\TeamMember;
 use App\Services\Teams\TeamRosterService;
+use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,10 @@ use Inertia\Inertia;
 
 class TeamMemberController extends Controller
 {
+    public function __construct(
+        private readonly TeamSessionStatusManager $teamSessionStatusManager,
+    ) {}
+
     public function store(StoreTeamMemberRequest $request, Team $team, TeamRosterService $roster): RedirectResponse
     {
         Gate::authorize('update', $team);
@@ -39,6 +44,7 @@ class TeamMemberController extends Controller
             joinedOn: $joinedOn,
             userId: (int) $request->user()->id,
         );
+        $this->teamSessionStatusManager->ensureActive($team, $sessionId);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Members added to team.')]);
 
@@ -74,6 +80,7 @@ class TeamMemberController extends Controller
         $data = $request->validated();
         $sessionId = (int) $data['session_id'];
         $result = $roster->applyBackfill($team, $sessionId, $data, (int) $request->user()->id);
+        $this->teamSessionStatusManager->ensureActive($team, $sessionId);
 
         $message = __(':count roster rows backfilled.', ['count' => $result['applied']]);
 
@@ -104,6 +111,7 @@ class TeamMemberController extends Controller
             reason: (string) $data['reason'],
             userId: (int) $request->user()->id,
         );
+        $this->teamSessionStatusManager->markInactiveIfSessionEmpty($team, $sessionId);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member removed from team.')]);
 
@@ -126,6 +134,7 @@ class TeamMemberController extends Controller
             reason: (string) $data['reason'],
             userId: (int) $request->user()->id,
         );
+        $this->teamSessionStatusManager->markInactiveIfSessionEmpty($team, $sessionId);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __(':count members removed from team.', ['count' => $deleted])]);
 

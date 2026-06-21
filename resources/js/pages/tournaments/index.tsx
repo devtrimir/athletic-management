@@ -5,6 +5,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { create as createTournament, index as tournamentsIndex, show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import { index as exportTournamentsUrl } from '@/actions/App/Http/Controllers/TournamentExportController';
 import Heading from '@/components/heading';
+import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -320,6 +321,7 @@ params.append('filter[sport_id]', filters.sport_id);
                 </div>
 
                 {/* Table */}
+                <ListingPagination paginator={tournaments} itemLabel={t('tournaments')} className="sticky top-0 z-40 shadow-sm" />
                 <div className="overflow-x-auto rounded-xl border bg-card">
                     <Table>
                         <TableHeader>
@@ -432,33 +434,6 @@ params.append('filter[sport_id]', filters.sport_id);
                     </Table>
                 </div>
 
-                {/* Pagination */}
-                {tournaments.last_page > 1 && (
-                    <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
-                        <span>
-                            {t('Showing :from–:to of :total')
-                                .replace(':from', String(tournaments.from ?? 0))
-                                .replace(':to', String(tournaments.to ?? 0))
-                                .replace(':total', String(tournaments.total))}
-                        </span>
-                        <div className="flex gap-1">
-                            {tournaments.links.map((link, i) => (
-                                <Button
-                                    key={i}
-                                    variant={link.active ? 'default' : 'outline'}
-                                    size="sm"
-                                    className="h-8 min-w-8 px-2"
-                                    disabled={!link.url}
-                                    onClick={() =>
-                                        link.url &&
-                                        router.get(link.url, {}, { preserveState: true })
-                                    }
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
 
             <ExportDialog

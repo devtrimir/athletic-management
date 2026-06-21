@@ -19,6 +19,7 @@ class TeamProfileData
 {
     public function __construct(
         private readonly AuditLogBuilder $auditLogBuilder,
+        private readonly TeamSessionStatusManager $teamSessionStatusManager,
     ) {}
 
     /** @return array<string, mixed> */
@@ -97,10 +98,24 @@ class TeamProfileData
             'currentInchargeAssignment',
         ]);
 
+        $sessionStatus = $this->teamSessionStatusManager->statusFor($team, $selectedSessionId);
+
         return [
             'team' => (new TeamResource($team))->resolve(),
             'sessions' => $this->sessions($organizationId),
             'selectedSessionId' => $selectedSessionId,
+            'sessionStatus' => [
+                'status' => $sessionStatus->status,
+                'label' => match ($sessionStatus->status) {
+                    'active' => __('Active'),
+                    'carried_forward' => __('Carried forward'),
+                    default => __('Inactive'),
+                },
+                'carried_forward_to_session_id' => $sessionStatus->carried_forward_to_session_id,
+                'carried_forward_at' => $sessionStatus->carried_forward_at?->toDateTimeString(),
+                'closed_at' => $sessionStatus->closed_at?->toDateTimeString(),
+                'closed_reason' => $sessionStatus->closed_reason,
+            ],
             'incharges' => [],
         ];
     }
@@ -110,7 +125,8 @@ class TeamProfileData
     {
         return SportSession::select(['id', 'name', 'is_current'])
             ->where('organization_id', $organizationId)
-            ->orderBy('name')
+            ->orderByDesc('start_year')
+            ->orderByDesc('id')
             ->get();
     }
 
