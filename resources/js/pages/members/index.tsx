@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
+import { ListingPagination } from '@/components/listing-pagination';
 import { MemberQuickView } from '@/components/members/member-quick-view';
 import { OptionMultiSelect } from '@/components/option-multi-select';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
 
 type PaginationLink = {
@@ -67,6 +69,7 @@ type PaginatedMembers = {
 
 type Filters = {
     q?: string;
+    status_scope?: 'active' | 'inactive';
     current_status?: string;
     player_category?: string;
     player_level?: string;
@@ -96,7 +99,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'player_level', label: 'Level' },
     { key: 'unit', label: 'Unit' },
     { key: 'home_district', label: 'Home district' },
-    { key: 'posting_district', label: 'Posting unit / district' },
+    { key: 'posting_district', label: 'Posting / District' },
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
@@ -114,6 +117,10 @@ const GENDER_OPTIONS: { value: string; label: string }[] = [
     { value: 'O', label: 'Other gender' },
 ];
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
+const STATUS_TABS = [
+    { value: 'active', label: 'Active members' },
+    { value: 'inactive', label: 'Inactive members' },
+] as const;
 
 const CATEGORY_BADGE_CLASS: Record<string, string> = {
     GD: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
@@ -136,7 +143,7 @@ function localeName(entity: { name: string }, locale: string): string {
 }
 
 function postingLocation(member: Member): string | null {
-    return member.posting_district?.name ?? member.current_unit?.name ?? null;
+    return member.current_unit?.name ?? member.posting_district?.name ?? null;
 }
 
 function genderLabel(value: string | null | undefined, t: (key: string) => string): string {
@@ -410,10 +417,12 @@ export default function MembersIndex({
     const [yearFrom, setYearFrom] = useState(filters.joining_year_from ?? '');
     const [yearTo, setYearTo] = useState(filters.joining_year_to ?? '');
     const selectedSportIds = filters.sport_ids ?? (filters.sport_id ? [filters.sport_id] : []);
+    const activeStatusScope = filters.status_scope ?? (filters.current_status && filters.current_status !== 'ACTIVE' ? 'inactive' : 'active');
 
     const applyFilters = useCallback((patch: Partial<Filters>) => {
         const merged: Filters = {
             q: query || undefined,
+            status_scope: filters.status_scope,
             current_status: filters.current_status,
             player_category: filters.player_category,
             player_level: filters.player_level,
@@ -434,6 +443,7 @@ export default function MembersIndex({
         const clean: Record<string, string | string[]> = {};
         const mapping: [keyof Filters, string][] = [
             ['q', 'filter[q]'],
+            ['status_scope', 'filter[status_scope]'],
             ['current_status', 'filter[current_status]'],
             ['player_category', 'filter[player_category]'],
             ['player_level', 'filter[player_level]'],
@@ -472,6 +482,79 @@ export default function MembersIndex({
 
         router.get(MemberController.index.url(), clean, { preserveState: true, replace: true });
     }, [query, filters, perPage]);
+
+    const buildIndexUrl = useCallback((patch: Partial<Filters> = {}) => {
+        const merged: Filters = {
+            q: query || undefined,
+            status_scope: filters.status_scope,
+            current_status: filters.current_status,
+            player_category: filters.player_category,
+            player_level: filters.player_level,
+            rank: filters.rank,
+            designation: filters.designation,
+            current_unit_id: filters.current_unit_id,
+            home_district_id: filters.home_district_id,
+            posting_district_id: filters.posting_district_id,
+            gender: filters.gender,
+            blood_group: filters.blood_group,
+            sport_id: filters.sport_id,
+            sport_ids: filters.sport_ids,
+            joining_year_from: filters.joining_year_from,
+            joining_year_to: filters.joining_year_to,
+            ...patch,
+        };
+        const params = new URLSearchParams();
+        const mapping: [keyof Filters, string][] = [
+            ['q', 'filter[q]'],
+            ['status_scope', 'filter[status_scope]'],
+            ['current_status', 'filter[current_status]'],
+            ['player_category', 'filter[player_category]'],
+            ['player_level', 'filter[player_level]'],
+            ['rank', 'filter[rank]'],
+            ['designation', 'filter[designation]'],
+            ['current_unit_id', 'filter[current_unit_id]'],
+            ['home_district_id', 'filter[home_district_id]'],
+            ['posting_district_id', 'filter[posting_district_id]'],
+            ['gender', 'filter[gender]'],
+            ['blood_group', 'filter[blood_group]'],
+            ['sport_id', 'filter[sport_id]'],
+            ['sport_ids', 'filter[sport_ids]'],
+            ['joining_year_from', 'filter[joining_year_from]'],
+            ['joining_year_to', 'filter[joining_year_to]'],
+        ];
+
+        for (const [key, param] of mapping) {
+            const value = merged[key];
+
+            if (Array.isArray(value)) {
+                value.forEach((item) => params.append(`${param}[]`, item));
+                continue;
+            }
+
+            if (value) {
+                params.append(param, value);
+            }
+        }
+
+        if (perPage !== 25) {
+            params.append('per_page', String(perPage));
+        }
+
+        const queryString = params.toString();
+
+        return queryString ? `${MemberController.index.url()}?${queryString}` : MemberController.index.url();
+    }, [filters, perPage, query]);
+
+    const changeRowsPerPage = useCallback((value: number) => {
+        const url = buildIndexUrl();
+        const [path, queryString] = url.split('?');
+        const params = new URLSearchParams(queryString ?? '');
+
+        params.set('per_page', String(value));
+        params.delete('page');
+
+        router.get(`${path}?${params.toString()}`, {}, { preserveState: false, replace: true });
+    }, [buildIndexUrl]);
 
     // Debounce text search
     useEffect(() => {
@@ -518,6 +601,7 @@ export default function MembersIndex({
             // Export filtered results
             const filterKeys: [keyof Filters, string][] = [
                 ['q', 'filter[q]'],
+                ['status_scope', 'filter[status_scope]'],
                 ['current_status', 'filter[current_status]'],
                 ['player_category', 'filter[player_category]'],
                 ['player_level', 'filter[player_level]'],
@@ -575,7 +659,7 @@ return `<td>${m.home_district?.name ?? '\u2014'}</td>`;
 }
 
                             if (c.key === 'posting_district') {
-return `<td>${m.posting_district?.name ?? m.current_unit?.name ?? '\u2014'}</td>`;
+return `<td>${m.current_unit?.name ?? m.posting_district?.name ?? '\u2014'}</td>`;
                             }
 
                             if (['dob', 'joining_date', 'promotion_date', 'team_since'].includes(c.key)) {
@@ -660,6 +744,25 @@ next.add(id);
                         </Button>
                     </div>
                 </div>
+
+                <Tabs value={activeStatusScope} className="w-full">
+                    <TabsList className="w-auto max-w-full">
+                        {STATUS_TABS.map((tab) => (
+                            <TabsTrigger key={tab.value} value={tab.value} asChild>
+                                <Link
+                                    href={buildIndexUrl({
+                                        status_scope: tab.value,
+                                        current_status: undefined,
+                                    })}
+                                    preserveState
+                                    replace
+                                >
+                                    {t(tab.label)}
+                                </Link>
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
 
                 {/* Filter bar — inline pills */}
                 <div className="flex flex-wrap items-center gap-2">
@@ -872,6 +975,16 @@ next.add(id);
                 )}
 
                 {/* Table */}
+                <ListingPagination
+                    paginator={members}
+                    itemLabel={t('members')}
+                    rowsPerPage={{
+                        value: perPage,
+                        options: [...PER_PAGE_OPTIONS],
+                        onChange: changeRowsPerPage,
+                    }}
+                    className="sticky top-0 z-40 shadow-sm"
+                />
                 <div className="overflow-x-auto rounded-xl border bg-card">
                     <Table>
                         <TableHeader>
@@ -892,8 +1005,7 @@ next.add(id);
                                 <TableHead>{t('Playable sports')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
-                                <TableHead>{t('Location')}</TableHead>
-                                <TableHead>{t('Designation')}</TableHead>
+                                <TableHead>{t('Posting / District')}</TableHead>
                                 <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
                                     {t('Actions')}
                                 </TableHead>
@@ -902,7 +1014,7 @@ next.add(id);
                         <TableBody>
                             {members.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={10} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={11} className="py-12 text-center text-muted-foreground">
                                         {hasAnyFilter
                                             ? t('No members match your filters.')
                                             : t('No members yet.')}
@@ -988,9 +1100,6 @@ next.add(id);
                                                 </div>
                                             ) : null}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {member.designation ?? '—'}
-                                        </TableCell>
                                         <TableCell className="sticky right-0 z-10 w-0 bg-card text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end">
                                                 <Button
@@ -1017,100 +1126,6 @@ next.add(id);
                     </Table>
                 </div>
 
-                {/* Pagination + per-page selector */}
-                <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-                    {/* Per-page selector */}
-                    <div className="flex items-center gap-2 text-xs">
-                        <span>{t('Rows per page')}</span>
-                        {PER_PAGE_OPTIONS.map((n) => (
-                            <button
-                                key={n}
-                                type="button"
-                                className={[
-                                    'inline-flex h-7 min-w-7 items-center justify-center rounded-md border px-2 text-xs font-medium transition-colors',
-                                    n === perPage
-                                        ? 'border-primary bg-primary text-primary-foreground'
-                                        : 'border-input bg-background hover:bg-accent',
-                                ].join(' ')}
-                                onClick={() => {
-                                    const params: Record<string, string | string[]> = { per_page: String(n) };
-                                    const filterKeys: [keyof Filters, string][] = [
-                                        ['q', 'filter[q]'],
-                                        ['current_status', 'filter[current_status]'],
-                                        ['player_category', 'filter[player_category]'],
-                                        ['player_level', 'filter[player_level]'],
-                                        ['current_unit_id', 'filter[current_unit_id]'],
-                                        ['home_district_id', 'filter[home_district_id]'],
-                                        ['posting_district_id', 'filter[posting_district_id]'],
-                                        ['gender', 'filter[gender]'],
-                                        ['blood_group', 'filter[blood_group]'],
-                                        ['sport_id', 'filter[sport_id]'],
-                                        ['sport_ids', 'filter[sport_ids]'],
-                                        ['joining_year_from', 'filter[joining_year_from]'],
-                                        ['joining_year_to', 'filter[joining_year_to]'],
-                                    ];
-
-                                    for (const [k, param] of filterKeys) {
-                                        const value = filters[k];
-
-                                        if (Array.isArray(value)) {
-                                            if (value.length > 0) {
-                                                params[param] = value;
-                                            }
-
-                                            continue;
-                                        }
-
-                                        if (value) {
-params[param] = value;
-}
-                                    }
-
-                                    router.get(MemberController.index.url(), params, { preserveState: false, replace: true });
-                                }}
-                            >
-                                {n}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Page links (only shown when multi-page) */}
-                    {members.last_page > 1 && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs">
-                                {members.from !== null
-                                    ? t('Showing :from–:to of :total')
-                                        .replace(':from', String(members.from))
-                                        .replace(':to', String(members.to ?? ''))
-                                        .replace(':total', String(members.total))
-                                    : ''}
-                            </span>
-                            <div className="flex items-center gap-1">
-                                {members.links.map((link, i) =>
-                                    link.url ? (
-                                        <Button
-                                            key={i}
-                                            variant={link.active ? 'default' : 'outline'}
-                                            size="sm"
-                                            className="h-8 min-w-8 px-2"
-                                            onClick={() => router.get(link.url!, {}, { preserveState: true })}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ) : (
-                                        <Button
-                                            key={i}
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-8 min-w-8 px-2"
-                                            disabled
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ),
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
             </div>
 
             {/* Export Dialog */}

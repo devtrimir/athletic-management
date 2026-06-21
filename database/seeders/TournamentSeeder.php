@@ -65,7 +65,7 @@ class TournamentSeeder extends Seeder
                 'events' => [
                     ['name' => '100 मीटर दौड़', 'sport' => 'एथलेटिक्स', 'discipline' => '100m', 'gender_class' => 'M'],
                     ['name' => '4×100 मीटर रिले', 'sport' => 'एथलेटिक्स', 'discipline' => '4x100m Relay', 'gender_class' => 'M'],
-                    ['name' => 'मुक्केबाजी 60 कि.ग्रा.', 'sport' => 'मुक्केबाजी', 'discipline' => null, 'weight_category' => '60kg', 'gender_class' => 'M'],
+                    ['name' => 'बॉक्सिंग 60 कि.ग्रा.', 'sport' => 'बॉक्सिंग', 'discipline' => null, 'weight_category' => '60kg', 'gender_class' => 'M'],
                 ],
             ],
             [

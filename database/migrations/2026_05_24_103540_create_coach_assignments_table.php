@@ -50,17 +50,17 @@ return new class extends Migration
         if (! $this->hasIndex('coach_assignments', 'coach_assignments_coach_session_current_unique')) {
             if ($driver === 'sqlite') {
                 DB::statement(
-                    'CREATE UNIQUE INDEX coach_assignments_coach_session_current_unique ' .
+                    'CREATE UNIQUE INDEX coach_assignments_coach_session_current_unique '.
                     'ON coach_assignments (coach_id, session_id) WHERE is_current = 1'
                 );
             } elseif ($driver === 'pgsql') {
                 DB::statement(
-                    'CREATE UNIQUE INDEX coach_assignments_coach_session_current_unique ' .
+                    'CREATE UNIQUE INDEX coach_assignments_coach_session_current_unique '.
                     'ON coach_assignments (coach_id, session_id) WHERE is_current = true'
                 );
             } else {
                 DB::statement(
-                    'CREATE UNIQUE INDEX coach_assignments_coach_session_current_unique ' .
+                    'CREATE UNIQUE INDEX coach_assignments_coach_session_current_unique '.
                     'ON coach_assignments (coach_id, session_id, (CASE WHEN is_current = 1 THEN 1 ELSE NULL END))'
                 );
             }
@@ -69,17 +69,17 @@ return new class extends Migration
         if (! $this->hasIndex('coach_assignments', 'coach_assignments_team_coach_session_current_unique')) {
             if ($driver === 'sqlite') {
                 DB::statement(
-                    'CREATE UNIQUE INDEX coach_assignments_team_coach_session_current_unique ' .
+                    'CREATE UNIQUE INDEX coach_assignments_team_coach_session_current_unique '.
                     'ON coach_assignments (team_id, coach_id, session_id) WHERE is_current = 1'
                 );
             } elseif ($driver === 'pgsql') {
                 DB::statement(
-                    'CREATE UNIQUE INDEX coach_assignments_team_coach_session_current_unique ' .
+                    'CREATE UNIQUE INDEX coach_assignments_team_coach_session_current_unique '.
                     'ON coach_assignments (team_id, coach_id, session_id) WHERE is_current = true'
                 );
             } else {
                 DB::statement(
-                    'CREATE UNIQUE INDEX coach_assignments_team_coach_session_current_unique ' .
+                    'CREATE UNIQUE INDEX coach_assignments_team_coach_session_current_unique '.
                     'ON coach_assignments (team_id, coach_id, session_id, (CASE WHEN is_current = 1 THEN 1 ELSE NULL END))'
                 );
             }

@@ -141,7 +141,7 @@ function tierMeta(
 ): { key: string; label: string; weight: number } {
     const tier = row.tournament?.tier;
 
-    if (tier === null) {
+    if (tier === null || tier === undefined) {
         return {
             key: 'NO_TIER',
             label: t('No tier'),
@@ -227,7 +227,7 @@ export function MemberPerformanceTab({
             ledger.reduce<Array<{ id: string; name: string }>>((carry, row) => {
                 const tier = row.tournament?.tier;
 
-                if (tier === null) {
+                if (tier === null || tier === undefined) {
                     return carry;
                 }
 
@@ -332,7 +332,7 @@ export function MemberPerformanceTab({
 
                 if (
                     dateFromFilter &&
-                    (row.tournament?.date_from === null ||
+                    (!row.tournament?.date_from ||
                         row.tournament.date_from < dateFromFilter)
                 ) {
                     return false;
@@ -340,7 +340,7 @@ export function MemberPerformanceTab({
 
                 if (
                     dateToFilter &&
-                    (row.tournament?.date_from === null ||
+                    (!row.tournament?.date_from ||
                         row.tournament.date_from > dateToFilter)
                 ) {
                     return false;

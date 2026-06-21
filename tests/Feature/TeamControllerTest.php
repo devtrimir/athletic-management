@@ -12,6 +12,7 @@ use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
 use App\Models\TeamMember;
+use App\Models\TeamSessionStatus;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -167,6 +168,83 @@ test('teams index roster counts follow selected session without duplicating team
             ->where('teams.data.0.id', $team->id)
             ->where('teams.data.0.players_count', 1)
             ->etc()
+        );
+});
+
+test('teams index marks only current session active teams as active for listing status', function (): void {
+    $user = teamIndexUser('teams.view');
+    $currentSession = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'is_current' => true,
+    ]);
+    $oldSession = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'is_current' => false,
+    ]);
+
+    $currentTeam = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $currentSession->id,
+        'is_active' => true,
+        'name' => 'Current Session Team',
+    ]);
+    $oldTeam = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $oldSession->id,
+        'is_active' => true,
+        'name' => 'Old Session Team',
+    ]);
+    $carriedForwardTeam = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $oldSession->id,
+        'is_active' => true,
+        'name' => 'Carried Forward Team',
+    ]);
+    TeamSessionStatus::create([
+        'organization_id' => $user->organization_id,
+        'team_id' => $carriedForwardTeam->id,
+        'session_id' => $oldSession->id,
+        'status' => TeamSessionStatus::STATUS_CARRIED_FORWARD,
+        'carried_forward_to_session_id' => $currentSession->id,
+        'carried_forward_at' => now(),
+    ]);
+    TeamSessionStatus::create([
+        'organization_id' => $user->organization_id,
+        'team_id' => $carriedForwardTeam->id,
+        'session_id' => $currentSession->id,
+        'status' => TeamSessionStatus::STATUS_ACTIVE,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('teams.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('selectedSessionId', $currentSession->id)
+            ->where('teams.data.0.id', $carriedForwardTeam->id)
+            ->where('teams.data.0.listing_is_active', true)
+            ->where('teams.data.0.session_status', TeamSessionStatus::STATUS_ACTIVE)
+            ->where('teams.data.1.id', $currentTeam->id)
+            ->where('teams.data.1.listing_is_active', true)
+            ->where('teams.data.1.session_status', TeamSessionStatus::STATUS_ACTIVE)
+            ->where('teams.data.2.id', $oldTeam->id)
+            ->where('teams.data.2.listing_is_active', false)
+            ->where('teams.data.2.session_status', TeamSessionStatus::STATUS_INACTIVE)
+        );
+
+    $this->actingAs($user)
+        ->get(route('teams.index', ['filter' => ['session_id' => $oldSession->id]]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('selectedSessionId', $oldSession->id)
+            ->where('teams.data.0.id', $carriedForwardTeam->id)
+            ->where('teams.data.0.listing_is_active', false)
+            ->where('teams.data.0.session_status', TeamSessionStatus::STATUS_CARRIED_FORWARD)
+            ->where('teams.data.1.id', $currentTeam->id)
+            ->where('teams.data.1.listing_is_active', false)
+            ->where('teams.data.1.session_status', TeamSessionStatus::STATUS_INACTIVE)
+            ->where('teams.data.2.id', $oldTeam->id)
+            ->where('teams.data.2.listing_is_active', true)
+            ->where('teams.data.2.session_status', TeamSessionStatus::STATUS_ACTIVE)
         );
 });
 

@@ -404,11 +404,13 @@ function EventGroup({
 type MediaTabProps = {
     memberId: number;
     canDelete: boolean;
+    initialData?: MediaResponse | null;
 };
 
-export function MemberMediaTab({ memberId, canDelete }: MediaTabProps) {
+export function MemberMediaTab({ memberId, canDelete, initialData = null }: MediaTabProps) {
     const { t } = useTranslation();
     const [data, setData] = useState<MediaResponse | null>(null);
+    const mediaData = data ?? initialData;
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [filters, setFilters] = useState<Filters>({ tournament_id: '', sport_id: '', session_id: '', medal_type: '' });
     const [lightbox, setLightbox] = useState<{ files: MediaFile[]; index: number } | null>(null);
@@ -455,16 +457,25 @@ params.set('filter[medal_type]', merged.medal_type);
 
     // Load on mount
     useEffect(() => {
+        if (initialData) {
+            return;
+        }
+
         if (!fetchedRef.current) {
             fetchedRef.current = true;
             fetchMedia();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [memberId]);
+    }, [initialData, memberId]);
 
     function handleFilterChange(key: keyof Filters, value: string) {
         const next = { ...filters, [key]: value };
         setFilters(next);
+
+        if (initialData) {
+            return;
+        }
+
         fetchedRef.current = false;
         fetchMedia(next);
     }
@@ -472,6 +483,11 @@ params.set('filter[medal_type]', merged.medal_type);
     function handleFilterReset() {
         const cleared: Filters = { tournament_id: '', sport_id: '', session_id: '', medal_type: '' };
         setFilters(cleared);
+
+        if (initialData) {
+            return;
+        }
+
         fetchedRef.current = false;
         fetchMedia(cleared);
     }
@@ -489,14 +505,16 @@ params.set('filter[medal_type]', merged.medal_type);
 
             if (res.ok || res.status === 204) {
                 setData((prev) => {
-                    if (!prev) {
+                    const current = prev ?? initialData;
+
+                    if (!current) {
 return prev;
 }
 
                     return {
-                        ...prev,
-                        total: prev.total - 1,
-                        data: prev.data.map((td) => ({
+                        ...current,
+                        total: current.total - 1,
+                        data: current.data.map((td) => ({
                             ...td,
                             total: td.total - td.events.reduce((acc, ev) => acc + ev.media.filter((f) => f.id === mediaFileId).length, 0),
                             events: td.events.map((ev) => ({
@@ -514,15 +532,15 @@ return prev;
     }
 
     // Flatten all media files for lightbox navigation
-    const allMediaFlat: MediaFile[] = (data?.data ?? []).flatMap((td) => td.events.flatMap((ev) => ev.media));
+    const allMediaFlat: MediaFile[] = (mediaData?.data ?? []).flatMap((td) => td.events.flatMap((ev) => ev.media));
 
     // Derive unique tournaments/sports/sessions from full (unfiltered) data for filter dropdowns
-    const uniqueTournaments = (data?.data ?? [])
+    const uniqueTournaments = (mediaData?.data ?? [])
         .filter((td) => td.tournament)
         .map((td) => td.tournament!)
         .filter((t2, i, arr) => arr.findIndex((x) => x.id === t2.id) === i);
 
-    const uniqueSports = (data?.data ?? [])
+    const uniqueSports = (mediaData?.data ?? [])
         .flatMap((td) => td.events)
         .filter((ev) => ev.event?.sport)
         .map((ev) => ev.event!.sport!)
@@ -531,7 +549,7 @@ return prev;
     const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
     // ── Loading skeleton ──
-    if (processing && !data) {
+    if (processing && !mediaData) {
         return (
             <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-3">
@@ -563,12 +581,12 @@ return prev;
                     activeCount={activeFilterCount}
                 />
                 <span className="ml-auto text-xs text-muted-foreground">
-                    {data?.total ?? 0} {t('photos')}
+                    {mediaData?.total ?? 0} {t('photos')}
                 </span>
             </div>
 
             {/* Empty state */}
-            {!data || data.total === 0 ? (
+            {!mediaData || mediaData.total === 0 ? (
                 <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed py-16 text-center">
                     <div className="text-4xl">📷</div>
                     <p className="text-sm text-muted-foreground">
@@ -586,7 +604,7 @@ return prev;
                 </div>
             ) : (
                 <div className="space-y-2">
-                    {data.data.map((tournamentData, tIdx) => (
+                    {mediaData.data.map((tournamentData, tIdx) => (
                         <Collapsible key={tournamentData.tournament?.id ?? tIdx} defaultOpen>
                             <CollapsibleTrigger className="group flex w-full items-center gap-2 rounded-lg bg-muted/50 px-4 py-3 text-left hover:bg-muted/80 transition-colors">
                                 <ChevronDown className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />

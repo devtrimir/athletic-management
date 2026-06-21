@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Requests\Teams;
 
 use App\Models\Team;
-use App\Models\TeamInchargeAssignment;
 use Illuminate\Foundation\Http\Attributes\ErrorBag;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 #[ErrorBag('assignIncharge')]
 class AssignTeamInchargeRequest extends FormRequest
@@ -20,12 +20,13 @@ class AssignTeamInchargeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'full_name' => ['required', 'string', 'max:255'],
-            'pno' => ['required', 'string', 'max:20'],
-            'rank' => ['nullable', 'string', 'max:100'],
-            'designation' => ['nullable', 'string', 'max:100'],
-            'mobile' => ['nullable', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'incharge_id' => [
+                'required',
+                'integer',
+                Rule::exists('incharges', 'id')
+                    ->where('organization_id', (int) $this->user()->organization_id)
+                    ->where('is_active', true),
+            ],
             'assigned_at' => ['nullable', 'date'],
             'assignment_reason' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string'],
@@ -47,21 +48,6 @@ class AssignTeamInchargeRequest extends FormRequest
                     $validator->errors()->add('team', __('This team already has a current incharge.'));
                 }
 
-                $pno = trim((string) $this->input('pno'));
-
-                if ($pno === '') {
-                    return;
-                }
-
-                $existingAssignment = TeamInchargeAssignment::query()
-                    ->current()
-                    ->where('pno', $pno)
-                    ->where('team_id', '!=', $team->id)
-                    ->first();
-
-                if ($existingAssignment !== null) {
-                    $validator->errors()->add('pno', __('The selected incharge is already assigned to another team.'));
-                }
             },
         ];
     }

@@ -78,12 +78,11 @@ export default function AuthSplitLayout({
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
                     {/* Mobile: logo */}
                     <div className="flex flex-col items-center gap-3 lg:hidden">
-                        <img
-                            src="/logo.jpg"
-                            alt="UP Police Sports Control Board"
-                            className="w-16 h-16 rounded-full object-cover ring-2"
-                            style={{ ringColor: '#0b1e6b' }}
-                        />
+	                        <img
+	                            src="/logo.jpg"
+	                            alt="UP Police Sports Control Board"
+	                            className="h-16 w-16 rounded-full object-cover ring-2 ring-[#0b1e6b]"
+	                        />
                         <span className="text-sm font-semibold tracking-wider uppercase text-primary">
                             UP Police Sports Control Board
                         </span>

@@ -53,7 +53,7 @@ class AuditObserver
     }
 
     /**
-     * @param  array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
     private function filterAttributes(array $attributes): array

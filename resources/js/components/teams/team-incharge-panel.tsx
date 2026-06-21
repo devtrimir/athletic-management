@@ -6,6 +6,9 @@ import {
     store as storeTeamIncharge,
     update as updateTeamIncharge,
 } from '@/actions/App/Http/Controllers/TeamInchargeController';
+import { Combobox } from '@/components/combobox';
+import type { ComboboxItem } from '@/components/combobox';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,13 +23,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
     Table,
     TableBody,
     TableCell,
@@ -38,6 +34,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type CurrentAssignment = {
     id: number;
+    incharge_id: number | null;
     full_name: string;
     pno: string | null;
     rank: string | null;
@@ -67,10 +64,14 @@ type HistoryRow = {
     removed_by: { id: number; name: string } | null;
 };
 
-type MasterOption = {
-    code: string;
-    name: string;
-    short_name: string | null;
+type InchargeOption = {
+    id: number;
+    full_name: string;
+    pno: string;
+    rank: string | null;
+    designation: string | null;
+    mobile: string | null;
+    email: string | null;
 };
 
 type ErrorValue = string | string[];
@@ -85,8 +86,6 @@ type InchargeErrors = {
     removeIncharge?: ErrorMap;
     [key: string]: ErrorMap | string | undefined;
 };
-
-const OTHER_OPTION = '__other__';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -167,36 +166,65 @@ function fieldMessage(
     );
 }
 
-function masterLabel(option: MasterOption): string {
-    return option.short_name
-        ? `${option.short_name} - ${option.name}`
-        : option.name;
-}
-
-function resolveMasterSelection(
-    value: string,
-    options: MasterOption[],
-): string {
-    if (!value) {
-        return '';
-    }
-
-    const match = options.find(
-        (option) =>
-            option.code === value ||
-            option.name === value ||
-            option.short_name === value,
-    );
-
-    return match ? match.code : OTHER_OPTION;
-}
-
-function selectedMasterValue(selection: string, customValue: string): string {
-    return selection === OTHER_OPTION ? customValue : selection;
-}
-
 function detailValue(value: string | null | undefined): string {
-    return value && value.length > 0 ? value : '—';
+    return value && value.length > 0 ? value : '';
+}
+
+function inchargeLabel(incharge: InchargeOption): string {
+    return [incharge.full_name, incharge.pno].filter(Boolean).join(' · ');
+}
+
+function InchargeSnapshot({
+    incharge,
+}: {
+    incharge: InchargeOption;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <div className="rounded-lg border bg-muted/30">
+            <div className="border-b px-3 py-2">
+                <p className="text-sm font-medium">{incharge.full_name}</p>
+                <p className="font-mono text-xs text-muted-foreground">
+                    {incharge.pno}
+                </p>
+            </div>
+            <dl className="grid gap-3 p-3 text-sm sm:grid-cols-2">
+                <div>
+                    <dt className="text-xs text-muted-foreground">
+                        {t('Rank')}
+                    </dt>
+                    <dd className="font-medium">
+                        {detailValue(incharge.rank)}
+                    </dd>
+                </div>
+                <div>
+                    <dt className="text-xs text-muted-foreground">
+                        {t('Designation')}
+                    </dt>
+                    <dd className="font-medium">
+                        {detailValue(incharge.designation)}
+                    </dd>
+                </div>
+                <div>
+                    <dt className="text-xs text-muted-foreground">
+                        {t('Mobile')}
+                    </dt>
+                    <dd className="font-medium">
+                        {detailValue(incharge.mobile)}
+                    </dd>
+                </div>
+                <div>
+                    <dt className="text-xs text-muted-foreground">
+                        {t('Email')}
+                    </dt>
+                    <dd className="truncate font-medium">
+                        {detailValue(incharge.email)}
+                    </dd>
+                </div>
+            </dl>
+        </div>
+    );
 }
 
 export function TeamInchargePanel({
@@ -204,15 +232,13 @@ export function TeamInchargePanel({
     teamIsActive,
     currentAssignment,
     history = [],
-    ranks,
-    designations,
+    incharges,
 }: {
     teamId: number;
     teamIsActive: boolean;
     currentAssignment: CurrentAssignment;
     history?: HistoryRow[];
-    ranks: MasterOption[];
-    designations: MasterOption[];
+    incharges: InchargeOption[];
 }) {
     const { t } = useTranslation();
     const page = usePage<{ errors?: InchargeErrors }>();
@@ -220,36 +246,15 @@ export function TeamInchargePanel({
     const [assignServerErrors, setAssignServerErrors] = useState<ErrorMap>({});
     const [changeServerErrors, setChangeServerErrors] = useState<ErrorMap>({});
     const [removeServerErrors, setRemoveServerErrors] = useState<ErrorMap>({});
-    const [assignRankSelection, setAssignRankSelection] = useState('');
-    const [assignRankCustom, setAssignRankCustom] = useState('');
-    const [assignDesignationSelection, setAssignDesignationSelection] =
-        useState('');
-    const [assignDesignationCustom, setAssignDesignationCustom] = useState('');
-    const [changeRankSelection, setChangeRankSelection] = useState('');
-    const [changeRankCustom, setChangeRankCustom] = useState('');
-    const [changeDesignationSelection, setChangeDesignationSelection] =
-        useState('');
-    const [changeDesignationCustom, setChangeDesignationCustom] = useState('');
-
     const assignForm = useForm({
-        full_name: '',
-        pno: '',
-        rank: '',
-        designation: '',
-        mobile: '',
-        email: '',
+        incharge_id: '',
         assigned_at: '',
         assignment_reason: '',
         remarks: '',
     });
 
     const changeForm = useForm({
-        full_name: '',
-        pno: '',
-        rank: '',
-        designation: '',
-        mobile: '',
-        email: '',
+        incharge_id: '',
         assigned_at: '',
         assignment_reason: '',
         removal_reason: '',
@@ -298,56 +303,26 @@ export function TeamInchargePanel({
         }
 
         changeForm.setData({
-            full_name: currentAssignment.full_name ?? '',
-            pno: currentAssignment.pno ?? '',
-            rank: currentAssignment.rank ?? '',
-            designation: currentAssignment.designation ?? '',
-            mobile: currentAssignment.mobile ?? '',
-            email: currentAssignment.email ?? '',
+            incharge_id: currentAssignment.incharge_id
+                ? String(currentAssignment.incharge_id)
+                : '',
             assigned_at: '',
             assignment_reason: '',
             removal_reason: '',
             remarks: '',
         });
 
-        const resolvedRank = resolveMasterSelection(
-            currentAssignment.rank ?? '',
-            ranks,
-        );
-        const resolvedDesignation = resolveMasterSelection(
-            currentAssignment.designation ?? '',
-            designations,
-        );
-
-        setChangeRankSelection(resolvedRank);
-        setChangeDesignationSelection(resolvedDesignation);
-        setChangeRankCustom(
-            resolvedRank === OTHER_OPTION ? (currentAssignment.rank ?? '') : '',
-        );
-        setChangeDesignationCustom(
-            resolvedDesignation === OTHER_OPTION
-                ? (currentAssignment.designation ?? '')
-                : '',
-        );
     };
 
     const closeAssign = () => {
         setDialogMode(null);
         assignForm.reset();
-        setAssignRankSelection('');
-        setAssignRankCustom('');
-        setAssignDesignationSelection('');
-        setAssignDesignationCustom('');
         clearAssignErrors();
     };
 
     const closeChange = () => {
         setDialogMode(null);
         changeForm.reset();
-        setChangeRankSelection('');
-        setChangeRankCustom('');
-        setChangeDesignationSelection('');
-        setChangeDesignationCustom('');
         clearChangeErrors();
     };
 
@@ -361,12 +336,20 @@ export function TeamInchargePanel({
         setDialogMode('assign');
         assignForm.reset();
         assignForm.clearErrors();
-        setAssignRankSelection('');
-        setAssignRankCustom('');
-        setAssignDesignationSelection('');
-        setAssignDesignationCustom('');
         clearAssignErrors();
     };
+
+    const selectedAssignIncharge = incharges.find(
+        (incharge) => String(incharge.id) === assignForm.data.incharge_id,
+    );
+    const selectedChangeIncharge = incharges.find(
+        (incharge) => String(incharge.id) === changeForm.data.incharge_id,
+    );
+    const inchargeItems: ComboboxItem[] = incharges.map((incharge) => ({
+        value: String(incharge.id),
+        label: inchargeLabel(incharge),
+        badge: incharge.rank ?? undefined,
+    }));
 
     const openChange = () => {
         setDialogMode('change');
@@ -401,7 +384,7 @@ export function TeamInchargePanel({
                 setAssignServerErrors(
                     Object.keys(nextErrors).length > 0
                         ? nextErrors
-                        : { team: t('Unable to save the incharge record.') },
+                        : { team: t('Unable to save the team prabhari record.') },
                 );
                 setDialogMode('assign');
             },
@@ -434,7 +417,7 @@ export function TeamInchargePanel({
                 setChangeServerErrors(
                     Object.keys(nextErrors).length > 0
                         ? nextErrors
-                        : { team: t('Unable to save the incharge record.') },
+                        : { team: t('Unable to save the team prabhari record.') },
                 );
                 setDialogMode('change');
             },
@@ -467,7 +450,7 @@ export function TeamInchargePanel({
                 setRemoveServerErrors(
                     Object.keys(nextErrors).length > 0
                         ? nextErrors
-                        : { team: t('Unable to save the incharge record.') },
+                        : { team: t('Unable to save the team prabhari record.') },
                 );
                 setDialogMode('remove');
             },
@@ -507,7 +490,7 @@ export function TeamInchargePanel({
                     <div className="space-y-3">
                         <div className="flex items-center gap-2">
                             <h3 className="text-base font-semibold">
-                                {t('Current incharge')}
+                                {t('Current team prabhari')}
                             </h3>
                             <Badge
                                 variant={
@@ -598,13 +581,13 @@ export function TeamInchargePanel({
                                     onClick={openChange}
                                     disabled={!teamIsActive}
                                 >
-                                    {t('Change incharge')}
+                                    {t('Change team prabhari')}
                                 </Button>
                                 <Button
                                     variant="destructive"
                                     onClick={openRemove}
                                 >
-                                    {t('Remove incharge')}
+                                    {t('Remove team prabhari')}
                                 </Button>
                             </>
                         ) : (
@@ -612,7 +595,7 @@ export function TeamInchargePanel({
                                 onClick={openAssign}
                                 disabled={!teamIsActive}
                             >
-                                {t('Assign incharge')}
+                                {t('Assign team prabhari')}
                             </Button>
                         )}
                     </div>
@@ -628,7 +611,7 @@ export function TeamInchargePanel({
                     </div>
                     <div className="rounded-lg border bg-background/70 p-3">
                         <p className="text-xs tracking-wide text-muted-foreground uppercase">
-                            {t('Current incharge')}
+                            {t('Current team prabhari')}
                         </p>
                         <p className="mt-1 text-sm font-semibold">
                             {currentIncharge
@@ -643,7 +626,7 @@ export function TeamInchargePanel({
                 <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
                         <h3 className="text-base font-semibold">
-                            {t('Incharge history')}
+                            {t('Team prabhari history')}
                         </h3>
                         <p className="text-sm text-muted-foreground">
                             {t(
@@ -653,74 +636,96 @@ export function TeamInchargePanel({
                     </div>
                 </div>
 
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>{t('Name')}</TableHead>
-                            <TableHead>{t('PNO')}</TableHead>
-                            <TableHead>{t('Assigned on')}</TableHead>
-                            <TableHead>{t('Removed on')}</TableHead>
-                            <TableHead>{t('Assigned by')}</TableHead>
-                            <TableHead>{t('Removed by')}</TableHead>
-                            <TableHead>{t('Status')}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {history.length === 0 ? (
-                            <TableRow>
-                                <TableCell
-                                    colSpan={7}
-                                    className="py-10 text-center text-sm text-muted-foreground"
-                                >
-                                    {t('No incharge history recorded yet.')}
-                                </TableCell>
+                <div className="overflow-hidden rounded-lg border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-muted/40">
+                                <TableHead className="w-14 text-center">
+                                    {t('S. No.')}
+                                </TableHead>
+                                <TableHead>{t('Name')}</TableHead>
+                                <TableHead className="w-32">
+                                    {t('PNO')}
+                                </TableHead>
+                                <TableHead className="w-36">
+                                    {t('Assigned on')}
+                                </TableHead>
+                                <TableHead className="w-36">
+                                    {t('Removed on')}
+                                </TableHead>
+                                <TableHead className="w-40">
+                                    {t('Assigned by')}
+                                </TableHead>
+                                <TableHead className="w-40">
+                                    {t('Removed by')}
+                                </TableHead>
+                                <TableHead className="w-28">
+                                    {t('Status')}
+                                </TableHead>
                             </TableRow>
-                        ) : (
-                            history.map((row) => (
-                                <TableRow key={row.id}>
-                                    <TableCell>
-                                        <div className="font-medium">
-                                            {detailValue(row.full_name)}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {[row.rank, row.designation]
-                                                .filter(Boolean)
-                                                .join(' · ') || '—'}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="font-mono text-xs">
-                                        {detailValue(row.pno)}
-                                    </TableCell>
-                                    <TableCell className="text-xs">
-                                        {detailValue(row.assigned_at)}
-                                    </TableCell>
-                                    <TableCell className="text-xs">
-                                        {detailValue(row.removed_at)}
-                                    </TableCell>
-                                    <TableCell className="text-xs">
-                                        {row.assigned_by?.name ?? '—'}
-                                    </TableCell>
-                                    <TableCell className="text-xs">
-                                        {row.removed_by?.name ?? '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge
-                                            variant={
-                                                row.is_current
-                                                    ? 'default'
-                                                    : 'secondary'
-                                            }
-                                        >
-                                            {row.is_current
-                                                ? t('Current')
-                                                : t('Past')}
-                                        </Badge>
+                        </TableHeader>
+                        <TableBody>
+                            {history.length === 0 ? (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={8}
+                                        className="py-10 text-center text-sm text-muted-foreground"
+                                    >
+                                        {t(
+                                            'No team prabhari history recorded yet.',
+                                        )}
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
+                            ) : (
+                                history.map((row, index) => (
+                                    <TableRow key={row.id}>
+                                        <TableCell className="text-center text-sm text-muted-foreground">
+                                            {index + 1}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="font-medium">
+                                                {detailValue(row.full_name)}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {[row.rank, row.designation]
+                                                    .filter(Boolean)
+                                                    .join(' · ')}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="font-mono text-xs">
+                                            {detailValue(row.pno)}
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                            {detailValue(row.assigned_at)}
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                            {detailValue(row.removed_at)}
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                            {row.assigned_by?.name ?? ''}
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                            {row.removed_by?.name ?? ''}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={
+                                                    row.is_current
+                                                        ? 'default'
+                                                        : 'secondary'
+                                                }
+                                            >
+                                                {row.is_current
+                                                    ? t('Current')
+                                                    : t('Past')}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
 
             {panelActionFooter}
@@ -733,16 +738,16 @@ export function TeamInchargePanel({
                     }
                 }}
             >
-                <DialogContent>
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>{t('Assign incharge')}</DialogTitle>
+                        <DialogTitle>{t('Assign team prabhari')}</DialogTitle>
                         <DialogDescription>
                             {t(
                                 'Provide official incharge details for this team.',
                             )}
                         </DialogDescription>
                     </DialogHeader>
-                    <form className="space-y-4" onSubmit={handleAssignSubmit}>
+                    <form className="space-y-5" onSubmit={handleAssignSubmit}>
                         <InputError
                             message={fieldMessage(
                                 assignForm.errors,
@@ -752,222 +757,71 @@ export function TeamInchargePanel({
                             )}
                         />
                         <div className="grid gap-2">
-                            <Label htmlFor="assign-full-name">
-                                {t('Officer name')}
+                            <Label htmlFor="assign-incharge">
+                                {t('Team Prabhari')}
                             </Label>
-                            <Input
-                                id="assign-full-name"
-                                value={assignForm.data.full_name}
-                                onChange={(event) =>
-                                    assignForm.setData(
-                                        'full_name',
-                                        event.target.value,
-                                    )
-                                }
-                                onFocus={() =>
-                                    assignForm.clearErrors('full_name')
-                                }
-                                required
+                            <Combobox
+                                id="assign-incharge"
+                                value={assignForm.data.incharge_id}
+                                onValueChange={(value) => {
+                                    assignForm.setData('incharge_id', value);
+                                    assignForm.clearErrors('incharge_id');
+                                }}
+                                items={inchargeItems}
+                                placeholder={t('Select team prabhari')}
+                                searchPlaceholder={t(
+                                    'Search team prabhari by name, PNO, rank, or designation',
+                                )}
+                                emptyMessage={t('No team prabhari found.')}
                             />
                             <InputError
                                 message={fieldMessage(
                                     assignForm.errors,
                                     pageAssignErrors,
                                     assignServerErrors,
-                                    'full_name',
+                                    'incharge_id',
                                 )}
                             />
                         </div>
+                        {selectedAssignIncharge ? (
+                            <InchargeSnapshot incharge={selectedAssignIncharge} />
+                        ) : null}
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="assign-pno">{t('PNO')}</Label>
-                                <Input
-                                    id="assign-pno"
-                                    value={assignForm.data.pno}
-                                    onChange={(event) =>
-                                        assignForm.setData(
-                                            'pno',
-                                            event.target.value,
-                                        )
-                                    }
-                                    onFocus={() =>
-                                        assignForm.clearErrors('pno')
-                                    }
-                                />
-                                <InputError
-                                    message={fieldMessage(
-                                        assignForm.errors,
-                                        pageAssignErrors,
-                                        assignServerErrors,
-                                        'pno',
-                                    )}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="assign-rank">{t('Rank')}</Label>
-                                <Select
-                                    value={assignRankSelection}
-                                    onValueChange={(value) => {
-                                        setAssignRankSelection(value);
-
-                                        if (value === OTHER_OPTION) {
-                                            assignForm.setData(
-                                                'rank',
-                                                assignRankCustom,
-                                            );
-
-                                            return;
-                                        }
-
-                                        setAssignRankCustom('');
-                                        assignForm.setData(
-                                            'rank',
-                                            selectedMasterValue(
-                                                value,
-                                                assignRankCustom,
-                                            ),
-                                        );
-                                    }}
-                                >
-                                    <SelectTrigger
-                                        id="assign-rank"
-                                        className="h-9 w-full"
-                                    >
-                                        <SelectValue
-                                            placeholder={t('Select rank')}
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {ranks.map((rank) => (
-                                            <SelectItem
-                                                key={rank.code}
-                                                value={rank.code}
-                                            >
-                                                {masterLabel(rank)}
-                                            </SelectItem>
-                                        ))}
-                                        <SelectItem value={OTHER_OPTION}>
-                                            {t('Other')}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {assignRankSelection === OTHER_OPTION && (
-                                    <Input
-                                        value={assignRankCustom}
-                                        onChange={(event) => {
-                                            const nextValue =
-                                                event.target.value;
-
-                                            setAssignRankCustom(nextValue);
-                                            assignForm.setData(
-                                                'rank',
-                                                nextValue,
-                                            );
-                                        }}
-                                        maxLength={100}
-                                        placeholder={t('Enter rank')}
-                                    />
-                                )}
-                                <InputError
-                                    message={fieldMessage(
-                                        assignForm.errors,
-                                        pageAssignErrors,
-                                        assignServerErrors,
-                                        'rank',
-                                    )}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="assign-designation">
-                                    {t('Designation')}
+                                <Label htmlFor="assign-assigned-at">
+                                    {t('Assigned on')}
                                 </Label>
-                                <Select
-                                    value={assignDesignationSelection}
-                                    onValueChange={(value) => {
-                                        setAssignDesignationSelection(value);
-
-                                        if (value === OTHER_OPTION) {
-                                            assignForm.setData(
-                                                'designation',
-                                                assignDesignationCustom,
-                                            );
-
-                                            return;
-                                        }
-
-                                        setAssignDesignationCustom('');
+                                <DatePicker
+                                    id="assign-assigned-at"
+                                    value={assignForm.data.assigned_at}
+                                    onChange={(value) => {
                                         assignForm.setData(
-                                            'designation',
-                                            selectedMasterValue(
-                                                value,
-                                                assignDesignationCustom,
-                                            ),
+                                            'assigned_at',
+                                            value,
                                         );
+                                        assignForm.clearErrors('assigned_at');
                                     }}
-                                >
-                                    <SelectTrigger
-                                        id="assign-designation"
-                                        className="h-9 w-full"
-                                    >
-                                        <SelectValue
-                                            placeholder={t(
-                                                'Select designation',
-                                            )}
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {designations.map((designation) => (
-                                            <SelectItem
-                                                key={designation.code}
-                                                value={designation.code}
-                                            >
-                                                {masterLabel(designation)}
-                                            </SelectItem>
-                                        ))}
-                                        <SelectItem value={OTHER_OPTION}>
-                                            {t('Other')}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {assignDesignationSelection ===
-                                    OTHER_OPTION && (
-                                    <Input
-                                        value={assignDesignationCustom}
-                                        onChange={(event) => {
-                                            const nextValue =
-                                                event.target.value;
-
-                                            setAssignDesignationCustom(
-                                                nextValue,
-                                            );
-                                            assignForm.setData(
-                                                'designation',
-                                                nextValue,
-                                            );
-                                        }}
-                                        maxLength={100}
-                                        placeholder={t('Enter designation')}
-                                    />
-                                )}
+                                    placeholder={t('Select date')}
+                                />
                                 <InputError
                                     message={fieldMessage(
                                         assignForm.errors,
                                         pageAssignErrors,
                                         assignServerErrors,
-                                        'designation',
+                                        'assigned_at',
                                     )}
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="assign-mobile">
-                                    {t('Mobile')}
+                                <Label htmlFor="assign-reason">
+                                    {t('Assignment reason')}
                                 </Label>
                                 <Input
-                                    id="assign-mobile"
-                                    value={assignForm.data.mobile}
+                                    id="assign-reason"
+                                    value={assignForm.data.assignment_reason}
                                     onChange={(event) =>
                                         assignForm.setData(
-                                            'mobile',
+                                            'assignment_reason',
                                             event.target.value,
                                         )
                                     }
@@ -977,21 +831,20 @@ export function TeamInchargePanel({
                                         assignForm.errors,
                                         pageAssignErrors,
                                         assignServerErrors,
-                                        'mobile',
+                                        'assignment_reason',
                                     )}
                                 />
                             </div>
                             <div className="grid gap-2 sm:col-span-2">
-                                <Label htmlFor="assign-email">
-                                    {t('Email')}
+                                <Label htmlFor="assign-remarks">
+                                    {t('Remarks')}
                                 </Label>
                                 <Input
-                                    id="assign-email"
-                                    type="email"
-                                    value={assignForm.data.email}
+                                    id="assign-remarks"
+                                    value={assignForm.data.remarks}
                                     onChange={(event) =>
                                         assignForm.setData(
-                                            'email',
+                                            'remarks',
                                             event.target.value,
                                         )
                                     }
@@ -1001,80 +854,10 @@ export function TeamInchargePanel({
                                         assignForm.errors,
                                         pageAssignErrors,
                                         assignServerErrors,
-                                        'email',
+                                        'remarks',
                                     )}
                                 />
                             </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="assign-assigned-at">
-                                {t('Assigned on')}
-                            </Label>
-                            <Input
-                                id="assign-assigned-at"
-                                type="datetime-local"
-                                value={assignForm.data.assigned_at}
-                                onChange={(event) =>
-                                    assignForm.setData(
-                                        'assigned_at',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    assignForm.errors,
-                                    pageAssignErrors,
-                                    assignServerErrors,
-                                    'assigned_at',
-                                )}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="assign-reason">
-                                {t('Assignment reason')}
-                            </Label>
-                            <Input
-                                id="assign-reason"
-                                value={assignForm.data.assignment_reason}
-                                onChange={(event) =>
-                                    assignForm.setData(
-                                        'assignment_reason',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    assignForm.errors,
-                                    pageAssignErrors,
-                                    assignServerErrors,
-                                    'assignment_reason',
-                                )}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="assign-remarks">
-                                {t('Remarks')}
-                            </Label>
-                            <Input
-                                id="assign-remarks"
-                                value={assignForm.data.remarks}
-                                onChange={(event) =>
-                                    assignForm.setData(
-                                        'remarks',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    assignForm.errors,
-                                    pageAssignErrors,
-                                    assignServerErrors,
-                                    'remarks',
-                                )}
-                            />
                         </div>
                         <DialogFooter>
                             <Button
@@ -1104,14 +887,14 @@ export function TeamInchargePanel({
                     }
                 }}
             >
-                <DialogContent>
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>{t('Change incharge')}</DialogTitle>
+                        <DialogTitle>{t('Change team prabhari')}</DialogTitle>
                         <DialogDescription>
-                            {t('Update this incharge record and keep history.')}
+                            {t('Update this team prabhari record and keep history.')}
                         </DialogDescription>
                     </DialogHeader>
-                    <form className="space-y-4" onSubmit={handleChangeSubmit}>
+                    <form className="space-y-5" onSubmit={handleChangeSubmit}>
                         <InputError
                             message={fieldMessage(
                                 changeForm.errors,
@@ -1121,345 +904,130 @@ export function TeamInchargePanel({
                             )}
                         />
                         <div className="grid gap-2">
-                            <Label htmlFor="change-full-name">
-                                {t('Officer name')}
+                            <Label htmlFor="change-incharge">
+                                {t('Team Prabhari')}
                             </Label>
-                            <Input
-                                id="change-full-name"
-                                value={changeForm.data.full_name}
-                                onChange={(event) =>
-                                    changeForm.setData(
-                                        'full_name',
-                                        event.target.value,
-                                    )
-                                }
+                            <Combobox
+                                id="change-incharge"
+                                value={changeForm.data.incharge_id}
+                                onValueChange={(value) => {
+                                    changeForm.setData('incharge_id', value);
+                                    changeForm.clearErrors('incharge_id');
+                                }}
+                                items={inchargeItems}
+                                placeholder={t('Select team prabhari')}
+                                searchPlaceholder={t(
+                                    'Search team prabhari by name, PNO, rank, or designation',
+                                )}
+                                emptyMessage={t('No team prabhari found.')}
                             />
                             <InputError
                                 message={fieldMessage(
                                     changeForm.errors,
                                     pageChangeErrors,
                                     changeServerErrors,
-                                    'full_name',
+                                    'incharge_id',
                                 )}
                             />
                         </div>
+                        {selectedChangeIncharge ? (
+                            <InchargeSnapshot incharge={selectedChangeIncharge} />
+                        ) : null}
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="change-pno">{t('PNO')}</Label>
-                                <Input
-                                    id="change-pno"
-                                    value={changeForm.data.pno}
-                                    onChange={(event) =>
+                                <Label htmlFor="change-assigned-at">
+                                    {t('Change effective on')}
+                                </Label>
+                                <DatePicker
+                                    id="change-assigned-at"
+                                    value={changeForm.data.assigned_at}
+                                    onChange={(value) => {
                                         changeForm.setData(
-                                            'pno',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={fieldMessage(
-                                        changeForm.errors,
-                                        pageChangeErrors,
-                                        changeServerErrors,
-                                        'pno',
-                                    )}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="change-rank">{t('Rank')}</Label>
-                                <Select
-                                    value={changeRankSelection}
-                                    onValueChange={(value) => {
-                                        setChangeRankSelection(value);
-
-                                        if (value === OTHER_OPTION) {
-                                            changeForm.setData(
-                                                'rank',
-                                                changeRankCustom,
-                                            );
-
-                                            return;
-                                        }
-
-                                        setChangeRankCustom('');
-                                        changeForm.setData(
-                                            'rank',
-                                            selectedMasterValue(
-                                                value,
-                                                changeRankCustom,
-                                            ),
+                                            'assigned_at',
+                                            value,
                                         );
+                                        changeForm.clearErrors('assigned_at');
                                     }}
-                                >
-                                    <SelectTrigger
-                                        id="change-rank"
-                                        className="h-9 w-full"
-                                    >
-                                        <SelectValue
-                                            placeholder={t('Select rank')}
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {ranks.map((rank) => (
-                                            <SelectItem
-                                                key={rank.code}
-                                                value={rank.code}
-                                            >
-                                                {masterLabel(rank)}
-                                            </SelectItem>
-                                        ))}
-                                        <SelectItem value={OTHER_OPTION}>
-                                            {t('Other')}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {changeRankSelection === OTHER_OPTION && (
-                                    <Input
-                                        value={changeRankCustom}
-                                        onChange={(event) => {
-                                            const nextValue =
-                                                event.target.value;
-
-                                            setChangeRankCustom(nextValue);
-                                            changeForm.setData(
-                                                'rank',
-                                                nextValue,
-                                            );
-                                        }}
-                                        maxLength={100}
-                                        placeholder={t('Enter rank')}
-                                    />
-                                )}
-                                <InputError
-                                    message={fieldMessage(
-                                        changeForm.errors,
-                                        pageChangeErrors,
-                                        changeServerErrors,
-                                        'rank',
-                                    )}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="change-designation">
-                                    {t('Designation')}
-                                </Label>
-                                <Select
-                                    value={changeDesignationSelection}
-                                    onValueChange={(value) => {
-                                        setChangeDesignationSelection(value);
-
-                                        if (value === OTHER_OPTION) {
-                                            changeForm.setData(
-                                                'designation',
-                                                changeDesignationCustom,
-                                            );
-
-                                            return;
-                                        }
-
-                                        setChangeDesignationCustom('');
-                                        changeForm.setData(
-                                            'designation',
-                                            selectedMasterValue(
-                                                value,
-                                                changeDesignationCustom,
-                                            ),
-                                        );
-                                    }}
-                                >
-                                    <SelectTrigger
-                                        id="change-designation"
-                                        className="h-9 w-full"
-                                    >
-                                        <SelectValue
-                                            placeholder={t(
-                                                'Select designation',
-                                            )}
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {designations.map((designation) => (
-                                            <SelectItem
-                                                key={designation.code}
-                                                value={designation.code}
-                                            >
-                                                {masterLabel(designation)}
-                                            </SelectItem>
-                                        ))}
-                                        <SelectItem value={OTHER_OPTION}>
-                                            {t('Other')}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {changeDesignationSelection ===
-                                    OTHER_OPTION && (
-                                    <Input
-                                        value={changeDesignationCustom}
-                                        onChange={(event) => {
-                                            const nextValue =
-                                                event.target.value;
-
-                                            setChangeDesignationCustom(
-                                                nextValue,
-                                            );
-                                            changeForm.setData(
-                                                'designation',
-                                                nextValue,
-                                            );
-                                        }}
-                                        maxLength={100}
-                                        placeholder={t('Enter designation')}
-                                    />
-                                )}
-                                <InputError
-                                    message={fieldMessage(
-                                        changeForm.errors,
-                                        pageChangeErrors,
-                                        changeServerErrors,
-                                        'designation',
-                                    )}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="change-mobile">
-                                    {t('Mobile')}
-                                </Label>
-                                <Input
-                                    id="change-mobile"
-                                    value={changeForm.data.mobile}
-                                    onChange={(event) =>
-                                        changeForm.setData(
-                                            'mobile',
-                                            event.target.value,
-                                        )
-                                    }
+                                    placeholder={t('Select date')}
                                 />
                                 <InputError
                                     message={fieldMessage(
                                         changeForm.errors,
                                         pageChangeErrors,
                                         changeServerErrors,
-                                        'mobile',
-                                    )}
-                                />
-                            </div>
-                            <div className="grid gap-2 sm:col-span-2">
-                                <Label htmlFor="change-email">
-                                    {t('Email')}
-                                </Label>
-                                <Input
-                                    id="change-email"
-                                    type="email"
-                                    value={changeForm.data.email}
-                                    onChange={(event) =>
-                                        changeForm.setData(
-                                            'email',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={fieldMessage(
-                                        changeForm.errors,
-                                        pageChangeErrors,
-                                        changeServerErrors,
-                                        'email',
-                                    )}
-                                />
-                            </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="change-assigned-at">
-                                {t('Change effective on')}
-                            </Label>
-                            <Input
-                                id="change-assigned-at"
-                                type="datetime-local"
-                                value={changeForm.data.assigned_at}
-                                onChange={(event) =>
-                                    changeForm.setData(
                                         'assigned_at',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    changeForm.errors,
-                                    pageChangeErrors,
-                                    changeServerErrors,
-                                    'assigned_at',
-                                )}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="change-assignment-reason">
-                                {t('Assignment reason')}
-                            </Label>
-                            <Input
-                                id="change-assignment-reason"
-                                value={changeForm.data.assignment_reason}
-                                onChange={(event) =>
-                                    changeForm.setData(
+                                    )}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="change-assignment-reason">
+                                    {t('Assignment reason')}
+                                </Label>
+                                <Input
+                                    id="change-assignment-reason"
+                                    value={changeForm.data.assignment_reason}
+                                    onChange={(event) =>
+                                        changeForm.setData(
+                                            'assignment_reason',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={fieldMessage(
+                                        changeForm.errors,
+                                        pageChangeErrors,
+                                        changeServerErrors,
                                         'assignment_reason',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    changeForm.errors,
-                                    pageChangeErrors,
-                                    changeServerErrors,
-                                    'assignment_reason',
-                                )}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="change-removal-reason">
-                                {t('Removal reason')}
-                            </Label>
-                            <Input
-                                id="change-removal-reason"
-                                value={changeForm.data.removal_reason}
-                                onChange={(event) =>
-                                    changeForm.setData(
+                                    )}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="change-removal-reason">
+                                    {t('Removal reason')}
+                                </Label>
+                                <Input
+                                    id="change-removal-reason"
+                                    value={changeForm.data.removal_reason}
+                                    onChange={(event) =>
+                                        changeForm.setData(
+                                            'removal_reason',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={fieldMessage(
+                                        changeForm.errors,
+                                        pageChangeErrors,
+                                        changeServerErrors,
                                         'removal_reason',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    changeForm.errors,
-                                    pageChangeErrors,
-                                    changeServerErrors,
-                                    'removal_reason',
-                                )}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="change-remarks">
-                                {t('Remarks')}
-                            </Label>
-                            <Input
-                                id="change-remarks"
-                                value={changeForm.data.remarks}
-                                onChange={(event) =>
-                                    changeForm.setData(
+                                    )}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="change-remarks">
+                                    {t('Remarks')}
+                                </Label>
+                                <Input
+                                    id="change-remarks"
+                                    value={changeForm.data.remarks}
+                                    onChange={(event) =>
+                                        changeForm.setData(
+                                            'remarks',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={fieldMessage(
+                                        changeForm.errors,
+                                        pageChangeErrors,
+                                        changeServerErrors,
                                         'remarks',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    changeForm.errors,
-                                    pageChangeErrors,
-                                    changeServerErrors,
-                                    'remarks',
-                                )}
-                            />
+                                    )}
+                                />
+                            </div>
                         </div>
                         <DialogFooter>
                             <Button
@@ -1489,16 +1057,16 @@ export function TeamInchargePanel({
                     }
                 }}
             >
-                <DialogContent>
+                <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
-                        <DialogTitle>{t('Remove incharge')}</DialogTitle>
+                        <DialogTitle>{t('Remove team prabhari')}</DialogTitle>
                         <DialogDescription>
                             {t(
                                 'Remove the active incharge with a removal reason and date.',
                             )}
                         </DialogDescription>
                     </DialogHeader>
-                    <form className="space-y-4" onSubmit={handleRemoveSubmit}>
+                    <form className="space-y-5" onSubmit={handleRemoveSubmit}>
                         <InputError
                             message={fieldMessage(
                                 removeForm.errors,
@@ -1507,75 +1075,94 @@ export function TeamInchargePanel({
                                 'team',
                             )}
                         />
-                        <div className="grid gap-2">
-                            <Label htmlFor="remove-removed-at">
-                                {t('Removed on')}
-                            </Label>
-                            <Input
-                                id="remove-removed-at"
-                                type="datetime-local"
-                                value={removeForm.data.removed_at}
-                                onChange={(event) =>
-                                    removeForm.setData(
+                        {currentAssignment ? (
+                            <div className="rounded-lg border bg-muted/30 px-3 py-2">
+                                <p className="text-sm font-medium">
+                                    {currentAssignment.full_name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {[
+                                        currentAssignment.pno,
+                                        currentAssignment.rank,
+                                        currentAssignment.designation,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                </p>
+                            </div>
+                        ) : null}
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="remove-removed-at">
+                                    {t('Removed on')}
+                                </Label>
+                                <DatePicker
+                                    id="remove-removed-at"
+                                    value={removeForm.data.removed_at}
+                                    onChange={(value) => {
+                                        removeForm.setData(
+                                            'removed_at',
+                                            value,
+                                        );
+                                        removeForm.clearErrors('removed_at');
+                                    }}
+                                    placeholder={t('Select date')}
+                                />
+                                <InputError
+                                    message={fieldMessage(
+                                        removeForm.errors,
+                                        pageRemoveErrors,
+                                        removeServerErrors,
                                         'removed_at',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    removeForm.errors,
-                                    pageRemoveErrors,
-                                    removeServerErrors,
-                                    'removed_at',
-                                )}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="remove-removal-reason">
-                                {t('Removal reason')}
-                            </Label>
-                            <Input
-                                id="remove-removal-reason"
-                                value={removeForm.data.removal_reason}
-                                onChange={(event) =>
-                                    removeForm.setData(
+                                    )}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="remove-removal-reason">
+                                    {t('Removal reason')}
+                                </Label>
+                                <Input
+                                    id="remove-removal-reason"
+                                    value={removeForm.data.removal_reason}
+                                    onChange={(event) =>
+                                        removeForm.setData(
+                                            'removal_reason',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={fieldMessage(
+                                        removeForm.errors,
+                                        pageRemoveErrors,
+                                        removeServerErrors,
                                         'removal_reason',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    removeForm.errors,
-                                    pageRemoveErrors,
-                                    removeServerErrors,
-                                    'removal_reason',
-                                )}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="remove-remarks">
-                                {t('Remarks')}
-                            </Label>
-                            <Input
-                                id="remove-remarks"
-                                value={removeForm.data.remarks}
-                                onChange={(event) =>
-                                    removeForm.setData(
+                                    )}
+                                />
+                            </div>
+                            <div className="grid gap-2 sm:col-span-2">
+                                <Label htmlFor="remove-remarks">
+                                    {t('Remarks')}
+                                </Label>
+                                <Input
+                                    id="remove-remarks"
+                                    value={removeForm.data.remarks}
+                                    onChange={(event) =>
+                                        removeForm.setData(
+                                            'remarks',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={fieldMessage(
+                                        removeForm.errors,
+                                        pageRemoveErrors,
+                                        removeServerErrors,
                                         'remarks',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={fieldMessage(
-                                    removeForm.errors,
-                                    pageRemoveErrors,
-                                    removeServerErrors,
-                                    'remarks',
-                                )}
-                            />
+                                    )}
+                                />
+                            </div>
                         </div>
                         <DialogFooter>
                             <Button

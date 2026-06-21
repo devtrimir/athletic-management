@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Incharge;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
@@ -44,21 +45,25 @@ function teamInchargeUser(string ...$permissions): User
 
 test('can assign the first team incharge', function (): void {
     $user = teamInchargeUser('teams.update');
-    $team = Team::factory()->forOrganization(Organization::findOrFail($user->organization_id))->create();
+    $organization = Organization::findOrFail($user->organization_id);
+    $team = Team::factory()->forOrganization($organization)->create();
+    $incharge = Incharge::factory()->forOrganization($organization)->create([
+        'full_name' => 'Asha Singh',
+        'pno' => '1234567890',
+        'rank' => 'Inspector',
+        'designation' => 'Team Officer',
+    ]);
 
     $this->actingAs($user)
         ->post(route('teams.incharge.store', $team), [
-            'full_name' => 'Asha Singh',
-            'pno' => '1234567890',
-            'rank' => 'Inspector',
-            'designation' => 'Team Officer',
+            'incharge_id' => $incharge->id,
             'assignment_reason' => 'Initial assignment',
         ])
         ->assertRedirect(route('teams.show', $team));
 
     $this->assertDatabaseHas('team_incharge_assignments', [
         'team_id' => $team->id,
-        'incharge_id' => null,
+        'incharge_id' => $incharge->id,
         'full_name' => 'Asha Singh',
         'pno' => '1234567890',
         'is_current' => true,
@@ -69,7 +74,13 @@ test('can assign the first team incharge', function (): void {
 
 test('changing the incharge closes the current row and creates a new one', function (): void {
     $user = teamInchargeUser('teams.update');
-    $team = Team::factory()->forOrganization(Organization::findOrFail($user->organization_id))->create();
+    $organization = Organization::findOrFail($user->organization_id);
+    $team = Team::factory()->forOrganization($organization)->create();
+    $nextIncharge = Incharge::factory()->forOrganization($organization)->create([
+        'full_name' => 'Second Officer',
+        'pno' => '2222222222',
+        'rank' => 'Deputy SP',
+    ]);
 
     $current = TeamInchargeAssignment::factory()->create([
         'team_id' => $team->id,
@@ -81,9 +92,7 @@ test('changing the incharge closes the current row and creates a new one', funct
 
     $this->actingAs($user)
         ->patch(route('teams.incharge.update', $team), [
-            'full_name' => 'Second Officer',
-            'pno' => '2222222222',
-            'rank' => 'Deputy SP',
+            'incharge_id' => $nextIncharge->id,
             'removal_reason' => 'Rotation',
             'assignment_reason' => 'Fresh cycle',
         ])
@@ -98,7 +107,7 @@ test('changing the incharge closes the current row and creates a new one', funct
 
     $this->assertDatabaseHas('team_incharge_assignments', [
         'team_id' => $team->id,
-        'incharge_id' => null,
+        'incharge_id' => $nextIncharge->id,
         'full_name' => 'Second Officer',
         'is_current' => true,
     ]);
@@ -134,39 +143,43 @@ test('can remove the current incharge without replacement', function (): void {
 
 test('cannot assign an incharge to an inactive team', function (): void {
     $user = teamInchargeUser('teams.update');
-    $team = Team::factory()->forOrganization(Organization::findOrFail($user->organization_id))->create([
+    $organization = Organization::findOrFail($user->organization_id);
+    $team = Team::factory()->forOrganization($organization)->create([
         'is_active' => false,
     ]);
+    $incharge = Incharge::factory()->forOrganization($organization)->create();
 
     $this->actingAs($user)
         ->post(route('teams.incharge.store', $team), [
-            'full_name' => 'Inactive Team Officer',
-            'pno' => '1234567890',
+            'incharge_id' => $incharge->id,
         ])
         ->assertSessionHasErrors(['team'], null, 'assignIncharge');
 });
 
-test('cannot assign an incharge without pno', function (): void {
+test('cannot assign without selecting an incharge profile', function (): void {
     $user = teamInchargeUser('teams.update');
     $team = Team::factory()->forOrganization(Organization::findOrFail($user->organization_id))->create();
 
     $this->actingAs($user)
         ->post(route('teams.incharge.store', $team), [
-            'full_name' => 'No Pno Officer',
-            'pno' => '',
+            'incharge_id' => '',
         ])
-        ->assertSessionHasErrors(['pno'], null, 'assignIncharge');
+        ->assertSessionHasErrors(['incharge_id'], null, 'assignIncharge');
 });
 
-test('cannot assign a current incharge to another team until removed', function (): void {
+test('can assign the same current incharge to multiple teams', function (): void {
     $user = teamInchargeUser('teams.update');
     $organization = Organization::findOrFail($user->organization_id);
     $firstTeam = Team::factory()->forOrganization($organization)->create();
     $secondTeam = Team::factory()->forOrganization($organization)->create();
+    $incharge = Incharge::factory()->forOrganization($organization)->create([
+        'full_name' => 'Shared Officer',
+        'pno' => '1111111111',
+    ]);
 
     TeamInchargeAssignment::factory()->create([
         'team_id' => $firstTeam->id,
-        'incharge_id' => null,
+        'incharge_id' => $incharge->id,
         'full_name' => 'Shared Officer',
         'pno' => '1111111111',
         'assigned_by' => $user->id,
@@ -175,24 +188,29 @@ test('cannot assign a current incharge to another team until removed', function 
 
     $this->actingAs($user)
         ->post(route('teams.incharge.store', $secondTeam), [
-            'full_name' => 'Shared Officer',
-            'pno' => '1111111111',
+            'incharge_id' => $incharge->id,
         ])
-        ->assertSessionHasErrors(['pno'], null, 'assignIncharge');
+        ->assertRedirect(route('teams.show', $secondTeam));
 
-    $this->assertDatabaseMissing('team_incharge_assignments', [
+    $this->assertDatabaseHas('team_incharge_assignments', [
         'team_id' => $secondTeam->id,
+        'incharge_id' => $incharge->id,
         'full_name' => 'Shared Officer',
         'pno' => '1111111111',
         'is_current' => true,
     ]);
 });
 
-test('cannot change a team incharge to someone currently assigned on another team', function (): void {
+test('can change a team incharge to someone currently assigned on another team', function (): void {
     $user = teamInchargeUser('teams.update');
     $organization = Organization::findOrFail($user->organization_id);
     $firstTeam = Team::factory()->forOrganization($organization)->create();
     $secondTeam = Team::factory()->forOrganization($organization)->create();
+
+    $busyIncharge = Incharge::factory()->forOrganization($organization)->create([
+        'full_name' => 'Busy Officer',
+        'pno' => '3333333333',
+    ]);
 
     TeamInchargeAssignment::factory()->create([
         'team_id' => $secondTeam->id,
@@ -205,7 +223,7 @@ test('cannot change a team incharge to someone currently assigned on another tea
 
     TeamInchargeAssignment::factory()->create([
         'team_id' => $firstTeam->id,
-        'incharge_id' => null,
+        'incharge_id' => $busyIncharge->id,
         'full_name' => 'Busy Officer',
         'pno' => '3333333333',
         'assigned_by' => $user->id,
@@ -214,14 +232,14 @@ test('cannot change a team incharge to someone currently assigned on another tea
 
     $this->actingAs($user)
         ->patch(route('teams.incharge.update', $secondTeam), [
-            'full_name' => 'Busy Officer',
-            'pno' => '3333333333',
+            'incharge_id' => $busyIncharge->id,
             'removal_reason' => 'Rotation',
         ])
-        ->assertSessionHasErrors(['pno'], null, 'changeIncharge');
+        ->assertRedirect(route('teams.show', $secondTeam));
 
-    $this->assertDatabaseMissing('team_incharge_assignments', [
+    $this->assertDatabaseHas('team_incharge_assignments', [
         'team_id' => $secondTeam->id,
+        'incharge_id' => $busyIncharge->id,
         'full_name' => 'Busy Officer',
         'pno' => '3333333333',
         'is_current' => true,
@@ -234,7 +252,7 @@ test('cannot change to the same current incharge pno', function (): void {
 
     TeamInchargeAssignment::factory()->create([
         'team_id' => $team->id,
-        'incharge_id' => null,
+        'incharge_id' => Incharge::factory()->forOrganization(Organization::findOrFail($user->organization_id))->create(['pno' => '4444444444'])->id,
         'full_name' => 'Current Officer',
         'pno' => '4444444444',
         'assigned_by' => $user->id,
@@ -243,9 +261,8 @@ test('cannot change to the same current incharge pno', function (): void {
 
     $this->actingAs($user)
         ->patch(route('teams.incharge.update', $team), [
-            'full_name' => 'Current Officer',
-            'pno' => '4444444444',
+            'incharge_id' => TeamInchargeAssignment::query()->where('team_id', $team->id)->firstOrFail()->incharge_id,
             'removal_reason' => 'Rotation',
         ])
-        ->assertSessionHasErrors(['pno'], null, 'changeIncharge');
+        ->assertSessionHasErrors(['incharge_id'], null, 'changeIncharge');
 });

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Product UI UX Standards"
+  short_description: "Design polished operational software screens."
+  default_prompt: "Use $product-ui-ux-standards when building or improving UI in this Laravel Inertia app."

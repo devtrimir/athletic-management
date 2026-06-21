@@ -37,6 +37,8 @@ type Props = {
     disabled?: boolean;
     minDate?: string;
     maxDate?: string;
+    'aria-invalid'?: boolean;
+    'aria-describedby'?: string;
 };
 
 function parseDateValue(value: string): Date | undefined {
@@ -46,7 +48,13 @@ function parseDateValue(value: string): Date | undefined {
 
     const parsed = parseISO(value);
 
-    return isValid(parsed) ? parsed : undefined;
+    if (isValid(parsed)) {
+        return parsed;
+    }
+
+    const fallback = new Date(value);
+
+    return isValid(fallback) ? fallback : undefined;
 }
 
 function normalizeTypedDate(value: string): string {
@@ -70,10 +78,10 @@ function normalizeTypedDate(value: string): string {
 }
 
 function displayDateValue(value: string): string {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const parsed = parseISO(value);
+    const parsed = parseDateValue(value);
 
-        return isValid(parsed) ? format(parsed, 'dd/MM/yyyy') : value;
+    if (parsed) {
+        return format(parsed, 'dd/MM/yyyy');
     }
 
     return value;
@@ -97,6 +105,8 @@ export function DatePicker({
     disabled,
     minDate,
     maxDate,
+    'aria-invalid': ariaInvalid,
+    'aria-describedby': ariaDescribedBy,
 }: Props) {
     const { t } = useTranslation();
     const [open, setOpen] = React.useState(false);
@@ -165,6 +175,8 @@ export function DatePicker({
                 inputMode="numeric"
                 value={displayDateValue(value)}
                 disabled={disabled}
+                aria-invalid={ariaInvalid}
+                aria-describedby={ariaDescribedBy}
                 placeholder={placeholder ?? 'dd/mm/yyyy'}
                 onChange={(event) => {
                     onChange(event.target.value);

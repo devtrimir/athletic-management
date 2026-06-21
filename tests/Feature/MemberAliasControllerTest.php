@@ -72,7 +72,7 @@ test('valid store creates alias and redirects to show', function () {
             'alias' => 'राम कुमार',
             'source' => 'manual',
         ])
-        ->assertRedirect(route('members.show', $member));
+        ->assertRedirect(route('members.status', $member));
 
     $alias = NameAlias::where('member_id', $member->id)->latest()->first();
     expect($alias)->not->toBeNull()
@@ -100,7 +100,7 @@ test('destroy deletes alias and redirects to show', function () {
 
     $this->actingAs($user)
         ->delete(route('members.aliases.destroy', [$member, $alias]))
-        ->assertRedirect(route('members.show', $member));
+        ->assertRedirect(route('members.status', $member));
 
     $this->assertModelMissing($alias);
 });

@@ -46,6 +46,12 @@ return [
         ['code' => 'coaches.manageRewards', 'group' => 'coaches', 'name_hi' => 'कोच पुरस्कार प्रबंधित करें', 'name_en' => 'Manage coach rewards'],
         ['code' => 'coaches.viewAuditLog', 'group' => 'coaches', 'name_hi' => 'कोच ऑडिट लॉग देखें', 'name_en' => 'View coach audit log'],
 
+        // ── Incharges ────────────────────────────────────────────────────────
+        ['code' => 'incharges.view',   'group' => 'incharges', 'name_hi' => 'प्रभारी देखें',    'name_en' => 'View incharges'],
+        ['code' => 'incharges.create', 'group' => 'incharges', 'name_hi' => 'प्रभारी जोड़ें',    'name_en' => 'Create incharges'],
+        ['code' => 'incharges.update', 'group' => 'incharges', 'name_hi' => 'प्रभारी अपडेट करें', 'name_en' => 'Update incharges'],
+        ['code' => 'incharges.delete', 'group' => 'incharges', 'name_hi' => 'प्रभारी हटाएं',     'name_en' => 'Delete incharges'],
+
         // ── Teams ─────────────────────────────────────────────────────────────
         ['code' => 'teams.view',   'group' => 'teams', 'name_hi' => 'टीम देखें',    'name_en' => 'View teams'],
         ['code' => 'teams.create', 'group' => 'teams', 'name_hi' => 'टीम जोड़ें',    'name_en' => 'Create teams'],

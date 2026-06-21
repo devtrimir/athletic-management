@@ -20,7 +20,7 @@ class BelongsToOrganization implements Scope
     public function apply(Builder $builder, Model $model): void
     {
         $builder->where(
-            $model->getTable() . '.organization_id',
+            $model->getTable().'.organization_id',
             auth()->user()?->organization_id ?? 0,
         );
     }

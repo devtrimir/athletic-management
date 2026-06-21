@@ -26,6 +26,7 @@ use App\Models\Unit;
 use App\Services\AuditLogBuilder;
 use App\Services\MemberCodeGenerator;
 use App\Services\Performance\MemberPerformanceService;
+use App\Support\Members\MemberProfileData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -43,11 +44,13 @@ class MemberController extends Controller
 
         $filters = $request->query('filter', []);
         $filters = is_array($filters) ? $filters : [];
+        $hasStatusScope = array_key_exists('status_scope', $filters);
+        $hasCurrentStatus = array_key_exists('current_status', $filters);
 
         $query = Member::query()
             ->when(
-                ! array_key_exists('current_status', $filters),
-                fn ($query) => $query->where('current_status', 'ACTIVE')
+                ! $hasStatusScope && ! $hasCurrentStatus,
+                fn ($query) => $query->rosterActive()
             );
 
         $members = QueryBuilder::for($query)
@@ -58,7 +61,8 @@ class MemberController extends Controller
                         : $query->where('player_category', $value);
                 }),
                 AllowedFilter::exact('player_level'),
-                AllowedFilter::exact('current_status'),
+                AllowedFilter::callback('status_scope', fn ($query, string $value): mixed => $this->filterByStatusScope($query, $value)),
+                AllowedFilter::callback('current_status', fn ($query, string $value): mixed => $this->filterByCurrentStatus($query, $value)),
                 AllowedFilter::exact('home_district_id'),
                 AllowedFilter::exact('posting_district_id'),
                 AllowedFilter::exact('current_unit_id'),
@@ -96,14 +100,20 @@ class MemberController extends Controller
             ->paginate(min((int) ($request->query('per_page', 25)), 100))
             ->withQueryString();
 
+        $statusScope = $this->statusScopeFromFilters($filters);
+
         return Inertia::render('members/index', [
             'members' => $members,
-            'filters' => ['current_status' => 'ACTIVE', ...$filters],
+            'filters' => [
+                'status_scope' => $statusScope,
+                'current_status' => $filters['current_status'] ?? ($statusScope === 'active' ? 'ACTIVE' : null),
+                ...$filters,
+            ],
             'perPage' => min((int) ($request->query('per_page', 25)), 100),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'totalCount' => Member::count(),
         ]);
@@ -128,6 +138,37 @@ class MemberController extends Controller
         );
     }
 
+    private function filterByStatusScope(mixed $query, string $value): mixed
+    {
+        return match ($value) {
+            'inactive' => $query->rosterInactive(),
+            default => $query->rosterActive(),
+        };
+    }
+
+    private function filterByCurrentStatus(mixed $query, string $value): mixed
+    {
+        return $value === 'ACTIVE'
+            ? $query->rosterActive()
+            : $query->where('current_status', $value);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function statusScopeFromFilters(array $filters): string
+    {
+        if (($filters['status_scope'] ?? null) === 'inactive') {
+            return 'inactive';
+        }
+
+        if (($filters['current_status'] ?? null) !== null && $filters['current_status'] !== 'ACTIVE') {
+            return 'inactive';
+        }
+
+        return 'active';
+    }
+
     public function create(): Response
     {
         Gate::authorize('create', Member::class);
@@ -140,7 +181,7 @@ class MemberController extends Controller
                 ->orderByDesc('start_year')
                 ->orderByDesc('id')
                 ->get(),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
     }
@@ -167,18 +208,18 @@ class MemberController extends Controller
         return to_route('members.show', $member);
     }
 
-    public function show(Member $member, AuditLogBuilder $auditLogBuilder, MemberPerformanceService $memberPerformance): Response
+    public function show(Member $member, MemberProfileData $profileData): Response
     {
         Gate::authorize('view', $member);
 
-        return Inertia::render('members/show', $this->memberViewProps($member, $auditLogBuilder, $memberPerformance));
+        return Inertia::render('members/show', $profileData->overview($member));
     }
 
-    public function preview(Member $member, AuditLogBuilder $auditLogBuilder, MemberPerformanceService $memberPerformance): Response
+    public function preview(Member $member, MemberProfileData $profileData): Response
     {
         Gate::authorize('view', $member);
 
-        return Inertia::render('members/print-preview', $this->memberViewProps($member, $auditLogBuilder, $memberPerformance));
+        return Inertia::render('members/print-preview', $profileData->print($member));
     }
 
     public function edit(Member $member): Response
@@ -190,7 +231,7 @@ class MemberController extends Controller
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
     }
@@ -355,7 +396,11 @@ class MemberController extends Controller
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
+            'sessions' => SportSession::select(['id', 'name', 'is_current'])
+                ->orderByDesc('start_year')
+                ->orderByDesc('id')
+                ->get(),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
                 ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
@@ -371,7 +416,7 @@ class MemberController extends Controller
                     'session' => $tm->session ? ['id' => $tm->session->id, 'name' => $tm->session->name] : null,
                 ])),
             'legacyAchievements' => Inertia::defer(fn () => $member->legacyAchievements()
-                ->with(['benefits', 'session:id,name'])
+                ->with(['benefits', 'session:id,name', 'sport:id,name'])
                 ->orderBy('period')
                 ->orderBy('sort_order')
                 ->orderBy('event_date')
@@ -387,8 +432,16 @@ class MemberController extends Controller
                     'competition_details' => $la->competition_details,
                     'event_date' => $la->event_date?->toDateString(),
                     'venue' => $la->venue,
+                    'sport_id' => $la->sport_id,
+                    'sport' => $la->sport ? [
+                        'id' => $la->sport->id,
+                        'name' => $la->sport->name,
+                    ] : null,
                     'sport_discipline' => $la->sport_discipline,
                     'event' => $la->event,
+                    'discipline' => $la->discipline,
+                    'weight_category' => $la->weight_category,
+                    'gender_class' => $la->gender_class,
                     'medal_type' => $la->medal_type,
                     'position' => $la->position,
                     'sort_order' => $la->sort_order,
@@ -462,10 +515,6 @@ class MemberController extends Controller
                     'promotion_date' => $promotion->promotion_date?->toDateString(),
                     'from_rank' => $promotion->from_rank,
                     'to_rank' => $promotion->to_rank,
-                    'cash_reward_amount' => $promotion->cash_reward_amount,
-                    'cash_reward_date' => $promotion->cash_reward_date?->toDateString(),
-                    'cash_reward_reference' => $promotion->cash_reward_reference,
-                    'cash_reward_remarks' => $promotion->cash_reward_remarks,
                     'reason' => $promotion->reason,
                     'remarks' => $promotion->remarks,
                     'recorded_by_name' => $promotion->recorder?->name,
@@ -485,14 +534,20 @@ class MemberController extends Controller
      */
     private function promotionEvidencePayload(PromotionEvidence $evidence): array
     {
+        $resolvedType = $this->resolvePromotionEvidenceType($evidence->evidencable_type);
+
         $payload = [
             'id' => $evidence->id,
-            'type' => $evidence->evidencable_type,
+            'type' => $resolvedType ?? $evidence->evidencable_type,
             'evidence_id' => $evidence->evidencable_id,
             'summary' => null,
         ];
 
-        if ($evidence->evidencable_type === 'participation') {
+        if ($resolvedType === null) {
+            return $payload;
+        }
+
+        if ($resolvedType === 'participation') {
             $participation = Participation::query()
                 ->with([
                     'session:id,name',
@@ -546,7 +601,7 @@ class MemberController extends Controller
             ]);
         }
 
-        if ($evidence->evidencable_type === 'achievement') {
+        if ($resolvedType === 'achievement') {
             $achievement = Achievement::query()
                 ->with([
                     'participation.session:id,name',
@@ -601,7 +656,7 @@ class MemberController extends Controller
         }
 
         $legacyAchievement = MemberLegacyAchievement::query()
-            ->with('benefits')
+            ->with('benefits', 'session:id,name')
             ->find($evidence->evidencable_id);
 
         if ($legacyAchievement === null) {
@@ -628,9 +683,30 @@ class MemberController extends Controller
                 'venue' => $legacyAchievement->venue,
                 'sport_discipline' => $legacyAchievement->sport_discipline,
                 'medal_type' => $legacyAchievement->medal_type,
+                'position' => $legacyAchievement->position,
                 'benefits' => $this->achievementBenefitsPayload($legacyAchievement->benefits),
+                'session' => $legacyAchievement->session ? [
+                    'id' => $legacyAchievement->session->id,
+                    'name' => $legacyAchievement->session->name,
+                ] : null,
+                'remarks' => $legacyAchievement->remarks,
             ],
         ]);
+    }
+
+    private function resolvePromotionEvidenceType(string $type): ?string
+    {
+        return match ($type) {
+            'participation',
+            'App\\Models\\Participation',
+            'participations' => 'participation',
+            'achievement',
+            'App\\Models\\Achievement',
+            'achievements' => 'achievement',
+            'member_legacy_achievement',
+            'App\\Models\\MemberLegacyAchievement' => 'member_legacy_achievement',
+            default => null,
+        };
     }
 
     /**

@@ -52,7 +52,8 @@ class TournamentController extends Controller
 
         $sessions = SportSession::select(['id', 'name'])
             ->where('organization_id', $orgId)
-            ->orderBy('name')
+            ->orderByDesc('start_year')
+            ->orderByDesc('id')
             ->get();
 
         $sports = Sport::select(['id', 'name'])
@@ -174,7 +175,8 @@ class TournamentController extends Controller
         return [
             'sessions' => SportSession::select(['id', 'name'])
                 ->where('organization_id', $orgId)
-                ->orderBy('name')
+                ->orderByDesc('start_year')
+                ->orderByDesc('id')
                 ->get(),
             'sports' => Sport::select(['id', 'name'])
                 ->orderBy('name')

@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamMember;
+use App\Models\TeamSessionStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -268,6 +269,72 @@ test('remove member marks row as left and records movement', function (): void {
         'action' => 'REMOVED',
         'reason' => 'Moved out of roster',
         'source' => 'manual',
+    ]);
+});
+
+test('removing the last active member marks the team session inactive when no current coaches remain', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $member = playableMember($org, $team);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('teams.members.destroy', [$team, $member]), [
+            'session_id' => $team->session_id,
+            'left_on' => '2026-02-01',
+            'reason' => 'Roster closed',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
+
+    $this->assertDatabaseHas('team_session_statuses', [
+        'team_id' => $team->id,
+        'session_id' => $team->session_id,
+        'status' => TeamSessionStatus::STATUS_INACTIVE,
+    ]);
+});
+
+test('removing a member keeps the team session active when another active member remains', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $removed = playableMember($org, $team);
+    $remaining = playableMember($org, $team);
+
+    TeamSessionStatus::factory()->create([
+        'organization_id' => $org->id,
+        'team_id' => $team->id,
+        'session_id' => $team->session_id,
+        'status' => TeamSessionStatus::STATUS_ACTIVE,
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $removed->id,
+        'session_id' => $team->session_id,
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $remaining->id,
+        'session_id' => $team->session_id,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('teams.members.destroy', [$team, $removed]), [
+            'session_id' => $team->session_id,
+            'left_on' => '2026-02-01',
+            'reason' => 'Roster update',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
+
+    $this->assertDatabaseHas('team_session_statuses', [
+        'team_id' => $team->id,
+        'session_id' => $team->session_id,
+        'status' => TeamSessionStatus::STATUS_ACTIVE,
     ]);
 });
 

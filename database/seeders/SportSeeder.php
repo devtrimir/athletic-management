@@ -20,8 +20,8 @@ class SportSeeder extends Seeder
         $csv = new SplFileObject(database_path('data/sports.csv'));
         $csv->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::READ_AHEAD);
 
-        $rows = [];
         $header = true;
+        $metadata = SportMasterDataCatalog::sports();
 
         foreach ($csv as $line) {
             if ($header) {
@@ -30,17 +30,28 @@ class SportSeeder extends Seeder
                 continue;
             }
 
+            if ($line === [null] || ! is_array($line) || count($line) < 2) {
+                continue;
+            }
+
             [$name, $category] = $line;
+            $sportMetadata = $metadata[$name] ?? null;
 
-            $rows[] = [
-                'organization_id' => $org->id,
-                'name' => $name,
-                'category' => $category,
-                'slug' => $this->slugForName($name),
-            ];
+            Sport::withoutGlobalScopes()->updateOrCreate(
+                [
+                    'organization_id' => $org->id,
+                    'name' => $name,
+                ],
+                [
+                    'code' => $sportMetadata['code'] ?? strtoupper($this->slugForName($name)),
+                    'category' => $category,
+                    'slug' => $this->slugForName($name),
+                    'description' => $sportMetadata['description'] ?? null,
+                    'is_active' => true,
+                    'sort_order' => $sportMetadata['sort_order'] ?? 0,
+                ],
+            );
         }
-
-        Sport::upsert($rows, uniqueBy: ['organization_id', 'slug'], update: ['name', 'category', 'updated_at']);
     }
 
     private function slugForName(string $name): string

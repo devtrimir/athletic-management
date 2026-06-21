@@ -12,6 +12,9 @@ use App\Models\Participation;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sport;
+use App\Models\SportSession;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\Unit;
 use App\Models\User;
@@ -45,6 +48,25 @@ function memberUser(string ...$permissions): User
     return $user;
 }
 
+function connectMemberToActiveTeam(Member $member): Team
+{
+    $session = SportSession::factory()->create(['organization_id' => $member->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $member->organization_id,
+        'session_id' => $session->id,
+        'is_active' => true,
+    ]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'left_on' => null,
+    ]);
+
+    return $team;
+}
+
 // ---------------------------------------------------------------------------
 // index
 // ---------------------------------------------------------------------------
@@ -75,6 +97,8 @@ test('user without members.view gets 403', function () {
 
 test('index filters by current_status', function () {
     $user = memberUser('members.view');
+    $connected = Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);
+    connectMemberToActiveTeam($connected);
     Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);
     Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'RETIRED']);
 
@@ -83,13 +107,15 @@ test('index filters by current_status', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('members/index')
+            ->where('members.total', 1)
+            ->where('members.data.0.id', $connected->id)
             ->where('members.data', fn ($data) => collect($data)->every(fn ($m) => $m['current_status'] === 'ACTIVE'))
         );
 });
 
 test('index defaults to active members', function () {
     $user = memberUser('members.view');
-    Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);
+    connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']));
     Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'RETIRED']);
 
     $this->actingAs($user)
@@ -100,6 +126,45 @@ test('index defaults to active members', function () {
             ->where('filters.current_status', 'ACTIVE')
             ->where('members.total', 1)
             ->where('members.data', fn ($data) => collect($data)->every(fn ($m) => $m['current_status'] === 'ACTIVE'))
+        );
+});
+
+test('index treats active status member without active team as inactive', function () {
+    $user = memberUser('members.view');
+    $connected = Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);
+    $unassigned = Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);
+    $removed = Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);
+    $inactiveTeam = Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);
+
+    connectMemberToActiveTeam($connected);
+    $removedTeam = connectMemberToActiveTeam($removed);
+    TeamMember::query()
+        ->where('team_id', $removedTeam->id)
+        ->where('member_id', $removed->id)
+        ->update(['left_on' => '2026-01-01']);
+    $inactiveTeamModel = connectMemberToActiveTeam($inactiveTeam);
+    $inactiveTeamModel->update(['is_active' => false]);
+
+    $this->actingAs($user)
+        ->get(route('members.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('members.total', 1)
+            ->where('members.data.0.id', $connected->id)
+        );
+
+    $this->actingAs($user)
+        ->get(route('members.index', ['filter' => ['status_scope' => 'inactive']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('members.total', 3)
+            ->where('members.data', fn ($data) => collect($data)->pluck('id')->sort()->values()->all() === collect([
+                $unassigned->id,
+                $removed->id,
+                $inactiveTeam->id,
+            ])->sort()->values()->all())
         );
 });
 
@@ -119,9 +184,62 @@ test('index allows explicit inactive status filter', function () {
         );
 });
 
+test('index inactive status scope includes every non active member', function () {
+    $user = memberUser('members.view');
+    connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']));
+    Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'RETIRED']);
+    Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'DISMISSED']);
+
+    $this->actingAs($user)
+        ->get(route('members.index', ['filter' => ['status_scope' => 'inactive']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('filters.status_scope', 'inactive')
+            ->where('members.total', 2)
+            ->where('members.data', fn ($data) => collect($data)->every(fn ($m) => $m['current_status'] !== 'ACTIVE'))
+        );
+});
+
+test('index inactive status scope keeps existing filters', function () {
+    $user = memberUser('members.view');
+    connectMemberToActiveTeam(Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'current_status' => 'ACTIVE',
+        'player_category' => 'SPORTS_QUOTA',
+    ]));
+    Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'current_status' => 'RETIRED',
+        'player_category' => 'SPORTS_QUOTA',
+    ]);
+    Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'current_status' => 'DISMISSED',
+        'player_category' => 'GD',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.index', [
+            'filter' => [
+                'status_scope' => 'inactive',
+                'player_category' => 'SPORTS_QUOTA',
+            ],
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('filters.status_scope', 'inactive')
+            ->where('filters.player_category', 'SPORTS_QUOTA')
+            ->where('members.total', 1)
+            ->where('members.data.0.current_status', 'RETIRED')
+            ->where('members.data.0.player_category', 'SPORTS_QUOTA')
+        );
+});
+
 test('index filters by sports quota category', function () {
     $user = memberUser('members.view');
-    Member::factory()->create(['organization_id' => $user->organization_id, 'player_category' => 'SPORTS_QUOTA']);
+    connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'player_category' => 'SPORTS_QUOTA']));
     Member::factory()->create(['organization_id' => $user->organization_id, 'player_category' => 'GD']);
 
     $this->actingAs($user)
@@ -159,11 +277,11 @@ test('index includes posting district independently from current unit district',
         'district_id' => $unitDistrict->id,
     ]);
 
-    Member::factory()->create([
+    connectMemberToActiveTeam(Member::factory()->create([
         'organization_id' => $user->organization_id,
         'current_unit_id' => $unit->id,
         'posting_district_id' => $postingDistrict->id,
-    ]);
+    ]));
 
     $this->actingAs($user)
         ->get(route('members.index'))
@@ -183,11 +301,11 @@ test('index exposes current unit when posting district is missing', function () 
         'district_id' => $unitDistrict->id,
     ]);
 
-    Member::factory()->create([
+    connectMemberToActiveTeam(Member::factory()->create([
         'organization_id' => $user->organization_id,
         'current_unit_id' => $unit->id,
         'posting_district_id' => null,
-    ]);
+    ]));
 
     $this->actingAs($user)
         ->get(route('members.index'))
@@ -207,6 +325,7 @@ test('index includes primary and playable sports', function () {
         'organization_id' => $user->organization_id,
         'sport_id' => $primarySport->id,
     ]);
+    connectMemberToActiveTeam($member);
     $member->playableSports()->sync([
         $playableSport->id => [
             'role' => 'Batsman',
@@ -252,7 +371,7 @@ test('member export uses posting district fallback from current unit', function 
 
 test('index filters by rank', function () {
     $user = memberUser('members.view');
-    Member::factory()->create(['organization_id' => $user->organization_id, 'rank' => 'Inspector']);
+    connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'rank' => 'Inspector']));
     Member::factory()->create(['organization_id' => $user->organization_id, 'rank' => 'Constable']);
 
     $this->actingAs($user)
@@ -268,7 +387,7 @@ test('index filters by rank', function () {
 
 test('index filters by designation', function () {
     $user = memberUser('members.view');
-    Member::factory()->create(['organization_id' => $user->organization_id, 'designation' => 'Station House Officer']);
+    connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'designation' => 'Station House Officer']));
     Member::factory()->create(['organization_id' => $user->organization_id, 'designation' => 'Inspector']);
 
     $this->actingAs($user)
@@ -284,7 +403,7 @@ test('index filters by designation', function () {
 
 test('index q filter searches by full_name', function () {
     $user = memberUser('members.view');
-    Member::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'राम कुमार']);
+    connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'राम कुमार']));
     Member::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'श्याम लाल']);
 
     $this->actingAs($user)
@@ -300,6 +419,7 @@ test('index q filter searches by full_name', function () {
 test('index q filter searches by pno', function () {
     $user = memberUser('members.view');
     $target = Member::factory()->create(['organization_id' => $user->organization_id, 'pno' => '1234567890']);
+    connectMemberToActiveTeam($target);
     Member::factory()->create(['organization_id' => $user->organization_id, 'pno' => '9999999999']);
 
     $this->actingAs($user)

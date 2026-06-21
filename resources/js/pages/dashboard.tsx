@@ -68,14 +68,6 @@ type Props = {
     currentSession: CurrentSession;
 };
 
-const STATUS_LABELS: Record<string, string> = {
-    ACTIVE: 'सक्रिय',
-    RESIGNED: 'त्यागपत्र',
-    DISMISSED: 'बर्खास्त',
-    DECEASED: 'मृत',
-    RETIRED: 'सेवानिवृत्त',
-};
-
 const LEVEL_LABELS: Record<string, string> = {
     ZONAL: 'ज़ोनल',
     NATIONAL: 'राष्ट्रीय',
@@ -87,14 +79,6 @@ const GENDER_LABELS: Record<string, string> = {
     M: 'पुरुष',
     F: 'महिला',
     O: 'अन्य',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-    ACTIVE: '#22c55e',
-    RESIGNED: '#f59e0b',
-    DISMISSED: '#ef4444',
-    DECEASED: '#6b7280',
-    RETIRED: '#3b82f6',
 };
 
 const LEVEL_COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd'];
@@ -147,13 +131,6 @@ export default function Dashboard({ stats, permissions, currentSession }: Props)
     const { t } = useTranslation();
 
     const sessionLabel = currentSession ? currentSession.name : null;
-
-    // -- Member status chart data
-    const memberStatusData = Object.entries(stats.members?.by_status ?? {}).map(([key, cnt]) => ({
-        name: STATUS_LABELS[key] ?? key,
-        value: cnt,
-        color: STATUS_COLORS[key] ?? '#94a3b8',
-    }));
 
     // -- Member level chart data
     const memberLevelData = Object.entries(stats.members?.by_level ?? {}).map(([key, cnt], i) => ({

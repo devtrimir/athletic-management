@@ -6,10 +6,15 @@ namespace App\Actions\Teams;
 
 use App\Models\Team;
 use App\Models\Unit;
+use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Support\Facades\DB;
 
 class UpdateTeamAction
 {
+    public function __construct(
+        private readonly TeamSessionStatusManager $teamSessionStatusManager,
+    ) {}
+
     /**
      * @param  array{
      *     sport_id: int,
@@ -41,6 +46,10 @@ class UpdateTeamAction
                 'name' => $data['name'],
                 'is_active' => $data['is_active'] ?? true,
             ]);
+
+            ($data['is_active'] ?? true)
+                ? $this->teamSessionStatusManager->ensureActive($team, (int) $data['session_id'])
+                : $this->teamSessionStatusManager->ensureInactive($team, (int) $data['session_id']);
 
             return $team->fresh(['sport', 'session', 'unit', 'district']);
         });
