@@ -1,0 +1,4 @@
+interface:
+  display_name: "Validation Audit Guardrails"
+  short_description: "Check validation and audit coverage."
+  default_prompt: "Use $validation-audit-guardrails before finishing Laravel module features."

@@ -26,6 +26,7 @@ use App\Models\Unit;
 use App\Services\AuditLogBuilder;
 use App\Services\MemberCodeGenerator;
 use App\Services\Performance\MemberPerformanceService;
+use App\Support\Members\MemberProfileData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -167,18 +168,18 @@ class MemberController extends Controller
         return to_route('members.show', $member);
     }
 
-    public function show(Member $member, AuditLogBuilder $auditLogBuilder, MemberPerformanceService $memberPerformance): Response
+    public function show(Member $member, MemberProfileData $profileData): Response
     {
         Gate::authorize('view', $member);
 
-        return Inertia::render('members/show', $this->memberViewProps($member, $auditLogBuilder, $memberPerformance));
+        return Inertia::render('members/show', $profileData->overview($member));
     }
 
-    public function preview(Member $member, AuditLogBuilder $auditLogBuilder, MemberPerformanceService $memberPerformance): Response
+    public function preview(Member $member, MemberProfileData $profileData): Response
     {
         Gate::authorize('view', $member);
 
-        return Inertia::render('members/print-preview', $this->memberViewProps($member, $auditLogBuilder, $memberPerformance));
+        return Inertia::render('members/print-preview', $profileData->print($member));
     }
 
     public function edit(Member $member): Response

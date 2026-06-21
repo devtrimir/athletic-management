@@ -57,4 +57,9 @@ class MemberPolicy
     {
         return $user->can('members.manageBenefits');
     }
+
+    public function manageSpecialAchievements(User $user, mixed $member): bool
+    {
+        return $user->can('members.manageSpecialAchievements');
+    }
 }

@@ -34,6 +34,6 @@ class MemberStatusController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Status updated.')]);
 
-        return to_route('members.show', $member);
+        return to_route('members.status', $member);
     }
 }

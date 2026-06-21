@@ -76,7 +76,7 @@ test('valid status change writes history and updates member', function () {
             'effective_on' => '2026-05-23',
             'reason' => 'सेवानिवृत्त',
         ])
-        ->assertRedirect(route('members.show', $member));
+        ->assertRedirect(route('members.status', $member));
 
     $history = MemberStatusHistory::where('member_id', $member->id)->latest()->first();
     expect($history)->not->toBeNull()

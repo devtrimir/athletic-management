@@ -91,7 +91,7 @@ class AchievementBenefitController extends Controller
             return back();
         }
 
-        return to_route('members.show', $member);
+        return to_route('members.events', $member);
     }
 
     /**

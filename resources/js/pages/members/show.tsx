@@ -4,7 +4,6 @@ import {
     Link,
     router,
     setLayoutProps,
-    useHttp,
     usePage,
 } from '@inertiajs/react';
 import {
@@ -20,19 +19,17 @@ import {
 } from 'lucide-react';
 import {
     useCallback,
-    useEffect,
     useMemo,
-    useRef,
     useState
 } from 'react';
 import type {ReactElement} from 'react';
-import MemberAchievementsController from '@/actions/App/Http/Controllers/Api/V1/MemberAchievementsController';
-import MemberParticipationsController from '@/actions/App/Http/Controllers/Api/V1/MemberParticipationsController';
+import type { ComponentProps } from 'react';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
 import {
     edit as editMember,
     index as membersIndex,
     preview as previewMember,
+    show as showMember,
 } from '@/actions/App/Http/Controllers/MemberController';
 import { show as exportMember } from '@/actions/App/Http/Controllers/MemberExportController';
 import { destroy as destroyLegacyAchievement } from '@/actions/App/Http/Controllers/MemberLegacyAchievementController';
@@ -40,6 +37,16 @@ import {
     store as storeMemberPhoto,
     destroy as destroyMemberPhoto,
 } from '@/actions/App/Http/Controllers/MemberPhotoController';
+import {
+    changelog as memberChangelog,
+    events as memberEvents,
+    media as memberMedia,
+    performance as memberPerformance,
+    promotions as memberPromotions,
+    specialAchievements as memberSpecialAchievements,
+    status as memberStatus,
+    teams as memberTeamsRoute,
+} from '@/actions/App/Http/Controllers/MemberProfileTabController';
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
@@ -54,8 +61,11 @@ import { MemberTeamsTab } from '@/components/members/member-teams-tab';
 import type { MemberTeamRow } from '@/components/members/member-teams-tab';
 import { ParticipationMediaSheet } from '@/components/members/participation-media-sheet';
 import { PromotionsTab } from '@/components/members/promotions-tab';
+import { SpecialAchievementsTab } from '@/components/members/special-achievements-tab';
+import type { SpecialAchievementsData } from '@/components/members/special-achievements-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { ChangeLog } from '@/components/shared/change-log';
+import type { AuditEntry } from '@/components/shared/change-log';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -96,7 +106,6 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
-import memberAuditLog from '@/routes/members/audit-log';
 
 type Member = {
     id: number;
@@ -255,6 +264,10 @@ type PromotionRow = {
     promotion_date: string | null;
     from_rank: string | null;
     to_rank: string;
+    cash_reward_amount?: string | null;
+    cash_reward_date?: string | null;
+    cash_reward_reference?: string | null;
+    cash_reward_remarks?: string | null;
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
@@ -377,6 +390,7 @@ const MEMBER_SHOW_TABS = [
     'teams',
     'events',
     'performance',
+    'special-achievements',
     'promotions',
     'changelog',
     'media',
@@ -387,66 +401,47 @@ type MemberShowTab = (typeof MEMBER_SHOW_TABS)[number];
 
 export default function MembersShow({
     member,
+    activeTab: activeTabProp = 'overview',
     statusHistory,
     aliases,
     memberTeams,
+    participations: participationsProp,
+    achievementsData: achievementsDataProp,
     legacyAchievements,
     promotions,
+    specialAchievements,
     performance,
+    auditLog,
+    media,
     ranks,
     sessions,
     sports,
 }: {
     member: Member;
+    activeTab?: MemberShowTab;
     statusHistory?: StatusEntry[];
     aliases?: Alias[];
     memberTeams?: MemberTeamRow[];
+    participations?: ParticipationGroup[];
+    achievementsData?: AchievementsData;
     legacyAchievements?: LegacyAchievement[];
     promotions?: PromotionRow[];
+    specialAchievements?: SpecialAchievementsData;
     performance?: MemberPerformanceData;
+    auditLog?: AuditEntry[];
+    media?: ComponentProps<typeof MemberMediaTab>['initialData'];
     ranks?: RankOption[];
     sessions?: Array<{ id: number; name: string; is_current?: boolean }>;
-    sports: SportOption[];
+    sports?: SportOption[];
 }) {
     const memberId = member.id;
-    const memberTabStorageKey = `member-show-tab:${memberId}`;
-    const [activeTab, setActiveTab] = useState<MemberShowTab>('overview');
-    useEffect(() => {
-        if (typeof window === 'undefined') {
-            return;
-        }
-
-        const savedTab = window.localStorage.getItem(memberTabStorageKey);
-
-        if (
-            savedTab &&
-            MEMBER_SHOW_TABS.includes(savedTab as MemberShowTab)
-        ) {
-            setActiveTab(savedTab as MemberShowTab);
-        }
-    }, [memberTabStorageKey]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') {
-            return;
-        }
-
-        window.localStorage.setItem(memberTabStorageKey, activeTab);
-    }, [activeTab, memberTabStorageKey]);
-    const [participations, setParticipations] = useState<
-        ParticipationGroup[] | null
-    >(null);
-    const [achievementsData, setAchievementsData] =
-        useState<AchievementsData | null>(null);
-    const { get: getParticipations, processing: loadingParticipations } =
-        useHttp<Record<string, never>, { data: ParticipationGroup[] }>({});
-    const { get: getAchievements, processing: loadingAchievements } = useHttp<
-        Record<string, never>,
-        { data: AchievementsData }
-    >({});
-    const participationsFetched = useRef(false);
-    const achievementsFetched = useRef(false);
-    const promotionsFetched = useRef(false);
+    const activeTab = MEMBER_SHOW_TABS.includes(activeTabProp)
+        ? activeTabProp
+        : 'overview';
+    const participations = participationsProp ?? null;
+    const achievementsData = achievementsDataProp ?? null;
+    const loadingParticipations = false;
+    const loadingAchievements = false;
     const permissions = usePage().props.auth.permissions;
     const { t } = useTranslation();
     const { locale: pageLocale } = usePage().props;
@@ -460,97 +455,24 @@ export default function MembersShow({
         useState<LegacyAchievement | null>(null);
     const [dateFromFilter, setDateFromFilter] = useState('');
     const [dateToFilter, setDateToFilter] = useState('');
-    const eventQueryParams = useMemo(() => {
-        const params = new URLSearchParams();
-
-        if (dateFromFilter) {
-            params.set('from_date', dateFromFilter);
-        }
-
-        if (dateToFilter) {
-            params.set('to_date', dateToFilter);
-        }
-
-        const query = params.toString();
-
-        return query ? `?${query}` : '';
-    }, [dateFromFilter, dateToFilter]);
     const displayName = member.full_name;
     const sportName = (sport: { name: string }): string => sport.name;
-
-    const fetchEventData = useCallback((): void => {
-        participationsFetched.current = true;
-        achievementsFetched.current = true;
-
-        getParticipations(
-            `${MemberParticipationsController.url(memberId)}${eventQueryParams}`,
-            {
-                onSuccess: (res) => {
-                    const r = res as unknown as { data: ParticipationGroup[] };
-                    setParticipations(r?.data ?? []);
-                },
-                onError: () => setParticipations([]),
-            },
-        );
-
-        getAchievements(
-            `${MemberAchievementsController.url(memberId)}${eventQueryParams}`,
-            {
-                onSuccess: (res) => {
-                    const r = res as unknown as { data: AchievementsData };
-                    setAchievementsData(
-                        r?.data ?? {
-                            summary: {
-                                GOLD: 0,
-                                SILVER: 0,
-                                BRONZE: 0,
-                                MERIT: 0,
-                            },
-                            achievements: [],
-                        },
-                    );
-                },
-                onError: () =>
-                    setAchievementsData({
-                        summary: { GOLD: 0, SILVER: 0, BRONZE: 0, MERIT: 0 },
-                        achievements: [],
-                    }),
-            },
-        );
-    }, [eventQueryParams, getAchievements, getParticipations, memberId]);
+    const sportOptions = sports ?? [];
+    const tabLinks: Record<MemberShowTab, string> = {
+        overview: showMember.url(member),
+        teams: memberTeamsRoute.url(member),
+        events: memberEvents.url(member),
+        performance: memberPerformance.url(member),
+        'special-achievements': memberSpecialAchievements.url(member),
+        promotions: memberPromotions.url(member),
+        changelog: memberChangelog.url(member),
+        media: memberMedia.url(member),
+        status: memberStatus.url(member),
+    };
 
     const refreshMemberHistory = useCallback(() => {
-        participationsFetched.current = false;
-        achievementsFetched.current = false;
-        promotionsFetched.current = false;
-        setParticipations(null);
-        setAchievementsData(null);
-
-        router.reload({
-            only: ['member', 'promotions', 'auditLog'],
-        });
-
-        fetchEventData();
-    }, [fetchEventData]);
-
-    useEffect(() => {
-        if (
-            (activeTab === 'events' || activeTab === 'promotions') &&
-            !participationsFetched.current
-        ) {
-            fetchEventData();
-        }
-
-        if (
-            (activeTab === 'events' || activeTab === 'promotions') &&
-            !promotionsFetched.current
-        ) {
-            promotionsFetched.current = true;
-            router.reload({
-                only: ['promotions'],
-            });
-        }
-    }, [activeTab, fetchEventData]);
+        router.reload();
+    }, []);
     const [mediaKey] = useState(0);
 
     setLayoutProps({
@@ -793,6 +715,7 @@ export default function MembersShow({
     const achievementPrizeMoney = useCallback(
         (
             benefits: AchievementBenefitRow[] | undefined,
+            promotionsForRow: PromotionRow[] = [],
         ): string[] => {
             const amounts: string[] = [];
 
@@ -809,6 +732,19 @@ export default function MembersShow({
                 }
             }
 
+            for (const promotion of promotionsForRow) {
+                if (promotion.cash_reward_amount) {
+                    amounts.push(
+                        [
+                            `₹${promotion.cash_reward_amount}`,
+                            formatReadableDate(promotion.cash_reward_date ?? null),
+                        ]
+                            .filter(Boolean)
+                            .join(' · '),
+                    );
+                }
+            }
+
             return amounts;
         },
         [formatReadableDate],
@@ -817,6 +753,7 @@ export default function MembersShow({
     const achievementBenefitTypes = useCallback(
         (
             benefits: AchievementBenefitRow[] | undefined,
+            promotionsForRow: PromotionRow[] = [],
         ): string[] => {
             const types: string[] = [];
 
@@ -824,9 +761,19 @@ export default function MembersShow({
                 types.push(benefit.benefit_type);
             }
 
+            for (const promotion of promotionsForRow) {
+                if (promotion.to_rank) {
+                    types.push('PROMOTION');
+                }
+
+                if (promotion.cash_reward_amount) {
+                    types.push('CASH_AWARD');
+                }
+            }
+
             return [...new Set(types)];
         },
-        [t],
+        [],
     );
 
     const achievementSummary = useMemo(() => {
@@ -870,6 +817,26 @@ export default function MembersShow({
 
         const matchesFilters = (item: ParticipationEntry): boolean => {
             const search = eventSearch.trim().toLowerCase();
+            const tournamentDate = item.tournament.date_from
+                ? parseDateValue(item.tournament.date_from)
+                : null;
+
+            if (dateFromFilter && tournamentDate) {
+                const fromDate = parseDateValue(dateFromFilter);
+
+                if (fromDate && tournamentDate < fromDate) {
+                    return false;
+                }
+            }
+
+            if (dateToFilter && tournamentDate) {
+                const toDate = parseDateValue(dateToFilter);
+
+                if (toDate && tournamentDate > toDate) {
+                    return false;
+                }
+            }
+
             const promotionRowsForItem = (() => {
                 const seen = new Map<number, PromotionRow>();
                 const legacyAchievementId =
@@ -998,9 +965,12 @@ export default function MembersShow({
     }, [
         benefitFilter,
         classFilter,
+        dateFromFilter,
+        dateToFilter,
         eventSearch,
         medalFilter,
         legacyAchievementParticipationGroups,
+        achievementBenefitTypes,
         promotionLookup,
         promotionSummary,
         sessionFilter,
@@ -1535,27 +1505,55 @@ export default function MembersShow({
                     </div>
                 </div>
 
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <Tabs value={activeTab}>
                     <TabsList>
-                        <TabsTrigger value="overview">
-                            {t('Overview')}
+                        <TabsTrigger value="overview" asChild>
+                            <Link href={tabLinks.overview} prefetch>
+                                {t('Overview')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="teams">{t('Teams')}</TabsTrigger>
-                        <TabsTrigger value="events">
-                            {t('Achievements')}
+                        <TabsTrigger value="teams" asChild>
+                            <Link href={tabLinks.teams} prefetch>
+                                {t('Teams')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="performance">
-                            {t('Performance')}
+                        <TabsTrigger value="events" asChild>
+                            <Link href={tabLinks.events} prefetch>
+                                {t('Achievements')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="promotions">
-                            {t('Promotions')}
+                        <TabsTrigger value="performance" asChild>
+                            <Link href={tabLinks.performance} prefetch>
+                                {t('Performance')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="changelog">
-                            {t('Change log')}
+                        <TabsTrigger value="special-achievements" asChild>
+                            <Link
+                                href={tabLinks['special-achievements']}
+                                prefetch
+                            >
+                                {t('Special achievements')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="media">{t('Media')}</TabsTrigger>
-                        <TabsTrigger value="status">
-                            {t('Status history')}
+                        <TabsTrigger value="promotions" asChild>
+                            <Link href={tabLinks.promotions} prefetch>
+                                {t('Promotions')}
+                            </Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="changelog" asChild>
+                            <Link href={tabLinks.changelog} prefetch>
+                                {t('Change log')}
+                            </Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="media" asChild>
+                            <Link href={tabLinks.media} prefetch>
+                                {t('Media')}
+                            </Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="status" asChild>
+                            <Link href={tabLinks.status} prefetch>
+                                {t('Status history')}
+                            </Link>
                         </TabsTrigger>
                     </TabsList>
 
@@ -1852,7 +1850,7 @@ export default function MembersShow({
                             <LegacyAchievementsTab
                                 member={member}
                                 sessions={sessions ?? []}
-                                sports={sports}
+                                sports={sportOptions}
                                 legacyAchievements={legacyAchievements}
                                 supplementaryNoPadding
                                 hidePostRecruitmentRows
@@ -2459,7 +2457,7 @@ export default function MembersShow({
                                                                                                                 id: member.id,
                                                                                                             }}
                                                                                                             sessions={sessions ?? []}
-                                                                                                            sports={sports}
+                                                                                                            sports={sportOptions}
                                                                                                         />
                                                                                                         {!legacyAchievementIsLinked ? (
                                                                                                         <Button
@@ -2517,6 +2515,26 @@ export default function MembersShow({
                             </Deferred>
                         )}
                     </TabsContent>
+                    <TabsContent value="special-achievements">
+                        <Deferred
+                            data="specialAchievements"
+                            fallback={
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map((n) => (
+                                        <Skeleton
+                                            key={n}
+                                            className="h-12 w-full"
+                                        />
+                                    ))}
+                                </div>
+                            }
+                        >
+                            <SpecialAchievementsTab
+                                member={member}
+                                data={specialAchievements}
+                            />
+                        </Deferred>
+                    </TabsContent>
                     {/* Promotions */}
                     <TabsContent value="promotions">
                         <Deferred
@@ -2549,10 +2567,9 @@ export default function MembersShow({
                     {/* Change log */}
                     <TabsContent value="changelog">
                         <ChangeLog
-                            entries={[]}
+                            entries={auditLog}
                             primaryEntity="Member"
                             storageKey="member-changelog-view"
-                            endpoint={memberAuditLog.index.url(member)}
                         />
                     </TabsContent>
 
@@ -2563,6 +2580,7 @@ export default function MembersShow({
                                 key={mediaKey}
                                 memberId={memberId}
                                 canDelete={canDeleteMedia}
+                                initialData={media}
                             />
                         )}
                     </TabsContent>

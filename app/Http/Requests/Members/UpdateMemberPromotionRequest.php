@@ -6,8 +6,8 @@ namespace App\Http\Requests\Members;
 
 use App\Models\Member;
 use App\Models\Rank;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateMemberPromotionRequest extends FormRequest
@@ -31,6 +31,10 @@ class UpdateMemberPromotionRequest extends FormRequest
                 'string',
                 'max:100',
             ],
+            'cash_reward_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'cash_reward_date' => ['sometimes', 'nullable', 'date'],
+            'cash_reward_reference' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'cash_reward_remarks' => ['sometimes', 'nullable', 'string'],
             'reason' => ['sometimes', 'nullable', 'string'],
             'remarks' => ['sometimes', 'nullable', 'string'],
             'evidences' => ['sometimes', 'array', 'min:1'],

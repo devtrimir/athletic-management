@@ -1,0 +1,4 @@
+interface:
+  display_name: "Member module structure"
+  short_description: "Map of the Members module architecture."
+  default_prompt: "Use $member-module-structure to work on the Members module without rediscovering its routes, controllers, tabs, frontend files, and tests."

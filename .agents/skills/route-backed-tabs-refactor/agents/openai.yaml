@@ -1,0 +1,4 @@
+interface:
+  display_name: "Route-backed tabs refactor"
+  short_description: "Split heavy Inertia tabs into web pages."
+  default_prompt: "Use $route-backed-tabs-refactor to refactor this module show page into route-backed Inertia web tabs with shared payload builders."

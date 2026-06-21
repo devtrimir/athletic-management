@@ -112,7 +112,7 @@ test('member show exposes promotions tab data', function () {
     ]);
 
     $this->actingAs($user)
-        ->get(route('members.show', $member))
+        ->get(route('members.promotions', $member))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('members/show'));
 });
@@ -217,7 +217,7 @@ test('member promotion records evidence and appears in database', function () {
         ],
     ]);
 
-    $response->assertRedirect(route('members.show', $member));
+    $response->assertRedirect(route('members.promotions', $member));
 
     $promotion = MemberPromotion::query()->where('member_id', $member->id)->first();
     expect($promotion)->not->toBeNull();
@@ -289,7 +289,7 @@ test('member promotion updates cash reward fields', function () {
         ],
     ]);
 
-    $response->assertRedirect(route('members.show', $member));
+    $response->assertRedirect(route('members.promotions', $member));
 
     $promotion->refresh();
 

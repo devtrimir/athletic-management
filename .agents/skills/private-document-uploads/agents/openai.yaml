@@ -1,0 +1,4 @@
+interface:
+  display_name: "Private document uploads"
+  short_description: "Protect uploads with authorized routes."
+  default_prompt: "Use $private-document-uploads for confidential Laravel document uploads so files stay off public storage URLs."

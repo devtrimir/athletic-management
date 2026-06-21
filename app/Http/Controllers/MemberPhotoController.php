@@ -32,7 +32,7 @@ class MemberPhotoController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Photo updated.')]);
 
-        return to_route('members.show', $member);
+        return to_route('members.media', $member);
     }
 
     public function destroy(Member $member): RedirectResponse
@@ -46,6 +46,6 @@ class MemberPhotoController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Photo removed.')]);
 
-        return to_route('members.show', $member);
+        return to_route('members.media', $member);
     }
 }

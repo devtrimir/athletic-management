@@ -1,4 +1,4 @@
-import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
+import { Head, Link, setLayoutProps, useForm, usePage } from '@inertiajs/react';
 import UserController from '@/actions/App/Http/Controllers/Settings/UserController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -41,7 +41,8 @@ type RolesFormData = {
 };
 
 export default function Edit({ user, roles }: { user: UserData; roles: Role[] }) {
-    const { locale, t } = useTranslation();
+    const { t } = useTranslation();
+    const { locale } = usePage().props;
     const roleName = (role: Role) => (locale === 'hi' ? role.name_hi : role.name_en) || role.name_hi || role.name_en || role.code;
 
     setLayoutProps({

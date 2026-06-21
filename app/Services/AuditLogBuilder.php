@@ -14,6 +14,7 @@ use App\Models\District;
 use App\Models\Member;
 use App\Models\MemberLegacyAchievement;
 use App\Models\MemberPromotion;
+use App\Models\MemberSpecialAchievement;
 use App\Models\Participation;
 use App\Models\PromotionEvidence;
 use App\Models\Sport;
@@ -37,6 +38,7 @@ class AuditLogBuilder
         $statusHistoryIds = $member->statusHistory()->pluck('id');
         $aliasIds = $member->aliases()->pluck('id');
         $legacyAchIds = $member->legacyAchievements()->pluck('id');
+        $specialAchIds = $member->specialAchievements()->pluck('id');
         $promotionIds = MemberPromotion::where('member_id', $member->id)->pluck('id');
         $promotionEvidenceIds = PromotionEvidence::whereHas('memberPromotion', fn ($q) => $q->where('member_id', $member->id))->pluck('id');
         $teamMemberIds = TeamMember::where('member_id', $member->id)->pluck('id');
@@ -59,6 +61,7 @@ class AuditLogBuilder
             ['entity' => 'TeamMember',              'ids' => $teamMemberIds],
             ['entity' => 'Participation',           'ids' => $participationIds],
             ['entity' => 'MemberLegacyAchievement', 'ids' => $legacyAchIds],
+            ['entity' => 'MemberSpecialAchievement', 'ids' => $specialAchIds],
             ['entity' => 'MemberPromotion',         'ids' => $promotionIds],
             ['entity' => 'PromotionEvidence',       'ids' => $promotionEvidenceIds],
             ['entity' => 'MemberSport',             'ids' => $playableSportIds],
@@ -142,6 +145,17 @@ class AuditLogBuilder
                     ])->filter()->join(' · '),
                 ])
             : collect();
+        $specialAchievementLabelMap = $specialAchIds->isNotEmpty()
+            ? MemberSpecialAchievement::whereIn('id', $specialAchIds)
+                ->get()
+                ->mapWithKeys(fn (MemberSpecialAchievement $achievement) => [
+                    $achievement->id => collect([
+                        $achievement->achievement_type,
+                        $achievement->title,
+                        $achievement->order_reference,
+                    ])->filter()->join(' · '),
+                ])
+            : collect();
         $legacyAchievementLabelMap = $legacyAchIds->isNotEmpty()
             ? MemberLegacyAchievement::whereIn('id', $legacyAchIds)
                 ->get()
@@ -195,6 +209,7 @@ class AuditLogBuilder
             'Participation' => 'Tournament participation',
             'Achievement' => 'Achievement',
             'MemberLegacyAchievement' => 'Legacy achievement',
+            'MemberSpecialAchievement' => 'Special achievement',
             'MemberPromotion' => 'Promotion',
             'PromotionEvidence' => 'Promotion evidence',
         ];
@@ -268,6 +283,19 @@ class AuditLogBuilder
                 'medal_type' => 'Medal',
                 'sort_order' => 'Sort order',
             ],
+            'MemberSpecialAchievement' => [
+                'achievement_type' => 'Type',
+                'title' => 'Title',
+                'awarded_on' => 'Awarded on',
+                'issuing_authority' => 'Issuing authority',
+                'order_reference' => 'Order reference',
+                'order_document_path' => 'Order document',
+                'order_document_original_name' => 'Order document name',
+                'order_document_mime_type' => 'Order document type',
+                'order_document_size_bytes' => 'Order document size',
+                'place' => 'Place',
+                'remarks' => 'Remarks',
+            ],
             'MemberPromotion' => [
                 'promotion_date' => 'Promotion date',
                 'from_rank' => 'From rank',
@@ -299,6 +327,7 @@ class AuditLogBuilder
             'Participation' => ['id', 'member_id'],
             'Achievement' => ['id'],
             'MemberLegacyAchievement' => ['id', 'organization_id', 'member_id'],
+            'MemberSpecialAchievement' => ['id', 'organization_id', 'member_id', 'order_document_path'],
             'MemberPromotion' => ['id', 'organization_id', 'member_id', 'recorded_by'],
             'PromotionEvidence' => ['id', 'organization_id', 'member_promotion_id'],
             'MemberSport' => ['id', 'member_id'],
@@ -307,6 +336,7 @@ class AuditLogBuilder
         $resolve = function (string $entity, string $field, mixed $value, array $diff = []) use (
             $sportMap, $unitMap, $districtMap, $userMap,
             $teamMap, $sessionMap, $eventLabelMap, $participationLabelMap,
+            $specialAchievementLabelMap,
             $evidenceTypeLabel, $resolveEvidenceLabel,
         ): ?string {
             if ($value === null) {
@@ -325,6 +355,9 @@ class AuditLogBuilder
                 $field === 'recorded_by' => $userMap->get((int) $value) ?? (string) $value,
                 $field === 'event_id' => $eventLabelMap->get((int) $value) ?? (string) $value,
                 $field === 'participation_id' => $participationLabelMap->get((int) $value) ?? (string) $value,
+                $entity === 'MemberSpecialAchievement' && $field === 'order_document_path' => 'Attached',
+                $entity === 'MemberSpecialAchievement' && $field === 'order_document_size_bytes' => number_format((int) $value).' bytes',
+                $entity === 'MemberSpecialAchievement' && $field === 'id' => $specialAchievementLabelMap->get((int) $value) ?? (string) $value,
                 $entity === 'PromotionEvidence' && $field === 'evidencable_type' => $evidenceTypeLabel($value),
                 $entity === 'PromotionEvidence' && $field === 'evidencable_id' => $resolveEvidenceLabel($value, $diff),
                 is_array($value) || is_object($value) => json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[complex value]',

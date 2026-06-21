@@ -27,7 +27,7 @@ class MemberAliasController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Alias added.')]);
 
-        return to_route('members.show', $member);
+        return to_route('members.status', $member);
     }
 
     public function destroy(Member $member, NameAlias $alias): RedirectResponse
@@ -40,6 +40,6 @@ class MemberAliasController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Alias removed.')]);
 
-        return to_route('members.show', $member);
+        return to_route('members.status', $member);
     }
 }

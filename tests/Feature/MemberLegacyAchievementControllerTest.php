@@ -78,7 +78,7 @@ test('member legacy achievement can be stored for pre or post recruitment histor
         ],
     );
 
-    $response->assertRedirect(route('members.show', $member));
+    $response->assertRedirect(route('members.events', $member));
 
     $achievement = MemberLegacyAchievement::query()->first();
 
@@ -120,7 +120,7 @@ test('member legacy achievement store validates required tournament fields', fun
     $user = legacyAchievementUser('members.manageLegacyAchievements');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
 
-    $response = $this->from(route('members.show', $member))
+    $response = $this->from(route('members.events', $member))
         ->actingAs($user)
         ->post(route('members.legacy-achievements.store', $member), [
             'period' => 'PRE_RECRUITMENT',
@@ -130,7 +130,7 @@ test('member legacy achievement store validates required tournament fields', fun
         ]);
 
     $response
-        ->assertRedirect(route('members.show', $member))
+        ->assertRedirect(route('members.events', $member))
         ->assertSessionHasErrors(['level', 'competition_details', 'event_date']);
 
     expect(MemberLegacyAchievement::query()->count())->toBe(0);
@@ -153,7 +153,7 @@ test('member legacy achievement guesses session from event date for post recruit
         'event_date' => '2019-01-20',
         'event' => 'Relay',
         'medal_type' => 'SILVER',
-    ])->assertRedirect(route('members.show', $member));
+    ])->assertRedirect(route('members.events', $member));
 
     $achievement = MemberLegacyAchievement::query()->first();
 
@@ -173,7 +173,7 @@ test('member legacy achievement derives position from medal type', function (): 
         'event_date' => '2019-01-20',
         'event' => 'Relay',
         'medal_type' => 'BRONZE',
-    ])->assertRedirect(route('members.show', $member));
+    ])->assertRedirect(route('members.events', $member));
 
     $achievement = MemberLegacyAchievement::query()->first();
 
@@ -196,7 +196,7 @@ test('member legacy achievement does not retain session for pre recruitment reco
         'competition_details' => 'School Championship',
         'event_date' => '2016-01-20',
         'event' => 'Relay',
-    ])->assertRedirect(route('members.show', $member));
+    ])->assertRedirect(route('members.events', $member));
 
     $achievement = MemberLegacyAchievement::query()->first();
 

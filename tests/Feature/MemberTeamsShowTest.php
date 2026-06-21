@@ -14,7 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 // ---------------------------------------------------------------------------
-// T14 — MemberController::show() deferred memberTeams prop
+// Route-backed member teams tab payload
 // ---------------------------------------------------------------------------
 
 test('memberTeams is absent from the initial Inertia show response', function (): void {
@@ -37,7 +37,7 @@ test('deferred memberTeams returns empty array when member has no team membershi
     $version = file_exists(public_path('build/manifest.json')) ? hash_file('xxh128', public_path('build/manifest.json')) : null;
 
     $response = $this->actingAs($user)
-        ->getJson(route('members.show', $member), [
+        ->getJson(route('members.teams', $member), [
             'X-Inertia' => 'true',
             'X-Inertia-Partial-Component' => 'members/show',
             'X-Inertia-Partial-Data' => 'memberTeams',
@@ -71,7 +71,7 @@ test('deferred memberTeams returns a row for a single-session membership', funct
     $version = file_exists(public_path('build/manifest.json')) ? hash_file('xxh128', public_path('build/manifest.json')) : null;
 
     $response = $this->actingAs($user)
-        ->getJson(route('members.show', $member), [
+        ->getJson(route('members.teams', $member), [
             'X-Inertia' => 'true',
             'X-Inertia-Partial-Component' => 'members/show',
             'X-Inertia-Partial-Data' => 'memberTeams',
@@ -106,7 +106,7 @@ test('cross-session memberships all appear in deferred memberTeams', function ()
     $version = file_exists(public_path('build/manifest.json')) ? hash_file('xxh128', public_path('build/manifest.json')) : null;
 
     $response = $this->actingAs($user)
-        ->getJson(route('members.show', $member), [
+        ->getJson(route('members.teams', $member), [
             'X-Inertia' => 'true',
             'X-Inertia-Partial-Component' => 'members/show',
             'X-Inertia-Partial-Data' => 'memberTeams',
@@ -146,7 +146,7 @@ test('removed team memberships remain visible in deferred memberTeams', function
     $version = file_exists(public_path('build/manifest.json')) ? hash_file('xxh128', public_path('build/manifest.json')) : null;
 
     $response = $this->actingAs($user)
-        ->getJson(route('members.show', $member), [
+        ->getJson(route('members.teams', $member), [
             'X-Inertia' => 'true',
             'X-Inertia-Partial-Component' => 'members/show',
             'X-Inertia-Partial-Data' => 'memberTeams',
@@ -179,7 +179,7 @@ test('cross-session rows are ordered by id descending', function (): void {
     $version = file_exists(public_path('build/manifest.json')) ? hash_file('xxh128', public_path('build/manifest.json')) : null;
 
     $response = $this->actingAs($user)
-        ->getJson(route('members.show', $member), [
+        ->getJson(route('members.teams', $member), [
             'X-Inertia' => 'true',
             'X-Inertia-Partial-Component' => 'members/show',
             'X-Inertia-Partial-Data' => 'memberTeams',
@@ -209,7 +209,7 @@ test('memberTeams only contains memberships for the requested member', function 
     $version = file_exists(public_path('build/manifest.json')) ? hash_file('xxh128', public_path('build/manifest.json')) : null;
 
     $response = $this->actingAs($user)
-        ->getJson(route('members.show', $member), [
+        ->getJson(route('members.teams', $member), [
             'X-Inertia' => 'true',
             'X-Inertia-Partial-Component' => 'members/show',
             'X-Inertia-Partial-Data' => 'memberTeams',

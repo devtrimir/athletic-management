@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\Member;
 use App\Models\MemberPromotion;
+use App\Models\MemberSpecialAchievement;
 use App\Models\Organization;
 use App\Models\Participation;
 use App\Models\Permission;
@@ -121,4 +122,45 @@ test('member audit log endpoint includes promotion money and promotion evidence 
         ->toContain('100m Sprint')
         ->toContain('State Police Games')
         ->not->toBe((string) $achievement->id);
+});
+
+test('member audit log endpoint includes special achievement changes', function (): void {
+    $user = malUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user);
+
+    $specialAchievement = MemberSpecialAchievement::factory()
+        ->forMember($member)
+        ->commendationDisc()
+        ->create([
+            'title' => 'Commendation Disc',
+            'order_reference' => 'DISC-100',
+            'place' => 'Lucknow',
+        ]);
+
+    $specialAchievement->update([
+        'title' => 'Director General Commendation Disc',
+        'remarks' => 'Awarded for distinguished service.',
+    ]);
+
+    $response = $this
+        ->getJson(route('members.audit-log.index', $member))
+        ->assertOk();
+
+    $entries = collect($response->json('data'));
+
+    expect($entries->contains(fn (array $entry) => $entry['subject'] === 'Special achievement' && $entry['action'] === 'created'))->toBeTrue();
+    expect($entries->contains(fn (array $entry) => $entry['subject'] === 'Special achievement' && collect($entry['changes'])->contains(fn (array $change) => $change['field'] === 'Title' && $change['new'] === 'Director General Commendation Disc')))->toBeTrue();
+    expect($entries->contains(fn (array $entry) => $entry['subject'] === 'Special achievement' && collect($entry['changes'])->contains(fn (array $change) => $change['field'] === 'Order reference' && $change['new'] === 'DISC-100')))->toBeTrue();
+
+    $specialAchievement->delete();
+
+    $deleteResponse = $this
+        ->getJson(route('members.audit-log.index', $member))
+        ->assertOk();
+
+    $deleteEntries = collect($deleteResponse->json('data'));
+
+    expect($deleteEntries->contains(fn (array $entry) => $entry['subject'] === 'Special achievement' && $entry['action'] === 'deleted'))->toBeTrue();
 });
