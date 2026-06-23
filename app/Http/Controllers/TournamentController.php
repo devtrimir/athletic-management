@@ -6,11 +6,13 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Tournaments\StoreTournamentRequest;
 use App\Http\Requests\Tournaments\UpdateTournamentRequest;
-use App\Http\Resources\TournamentResource;
+use App\Models\Achievement;
+use App\Models\Participation;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
+use App\Support\Tournaments\TournamentProfileData;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +33,9 @@ class TournamentController extends Controller
         $defaultSessionId = SportSession::where('organization_id', $orgId)
             ->where('is_current', true)
             ->value('id');
+        $selectedSessionId = is_numeric($request->input('filter.session_id'))
+            ? (int) $request->input('filter.session_id')
+            : ($defaultSessionId ? (int) $defaultSessionId : null);
 
         $tournaments = QueryBuilder::for(Tournament::class)
             ->allowedFilters([
@@ -42,6 +47,22 @@ class TournamentController extends Controller
             ->allowedSorts(['name', 'date_from', 'created_at'])
             ->defaultSort('-date_from')
             ->withCount('events')
+            ->addSelect([
+                'participants_count' => Participation::query()
+                    ->selectRaw('count(*)')
+                    ->join('events', 'events.id', '=', 'participations.event_id')
+                    ->whereColumn('events.tournament_id', 'tournaments.id'),
+                'teams_count' => Participation::query()
+                    ->selectRaw('count(distinct participations.team_id)')
+                    ->join('events', 'events.id', '=', 'participations.event_id')
+                    ->whereColumn('events.tournament_id', 'tournaments.id')
+                    ->whereNotNull('participations.team_id'),
+                'medals_count' => Achievement::query()
+                    ->selectRaw('count(*)')
+                    ->join('participations', 'participations.id', '=', 'achievements.participation_id')
+                    ->join('events', 'events.id', '=', 'participations.event_id')
+                    ->whereColumn('events.tournament_id', 'tournaments.id'),
+            ])
             ->with(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name'])
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
@@ -66,8 +87,11 @@ class TournamentController extends Controller
 
         return Inertia::render('tournaments/index', [
             'tournaments' => $tournaments,
-            'filters' => $request->query('filter', []),
+            'filters' => array_merge($request->query('filter', []), [
+                'session_id' => $selectedSessionId ? (string) $selectedSessionId : null,
+            ]),
             'defaultSessionId' => $defaultSessionId,
+            'selectedSessionId' => $selectedSessionId,
             'sessions' => $sessions,
             'sports' => $sports,
             'tiers' => $tiers,
@@ -97,40 +121,11 @@ class TournamentController extends Controller
         return to_route('tournaments.show', $tournament);
     }
 
-    public function show(Tournament $tournament): Response
+    public function show(Tournament $tournament, TournamentProfileData $profileData): Response
     {
         Gate::authorize('view', $tournament);
 
-        $tournament->load(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name']);
-
-        $orgId = (int) $tournament->organization_id;
-
-        $sports = Sport::select(['id', 'name'])
-            ->where('organization_id', $orgId)
-            ->orderBy('name')
-            ->get();
-
-        return Inertia::render('tournaments/show', [
-            'tournament' => (new TournamentResource($tournament))->resolve(),
-            'sports' => $sports,
-            'events' => Inertia::defer(fn () => $tournament->events()
-                ->with('sport:id,name')
-                ->withCount('participations')
-                ->orderBy('name')
-                ->get()
-                ->map(fn ($event) => [
-                    'id' => $event->id,
-                    'name' => $event->name,
-                    'discipline' => $event->discipline,
-                    'weight_category' => $event->weight_category,
-                    'gender_class' => $event->gender_class,
-                    'participations_count' => $event->participations_count,
-                    'sport' => $event->sport ? [
-                        'id' => $event->sport->id,
-                        'name' => $event->sport->name,
-                    ] : null,
-                ])),
-        ]);
+        return Inertia::render('tournaments/show', $profileData->overview($tournament));
     }
 
     public function edit(Tournament $tournament, Request $request): Response

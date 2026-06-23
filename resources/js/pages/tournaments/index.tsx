@@ -1,5 +1,5 @@
 import { Head, Link, router, setLayoutProps, usePage } from '@inertiajs/react';
-import { CalendarDays, Download, Eye, Info, MapPin, Plus, Search, Trophy, X } from 'lucide-react';
+import { CalendarDays, Download, Eye, Info, MapPin, Medal, Plus, Search, Trophy, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { create as createTournament, index as tournamentsIndex, show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
@@ -25,6 +25,10 @@ const ALL_COLUMNS = [
     { key: 'date_from', label: 'Date from' },
     { key: 'date_to', label: 'Date to' },
     { key: 'events_count', label: 'Events' },
+    { key: 'participants_count', label: 'Participants' },
+    { key: 'teams_count', label: 'Teams' },
+    { key: 'medals_count', label: 'Medals' },
+    { key: 'created_at', label: 'Created on' },
 ] as const;
 
 type Session = { id: number; name: string };
@@ -36,8 +40,12 @@ type Tournament = {
     name: string;
     date_from: string | null;
     date_to: string | null;
+    created_at: string | null;
     venue: string | null;
     events_count: number;
+    participants_count: number;
+    teams_count: number;
+    medals_count: number;
     session: Session | null;
     tier: { id: number; code: string; label: string } | null;
     sport: Sport | null;
@@ -63,10 +71,12 @@ export default function TournamentsIndex({
     sports,
     tiers,
     defaultSessionId,
+    selectedSessionId,
 }: {
     tournaments: PaginatedTournaments;
     filters: Filters;
     defaultSessionId: number | null;
+    selectedSessionId: number | null;
     sessions: Session[];
     sports: Sport[];
     tiers: Tier[];
@@ -82,7 +92,8 @@ export default function TournamentsIndex({
     setLayoutProps({
         breadcrumbs: [{ title: t('Tournaments') }],
     });
-    const sessionDefaultValue = defaultSessionId ? String(defaultSessionId) : 'all';
+    const sessionDefaultValue = selectedSessionId ? String(selectedSessionId) : 'all';
+    const defaultSessionFilter = defaultSessionId ? String(defaultSessionId) : undefined;
 
     function parseDateValue(value: string): Date | null {
         if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -111,6 +122,36 @@ export default function TournamentsIndex({
         return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
             dateStyle: 'medium',
         }).format(date);
+    }
+
+    function dateRange(tournament: Tournament): string {
+        if (tournament.date_from && tournament.date_to && tournament.date_from !== tournament.date_to) {
+            return `${formatDisplayDate(tournament.date_from)} - ${formatDisplayDate(tournament.date_to)}`;
+        }
+
+        return formatDisplayDate(tournament.date_from ?? tournament.date_to);
+    }
+
+    function tournamentStatus(tournament: Tournament): string {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const from = tournament.date_from ? parseDateValue(tournament.date_from) : null;
+        const to = tournament.date_to ? parseDateValue(tournament.date_to) : from;
+
+        if (!from && !to) {
+            return t('Date pending');
+        }
+
+        if (from && today < from) {
+            return t('Upcoming');
+        }
+
+        if (to && today > to) {
+            return t('Completed');
+        }
+
+        return t('Ongoing');
     }
 
     const [query, setQuery] = useState(filters.q ?? '');
@@ -227,7 +268,12 @@ params.append('filter[sport_id]', filters.sport_id);
         return exportTournamentsUrl.url() + '?' + params.toString();
     }
 
-    const hasActive = !!(filters.q || filters.session_id || filters.tier_id || filters.sport_id);
+    const hasActive = !!(
+        filters.q ||
+        filters.tier_id ||
+        filters.sport_id ||
+        (filters.session_id && filters.session_id !== defaultSessionFilter)
+    );
 
     return (
         <>
@@ -345,16 +391,20 @@ params.append('filter[sport_id]', filters.sport_id);
                                 <TableHead>{t('Tier')}</TableHead>
                                 <TableHead>{t('Sport')}</TableHead>
                                 <TableHead>{t('Venue')}</TableHead>
-                                <TableHead>{t('Date from')}</TableHead>
-                                <TableHead>{t('Date to')}</TableHead>
+                                <TableHead>{t('Dates')}</TableHead>
+                                <TableHead>{t('Status')}</TableHead>
                                 <TableHead className="text-right">{t('Events')}</TableHead>
+                                <TableHead className="text-right">{t('Participants')}</TableHead>
+                                <TableHead className="text-right">{t('Teams')}</TableHead>
+                                <TableHead className="text-right">{t('Medals')}</TableHead>
+                                <TableHead>{t('Created')}</TableHead>
                                 <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">{t('Actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                         {tournaments.data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={11} className="py-12 text-center text-muted-foreground">
+                                        <TableCell colSpan={14} className="py-12 text-center text-muted-foreground">
                                         {hasActive ? t('No tournaments match your filters.') : t('No tournaments yet.')}
                                     </TableCell>
                                 </TableRow>
@@ -400,16 +450,27 @@ params.append('filter[sport_id]', filters.sport_id);
                                         <TableCell className="text-muted-foreground">
                                             <div className="flex items-center gap-2">
                                                 <CalendarDays className="h-3.5 w-3.5 text-sky-500" />
-                                                <span>{formatDisplayDate(t_.date_from)}</span>
+                                                <span>{dateRange(t_)}</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            <div className="flex items-center gap-2">
-                                                <CalendarDays className="h-3.5 w-3.5 text-indigo-500" />
-                                                <span>{formatDisplayDate(t_.date_to)}</span>
-                                            </div>
+                                        <TableCell>
+                                            <Badge variant="outline">{tournamentStatus(t_)}</Badge>
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">{t_.events_count}</TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            <span className="inline-flex items-center justify-end gap-1">
+                                                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                                {t_.participants_count}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">{t_.teams_count}</TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            <span className="inline-flex items-center justify-end gap-1">
+                                                <Medal className="h-3.5 w-3.5 text-amber-500" />
+                                                {t_.medals_count}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">{formatDisplayDate(t_.created_at)}</TableCell>
                                         <TableCell className="sticky right-0 z-10 w-0 bg-card">
                                             <div className="flex justify-end gap-1">
                                                 <Button
@@ -510,6 +571,22 @@ function QuickOverviewDialog({
                     <div className="grid grid-cols-[120px_1fr] gap-2">
                         <span className="text-muted-foreground">{t('Events')}</span>
                         <span className="font-medium">{tournament.events_count}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Participants')}</span>
+                        <span className="font-medium">{tournament.participants_count}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Teams')}</span>
+                        <span className="font-medium">{tournament.teams_count}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Medals')}</span>
+                        <span className="font-medium">{tournament.medals_count}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">{t('Created')}</span>
+                        <span className="font-medium">{formatDisplayDate(tournament.created_at)}</span>
                     </div>
                 </div>
             </DialogContent>

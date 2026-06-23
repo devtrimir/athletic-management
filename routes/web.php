@@ -36,6 +36,7 @@ use App\Http\Controllers\TeamProfileTabController;
 use App\Http\Controllers\TeamSessionStatusController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentExportController;
+use App\Http\Controllers\TournamentProfileTabController;
 use Illuminate\Support\Facades\Route;
 
 Route::patch('/locale', [LocaleController::class, 'update'])->name('locale.update');
@@ -74,6 +75,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('teams/{team}/changelog', [TeamProfileTabController::class, 'changelog'])->name('teams.changelog');
     Route::resource('teams', TeamController::class)->except(['destroy']);
     Route::get('tournaments/export', [TournamentExportController::class, 'index'])->name('tournaments.export');
+    Route::get('tournaments/{tournament}/events', [TournamentProfileTabController::class, 'events'])->name('tournaments.events');
     Route::resource('tournaments', TournamentController::class);
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/medals', ReportsMedalsController::class)->name('reports.medals');

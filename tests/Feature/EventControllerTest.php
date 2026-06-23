@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Models\Event;
+use App\Models\Member;
 use App\Models\Organization;
+use App\Models\Participation;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sport;
@@ -202,6 +204,40 @@ test('show deferred participations prop is absent from initial response', functi
         ->get(route('tournaments.events.show', [$tournament, $event]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->missing('participations'));
+});
+
+test('show deferred participations include pno but not member code', function () {
+    $user = eventUser('tournaments.view');
+    $tournament = makeTournamentForUser($user);
+    $event = Event::factory()->forTournament($tournament)->create();
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_code' => 'UPP-2026-000001',
+        'pno' => 'PNO-100',
+    ]);
+
+    Participation::factory()->create([
+        'event_id' => $event->id,
+        'member_id' => $member->id,
+        'session_id' => $tournament->session_id,
+    ]);
+
+    $version = file_exists(public_path('build/manifest.json'))
+        ? hash_file('xxh128', public_path('build/manifest.json'))
+        : null;
+
+    $response = $this->actingAs($user)
+        ->getJson(route('tournaments.events.show', [$tournament, $event]), [
+            'X-Inertia' => 'true',
+            'X-Inertia-Partial-Component' => 'events/show',
+            'X-Inertia-Partial-Data' => 'participations',
+            'X-Inertia-Version' => $version,
+        ])
+        ->assertOk();
+
+    expect($response->json('props.participations'))->toHaveCount(1)
+        ->and($response->json('props.participations.0.member.pno'))->toBe('PNO-100')
+        ->and($response->json('props.participations.0.member'))->not->toHaveKey('member_code');
 });
 
 test('show returns 404 when event belongs to a different tournament', function () {

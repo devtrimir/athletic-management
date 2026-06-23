@@ -61,7 +61,7 @@ class EventController extends Controller
             ],
             'sports' => $sports,
             'participations' => Inertia::defer(fn () => $event->participations()
-                ->with(['member:id,full_name,member_code,pno', 'achievement'])
+                ->with(['member:id,full_name,pno', 'achievement'])
                 ->withCount('media')
                 ->orderBy('position')
                 ->get()
@@ -72,7 +72,6 @@ class EventController extends Controller
                     'member' => $p->member ? [
                         'id' => $p->member->id,
                         'full_name' => $p->member->full_name,
-                        'member_code' => $p->member->member_code,
                         'pno' => $p->member->pno,
                     ] : null,
                     'achievement' => $p->achievement ? [
@@ -103,6 +102,6 @@ class EventController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Event deleted.')]);
 
-        return to_route('tournaments.show', $tournament);
+        return to_route('tournaments.events', $tournament);
     }
 }
