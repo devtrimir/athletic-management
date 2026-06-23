@@ -165,11 +165,18 @@ test('selected members are carried forward on the same team with the target sess
     $targetSession = anotherSession($org);
 
     $member = clonePlayableMember($org, $team);
+    $unselectedMember = clonePlayableMember($org, $team);
     $row = TeamMember::factory()->create([
         'team_id' => $team->id,
         'member_id' => $member->id,
         'session_id' => $team->session_id,
         'role' => 'CAPTAIN',
+    ]);
+    $unselectedRow = TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $unselectedMember->id,
+        'session_id' => $team->session_id,
+        'role' => 'PLAYER',
     ]);
 
     $this->actingAs($user)
@@ -190,6 +197,26 @@ test('selected members are carried forward on the same team with the target sess
         'member_id' => $member->id,
         'session_id' => $targetSession->id,
         'action' => 'CARRIED_FORWARD',
+    ]);
+    $this->assertDatabaseHas('team_members', [
+        'id' => $row->id,
+        'left_on' => null,
+    ]);
+    $this->assertDatabaseHas('members', [
+        'id' => $member->id,
+        'current_status' => 'ACTIVE',
+    ]);
+    expect($unselectedRow->fresh()->left_on?->toDateString())->toBe(now()->toDateString());
+    $this->assertDatabaseHas('members', [
+        'id' => $unselectedMember->id,
+        'current_status' => 'INACTIVE',
+    ]);
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $unselectedMember->id,
+        'session_id' => $team->session_id,
+        'action' => 'REMOVED',
+        'source' => 'carry_forward_cleanup',
     ]);
 });
 
@@ -256,11 +283,22 @@ test('conflicting members are skipped and non-conflicting are copied', function 
     // Safe member was copied; conflicting was skipped.
     $this->assertDatabaseHas('team_members', ['team_id' => $team->id, 'member_id' => $safe->id, 'session_id' => $targetSession->id]);
     $this->assertDatabaseMissing('team_members', ['team_id' => $team->id, 'member_id' => $conflicting->id, 'session_id' => $targetSession->id]);
+    $this->assertDatabaseHas('team_members', ['id' => $safeRow->id, 'left_on' => null]);
+    $this->assertDatabaseHas('members', ['id' => $safe->id, 'current_status' => 'ACTIVE']);
+    expect($conflictRow->fresh()->left_on?->toDateString())->toBe(now()->toDateString());
+    $this->assertDatabaseHas('members', ['id' => $conflicting->id, 'current_status' => 'INACTIVE']);
     $this->assertDatabaseHas('team_member_movements', [
         'team_id' => $team->id,
         'member_id' => $conflicting->id,
         'session_id' => $targetSession->id,
         'action' => 'SKIPPED',
+    ]);
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $conflicting->id,
+        'session_id' => $team->session_id,
+        'action' => 'REMOVED',
+        'source' => 'carry_forward_cleanup',
     ]);
 });
 

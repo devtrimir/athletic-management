@@ -217,7 +217,7 @@ class TeamRosterService
 
     /**
      * @param  EloquentCollection<int, TeamMember>  $sourceRows
-     * @return array{added: int, skipped: int}
+     * @return array{added: int, skipped: int, carried_source_team_member_ids: list<int>}
      */
     public function carryForwardMembers(Team $team, EloquentCollection $sourceRows, int $targetSessionId, int $userId): array
     {
@@ -230,6 +230,7 @@ class TeamRosterService
                 'joined_on' => $row->joined_on?->toDateString(),
                 'left_on' => null,
                 'reason' => null,
+                'source_team_member_id' => $row->id,
             ])
             ->all();
 
@@ -244,6 +245,7 @@ class TeamRosterService
         return DB::transaction(function () use ($team, $targetSessionId, $userId, $preview): array {
             $added = 0;
             $skipped = 0;
+            $carriedSourceTeamMemberIds = [];
 
             foreach ($preview['rows'] as $row) {
                 if ($row['status'] === 'blocked') {
@@ -290,9 +292,10 @@ class TeamRosterService
                 );
 
                 $added++;
+                $carriedSourceTeamMemberIds[] = (int) $row['source_team_member_id'];
             }
 
-            return ['added' => $added, 'skipped' => $skipped];
+            return ['added' => $added, 'skipped' => $skipped, 'carried_source_team_member_ids' => $carriedSourceTeamMemberIds];
         });
     }
 
@@ -501,6 +504,7 @@ class TeamRosterService
             'joined_on' => $joinedOn,
             'left_on' => $leftOn,
             'reason' => $reason,
+            'source_team_member_id' => $entry['source_team_member_id'] ?? null,
             'status' => $status,
             'messages' => $messages,
         ];

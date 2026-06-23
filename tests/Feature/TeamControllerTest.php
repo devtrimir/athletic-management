@@ -81,6 +81,7 @@ test('teams index includes roster role counts for software listing context', fun
         'member_id' => Member::factory()->create([
             'organization_id' => $user->organization_id,
             'gender' => 'M',
+            'player_category' => 'GD',
         ])->id,
         'session_id' => $session->id,
         'role' => 'PLAYER',
@@ -90,6 +91,7 @@ test('teams index includes roster role counts for software listing context', fun
         'member_id' => Member::factory()->create([
             'organization_id' => $user->organization_id,
             'gender' => 'F',
+            'player_category' => 'GD',
         ])->id,
         'session_id' => $session->id,
     ]);
@@ -98,8 +100,19 @@ test('teams index includes roster role counts for software listing context', fun
         'member_id' => Member::factory()->create([
             'organization_id' => $user->organization_id,
             'gender' => 'F',
+            'player_category' => 'SPORTS_QUOTA',
         ])->id,
         'session_id' => $session->id,
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => Member::factory()->create([
+            'organization_id' => $user->organization_id,
+            'gender' => 'O',
+            'player_category' => 'GD',
+        ])->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
     ]);
     TeamInchargeAssignment::factory()->create([
         'team_id' => $team->id,
@@ -115,7 +128,13 @@ test('teams index includes roster role counts for software listing context', fun
         ->assertInertia(fn ($page) => $page
             ->component('teams/index')
             ->where('teams.data.0.id', $team->id)
-            ->where('teams.data.0.players_count', 3)
+            ->where('teams.data.0.players_count', 4)
+            ->where('teams.data.0.men_players_count', 1)
+            ->where('teams.data.0.men_gd_players_count', 1)
+            ->where('teams.data.0.men_non_gd_players_count', 0)
+            ->where('teams.data.0.women_players_count', 2)
+            ->where('teams.data.0.women_gd_players_count', 1)
+            ->where('teams.data.0.women_non_gd_players_count', 1)
             ->where('teams.data.0.male_players_count', 1)
             ->where('teams.data.0.female_players_count', 2)
             ->where('teams.data.0.captains_count', 1)
@@ -144,10 +163,20 @@ test('teams index roster counts follow selected session without duplicating team
     TeamMember::factory()->count(2)->create([
         'team_id' => $team->id,
         'session_id' => $currentSession->id,
+        'member_id' => Member::factory()->state([
+            'organization_id' => $user->organization_id,
+            'gender' => 'M',
+            'player_category' => 'GD',
+        ]),
     ]);
     TeamMember::factory()->create([
         'team_id' => $team->id,
         'session_id' => $oldSession->id,
+        'member_id' => Member::factory()->state([
+            'organization_id' => $user->organization_id,
+            'gender' => 'F',
+            'player_category' => 'SPORTS_QUOTA',
+        ]),
     ]);
 
     $this->actingAs($user)
@@ -157,6 +186,8 @@ test('teams index roster counts follow selected session without duplicating team
             ->where('selectedSessionId', $currentSession->id)
             ->where('teams.data.0.id', $team->id)
             ->where('teams.data.0.players_count', 2)
+            ->where('teams.data.0.men_gd_players_count', 2)
+            ->where('teams.data.0.women_non_gd_players_count', 0)
             ->etc()
         );
 
@@ -167,6 +198,8 @@ test('teams index roster counts follow selected session without duplicating team
             ->where('selectedSessionId', $oldSession->id)
             ->where('teams.data.0.id', $team->id)
             ->where('teams.data.0.players_count', 1)
+            ->where('teams.data.0.men_gd_players_count', 0)
+            ->where('teams.data.0.women_non_gd_players_count', 1)
             ->etc()
         );
 });
@@ -248,6 +281,20 @@ test('teams index marks only current session active teams as active for listing 
         );
 });
 
+test('teams cannot be deleted through the resource route', function (): void {
+    $user = teamIndexUser('teams.delete');
+    $org = Organization::findOrFail($user->organization_id);
+    $team = Team::factory()->forOrganization($org)->create();
+
+    $this->actingAs($user)
+        ->delete("/teams/{$team->id}")
+        ->assertMethodNotAllowed();
+
+    $this->assertDatabaseHas('teams', [
+        'id' => $team->id,
+    ]);
+});
+
 test('teams export supports redesigned listing columns', function (): void {
     Excel::fake();
 
@@ -291,8 +338,10 @@ test('teams export supports redesigned listing columns', function (): void {
                 'posting',
                 'in_charge',
                 'incharge_pno',
-                'male_players_count',
-                'female_players_count',
+                'men_players_count',
+                'men_gd_players_count',
+                'women_players_count',
+                'women_non_gd_players_count',
             ],
         ]));
 

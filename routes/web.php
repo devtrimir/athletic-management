@@ -33,6 +33,7 @@ use App\Http\Controllers\TeamExportController;
 use App\Http\Controllers\TeamInchargeController;
 use App\Http\Controllers\TeamMemberController;
 use App\Http\Controllers\TeamProfileTabController;
+use App\Http\Controllers\TeamSessionStatusController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentExportController;
 use Illuminate\Support\Facades\Route;
@@ -71,7 +72,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('teams/{team}/coaches', [TeamProfileTabController::class, 'coaches'])->name('teams.coaches');
     Route::get('teams/{team}/incharge', [TeamProfileTabController::class, 'incharge'])->name('teams.incharge');
     Route::get('teams/{team}/changelog', [TeamProfileTabController::class, 'changelog'])->name('teams.changelog');
-    Route::resource('teams', TeamController::class);
+    Route::resource('teams', TeamController::class)->except(['destroy']);
     Route::get('tournaments/export', [TournamentExportController::class, 'index'])->name('tournaments.export');
     Route::resource('tournaments', TournamentController::class);
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
@@ -108,6 +109,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('teams/{team}/incharge', [TeamInchargeController::class, 'update'])->name('teams.incharge.update');
     Route::delete('teams/{team}/incharge', [TeamInchargeController::class, 'destroy'])->name('teams.incharge.destroy');
     Route::post('teams/{team}/clone', TeamCloneController::class)->name('teams.clone');
+    Route::patch('teams/{team}/session-status', [TeamSessionStatusController::class, 'close'])->name('teams.session-status.close');
     Route::post('members/{member}/status', [MemberStatusController::class, 'store'])->name('members.status.store');
     Route::post('members/{member}/aliases', [MemberAliasController::class, 'store'])->name('members.aliases.store');
     Route::delete('members/{member}/aliases/{alias}', [MemberAliasController::class, 'destroy'])->name('members.aliases.destroy');
