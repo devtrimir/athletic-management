@@ -7,6 +7,7 @@ namespace App\Http\Resources;
 use App\Models\Tournament;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Http\Resources\MissingValue;
 
 /**
  * Inertia prop shape for Tournament.
@@ -24,7 +25,11 @@ class TournamentResource extends JsonResource
             'date_from' => $this->date_from?->toDateString(),
             'date_to' => $this->date_to?->toDateString(),
             'raw_date_text' => $this->raw_date_text,
+            'created_at' => $this->created_at?->toDateString(),
             'events_count' => $this->whenCounted('events'),
+            'participants_count' => $this->countAttribute('participants_count'),
+            'teams_count' => $this->countAttribute('teams_count'),
+            'medals_count' => $this->countAttribute('medals_count'),
             'session' => $this->whenLoaded('session', fn () => [
                 'id' => $this->session->id,
                 'name' => $this->session->name,
@@ -40,5 +45,14 @@ class TournamentResource extends JsonResource
                 'name' => $this->sport->name,
             ] : null),
         ];
+    }
+
+    private function countAttribute(string $key): mixed
+    {
+        if (array_key_exists($key, $this->resource->getAttributes())) {
+            return (int) $this->resource->getAttribute($key);
+        }
+
+        return new MissingValue;
     }
 }

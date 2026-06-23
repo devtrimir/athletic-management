@@ -1,5 +1,5 @@
-import { Deferred, Head, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
-import { Camera, Images, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Deferred, Head, Link, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
+import { ArrowLeft, Camera, Images, List, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import {
     destroy as destroyEvent,
@@ -58,7 +58,6 @@ type ParticipationRow = {
     member: {
         id: number;
         full_name: string;
-        member_code: string;
         pno: string | null;
     } | null;
     achievement: {
@@ -718,39 +717,66 @@ return;
 
     return (
         <>
-            <div className="overflow-hidden rounded-xl border">
+            <div className="overflow-x-auto rounded-xl border border-slate-300 dark:border-slate-700">
                 <Table>
                     <TableHeader>
-                        <TableRow className="bg-muted/50 hover:bg-muted/50">
-                            <TableHead className="w-8">#</TableHead>
-                            <TableHead>{t('Member')}</TableHead>
-                            <TableHead className="w-20">{t('Position')}</TableHead>
-                            <TableHead className="w-28">{t('Medal')}</TableHead>
-                            <TableHead>{t('Remarks')}</TableHead>
-                            <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                        <TableRow className="border-b border-slate-300 bg-slate-100 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
+                            <TableHead className="w-12 border-r border-slate-300 text-center text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                                {t('S.No.')}
+                            </TableHead>
+                            <TableHead className="min-w-56 border-r border-slate-300 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                                {t('Member name')}
+                            </TableHead>
+                            <TableHead className="w-36 border-r border-slate-300 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                                {t('PNO')}
+                            </TableHead>
+                            <TableHead className="w-24 border-r border-slate-300 text-center text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                                {t('Position')}
+                            </TableHead>
+                            <TableHead className="w-32 border-r border-slate-300 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                                {t('Medal')}
+                            </TableHead>
+                            <TableHead className="min-w-48 border-r border-slate-300 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                                {t('Remarks')}
+                            </TableHead>
+                            <TableHead className="w-28 text-right text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">
+                                {t('Actions')}
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {participations.map((p, idx) => (
-                            <TableRow key={p.id}>
-                                <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
-                                <TableCell>
-                                    <div className="text-sm font-medium">{p.member?.full_name}</div>
-                                    <div className="text-muted-foreground text-xs">
-                                        {p.member?.member_code}
-                                        {p.member?.pno ? ` · ${p.member.pno}` : ''}
+                            <TableRow
+                                key={p.id}
+                                className="border-b border-slate-200 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-900/60"
+                            >
+                                <TableCell className="border-r border-slate-200 text-center text-xs tabular-nums text-muted-foreground dark:border-slate-800">
+                                    {idx + 1}
+                                </TableCell>
+                                <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
+                                    <div className="text-sm font-medium">
+                                        {p.member?.full_name ?? '—'}
                                     </div>
                                 </TableCell>
-                                <TableCell className="tabular-nums">
+                                <TableCell className="border-r border-slate-200 py-2 text-sm tabular-nums dark:border-slate-800">
+                                    {p.member?.pno ?? (
+                                        <span className="text-muted-foreground">
+                                            —
+                                        </span>
+                                    )}
+                                </TableCell>
+                                <TableCell className="border-r border-slate-200 py-2 text-center tabular-nums dark:border-slate-800">
                                     {p.position ?? <span className="text-muted-foreground">—</span>}
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
                                     <MedalBadge medal={p.achievement?.medal_type ?? null} />
                                 </TableCell>
-                                <TableCell className="text-muted-foreground max-w-[180px] truncate text-sm">
+                                <TableCell className="max-w-[260px] border-r border-slate-200 py-2 text-sm text-muted-foreground dark:border-slate-800">
+                                    <span className="line-clamp-2">
                                     {p.achievement?.remarks || '—'}
+                                    </span>
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className="py-2 text-right">
                                     <div className="flex items-center justify-end gap-1">
                                         <Button
                                                 variant="ghost"
@@ -883,25 +909,43 @@ export default function EventsShow({
 
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="space-y-2">
-                        <Heading variant="small" title={event.name} />
-                        <div className="flex flex-wrap gap-2">
-                            {event.sport && <Badge variant="secondary">{event.sport.name}</Badge>}
-                            <Badge variant="outline">{t(event.gender_class)}</Badge>
-                            {event.discipline && <Badge variant="outline">{event.discipline}</Badge>}
-                            {event.weight_category && <Badge variant="outline">{event.weight_category}</Badge>}
-                        </div>
+                <div className="rounded-xl border bg-card p-4 shadow-sm">
+                    <div className="mb-4 flex flex-wrap items-center gap-2 border-b pb-4">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={tournamentsIndex()}>
+                                <List className="mr-1.5 h-4 w-4" />
+                                {t('All tournaments')}
+                            </Link>
+                        </Button>
+                        <Button variant="ghost" size="sm" asChild>
+                            <Link href={showTournament(tournament.id)}>
+                                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                                {t('Tournament overview')}
+                            </Link>
+                        </Button>
                     </div>
-                    <div className="flex shrink-0 gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setEditEventOpen(true)}>
-                            <Pencil className="mr-1.5 h-4 w-4" />
-                            {t('Edit')}
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => setDeleteEventOpen(true)}>
-                            <Trash2 className="mr-1.5 h-4 w-4" />
-                            {t('Delete')}
-                        </Button>
+
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-muted-foreground">{tournament.name}</p>
+                            <Heading variant="small" title={event.name} />
+                            <div className="flex flex-wrap gap-2">
+                                {event.sport && <Badge variant="secondary">{event.sport.name}</Badge>}
+                                <Badge variant="outline">{t(event.gender_class)}</Badge>
+                                {event.discipline && <Badge variant="outline">{event.discipline}</Badge>}
+                                {event.weight_category && <Badge variant="outline">{event.weight_category}</Badge>}
+                            </div>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditEventOpen(true)}>
+                                <Pencil className="mr-1.5 h-4 w-4" />
+                                {t('Edit')}
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => setDeleteEventOpen(true)}>
+                                <Trash2 className="mr-1.5 h-4 w-4" />
+                                {t('Delete')}
+                            </Button>
+                        </div>
                     </div>
                 </div>
 

@@ -27,7 +27,6 @@ class TeamExportController extends Controller
     private const COLUMN_LABELS = [
         'serial_no' => 'S.No.',
         'name' => 'Team Name',
-        'session' => 'Session',
         'sport' => 'Sport',
         'posting' => 'Posting / District',
         'location_type' => 'Location Type',
@@ -42,8 +41,12 @@ class TeamExportController extends Controller
         'incharge_email' => 'In-Charge Email',
         'incharge_assigned_at' => 'In-Charge Assigned On',
         'players_count' => 'Players',
-        'male_players_count' => 'Male Players',
-        'female_players_count' => 'Female Players',
+        'men_players_count' => 'Men Players',
+        'men_gd_players_count' => 'Men GD Players',
+        'men_non_gd_players_count' => 'Men Sports Quota Players',
+        'women_players_count' => 'Women Players',
+        'women_gd_players_count' => 'Women GD Players',
+        'women_non_gd_players_count' => 'Women Sports Quota Players',
         'captains_count' => 'Captains',
         'reserves_count' => 'Reserves',
         'coaches_count' => 'Coaches',
@@ -218,44 +221,42 @@ class TeamExportController extends Controller
      */
     private function teamCountColumns(?int $sessionId = null): array
     {
+        $activeInSession = fn ($query) => $query
+            ->when(
+                $sessionId !== null,
+                fn ($q) => $q->where('session_id', $sessionId),
+            )
+            ->whereNull('left_on');
+
+        $genderAndCategory = function (string $gender, ?bool $isGd) use ($activeInSession): callable {
+            return function ($query) use ($activeInSession, $gender, $isGd) {
+                $activeInSession($query);
+
+                return $query->whereHas('member', function ($memberQuery) use ($gender, $isGd): void {
+                    $memberQuery->where('gender', $gender);
+
+                    if ($isGd === true) {
+                        $memberQuery->where('player_category', 'GD');
+                    }
+
+                    if ($isGd === false) {
+                        $memberQuery->where('player_category', '!=', 'GD');
+                    }
+                });
+            };
+        };
+
         return [
-            'teamMembers as players_count' => fn ($query) => $query
-                ->when(
-                    $sessionId !== null,
-                    fn ($q) => $q->where('session_id', $sessionId),
-                )
-                ->whereNull('left_on'),
-            'teamMembers as male_players_count' => fn ($query) => $query->whereHas(
-                'member',
-                fn ($memberQuery) => $memberQuery->where('gender', 'M')
-            )
-                ->when(
-                    $sessionId !== null,
-                    fn ($q) => $q->where('session_id', $sessionId),
-                )
-                ->whereNull('left_on'),
-            'teamMembers as female_players_count' => fn ($query) => $query->whereHas(
-                'member',
-                fn ($memberQuery) => $memberQuery->where('gender', 'F')
-            )
-                ->when(
-                    $sessionId !== null,
-                    fn ($q) => $q->where('session_id', $sessionId),
-                )
-                ->whereNull('left_on'),
-            'teamMembers as captains_count' => fn ($query) => $query
-                ->when(
-                    $sessionId !== null,
-                    fn ($q) => $q->where('session_id', $sessionId),
-                )
-                ->whereNull('left_on')
+            'teamMembers as players_count' => $activeInSession,
+            'teamMembers as men_players_count' => $genderAndCategory('M', null),
+            'teamMembers as men_gd_players_count' => $genderAndCategory('M', true),
+            'teamMembers as men_non_gd_players_count' => $genderAndCategory('M', false),
+            'teamMembers as women_players_count' => $genderAndCategory('F', null),
+            'teamMembers as women_gd_players_count' => $genderAndCategory('F', true),
+            'teamMembers as women_non_gd_players_count' => $genderAndCategory('F', false),
+            'teamMembers as captains_count' => fn ($query) => $activeInSession($query)
                 ->where('role', 'CAPTAIN'),
-            'teamMembers as reserves_count' => fn ($query) => $query
-                ->when(
-                    $sessionId !== null,
-                    fn ($q) => $q->where('session_id', $sessionId),
-                )
-                ->whereNull('left_on')
+            'teamMembers as reserves_count' => fn ($query) => $activeInSession($query)
                 ->where('role', 'RESERVE'),
             'coachAssignments as coaches_count' => fn ($query) => $query->when(
                 $sessionId !== null,
@@ -304,7 +305,6 @@ class TeamExportController extends Controller
     {
         return match ($column) {
             'serial_no' => $serialNumber,
-            'session' => $team->session?->name,
             'sport' => $team->sport?->name,
             'posting' => $team->location_label,
             'location_type' => $this->translateText($team->location_type === 'unit' ? 'Unit' : 'District'),

@@ -7,6 +7,7 @@ namespace App\Http\Resources;
 use App\Models\Team;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Http\Resources\MissingValue;
 
 /**
  * Inertia prop shape for Team.
@@ -31,9 +32,22 @@ class TeamResource extends JsonResource
             'current_incharge_mobile' => $this->current_incharge_mobile,
             'current_incharge_since' => $this->current_incharge_since,
             'has_current_incharge' => $this->has_current_incharge,
-            'players_count' => $this->whenCounted('teamMembers'),
-            'removed_players_count' => $this->whenCounted('teamMemberMovements'),
-            'coaches_count' => $this->whenCounted('coachAssignments'),
+            'listing_is_active' => $this->when($this->hasAttribute('listing_is_active'), fn () => (bool) $this->listing_is_active),
+            'session_status' => $this->when($this->hasAttribute('session_status'), fn () => $this->session_status),
+            'session_status_label' => $this->when($this->hasAttribute('session_status_label'), fn () => $this->session_status_label),
+            'players_count' => $this->countAttribute('players_count', 'teamMembers'),
+            'men_players_count' => $this->countAttribute('men_players_count'),
+            'men_gd_players_count' => $this->countAttribute('men_gd_players_count'),
+            'men_non_gd_players_count' => $this->countAttribute('men_non_gd_players_count'),
+            'women_players_count' => $this->countAttribute('women_players_count'),
+            'women_gd_players_count' => $this->countAttribute('women_gd_players_count'),
+            'women_non_gd_players_count' => $this->countAttribute('women_non_gd_players_count'),
+            'male_players_count' => $this->countAttribute('male_players_count'),
+            'female_players_count' => $this->countAttribute('female_players_count'),
+            'captains_count' => $this->countAttribute('captains_count'),
+            'reserves_count' => $this->countAttribute('reserves_count'),
+            'removed_players_count' => $this->countAttribute('removed_players_count', 'teamMemberMovements'),
+            'coaches_count' => $this->countAttribute('coaches_count', 'coachAssignments'),
             'sport' => $this->whenLoaded('sport', fn () => [
                 'id' => $this->sport->id,
                 'name' => $this->sport->name,
@@ -64,5 +78,19 @@ class TeamResource extends JsonResource
                 'remarks' => $this->currentInchargeAssignment->remarks,
             ] : null),
         ];
+    }
+
+    private function hasAttribute(string $key): bool
+    {
+        return array_key_exists($key, $this->resource->getAttributes());
+    }
+
+    private function countAttribute(string $key, ?string $relationship = null): mixed
+    {
+        if ($this->hasAttribute($key)) {
+            return (int) $this->resource->getAttribute($key);
+        }
+
+        return $relationship === null ? new MissingValue : $this->whenCounted($relationship);
     }
 }

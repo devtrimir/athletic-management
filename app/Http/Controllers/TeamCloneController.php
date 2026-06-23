@@ -9,6 +9,7 @@ use App\Models\CoachAssignment;
 use App\Models\Team;
 use App\Models\TeamMember;
 use App\Services\Teams\TeamRosterService;
+use App\Services\Teams\TeamSessionClosureService;
 use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -27,17 +28,21 @@ class TeamCloneController extends Controller
         $coachRowIds = $data['coach_ids'] ?? [];
 
         DB::transaction(function () use ($request, $team, $targetSessionId, $memberRowIds, $coachRowIds): void {
+            $sourceSessionId = (int) $team->session_id;
+
             app(TeamSessionStatusManager::class)->carryForward(
                 $team,
-                (int) $team->session_id,
+                $sourceSessionId,
                 $targetSessionId,
                 (int) $request->user()->id,
             );
 
             $skippedMembers = 0;
+            $carriedSourceTeamMemberIds = [];
             if (! empty($memberRowIds)) {
                 $rows = TeamMember::whereIn('id', $memberRowIds)
                     ->where('team_id', $team->id)
+                    ->where('session_id', $sourceSessionId)
                     ->get();
 
                 $result = (new TeamRosterService)->carryForwardMembers(
@@ -47,6 +52,7 @@ class TeamCloneController extends Controller
                     (int) $request->user()->id,
                 );
                 $skippedMembers = $result['skipped'];
+                $carriedSourceTeamMemberIds = $result['carried_source_team_member_ids'];
 
                 if ($skippedMembers > 0) {
                     Inertia::flash('toast', [
@@ -59,6 +65,17 @@ class TeamCloneController extends Controller
                     ]);
                 }
             }
+
+            app(TeamSessionClosureService::class)->closeSession(
+                team: $team,
+                sessionId: $sourceSessionId,
+                closedOn: now()->toDateString(),
+                reason: __('Closed after carry forward to the selected session.'),
+                userId: (int) $request->user()->id,
+                source: 'carry_forward_cleanup',
+                markSessionInactive: false,
+                exceptTeamMemberIds: $carriedSourceTeamMemberIds,
+            );
 
             $skippedCoaches = 0;
             if (! empty($coachRowIds)) {

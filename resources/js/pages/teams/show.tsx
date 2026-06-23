@@ -4,6 +4,7 @@ import {
     Link,
     router,
     setLayoutProps,
+    useForm,
     usePage,
 } from '@inertiajs/react';
 import {
@@ -31,7 +32,6 @@ import {
     bulkDestroy as bulkDestroyCoaches,
 } from '@/actions/App/Http/Controllers/TeamCoachController';
 import {
-    destroy as destroyTeam,
     edit as editTeam,
     index as teamsIndex,
     show as showTeam,
@@ -43,6 +43,8 @@ import {
     store as storeTeamMember,
     update as updateTeamMember,
 } from '@/actions/App/Http/Controllers/TeamMemberController';
+import { close as closeTeamSessionStatus } from '@/actions/App/Http/Controllers/TeamSessionStatusController';
+import InputError from '@/components/input-error';
 import type { MemberOption } from '@/components/member-picker';
 import { MemberQuickView } from '@/components/members/member-quick-view';
 import { ChangeLog } from '@/components/shared/change-log';
@@ -252,6 +254,7 @@ export default function TeamsShow({
     const [backfillOpen, setBackfillOpen] = useState(false);
     const [addCoachOpen, setAddCoachOpen] = useState(false);
     const [cloneOpen, setCloneOpen] = useState(false);
+    const [closeSessionOpen, setCloseSessionOpen] = useState(false);
     const [memberQuickViewId, setMemberQuickViewId] = useState<number | null>(
         null,
     );
@@ -380,6 +383,12 @@ export default function TeamsShow({
         rows: [],
         left_on: new Date().toISOString().slice(0, 10),
         reason: '',
+    });
+    const closeSessionForm = useForm({
+        session_id: selectedSessionId ? String(selectedSessionId) : '',
+        closed_on: new Date().toISOString().slice(0, 10),
+        reason: '',
+        remove_coaches: false,
     });
 
     function openConfirm(
@@ -560,6 +569,29 @@ export default function TeamsShow({
             rows: [],
             reason: '',
         }));
+    }
+
+    function openCloseSessionDialog() {
+        closeSessionForm.setData({
+            session_id: selectedSessionId ? String(selectedSessionId) : '',
+            closed_on: new Date().toISOString().slice(0, 10),
+            reason: '',
+            remove_coaches: false,
+        });
+        closeSessionForm.clearErrors();
+        setCloseSessionOpen(true);
+    }
+
+    function submitCloseSession(event: React.FormEvent) {
+        event.preventDefault();
+
+        closeSessionForm.patch(closeTeamSessionStatus.url(team), {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeSessionForm.reset();
+                setCloseSessionOpen(false);
+            },
+        });
     }
 
     function buildExportUrl(): string {
@@ -948,17 +980,6 @@ export default function TeamsShow({
                         : [],
                 ),
             },
-        );
-    }
-
-    function handleDelete() {
-        openConfirm(
-            t('Delete this team?'),
-            t(
-                'This action cannot be undone. All player and coach assignments will also be removed.',
-            ),
-            () => router.delete(destroyTeam.url(team)),
-            { confirmLabel: t('Delete') },
         );
     }
 
@@ -1378,6 +1399,115 @@ export default function TeamsShow({
             </Dialog>
 
             <Dialog
+                open={closeSessionOpen}
+                onOpenChange={(open) => !open && setCloseSessionOpen(false)}
+            >
+                <DialogContent
+                    className="sm:max-w-lg"
+                    aria-describedby={undefined}
+                >
+                    <DialogHeader>
+                        <div className="mb-2 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium tracking-wide text-amber-700 dark:border-amber-900/50 dark:bg-amber-950 dark:text-amber-200">
+                            <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+                            {t('Session closure')}
+                        </div>
+                        <DialogTitle>{t('Mark session inactive')}</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={submitCloseSession} className="space-y-4">
+                        <input
+                            type="hidden"
+                            name="session_id"
+                            value={closeSessionForm.data.session_id}
+                        />
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+                            {t(
+                                'This will close active players in the selected session and mark them inactive.',
+                            )}
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="close-session-date">
+                                {t('Closed on')}{' '}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                                id="close-session-date"
+                                type="date"
+                                value={closeSessionForm.data.closed_on}
+                                onChange={(event) =>
+                                    closeSessionForm.setData(
+                                        'closed_on',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                            <InputError
+                                message={closeSessionForm.errors.closed_on}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="close-session-reason">
+                                {t('Reason')}{' '}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <Textarea
+                                id="close-session-reason"
+                                className="min-h-20"
+                                value={closeSessionForm.data.reason}
+                                onChange={(event) =>
+                                    closeSessionForm.setData(
+                                        'reason',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                            <InputError
+                                message={closeSessionForm.errors.reason}
+                            />
+                        </div>
+                        <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                            <Checkbox
+                                checked={closeSessionForm.data.remove_coaches}
+                                onCheckedChange={(checked) =>
+                                    closeSessionForm.setData(
+                                        'remove_coaches',
+                                        Boolean(checked),
+                                    )
+                                }
+                            />
+                            <span>
+                                {t(
+                                    'Also remove current coaches from this session.',
+                                )}
+                            </span>
+                        </label>
+                        <InputError
+                            message={closeSessionForm.errors.remove_coaches}
+                        />
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setCloseSessionOpen(false)}
+                            >
+                                {t('Cancel')}
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="destructive"
+                                disabled={
+                                    closeSessionForm.processing ||
+                                    !closeSessionForm.data.closed_on ||
+                                    !closeSessionForm.data.reason.trim()
+                                }
+                            >
+                                {t('Mark inactive')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
                 open={editingMember !== null}
                 onOpenChange={(open) => !open && setEditingMember(null)}
             >
@@ -1498,139 +1628,151 @@ export default function TeamsShow({
                 <section className="relative overflow-hidden rounded-2xl border bg-card shadow-sm">
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-slate-200 dark:bg-slate-700" />
                     <div className="pointer-events-none absolute inset-0 bg-muted/10" />
-                    <div className="relative gap-4 p-5 md:flex md:items-start md:justify-between md:p-6">
-                        <div className="space-y-2">
-                            <div className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium tracking-wide text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200">
-                                {team.location_type}
-                            </div>
-                            <h1 className="text-3xl font-semibold tracking-tight">
-                                {team.name}
-                            </h1>
-                            <div className="text-sm text-muted-foreground">
-                                {team.sport?.name ??
-                                    team.location_label ??
-                                    t('Team roster')}
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                {selectedSession?.name ??
-                                    (sessions[0]?.name ??
-                                        t('No session selected'))}
-                            </p>
-                            <div
-                                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${
-                                    !hasSessionContext
-                                        ? 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100'
-                                        : isViewingCurrentSession
-                                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950 dark:text-emerald-100'
-                                          : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950 dark:text-amber-100'
-                                }`}
-                            >
-                                <span
-                                    className={`h-1.5 w-1.5 rounded-full ${
+                    <div className="relative grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] lg:items-start md:p-6">
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <div className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium tracking-wide text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200">
+                                    {team.location_type}
+                                </div>
+                                <h1 className="text-3xl font-semibold tracking-tight">
+                                    {team.name}
+                                </h1>
+                                <div className="text-sm text-muted-foreground">
+                                    {team.sport?.name ??
+                                        team.location_label ??
+                                        t('Team roster')}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                    {selectedSession?.name ??
+                                        (sessions[0]?.name ??
+                                            t('No session selected'))}
+                                </p>
+                                <div
+                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${
                                         !hasSessionContext
-                                            ? 'bg-slate-500'
+                                            ? 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100'
                                             : isViewingCurrentSession
-                                              ? 'bg-emerald-500'
-                                              : 'bg-amber-500'
+                                              ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950 dark:text-emerald-100'
+                                              : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950 dark:text-amber-100'
                                     }`}
-                                />
-                                {!hasSessionContext
-                                    ? t('Session context unavailable')
-                                    : isViewingCurrentSession
-                                      ? t('Current session view')
-                                      : isViewingArchivedSession
-                                        ? t('Archived session view')
-                                        : t('Session view')}
+                                >
+                                    <span
+                                        className={`h-1.5 w-1.5 rounded-full ${
+                                            !hasSessionContext
+                                                ? 'bg-slate-500'
+                                                : isViewingCurrentSession
+                                                  ? 'bg-emerald-500'
+                                                  : 'bg-amber-500'
+                                        }`}
+                                    />
+                                    {!hasSessionContext
+                                        ? t('Session context unavailable')
+                                        : isViewingCurrentSession
+                                          ? t('Current session view')
+                                          : isViewingArchivedSession
+                                            ? t('Archived session view')
+                                            : t('Session view')}
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Select
+                                    value={
+                                        selectedSessionId
+                                            ? String(selectedSessionId)
+                                            : ''
+                                    }
+                                    onValueChange={(value) =>
+                                        router.get(
+                                            showTeam.url(team),
+                                            {
+                                                'filter[session_id]': value,
+                                            },
+                                            {
+                                                preserveScroll: true,
+                                                preserveState: true,
+                                                replace: true,
+                                            },
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger className="w-52">
+                                        <SelectValue
+                                            placeholder={t('Session')}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {sessions.map((session) => (
+                                            <SelectItem
+                                                key={session.id}
+                                                value={String(session.id)}
+                                            >
+                                                {session.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Badge
+                                    variant={
+                                        team.is_active ? 'default' : 'secondary'
+                                    }
+                                    className={
+                                        team.is_active
+                                            ? 'bg-emerald-600 text-white'
+                                            : ''
+                                    }
+                                >
+                                    {team.is_active
+                                        ? t('Active team')
+                                        : t('Inactive')}
+                                </Badge>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        window.location.href = buildExportUrl();
+                                    }}
+                                >
+                                    <Download className="mr-1.5 h-4 w-4" />
+                                    {t('Export')}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handlePrint}
+                                >
+                                    <Printer className="mr-1.5 h-4 w-4" />
+                                    {t('Print')}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCloneOpen(true)}
+                                    title={t('Carry roster forward (⌘⇧D)')}
+                                >
+                                    <Copy className="mr-1.5 h-4 w-4" />
+                                    {t('Carry forward')}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={openCloseSessionDialog}
+                                    disabled={!selectedSessionId}
+                                >
+                                    <AlertTriangle className="mr-1.5 h-4 w-4" />
+                                    {t('Mark session inactive')}
+                                </Button>
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={editTeam.url(team)}>
+                                        {t('Edit')}
+                                    </Link>
+                                </Button>
                             </div>
                         </div>
-                        <div className="mt-2 flex flex-wrap items-center justify-end gap-2 md:mt-0">
-                            <Select
-                                value={
-                                    selectedSessionId
-                                        ? String(selectedSessionId)
-                                        : ''
-                                }
-                                onValueChange={(value) =>
-                                    router.get(
-                                        showTeam.url(team),
-                                        {
-                                            'filter[session_id]': value,
-                                        },
-                                        {
-                                            preserveScroll: true,
-                                            preserveState: true,
-                                            replace: true,
-                                        },
-                                    )
-                                }
-                            >
-                                <SelectTrigger className="w-52">
-                                    <SelectValue placeholder={t('Session')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sessions.map((session) => (
-                                        <SelectItem
-                                            key={session.id}
-                                            value={String(session.id)}
-                                        >
-                                            {session.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Badge
-                                variant={team.is_active ? 'default' : 'secondary'}
-                                className={team.is_active ? 'bg-emerald-600 text-white' : ''}
-                            >
-                                {team.is_active
-                                    ? t('Active team')
-                                    : t('Inactive')}
-                            </Badge>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    window.location.href = buildExportUrl();
-                                }}
-                            >
-                                <Download className="mr-1.5 h-4 w-4" />
-                                {t('Export')}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handlePrint}
-                            >
-                                <Printer className="mr-1.5 h-4 w-4" />
-                                {t('Print')}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCloneOpen(true)}
-                                title={t('Carry roster forward (⌘⇧D)')}
-                            >
-                                <Copy className="mr-1.5 h-4 w-4" />
-                                {t('Carry forward')}
-                            </Button>
-                            <Button variant="outline" size="sm" asChild>
-                                <Link href={editTeam.url(team)}>{t('Edit')}</Link>
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={handleDelete}
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                    <div className="border-t bg-muted/30 px-5 py-4 md:px-6">
-                        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
                             {detailCards.map((card) => (
                                 <div
                                     key={card.label}
-                                    className={`rounded-xl border ${card.classes ?? 'bg-card/80 border-border/80'} p-3`}
+                                    className={`rounded-lg border ${card.classes ?? 'bg-card/80 border-border/80'} p-3`}
                                 >
                                     <p
                                         className={

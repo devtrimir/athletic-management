@@ -2,10 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Models\Achievement;
+use App\Models\Event;
+use App\Models\Member;
 use App\Models\Organization;
+use App\Models\Participation;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Sport;
 use App\Models\SportSession;
+use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\User;
@@ -98,6 +104,115 @@ test('user with tournaments.view sees index', function () {
             ->has('sessions')
             ->has('tiers')
             ->has('sports')
+        );
+});
+
+test('index defaults to current session and exposes listing counts', function () {
+    $user = tournamentUser('tournaments.view');
+    $org = Organization::findOrFail($user->organization_id);
+    $currentSession = SportSession::factory()->create([
+        'organization_id' => $org->id,
+        'is_current' => true,
+    ]);
+    $oldSession = SportSession::factory()->create([
+        'organization_id' => $org->id,
+        'is_current' => false,
+    ]);
+    $sport = Sport::factory()->create(['organization_id' => $org->id]);
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => 'NATIONAL'],
+        ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+    );
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $currentSession->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+        'name' => 'Current Session Tournament',
+    ]);
+    Tournament::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $oldSession->id,
+        'tier_id' => $tier->id,
+        'name' => 'Old Session Tournament',
+    ]);
+
+    $event = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+    ]);
+    $team = Team::factory()->forOrganization($org)->create([
+        'session_id' => $currentSession->id,
+        'sport_id' => $sport->id,
+    ]);
+    $firstParticipation = Participation::factory()->create([
+        'event_id' => $event->id,
+        'member_id' => Member::factory()->create(['organization_id' => $org->id])->id,
+        'team_id' => $team->id,
+        'session_id' => $currentSession->id,
+    ]);
+    Participation::factory()->create([
+        'event_id' => $event->id,
+        'member_id' => Member::factory()->create(['organization_id' => $org->id])->id,
+        'team_id' => $team->id,
+        'session_id' => $currentSession->id,
+    ]);
+    Achievement::factory()->create(['participation_id' => $firstParticipation->id]);
+
+    $this->actingAs($user)
+        ->get(route('tournaments.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('tournaments/index')
+            ->where('selectedSessionId', $currentSession->id)
+            ->where('filters.session_id', (string) $currentSession->id)
+            ->where('tournaments.total', 1)
+            ->where('tournaments.data.0.id', $tournament->id)
+            ->where('tournaments.data.0.events_count', 1)
+            ->where('tournaments.data.0.participants_count', 2)
+            ->where('tournaments.data.0.teams_count', 1)
+            ->where('tournaments.data.0.medals_count', 1)
+            ->etc()
+        );
+});
+
+test('index session filter can switch to another session', function () {
+    $user = tournamentUser('tournaments.view');
+    $org = Organization::findOrFail($user->organization_id);
+    $currentSession = SportSession::factory()->create([
+        'organization_id' => $org->id,
+        'is_current' => true,
+    ]);
+    $oldSession = SportSession::factory()->create([
+        'organization_id' => $org->id,
+        'is_current' => false,
+    ]);
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => 'NATIONAL'],
+        ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+    );
+    Tournament::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $currentSession->id,
+        'tier_id' => $tier->id,
+        'name' => 'Current Session Tournament',
+    ]);
+    $oldTournament = Tournament::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $oldSession->id,
+        'tier_id' => $tier->id,
+        'name' => 'Old Session Tournament',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('tournaments.index', ['filter' => ['session_id' => $oldSession->id]]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('selectedSessionId', $oldSession->id)
+            ->where('filters.session_id', (string) $oldSession->id)
+            ->where('tournaments.total', 1)
+            ->where('tournaments.data.0.id', $oldTournament->id)
+            ->etc()
         );
 });
 

@@ -20,7 +20,7 @@ class ChangeStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', Rule::in(['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'])],
+            'status' => ['required', Rule::in(['ACTIVE', 'INACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'])],
             'effective_on' => ['required', 'date'],
             'reason' => ['nullable', 'string'],
         ];
