@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\ReportExport;
 use App\Models\Coach;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Maatwebsite\Excel\Facades\Excel;
@@ -15,19 +16,35 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class CoachExportController extends Controller
 {
+    /** @var array<int, string> */
+    private const DEFAULT_COLUMNS = [
+        'serial_number',
+        'full_name',
+        'pno',
+        'blood_group',
+        'gender',
+        'sports',
+        'unit_district',
+        'mobile',
+        'nis_certified',
+    ];
+
     /** @var array<string, string> */
     private const COLUMN_LABELS = [
-        'pno' => 'PNO',
+        'serial_number' => 'S.No.',
         'full_name' => 'Name',
+        'pno' => 'PNO',
+        'blood_group' => 'Blood Group',
+        'gender' => 'Gender',
+        'sports' => 'Playable Sport',
+        'unit_district' => 'Unit / District',
+        'mobile' => 'Mobile Number',
+        'nis_certified' => 'NIS Certified',
         'display_name' => 'Display Name',
         'designation' => 'Designation',
         'email' => 'Email',
-        'gender' => 'Gender',
         'coach_status' => 'Status',
-        'mobile' => 'Mobile',
-        'nis_certified' => 'NIS Certified',
         'certifications' => 'Certifications',
-        'sports' => 'Sports',
         'assignment_history_count' => 'Assignment History Count',
         'linked_member' => 'Linked Member Code',
     ];
@@ -37,19 +54,27 @@ class CoachExportController extends Controller
         Gate::authorize('viewAny', Coach::class);
 
         /** @var array<int, string> $columns */
-        $columns = $request->query('columns', array_keys(self::COLUMN_LABELS));
+        $columns = $request->query('columns', self::DEFAULT_COLUMNS);
 
         /** @var array<int, string> $ids */
         $ids = $request->query('ids', []);
 
         if (! empty($ids)) {
             $coaches = Coach::whereIn('id', array_map('intval', $ids))
-                ->with('member:id,member_code')
+                ->with([
+                    'district:id,name',
+                    'unit:id,name',
+                    'member:id,member_code',
+                    'sports:id,name',
+                    'certifications:id,coach_id,name,certificate_type',
+                    'assignmentHistory:id,coach_id',
+                ])
                 ->orderBy('full_name')
                 ->get();
         } else {
             $coaches = QueryBuilder::for(Coach::class)
                 ->allowedFilters([
+                    AllowedFilter::callback('status_scope', fn (Builder $query, mixed $value): Builder => $this->filterByStatusScope($query, (string) $value)),
                     AllowedFilter::exact('nis_certified'),
                     AllowedFilter::exact('blood_group'),
                     AllowedFilter::exact('district_id'),
@@ -118,6 +143,8 @@ class CoachExportController extends Controller
                 ->defaultSort('full_name')
                 ->with([
                     'member:id,member_code',
+                    'district:id,name',
+                    'unit:id,name',
                     'certifications:id,coach_id,name,certificate_type',
                     'sports:id,name',
                     'assignmentHistory:id,coach_id',
@@ -128,11 +155,13 @@ class CoachExportController extends Controller
         $validColumns = array_intersect($columns, array_keys(self::COLUMN_LABELS));
         $headings = array_map(fn (string $col) => self::COLUMN_LABELS[$col], $validColumns);
 
-        $rows = $coaches->map(function (Coach $coach) use ($validColumns) {
+        $rows = $coaches->map(function (Coach $coach, int $index) use ($validColumns) {
             $row = [];
             foreach ($validColumns as $col) {
                 $row[$col] = match ($col) {
+                    'serial_number' => $index + 1,
                     'nis_certified' => $coach->nis_certified ? 'Yes' : 'No',
+                    'unit_district' => $coach->unit?->name ?? $coach->district?->name,
                     'linked_member' => $coach->member?->member_code,
                     'certifications' => $coach->certifications
                         ->map(fn ($cert) => trim(($cert->name ?? '').' '.($cert->certificate_type ? "({$cert->certificate_type})" : '')))
@@ -162,13 +191,15 @@ class CoachExportController extends Controller
 
         $coach->load([
             'member:id,member_code',
+            'district:id,name',
+            'unit:id,name',
             'certifications:id,coach_id,name,certificate_type',
             'sports:id,name',
             'assignmentHistory:id,coach_id',
         ]);
 
         /** @var array<int, string> $columns */
-        $columns = $request->query('columns', array_keys(self::COLUMN_LABELS));
+        $columns = $request->query('columns', self::DEFAULT_COLUMNS);
         $validColumns = array_intersect($columns, array_keys(self::COLUMN_LABELS));
         $headings = array_map(fn (string $col) => self::COLUMN_LABELS[$col], $validColumns);
 
@@ -176,7 +207,9 @@ class CoachExportController extends Controller
             $row = [];
             foreach ($validColumns as $col) {
                 $row[$col] = match ($col) {
+                    'serial_number' => 1,
                     'nis_certified' => $coach->nis_certified ? 'Yes' : 'No',
+                    'unit_district' => $coach->unit?->name ?? $coach->district?->name,
                     'linked_member' => $coach->member?->member_code,
                     'certifications' => $coach->certifications
                         ->map(fn ($cert) => trim(($cert->name ?? '').' '.($cert->certificate_type ? "({$cert->certificate_type})" : '')))
@@ -200,5 +233,13 @@ class CoachExportController extends Controller
             new ReportExport($rows, array_values($headings), $coach->full_name),
             $filename,
         );
+    }
+
+    private function filterByStatusScope(Builder $query, string $value): Builder
+    {
+        return match ($value) {
+            'inactive' => $query->whereDoesntHave('activeCurrentSessionAssignments'),
+            default => $query->whereHas('activeCurrentSessionAssignments'),
+        };
     }
 }

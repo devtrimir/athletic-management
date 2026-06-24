@@ -1,13 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
-    BadgeCheck,
     Check,
     ChevronDown,
     Download,
     Eye,
     IdCard,
     Info,
-    Mail,
     MapPinned,
     Phone,
     Plus,
@@ -58,14 +56,18 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
-    { key: 'pno', label: 'PNO' },
+    { key: 'serial_number', label: 'S.No.' },
     { key: 'full_name', label: 'Name' },
-    { key: 'designation', label: 'Designation' },
-    { key: 'mobile', label: 'Mobile' },
-    { key: 'coach_status', label: 'Status' },
+    { key: 'pno', label: 'PNO' },
+    { key: 'blood_group', label: 'Blood group' },
+    { key: 'gender', label: 'Gender' },
+    { key: 'sports', label: 'Playable sport' },
+    { key: 'unit_district', label: 'Unit / District' },
+    { key: 'mobile', label: 'Mobile number' },
     { key: 'nis_certified', label: 'NIS Certified' },
 ] as const;
 
@@ -126,6 +128,7 @@ type SportOption = {
 };
 
 type Filters = {
+    status_scope?: 'active' | 'inactive';
     q?: string;
     nis_certified?: string;
     blood_group?: string;
@@ -142,6 +145,11 @@ type Filters = {
     has_active_assignment?: string;
     assignment_role?: string;
 };
+
+const STATUS_TABS = [
+    { value: 'active', label: 'Active coaches' },
+    { value: 'inactive', label: 'Inactive coaches' },
+] as const;
 
 function FilterPill({
     label,
@@ -394,6 +402,8 @@ export default function CoachesIndex({
     sports,
     districts,
     units,
+    activeCoachCount,
+    inactiveCoachCount,
     certificateTypes,
     coachStatuses,
     genders,
@@ -403,6 +413,8 @@ export default function CoachesIndex({
     sports: SportOption[];
     districts: { id: number; name: string }[];
     units: { id: number; name: string; district_id: number | null }[];
+    activeCoachCount: number;
+    inactiveCoachCount: number;
     certificateTypes: string[];
     coachStatuses: string[];
     genders: string[];
@@ -418,10 +430,12 @@ export default function CoachesIndex({
 
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const activeStatusScope = filters.status_scope ?? 'active';
 
     const applyFilters = useCallback(
         (patch: Partial<Filters>) => {
             const current: Filters = {
+                status_scope: activeStatusScope,
                 q: query || undefined,
                 nis_certified: filters.nis_certified,
                 blood_group: filters.blood_group,
@@ -441,6 +455,10 @@ export default function CoachesIndex({
 
             if (merged.q) {
                 clean['filter[q]'] = merged.q;
+            }
+
+            if (merged.status_scope) {
+                clean['filter[status_scope]'] = merged.status_scope;
             }
 
             if (merged.nis_certified) {
@@ -495,6 +513,7 @@ export default function CoachesIndex({
         },
         [
             query,
+            activeStatusScope,
             filters.nis_certified,
             filters.blood_group,
             filters.district_id,
@@ -526,13 +545,6 @@ export default function CoachesIndex({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
-    function coachDisplayName(coach: Coach): string {
-        return (
-            [coach.designation, coach.full_name].filter(Boolean).join(' / ') ||
-            coach.full_name
-        );
-    }
-
     function genderLabel(value: string | null | undefined): string {
         switch (value) {
             case 'M':
@@ -550,21 +562,25 @@ export default function CoachesIndex({
         return coach.unit?.name ?? coach.district?.name ?? null;
     }
 
-    function exportValue(coach: Coach, key: string): string {
+    function exportValue(coach: Coach, key: string, serialNumber: number): string {
+        if (key === 'serial_number') {
+            return String(serialNumber);
+        }
+
         if (key === 'nis_certified') {
             return coach.nis_certified ? t('NIS Certified') : '';
         }
 
-        if (key === 'coach_status') {
-            return coach.coach_status ? t(coach.coach_status) : '';
+        if (key === 'gender') {
+            return genderLabel(coach.gender);
         }
 
-        if (key === 'designation') {
-            return coach.designation ?? '';
+        if (key === 'sports') {
+            return (coach.sports ?? []).map((sport) => sport.name).join(', ');
         }
 
-        if (key === 'mobile') {
-            return coach.mobile ?? '';
+        if (key === 'unit_district') {
+            return coachLocation(coach) ?? '';
         }
 
         const raw = (coach as Record<string, unknown>)[key];
@@ -618,6 +634,8 @@ export default function CoachesIndex({
             if (filters.q) {
                 params.append('filter[q]', filters.q);
             }
+
+            params.append('filter[status_scope]', activeStatusScope);
 
             if (filters.nis_certified) {
                 params.append('filter[nis_certified]', filters.nis_certified);
@@ -683,13 +701,35 @@ export default function CoachesIndex({
         return exportCoachesUrl.url() + '?' + params.toString();
     }
 
+    function buildIndexUrl(patch: Partial<Filters> = {}): string {
+        const merged: Filters = {
+            ...filters,
+            status_scope: activeStatusScope,
+            q: query || undefined,
+            ...patch,
+        };
+        const params = new URLSearchParams();
+
+        for (const [key, value] of Object.entries(merged)) {
+            if (value) {
+                params.set(`filter[${key}]`, value);
+            }
+        }
+
+        const queryString = params.toString();
+
+        return queryString
+            ? `${CoachController.index.url()}?${queryString}`
+            : CoachController.index.url();
+    }
+
     function handlePrint() {
         const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
         const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
         const bodyRows = coaches.data
             .map(
-                (coach) =>
-                    `<tr>${cols.map((c) => `<td>${exportValue(coach, c.key)}</td>`).join('')}</tr>`,
+                (coach, index) =>
+                    `<tr>${cols.map((c) => `<td>${exportValue(coach, c.key, (coaches.from ?? 1) + index)}</td>`).join('')}</tr>`,
             )
             .join('');
         const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Coaches')}</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Coaches')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
@@ -797,7 +837,7 @@ export default function CoachesIndex({
         setSelectedIds(new Set());
         router.get(
             CoachController.index.url(),
-            {},
+            { 'filter[status_scope]': activeStatusScope },
             { preserveState: false, replace: true },
         );
     }
@@ -808,7 +848,7 @@ export default function CoachesIndex({
 
             <div className="min-w-0 max-w-full space-y-5 overflow-x-hidden">
                 <div className="sticky top-0 z-40 min-w-0 max-w-full space-y-5 overflow-x-hidden bg-card/95 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/85">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <Heading
                             variant="small"
                             title={t('Coaches')}
@@ -816,7 +856,7 @@ export default function CoachesIndex({
                                 'Review coach profiles, assignments, and roster exports.',
                             )}
                         />
-                        <div className="flex gap-2">
+                        <div className="flex shrink-0 flex-wrap gap-2">
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -838,6 +878,38 @@ export default function CoachesIndex({
                             </Button>
                         </div>
                     </div>
+
+                    <Tabs value={activeStatusScope} className="w-full">
+                        <TabsList className="w-auto max-w-full">
+                            {STATUS_TABS.map((tab) => {
+                                const count =
+                                    tab.value === 'active'
+                                        ? activeCoachCount
+                                        : inactiveCoachCount;
+
+                                return (
+                                    <TabsTrigger
+                                        key={tab.value}
+                                        value={tab.value}
+                                        asChild
+                                    >
+                                        <Link
+                                            href={buildIndexUrl({
+                                                status_scope: tab.value,
+                                            })}
+                                            preserveState
+                                            replace
+                                        >
+                                            {t(tab.label)}
+                                            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                                                {count}
+                                            </span>
+                                        </Link>
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
+                    </Tabs>
 
                     <div className="min-w-0 max-w-full space-y-3 rounded-xl border bg-card p-4">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1106,9 +1178,9 @@ export default function CoachesIndex({
                         </div>
                     </div>
 
-                    <ListingPagination paginator={coaches} itemLabel={t('coaches')} className="sticky top-0 z-40 shadow-sm" />
-                    <div className="min-w-0 max-w-full overflow-hidden rounded-xl border bg-card">
-                        <Table className="min-w-[980px] border-separate border border-border/60 [&_td]:border-r [&_td]:border-b [&_td]:border-border/45 [&_th]:border-r [&_th]:border-b [&_th]:border-border/45">
+                    <ListingPagination paginator={coaches} itemLabel={t('coaches')} className="sticky top-0 z-40 min-w-0 max-w-full shadow-sm" />
+                    <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden rounded-xl border bg-card">
+                        <Table className="min-w-[980px] table-fixed border-separate border border-border/60 [&_td]:border-r [&_td]:border-b [&_td]:border-border/45 [&_th]:border-r [&_th]:border-b [&_th]:border-border/45">
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                                     <TableHead className="sticky left-0 z-40 w-[56px] max-w-[56px] min-w-[56px] bg-card px-2">
@@ -1134,7 +1206,9 @@ export default function CoachesIndex({
                                     <TableHead className="sticky left-[56px] z-30 w-[72px] max-w-[72px] min-w-[72px] bg-card px-2 text-center">
                                         {t('S.No.')}
                                     </TableHead>
-                                    <TableHead>{t('Coach')}</TableHead>
+                                    <TableHead className="w-[240px]">
+                                        {t('Name')}
+                                    </TableHead>
                                     <TableHead className="hidden md:table-cell">
                                         {t('PNO')}
                                     </TableHead>
@@ -1145,17 +1219,18 @@ export default function CoachesIndex({
                                         {t('Gender')}
                                     </TableHead>
                                     <TableHead>
-                                        {t('Playable sports')}
+                                        {t('Playable sport')}
                                     </TableHead>
-                                    <TableHead>{t('Location')}</TableHead>
-                                    <TableHead className="w-28">
-                                        {t('Status')}
+                                    <TableHead className="w-[150px]">
+                                        {t('Unit / District')}
                                     </TableHead>
                                     <TableHead className="hidden lg:table-cell">
-                                        {t('Contact')}
+                                        {t('Mobile number')}
                                     </TableHead>
-                                    <TableHead>{t('Credentials')}</TableHead>
-                                    <TableHead className="sticky right-0 z-20 w-0 bg-background text-right">
+                                    <TableHead className="w-[150px]">
+                                        {t('NIS certified')}
+                                    </TableHead>
+                                    <TableHead className="sticky right-0 z-20 w-[96px] bg-background text-right">
                                         {t('Actions')}
                                     </TableHead>
                                 </TableRow>
@@ -1164,7 +1239,7 @@ export default function CoachesIndex({
                                 {coaches.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={12}
+                                            colSpan={11}
                                             className="py-12 text-center text-muted-foreground"
                                         >
                                             {hasActiveFilters
@@ -1207,21 +1282,9 @@ export default function CoachesIndex({
                                                     {serialNumber}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="min-w-56 space-y-2">
-                                                        <div className="font-semibold text-foreground">
-                                                            {coachDisplayName(
-                                                                coach,
-                                                            )}
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {coach.designation ? (
-                                                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
-                                                                    <BadgeCheck className="h-3.5 w-3.5" />
-                                                                    {
-                                                                        coach.designation
-                                                                    }
-                                                                </span>
-                                                            ) : null}
+                                                    <div className="min-w-0 space-y-2">
+                                                        <div className="truncate font-semibold text-foreground">
+                                                            {coach.full_name}
                                                         </div>
                                                     </div>
                                                 </TableCell>
@@ -1259,16 +1322,16 @@ export default function CoachesIndex({
                                                         </div>
                                                     ) : null}
                                                 </TableCell>
-                                                <TableCell>
+                                                <TableCell className="min-w-0">
                                                     <CoachSportCell
                                                         coach={coach}
                                                     />
                                                 </TableCell>
-                                                <TableCell>
+                                                <TableCell className="min-w-0">
                                                     {coachLocation(coach) ? (
-                                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
                                                             <MapPinned className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                                                            <span>
+                                                            <span className="truncate">
                                                                 {coachLocation(
                                                                     coach,
                                                                 )}
@@ -1276,37 +1339,14 @@ export default function CoachesIndex({
                                                         </div>
                                                     ) : null}
                                                 </TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {coach.coach_status ? (
-                                                        <Badge
-                                                            variant="outline"
-                                                            className="inline-flex gap-1"
-                                                        >
-                                                            <ShieldCheck className="h-3 w-3" />
-                                                            {t(
-                                                                coach.coach_status,
-                                                            )}
-                                                        </Badge>
-                                                    ) : null}
-                                                </TableCell>
                                                 <TableCell className="hidden lg:table-cell">
-                                                    <div className="min-w-48 space-y-1.5 text-sm">
+                                                    <div className="min-w-0 text-sm">
                                                         {coach.mobile ? (
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex min-w-0 items-center gap-2">
                                                                 <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                                                                <span className="font-medium">
+                                                                <span className="truncate font-medium">
                                                                     {
                                                                         coach.mobile
-                                                                    }
-                                                                </span>
-                                                            </div>
-                                                        ) : null}
-                                                        {coach.email ? (
-                                                            <div className="flex items-center gap-2 text-muted-foreground">
-                                                                <Mail className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
-                                                                <span>
-                                                                    {
-                                                                        coach.email
                                                                     }
                                                                 </span>
                                                             </div>
@@ -1315,7 +1355,7 @@ export default function CoachesIndex({
                                                 </TableCell>
                                                 <TableCell>
                                                     {coach.nis_certified ? (
-                                                        <div className="flex min-w-40 flex-wrap gap-1.5">
+                                                        <div className="flex min-w-0 flex-wrap gap-1.5">
                                                             <span className="inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-2 py-1 text-xs font-medium text-violet-700 dark:text-violet-300">
                                                                 <ShieldCheck className="h-3.5 w-3.5" />
                                                                 {t(
@@ -1325,7 +1365,7 @@ export default function CoachesIndex({
                                                         </div>
                                                     ) : null}
                                                 </TableCell>
-                                                <TableCell className="sticky right-0 z-10 w-0 bg-background text-right group-hover:bg-muted/30">
+                                                <TableCell className="sticky right-0 z-10 w-[96px] bg-background text-right group-hover:bg-muted/30">
                                                     <div className="flex items-center justify-end">
                                                         <Button
                                                             variant="ghost"

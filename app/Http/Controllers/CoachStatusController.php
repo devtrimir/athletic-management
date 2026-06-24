@@ -34,6 +34,6 @@ class CoachStatusController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Status updated.')]);
 
-        return to_route('coaches.show', $coach);
+        return to_route('coaches.status', $coach);
     }
 }

@@ -6,9 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Coaches\StoreCoachRequest;
 use App\Http\Requests\Coaches\UpdateCoachRequest;
-use App\Http\Resources\CoachAliasResource;
-use App\Http\Resources\CoachResource;
-use App\Http\Resources\CoachStatusHistoryResource;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\Designation;
@@ -18,7 +15,7 @@ use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
 use App\Models\Unit;
-use App\Services\AuditLogBuilder;
+use App\Support\Coaches\CoachProfileData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -227,8 +224,13 @@ class CoachController extends Controller
     {
         Gate::authorize('viewAny', Coach::class);
 
-        $coaches = QueryBuilder::for(Coach::class)
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+        $statusScope = $this->statusScopeFromFilters($filters);
+
+        $coaches = QueryBuilder::for($this->coachStatusScopeQuery($statusScope))
             ->allowedFilters([
+                AllowedFilter::callback('status_scope', fn (Builder $query, mixed $value): Builder => $this->filterByStatusScope($query, (string) $value)),
                 AllowedFilter::exact('nis_certified'),
                 AllowedFilter::exact('blood_group'),
                 AllowedFilter::exact('district_id'),
@@ -306,7 +308,12 @@ class CoachController extends Controller
 
         return Inertia::render('coaches/index', [
             'coaches' => $coaches,
-            'filters' => $request->query('filter', []),
+            'filters' => [
+                'status_scope' => $statusScope,
+                ...$filters,
+            ],
+            'activeCoachCount' => $this->coachStatusScopeQuery('active')->count(),
+            'inactiveCoachCount' => $this->coachStatusScopeQuery('inactive')->count(),
             'sports' => Sport::select(['id', 'name'])
                 ->where('organization_id', $request->user()->organization_id)
                 ->orderBy('name')
@@ -326,6 +333,29 @@ class CoachController extends Controller
             'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
         ]);
+    }
+
+    private function filterByStatusScope(Builder $query, string $value): Builder
+    {
+        return match ($value) {
+            'inactive' => $query->whereDoesntHave('activeCurrentSessionAssignments'),
+            default => $query->whereHas('activeCurrentSessionAssignments'),
+        };
+    }
+
+    private function coachStatusScopeQuery(string $scope): Builder
+    {
+        $query = Coach::query();
+
+        return $this->filterByStatusScope($query, $scope);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function statusScopeFromFilters(array $filters): string
+    {
+        return ($filters['status_scope'] ?? null) === 'inactive' ? 'inactive' : 'active';
     }
 
     public function create(Request $request): Response
@@ -376,49 +406,11 @@ class CoachController extends Controller
         return to_route('coaches.show', $coach);
     }
 
-    public function show(Coach $coach, AuditLogBuilder $auditLogBuilder): Response
+    public function show(Coach $coach, CoachProfileData $profileData): Response
     {
         Gate::authorize('view', $coach);
 
-        $coach->loadMissing([
-            'district:id,name',
-            'unit:id,name,district_id',
-            'nisMaster:id,kind,code,name,short_name',
-            'tierMaster:id,code,label_hi,label_en,weight',
-            'rankMaster:id,code,name,short_name',
-            'designationMaster:id,code,name,short_name',
-            'aliases:id,coach_id,alias,source',
-            'statusHistory' => fn ($q) => $q
-                ->with('recorder:id,name')
-                ->orderByDesc('effective_on')
-                ->orderByDesc('id'),
-            'certifications:id,coach_id,name,certificate_type,issuer,issued_at,expired_at,attachment_path,metadata',
-            'assignmentHistory' => fn ($q) => $q
-                ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
-                ->orderByDesc('is_current')
-                ->orderByDesc('assigned_at')
-                ->orderByDesc('id'),
-            'sports' => fn ($q) => $q->withPivot(['is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes']),
-        ]);
-
-        return Inertia::render('coaches/show', [
-            'coach' => (new CoachResource($coach))->resolve(),
-            'coachTeams' => Inertia::defer(fn () => $coach->assignmentHistory
-                ->map(fn (CoachAssignment $ca) => [
-                    'id' => $ca->id,
-                    'role' => $ca->role,
-                    'is_current' => (bool) $ca->is_current,
-                    'assigned_at' => $ca->assigned_at?->toDateTimeString(),
-                    'removed_at' => $ca->removed_at?->toDateTimeString(),
-                    'notes' => $ca->notes,
-                    'team' => $ca->team ? ['id' => $ca->team->id, 'name' => $ca->team->name] : null,
-                    'sport' => $ca->team?->sport ? ['id' => $ca->team->sport->id, 'name' => $ca->team->sport->name] : null,
-                    'session' => $ca->session ? ['id' => $ca->session->id, 'name' => $ca->session->name] : null,
-                ])),
-            'aliases' => Inertia::defer(fn () => CoachAliasResource::collection($coach->aliases)->resolve()),
-            'statusHistory' => Inertia::defer(fn () => CoachStatusHistoryResource::collection($coach->statusHistory)->resolve()),
-            'auditLog' => Inertia::defer(fn () => $auditLogBuilder->forCoach($coach)),
-        ]);
+        return Inertia::render('coaches/show', $profileData->overview($coach));
     }
 
     public function edit(Coach $coach, Request $request): Response

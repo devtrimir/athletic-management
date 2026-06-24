@@ -10,6 +10,7 @@ use App\Observers\AuditObserver;
 use Database\Factories\CoachFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collections\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -180,6 +181,15 @@ class Coach extends Model
         return $this->hasMany(CoachAssignment::class)->current();
     }
 
+    /** @return HasMany<CoachAssignment, $this> */
+    public function activeCurrentSessionAssignments(): HasMany
+    {
+        return $this->currentAssignments()
+            ->whereHas('team', fn (Builder $query) => $query
+                ->where('is_active', true)
+                ->whereHas('session', fn (Builder $sessionQuery) => $sessionQuery->where('is_current', true)));
+    }
+
     /** @return HasOne<CoachAssignment, $this> */
     public function currentAssignment(): HasOne
     {
@@ -212,5 +222,10 @@ class Coach extends Model
     public function getActiveAssignmentAttribute(): ?CoachAssignment
     {
         return $this->currentAssignment;
+    }
+
+    public function hasActiveCurrentSessionTeamAssignment(): bool
+    {
+        return $this->activeCurrentSessionAssignments()->exists();
     }
 }

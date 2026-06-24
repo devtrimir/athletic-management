@@ -58,7 +58,7 @@ test('coach alias can be added and searched', function () {
             'alias' => 'पुराना नाम',
             'source' => 'legacy',
         ])
-        ->assertRedirect(route('coaches.show', $coach));
+        ->assertRedirect(route('coaches.aliases', $coach));
 
     $this->assertDatabaseHas('coach_aliases', [
         'coach_id' => $coach->id,
@@ -85,7 +85,7 @@ test('coach status change writes history and updates current status', function (
             'effective_on' => '2026-06-17',
             'reason' => 'Pending inquiry',
         ])
-        ->assertRedirect(route('coaches.show', $coach));
+        ->assertRedirect(route('coaches.status', $coach));
 
     $this->assertDatabaseHas('coach_status_histories', [
         'coach_id' => $coach->id,

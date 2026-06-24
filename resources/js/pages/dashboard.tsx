@@ -29,8 +29,7 @@ type Stats = {
         by_gender: Record<string, number>;
     };
     coaches?: {
-        total: number;
-        linked: number;
+        active: number;
     };
     teams?: {
         total: number;
@@ -196,11 +195,11 @@ export default function Dashboard({ stats, permissions, currentSession }: Props)
                     )}
                     {permissions.viewCoaches && stats.coaches && (
                         <StatCard
-                            title={t('Total Coaches')}
-                            value={stats.coaches.total.toLocaleString('hi-IN')}
-                            sub={`${stats.coaches.linked.toLocaleString('hi-IN')} ${t('linked to members')}`}
+                            title={t('Active Coaches')}
+                            value={stats.coaches.active.toLocaleString('hi-IN')}
+                            sub={`${stats.coaches.active.toLocaleString('hi-IN')} ${t('Active')}`}
                             icon={UsersRound}
-                            href={CoachController.index.url()}
+                            href={`${CoachController.index.url()}?filter[status_scope]=active`}
                             color="#8b5cf6"
                         />
                     )}

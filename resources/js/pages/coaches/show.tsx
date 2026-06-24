@@ -16,12 +16,26 @@ import {
     destroy,
     edit as editCoach,
     index as coachesIndex,
+    show as coachOverview,
 } from '@/actions/App/Http/Controllers/CoachController';
 import { show as exportCoach } from '@/actions/App/Http/Controllers/CoachExportController';
 import {
     destroy as destroyCoachPhoto,
     store as storeCoachPhoto,
 } from '@/actions/App/Http/Controllers/CoachPhotoController';
+import {
+    achievements as coachAchievements,
+    aliases as coachAliases,
+    assignments as coachAssignments,
+    certifications as coachCertifications,
+    changelog as coachChangelog,
+    events as coachEvents,
+    media as coachMedia,
+    performance as coachPerformance,
+    promotions as coachPromotions,
+    sports as coachSports,
+    status as coachStatus,
+} from '@/actions/App/Http/Controllers/CoachProfileTabController';
 import { store as storeCoachStatus } from '@/actions/App/Http/Controllers/CoachStatusController';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
@@ -118,12 +132,42 @@ type Coach = {
     mobile: string | null;
     nis_certified: boolean;
     photo_path: string | null;
-    certifications: CoachCertification[];
-    sports: CoachSport[];
-    assignment_history: CoachAssignment[];
+    team_activity_status?: 'active' | 'inactive';
+    certifications?: CoachCertification[];
+    sports?: CoachSport[];
+    assignment_history?: CoachAssignment[];
     aliases?: CoachAlias[];
     status_history?: CoachStatusHistory[];
 };
+
+type CoachShowTab =
+    | 'overview'
+    | 'assignments'
+    | 'sports'
+    | 'certifications'
+    | 'events'
+    | 'achievements'
+    | 'performance'
+    | 'promotions'
+    | 'media'
+    | 'aliases'
+    | 'changelog'
+    | 'status';
+
+const COACH_SHOW_TABS: CoachShowTab[] = [
+    'overview',
+    'assignments',
+    'sports',
+    'certifications',
+    'events',
+    'achievements',
+    'performance',
+    'promotions',
+    'media',
+    'aliases',
+    'changelog',
+    'status',
+];
 
 const ALL_COLUMNS = [
     { key: 'pno', label: 'PNO' },
@@ -184,12 +228,14 @@ function genderLabel(
 
 export default function CoachesShow({
     coach,
+    activeTab: activeTabProp = 'overview',
     coachTeams,
     aliases,
     statusHistory,
     auditLog,
 }: {
     coach: Coach;
+    activeTab?: CoachShowTab;
     coachTeams?: CoachAssignment[];
     aliases?: CoachAlias[];
     statusHistory?: CoachStatusHistory[];
@@ -208,6 +254,9 @@ export default function CoachesShow({
         'download',
     );
     const photoInputRef = useRef<HTMLInputElement | null>(null);
+    const activeTab = COACH_SHOW_TABS.includes(activeTabProp)
+        ? activeTabProp
+        : 'overview';
 
     setLayoutProps({
         breadcrumbs: [
@@ -312,9 +361,13 @@ export default function CoachesShow({
         </div>
     );
 
-    const assignmentRows = coachTeams ?? coach.assignment_history ?? [];
+    const assignmentRows =
+        activeTab === 'assignments'
+            ? (coachTeams ?? coach.assignment_history ?? [])
+            : [];
     const aliasRows = aliases ?? coach.aliases ?? [];
     const statusRows = statusHistory ?? coach.status_history ?? [];
+    const teamActivityStatus = coach.team_activity_status ?? 'inactive';
 
     return (
         <>
@@ -398,15 +451,22 @@ export default function CoachesShow({
                                             {t('Not NIS Certified')}
                                         </Badge>
                                     )}
+                                    <Badge
+                                        variant={
+                                            teamActivityStatus === 'active'
+                                                ? 'default'
+                                                : 'outline'
+                                        }
+                                    >
+                                        {teamActivityStatus === 'active'
+                                            ? t('Active')
+                                            : t('Inactive')}
+                                    </Badge>
                                     {coach.coach_status ? (
                                         <Badge
-                                            variant={
-                                                BASE_STATUS_STYLES[
-                                                    coach.coach_status
-                                                ] ?? 'outline'
-                                            }
+                                            variant="outline"
                                         >
-                                            {t(coach.coach_status)}
+                                            {t('Profile')}: {t(coach.coach_status)}
                                         </Badge>
                                     ) : null}
                                     {coach.designation ? (
@@ -454,39 +514,67 @@ export default function CoachesShow({
                     </div>
                 </div>
 
-                <Tabs defaultValue="overview">
+                <Tabs value={activeTab}>
                     <TabsList className="flex-wrap justify-start overflow-x-visible">
-                        <TabsTrigger value="overview">
-                            {t('Overview')}
+                        <TabsTrigger value="overview" asChild>
+                            <Link href={coachOverview.url(coach)}>
+                                {t('Overview')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="assignments">
-                            {t('Teams')}
+                        <TabsTrigger value="assignments" asChild>
+                            <Link href={coachAssignments.url(coach)}>
+                                {t('Teams')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="sports">{t('Sports')}</TabsTrigger>
-                        <TabsTrigger value="certifications">
-                            {t('Certifications')}
+                        <TabsTrigger value="sports" asChild>
+                            <Link href={coachSports.url(coach)}>
+                                {t('Sports')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="events">
-                            {t('Coached Events')}
+                        <TabsTrigger value="certifications" asChild>
+                            <Link href={coachCertifications.url(coach)}>
+                                {t('Certifications')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="achievements">
-                            {t('Achievements')}
+                        <TabsTrigger value="events" asChild>
+                            <Link href={coachEvents.url(coach)}>
+                                {t('Coached Events')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="performance">
-                            {t('Performance')}
+                        <TabsTrigger value="achievements" asChild>
+                            <Link href={coachAchievements.url(coach)}>
+                                {t('Achievements')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="promotions">
-                            {t('Promotions, Rewards and Benefits')}
+                        <TabsTrigger value="performance" asChild>
+                            <Link href={coachPerformance.url(coach)}>
+                                {t('Performance')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="media">{t('Media')}</TabsTrigger>
-                        <TabsTrigger value="aliases">
-                            {t('Aliases')}
+                        <TabsTrigger value="promotions" asChild>
+                            <Link href={coachPromotions.url(coach)}>
+                                {t('Promotions, Rewards and Benefits')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="changelog">
-                            {t('Change log')}
+                        <TabsTrigger value="media" asChild>
+                            <Link href={coachMedia.url(coach)}>
+                                {t('Media')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="status">
-                            {t('Status history')}
+                        <TabsTrigger value="aliases" asChild>
+                            <Link href={coachAliases.url(coach)}>
+                                {t('Aliases')}
+                            </Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="changelog" asChild>
+                            <Link href={coachChangelog.url(coach)}>
+                                {t('Change log')}
+                            </Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="status" asChild>
+                            <Link href={coachStatus.url(coach)}>
+                                {t('Status history')}
+                            </Link>
                         </TabsTrigger>
                     </TabsList>
 
@@ -513,7 +601,13 @@ export default function CoachesShow({
                                     )}
                                     {detail(t('Address'), coach.address ?? '')}
                                     {detail(
-                                        t('Status'),
+                                        t('Team status'),
+                                        teamActivityStatus === 'active'
+                                            ? t('Active')
+                                            : t('Inactive'),
+                                    )}
+                                    {detail(
+                                        t('Profile status'),
                                         coach.coach_status ?? '',
                                     )}
                                     {detail(t('PNO'), coach.pno ?? '')}
@@ -531,7 +625,7 @@ export default function CoachesShow({
 
                     <TabsContent value="certifications">
                         <div className="rounded-xl border bg-card">
-                            {coach.certifications.length === 0 ? (
+                            {(coach.certifications ?? []).length === 0 ? (
                                 <p className="p-4 text-sm text-muted-foreground">
                                     {t('No certifications yet.')}
                                 </p>
@@ -552,7 +646,7 @@ export default function CoachesShow({
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {coach.certifications.map(
+                                        {(coach.certifications ?? []).map(
                                             (certification) => (
                                                 <TableRow
                                                     key={certification.id}
@@ -591,7 +685,7 @@ export default function CoachesShow({
 
                     <TabsContent value="sports">
                         <div className="rounded-xl border bg-card">
-                            {coach.sports.length === 0 ? (
+                            {(coach.sports ?? []).length === 0 ? (
                                 <p className="p-4 text-sm text-muted-foreground">
                                     {t('No sports specialization yet.')}
                                 </p>
@@ -609,7 +703,7 @@ export default function CoachesShow({
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {coach.sports.map((sport) => (
+                                        {(coach.sports ?? []).map((sport) => (
                                             <TableRow key={sport.id}>
                                                 <TableCell className="font-medium">
                                                     {sport.name}
