@@ -9,10 +9,6 @@ import { ArrowLeft, Camera, Download, Printer, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react';
 import {
-    destroy as destroyCoachAlias,
-    store as storeCoachAlias,
-} from '@/actions/App/Http/Controllers/CoachAliasController';
-import {
     destroy,
     edit as editCoach,
     index as coachesIndex,
@@ -25,7 +21,6 @@ import {
 } from '@/actions/App/Http/Controllers/CoachPhotoController';
 import {
     achievements as coachAchievements,
-    aliases as coachAliases,
     assignments as coachAssignments,
     certifications as coachCertifications,
     changelog as coachChangelog,
@@ -103,12 +98,6 @@ type CoachAssignment = {
     notes: string | null;
 };
 
-type CoachAlias = {
-    id: number;
-    alias: string;
-    source: string;
-};
-
 type CoachStatusHistory = {
     id: number;
     status: string;
@@ -136,7 +125,6 @@ type Coach = {
     certifications?: CoachCertification[];
     sports?: CoachSport[];
     assignment_history?: CoachAssignment[];
-    aliases?: CoachAlias[];
     status_history?: CoachStatusHistory[];
 };
 
@@ -150,7 +138,6 @@ type CoachShowTab =
     | 'performance'
     | 'promotions'
     | 'media'
-    | 'aliases'
     | 'changelog'
     | 'status';
 
@@ -164,7 +151,6 @@ const COACH_SHOW_TABS: CoachShowTab[] = [
     'performance',
     'promotions',
     'media',
-    'aliases',
     'changelog',
     'status',
 ];
@@ -202,14 +188,6 @@ const COACH_STATUSES = [
     'DECEASED',
     'SUSPENDED',
 ] as const;
-const ALIAS_SOURCES = [
-    'manual',
-    'legacy',
-    'krutidev',
-    'spelling_variant',
-    'rank_prefixed',
-] as const;
-
 function genderLabel(
     gender: string | null | undefined,
     t: (key: string) => string,
@@ -230,14 +208,12 @@ export default function CoachesShow({
     coach,
     activeTab: activeTabProp = 'overview',
     coachTeams,
-    aliases,
     statusHistory,
     auditLog,
 }: {
     coach: Coach;
     activeTab?: CoachShowTab;
     coachTeams?: CoachAssignment[];
-    aliases?: CoachAlias[];
     statusHistory?: CoachStatusHistory[];
     auditLog?: AuditEntry[];
 }) {
@@ -246,7 +222,6 @@ export default function CoachesShow({
     const [exportOpen, setExportOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [statusOpen, setStatusOpen] = useState(false);
-    const [aliasForm, setAliasForm] = useState({ alias: '', source: 'manual' });
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
@@ -337,21 +312,6 @@ export default function CoachesShow({
         router.delete(destroyCoachPhoto.url(coach), { preserveScroll: true });
     }
 
-    function handleAliasSubmit(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault();
-
-        router.post(storeCoachAlias.url(coach), aliasForm, {
-            preserveScroll: true,
-            onSuccess: () => setAliasForm({ alias: '', source: 'manual' }),
-        });
-    }
-
-    function handleAliasDelete(alias: CoachAlias) {
-        router.delete(destroyCoachAlias.url({ coach, alias }), {
-            preserveScroll: true,
-        });
-    }
-
     const detail = (label: string, value: string) => (
         <div className="grid gap-1">
             <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -365,7 +325,6 @@ export default function CoachesShow({
         activeTab === 'assignments'
             ? (coachTeams ?? coach.assignment_history ?? [])
             : [];
-    const aliasRows = aliases ?? coach.aliases ?? [];
     const statusRows = statusHistory ?? coach.status_history ?? [];
     const teamActivityStatus = coach.team_activity_status ?? 'inactive';
 
@@ -553,17 +512,12 @@ export default function CoachesShow({
                         </TabsTrigger>
                         <TabsTrigger value="promotions" asChild>
                             <Link href={coachPromotions.url(coach)}>
-                                {t('Promotions, Rewards and Benefits')}
+                                {t('Promotions & Rewards')}
                             </Link>
                         </TabsTrigger>
                         <TabsTrigger value="media" asChild>
                             <Link href={coachMedia.url(coach)}>
                                 {t('Media')}
-                            </Link>
-                        </TabsTrigger>
-                        <TabsTrigger value="aliases" asChild>
-                            <Link href={coachAliases.url(coach)}>
-                                {t('Aliases')}
                             </Link>
                         </TabsTrigger>
                         <TabsTrigger value="changelog" asChild>
@@ -841,7 +795,7 @@ export default function CoachesShow({
 
                     <TabsContent value="promotions">
                         <EmptyCoachTab
-                            title={t('Promotions, Rewards and Benefits')}
+                            title={t('Promotions & Rewards')}
                             message={t('No coach promotions or rewards recorded yet.')}
                         />
                     </TabsContent>
@@ -851,116 +805,6 @@ export default function CoachesShow({
                             title={t('Media')}
                             message={t('No media files recorded yet.')}
                         />
-                    </TabsContent>
-
-                    <TabsContent value="aliases">
-                        <div className="space-y-4 rounded-xl border bg-card p-6">
-                            <form
-                                className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]"
-                                onSubmit={handleAliasSubmit}
-                            >
-                                <div className="grid gap-1.5">
-                                    <Label htmlFor="coach-alias">
-                                        {t('Alias')}
-                                    </Label>
-                                    <Input
-                                        id="coach-alias"
-                                        value={aliasForm.alias}
-                                        onChange={(event) =>
-                                            setAliasForm((current) => ({
-                                                ...current,
-                                                alias: event.target.value,
-                                            }))
-                                        }
-                                        placeholder={t(
-                                            'Old name or spelling variant',
-                                        )}
-                                    />
-                                </div>
-                                <div className="grid gap-1.5">
-                                    <Label>{t('Source')}</Label>
-                                    <Select
-                                        value={aliasForm.source}
-                                        onValueChange={(value) =>
-                                            setAliasForm((current) => ({
-                                                ...current,
-                                                source: value,
-                                            }))
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {ALIAS_SOURCES.map((source) => (
-                                                <SelectItem
-                                                    key={source}
-                                                    value={source}
-                                                >
-                                                    {t(source)}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex items-end">
-                                    <Button
-                                        type="submit"
-                                        disabled={aliasForm.alias.trim() === ''}
-                                    >
-                                        {t('Add alias')}
-                                    </Button>
-                                </div>
-                            </form>
-
-                            <Deferred
-                                data="aliases"
-                                fallback={
-                                    <div className="space-y-2">
-                                        {[1, 2].map((n) => (
-                                            <div
-                                                key={n}
-                                                className="h-10 w-full animate-pulse rounded bg-muted"
-                                            />
-                                        ))}
-                                    </div>
-                                }
-                            >
-                                <div className="divide-y rounded-md border">
-                                    {aliasRows.length === 0 ? (
-                                        <p className="p-4 text-sm text-muted-foreground">
-                                            {t('No aliases yet.')}
-                                        </p>
-                                    ) : (
-                                        aliasRows.map((alias) => (
-                                            <div
-                                                key={alias.id}
-                                                className="flex items-center justify-between gap-3 p-3"
-                                            >
-                                                <div>
-                                                    <p className="text-sm font-medium">
-                                                        {alias.alias}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {t(alias.source)}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        handleAliasDelete(alias)
-                                                    }
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </Deferred>
-                        </div>
                     </TabsContent>
 
                     <TabsContent value="changelog">
