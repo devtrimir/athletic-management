@@ -8,7 +8,10 @@ use App\Http\Requests\Events\StoreEventRequest;
 use App\Http\Requests\Events\UpdateEventRequest;
 use App\Models\Event;
 use App\Models\Sport;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\Tournament;
+use App\Models\TournamentTier;
 use App\Services\Tournaments\TournamentEventPayload;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
@@ -75,6 +78,17 @@ class EventController extends Controller
             ],
             'sports' => $sports,
             'eventVariants' => $this->eventVariants($tournament),
+            'participantFilterOptions' => [
+                'levels' => TournamentTier::query()
+                    ->select(['code', 'label_hi', 'label_en', 'weight'])
+                    ->orderByDesc('weight')
+                    ->get()
+                    ->map(fn (TournamentTier $tier): array => [
+                        'value' => $tier->code,
+                        'label' => $tier->label,
+                    ]),
+            ],
+            'participantCandidates' => Inertia::defer(fn () => $this->participantCandidates($tournament, $event)),
             'participations' => Inertia::defer(fn () => $event->participations()
                 ->with(['member:id,full_name,pno', 'achievement'])
                 ->withCount('media')
@@ -96,6 +110,54 @@ class EventController extends Controller
                     ] : null,
                 ])),
         ]);
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function participantCandidates(Tournament $tournament, Event $event): Collection
+    {
+        $existingMemberIds = $event->participations()->pluck('member_id');
+        $gender = $this->candidateGender($event->gender_class);
+
+        return Team::query()
+            ->select(['id', 'name', 'sport_id', 'session_id', 'is_active'])
+            ->where('organization_id', $tournament->organization_id)
+            ->where('session_id', $tournament->session_id)
+            ->where('sport_id', $event->sport_id)
+            ->where('is_active', true)
+            ->with(['teamMembers' => fn ($query) => $query
+                ->select(['id', 'team_id', 'member_id', 'session_id', 'role', 'left_on'])
+                ->whereNull('left_on')
+                ->whereNotIn('member_id', $existingMemberIds)
+                ->when($gender !== null, fn ($query) => $query->whereHas(
+                    'member',
+                    fn ($query) => $query->where('gender', $gender),
+                ))
+                ->with(['member:id,full_name,pno,gender,player_category,player_level,current_status'])
+                ->orderByRaw("CASE role WHEN 'CAPTAIN' THEN 0 WHEN 'PLAYER' THEN 1 WHEN 'RESERVE' THEN 2 ELSE 3 END")
+                ->orderBy('id')])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Team $team): array => [
+                'id' => $team->id,
+                'name' => $team->name,
+                'members' => $team->teamMembers
+                    ->filter(fn (TeamMember $teamMember): bool => $teamMember->member !== null)
+                    ->map(fn (TeamMember $teamMember): array => [
+                        'team_member_id' => $teamMember->id,
+                        'team_id' => $team->id,
+                        'role' => $teamMember->role,
+                        'id' => $teamMember->member->id,
+                        'full_name' => $teamMember->member->full_name,
+                        'pno' => $teamMember->member->pno,
+                        'gender' => $teamMember->member->gender,
+                        'player_category' => $teamMember->member->player_category,
+                        'player_level' => $teamMember->member->player_level,
+                        'current_status' => $teamMember->member->current_status,
+                    ])
+                    ->values(),
+            ]);
     }
 
     public function update(UpdateEventRequest $request, Tournament $tournament, Event $event, TournamentEventPayload $payload): RedirectResponse
@@ -196,6 +258,15 @@ class EventController extends Controller
             'is_team_based' => $variant->is_team_based,
             'is_medal_event' => $variant->is_medal_event,
         ];
+    }
+
+    private function candidateGender(string $genderClass): ?string
+    {
+        return match ($genderClass) {
+            'M' => 'M',
+            'F' => 'F',
+            default => null,
+        };
     }
 
     private function genderClass(?string $code): string

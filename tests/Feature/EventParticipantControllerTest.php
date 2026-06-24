@@ -11,6 +11,8 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sport;
 use App\Models\SportSession;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\User;
@@ -74,6 +76,31 @@ function epMember(User $user): Member
     return Member::factory()->create(['organization_id' => $user->organization_id]);
 }
 
+function epTeam(Tournament $tournament, Event $event): Team
+{
+    return Team::factory()->create([
+        'organization_id' => $tournament->organization_id,
+        'sport_id' => $event->sport_id,
+        'session_id' => $tournament->session_id,
+        'is_active' => true,
+    ]);
+}
+
+function epRosterMember(Tournament $tournament, Event $event, User $user): array
+{
+    $team = epTeam($tournament, $event);
+    $member = epMember($user);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $tournament->session_id,
+        'left_on' => null,
+    ]);
+
+    return [$member, $team];
+}
+
 function epRoute(Tournament $tournament, Event $event): string
 {
     return route('tournaments.events.participants.store', [$tournament, $event]);
@@ -94,12 +121,12 @@ test('user without tournaments.update gets 403 on participants store', function 
     $user = epUser('tournaments.view');
     $tournament = epTournament($user);
     $event = epEvent($tournament, $user);
-    $member = epMember($user);
+    [$member, $team] = epRosterMember($tournament, $event, $user);
 
     $this->actingAs($user)
         ->post(epRoute($tournament, $event), [
             'participants' => [
-                ['member_id' => $member->id],
+                ['member_id' => $member->id, 'team_id' => $team->id],
             ],
         ])
         ->assertForbidden();
@@ -109,13 +136,14 @@ test('store creates participation and achievement', function () {
     $user = epUser('tournaments.update');
     $tournament = epTournament($user);
     $event = epEvent($tournament, $user);
-    $member = epMember($user);
+    [$member, $team] = epRosterMember($tournament, $event, $user);
 
     $this->actingAs($user)
         ->post(epRoute($tournament, $event), [
             'participants' => [
                 [
                     'member_id' => $member->id,
+                    'team_id' => $team->id,
                     'position' => 1,
                     'medal_type' => 'GOLD',
                     'medal_position' => 1,
@@ -131,6 +159,7 @@ test('store creates participation and achievement', function () {
 
     expect($participation)->not->toBeNull()
         ->and($participation->position)->toBe(1)
+        ->and($participation->team_id)->toBe($team->id)
         ->and($participation->session_id)->toBe($tournament->session_id);
 
     $achievement = Achievement::where('participation_id', $participation->id)->first();
@@ -145,12 +174,12 @@ test('store without medal creates participation but no achievement', function ()
     $user = epUser('tournaments.update');
     $tournament = epTournament($user);
     $event = epEvent($tournament, $user);
-    $member = epMember($user);
+    [$member, $team] = epRosterMember($tournament, $event, $user);
 
     $this->actingAs($user)
         ->post(epRoute($tournament, $event), [
             'participants' => [
-                ['member_id' => $member->id, 'position' => 2],
+                ['member_id' => $member->id, 'team_id' => $team->id, 'position' => 2],
             ],
         ])
         ->assertRedirect();
@@ -167,11 +196,11 @@ test('re-submitting same member updates participation and achievement', function
     $user = epUser('tournaments.update');
     $tournament = epTournament($user);
     $event = epEvent($tournament, $user);
-    $member = epMember($user);
+    [$member, $team] = epRosterMember($tournament, $event, $user);
 
     $payload = fn (string $medal, int $pos) => [
         'participants' => [
-            ['member_id' => $member->id, 'position' => $pos, 'medal_type' => $medal],
+            ['member_id' => $member->id, 'team_id' => $team->id, 'position' => $pos, 'medal_type' => $medal],
         ],
     ];
 
@@ -260,15 +289,54 @@ test('store rejects invalid medal_type', function () {
     $user = epUser('tournaments.update');
     $tournament = epTournament($user);
     $event = epEvent($tournament, $user);
-    $member = epMember($user);
+    [$member, $team] = epRosterMember($tournament, $event, $user);
 
     $this->actingAs($user)
         ->post(epRoute($tournament, $event), [
             'participants' => [
-                ['member_id' => $member->id, 'medal_type' => 'PLATINUM'],
+                ['member_id' => $member->id, 'team_id' => $team->id, 'medal_type' => 'PLATINUM'],
             ],
         ])
         ->assertSessionHasErrors('participants.0.medal_type');
+});
+
+test('store rejects member outside active event roster', function () {
+    $user = epUser('tournaments.update');
+    $tournament = epTournament($user);
+    $event = epEvent($tournament, $user);
+    $member = epMember($user);
+    $team = epTeam($tournament, $event);
+
+    $this->actingAs($user)
+        ->post(epRoute($tournament, $event), [
+            'participants' => [
+                ['member_id' => $member->id, 'team_id' => $team->id],
+            ],
+        ])
+        ->assertSessionHasErrors('participants.0.member_id');
+
+    expect(Participation::where('event_id', $event->id)->count())->toBe(0);
+});
+
+test('store accepts multiple eligible roster members and persists team ids', function () {
+    $user = epUser('tournaments.update');
+    $tournament = epTournament($user);
+    $event = epEvent($tournament, $user);
+    [$firstMember, $firstTeam] = epRosterMember($tournament, $event, $user);
+    [$secondMember, $secondTeam] = epRosterMember($tournament, $event, $user);
+
+    $this->actingAs($user)
+        ->post(epRoute($tournament, $event), [
+            'participants' => [
+                ['member_id' => $firstMember->id, 'team_id' => $firstTeam->id],
+                ['member_id' => $secondMember->id, 'team_id' => $secondTeam->id],
+            ],
+        ])
+        ->assertRedirect(route('tournaments.events.show', [$tournament, $event]));
+
+    expect(Participation::where('event_id', $event->id)->count())->toBe(2)
+        ->and(Participation::where('member_id', $firstMember->id)->value('team_id'))->toBe($firstTeam->id)
+        ->and(Participation::where('member_id', $secondMember->id)->value('team_id'))->toBe($secondTeam->id);
 });
 
 test('store returns 404 when event belongs to a different tournament', function () {
@@ -290,13 +358,13 @@ test('duplicate member_id in same batch returns 422', function () {
     $user = epUser('tournaments.update');
     $tournament = epTournament($user);
     $event = epEvent($tournament, $user);
-    $member = epMember($user);
+    [$member, $team] = epRosterMember($tournament, $event, $user);
 
     $this->actingAs($user)
         ->post(epRoute($tournament, $event), [
             'participants' => [
-                ['member_id' => $member->id, 'position' => 1],
-                ['member_id' => $member->id, 'position' => 2],
+                ['member_id' => $member->id, 'team_id' => $team->id, 'position' => 1],
+                ['member_id' => $member->id, 'team_id' => $team->id, 'position' => 2],
             ],
         ])
         ->assertSessionHasErrors('participants.0.member_id');

@@ -1,5 +1,5 @@
 import { Deferred, Head, Link, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Camera, Images, Info, List, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Camera, Check, Images, Info, List, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import {
     destroy as destroyEvent,
@@ -14,11 +14,10 @@ import { index as tournamentsIndex, show as showTournament } from '@/actions/App
 import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
-import { MemberPicker } from '@/components/member-picker';
-import type { MemberOption } from '@/components/member-picker';
 import { ParticipationMediaSheet } from '@/components/members/participation-media-sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -33,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { cn } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,6 +92,34 @@ type ParticipationRow = {
     } | null;
 };
 
+type ParticipantCandidate = {
+    team_member_id: number;
+    team_id: number;
+    role: string;
+    id: number;
+    full_name: string;
+    pno: string | null;
+    gender: string;
+    player_category: string;
+    player_level: string;
+    current_status: string;
+};
+
+type ParticipantCandidateTeam = {
+    id: number;
+    name: string;
+    members: ParticipantCandidate[];
+};
+
+type FilterOption = {
+    value: string;
+    label: string;
+};
+
+type ParticipantFilterOptions = {
+    levels: FilterOption[];
+};
+
 type EventForm = {
     event_mode: 'official' | 'provisional';
     sport_event_variant_id: string;
@@ -115,9 +143,10 @@ type ParticipantForm = {
 
 const MEDAL_TYPES = ['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const;
 const GENDER_CLASSES = ['M', 'F', 'MIXED', 'OPEN'] as const;
-const PLAYER_CATEGORIES = ['GD', 'SPORTS_QUOTA'] as const;
-const PLAYER_LEVELS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'] as const;
-const PLAYER_STATUSES = ['ACTIVE', 'RESIGNED', 'DISMISSED'] as const;
+const PLAYER_CATEGORY_OPTIONS: FilterOption[] = [
+    { value: 'GD', label: 'GD' },
+    { value: 'SPORTS_QUOTA', label: 'Sports Quota' },
+];
 
 const MEDAL_CLASSES: Record<string, string> = {
     GOLD: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -156,6 +185,15 @@ function eventVariantOption(variant: EventVariant, t: (key: string) => string) {
         group: [variant.sport_name, variant.format ?? t('Events')].filter(Boolean).join(' / '),
         description: details.join(' · '),
     };
+}
+
+function countBy<T>(items: T[], keyFor: (item: T) => string): Record<string, number> {
+    return items.reduce<Record<string, number>>((counts, item) => {
+        const key = keyFor(item);
+        counts[key] = (counts[key] ?? 0) + 1;
+
+        return counts;
+    }, {});
 }
 
 // ---------------------------------------------------------------------------
@@ -564,59 +602,54 @@ function ParticipantFormFields({
     );
 }
 
-// ---------------------------------------------------------------------------
-// Filter chip (inline Select pill with clear button)
-// ---------------------------------------------------------------------------
-
-function FilterChip({
-    active,
+function FilterDropdown({
     label,
-    options,
     value,
-    onSelect,
-    onClear,
+    options,
+    counts,
+    onChange,
 }: {
-    active: boolean;
     label: string;
-    options: readonly string[];
     value: string;
-    onSelect: (v: string) => void;
-    onClear: () => void;
+    options: FilterOption[];
+    counts?: Record<string, number>;
+    onChange: (value: string) => void;
 }) {
     const { t } = useTranslation();
+    const selected = options.find((option) => option.value === value);
 
     return (
-        <div className="flex items-center gap-0.5">
-            <Select value={value || '__all__'} onValueChange={(v) => onSelect(v === '__all__' ? '' : v)}>
-                <SelectTrigger
-                    className={`h-7 gap-1 rounded-full border px-3 text-xs font-medium ${
-                        active
-                            ? 'border-primary/40 bg-primary/8 text-primary'
-                            : 'border-input bg-background text-muted-foreground'
-                    }`}
-                >
-                    <SelectValue placeholder={label} />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="__all__">{label}</SelectItem>
-                    {options.map((o) => (
-                        <SelectItem key={o} value={o}>
-                            {t(o)}
+        <Select value={value || '__all__'} onValueChange={(next) => onChange(next === '__all__' ? '' : next)}>
+            <SelectTrigger
+                className={cn(
+                    'h-10 min-w-40 gap-2 rounded-md border px-3 text-sm',
+                    value
+                        ? 'border-sky-300 bg-sky-50 text-sky-950 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100'
+                        : 'bg-background text-muted-foreground',
+                )}
+            >
+                <SelectValue placeholder={label}>{selected ? selected.label : label}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="__all__">
+                    <div className="flex min-w-40 items-center justify-between gap-3">
+                        <span>{t('All')} {label}</span>
+                    </div>
+                </SelectItem>
+                {options.map((option) => {
+                    const count = counts?.[option.value] ?? 0;
+
+                    return (
+                        <SelectItem key={option.value} value={option.value}>
+                            <div className="flex min-w-40 items-center justify-between gap-3">
+                                <span>{option.label}</span>
+                                {count > 0 && <span className="text-muted-foreground text-xs">{count}</span>}
+                            </div>
                         </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            {active && (
-                <button
-                    type="button"
-                    onClick={onClear}
-                    className="text-muted-foreground hover:text-foreground ml-0.5"
-                    aria-label={t('Clear filter')}
-                >
-                    <X className="h-3 w-3" />
-                </button>
-            )}
-        </div>
+                    );
+                })}
+            </SelectContent>
+        </Select>
     );
 }
 
@@ -629,52 +662,85 @@ function AddParticipantDialog({
     onOpenChange,
     tournament,
     event,
+    participantCandidates,
+    participantFilterOptions,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     tournament: TournamentRef;
     event: EventProp;
+    participantCandidates?: ParticipantCandidateTeam[];
+    participantFilterOptions: ParticipantFilterOptions;
 }) {
     const { t } = useTranslation();
-    const [pickedMember, setPickedMember] = useState<MemberOption | null>(null);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [query, setQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterLevel, setFilterLevel] = useState('');
-    const [filterStatus, setFilterStatus] = useState('ACTIVE');
-
-    const { data, setData, errors, reset } = useForm<ParticipantForm>({
-        position: '',
-        medal_type: '',
-        remarks: '',
-    });
+    const { errors, reset } = useForm<Record<string, never>>({});
     const [submitting, setSubmitting] = useState(false);
 
-    const extraFilters: Record<string, string> = {};
+    const candidates = participantCandidates ?? [];
+    const candidatesLoading = participantCandidates === undefined;
+    const selectedIdSet = new Set(selectedIds);
+    const normalizedQuery = query.trim().toLowerCase();
+    const totalCandidates = candidates.reduce((total, team) => total + team.members.length, 0);
+    const visibleCandidateTeams = candidates
+        .map((team) => ({
+            ...team,
+            members: team.members.filter((member) => {
+                const matchesCategory = !filterCategory || member.player_category === filterCategory;
+                const matchesLevel = !filterLevel || member.player_level === filterLevel;
+                const searchable = [member.full_name, member.pno, member.role, member.player_category, member.player_level]
+                    .filter(Boolean)
+                    .join(' ')
+                    .toLowerCase();
 
-    if (filterCategory) {
-extraFilters.player_category = filterCategory;
-}
-
-    if (filterLevel) {
-extraFilters.player_level = filterLevel;
-}
-
-    if (filterStatus) {
-extraFilters.current_status = filterStatus;
-}
+                return matchesCategory && matchesLevel && (!normalizedQuery || searchable.includes(normalizedQuery));
+            }),
+        }))
+        .filter((team) => team.members.length > 0);
+    const visibleCandidates = visibleCandidateTeams.flatMap((team) => team.members);
+    const selectedCandidates = candidates.flatMap((team) => team.members).filter((member) => selectedIdSet.has(member.id));
+    const hasActiveFilters = Boolean(filterCategory || filterLevel || normalizedQuery);
+    const allVisibleSelected = visibleCandidates.length > 0 && visibleCandidates.every((member) => selectedIdSet.has(member.id));
+    const levelLabelByCode = new Map(participantFilterOptions.levels.map((option) => [option.value, option.label]));
+    const categoryCounts = countBy(candidates.flatMap((team) => team.members), (member) => member.player_category);
+    const levelCounts = countBy(candidates.flatMap((team) => team.members), (member) => member.player_level);
 
     function handleClose() {
         reset();
-        setPickedMember(null);
+        setSelectedIds([]);
+        setQuery('');
         setFilterCategory('');
         setFilterLevel('');
-        setFilterStatus('ACTIVE');
         onOpenChange(false);
+    }
+
+    function toggleCandidate(memberId: number) {
+        setSelectedIds((current) =>
+            current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId],
+        );
+    }
+
+    function selectVisibleCandidates() {
+        setSelectedIds((current) => Array.from(new Set([...current, ...visibleCandidates.map((member) => member.id)])));
+    }
+
+    function clearVisibleCandidates() {
+        const visibleIds = new Set(visibleCandidates.map((member) => member.id));
+
+        setSelectedIds((current) => current.filter((id) => !visibleIds.has(id)));
+    }
+
+    function removeSelectedCandidate(memberId: number) {
+        setSelectedIds((current) => current.filter((id) => id !== memberId));
     }
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
-        if (!pickedMember) {
+        if (selectedCandidates.length === 0) {
             return;
         }
 
@@ -682,14 +748,10 @@ extraFilters.current_status = filterStatus;
         router.post(
             storeParticipants.url({ tournament: tournament.id, event: event.id }),
             {
-                participants: [
-                    {
-                        member_id: pickedMember.id,
-                        position: data.position ? parseInt(data.position, 10) : null,
-                        medal_type: data.medal_type || null,
-                        remarks: data.remarks || null,
-                    },
-                ],
+                participants: selectedCandidates.map((member) => ({
+                    member_id: member.id,
+                    team_id: member.team_id,
+                })),
             },
             {
                 onSuccess: () => handleClose(),
@@ -699,70 +761,266 @@ extraFilters.current_status = filterStatus;
     }
 
     return (
-        <Dialog open={open} onOpenChange={(o) => {
- if (!o) {
-handleClose();
-}
-}}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>{t('Add participant')}</DialogTitle>
-                    <DialogDescription>{event.name}</DialogDescription>
+        <Dialog
+            open={open}
+            onOpenChange={(o) => {
+                if (!o) {
+                    handleClose();
+                }
+            }}
+        >
+            <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
+                <DialogHeader className="border-b px-5 py-4 pr-12">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                            <DialogTitle>{t('Add participants')}</DialogTitle>
+                            <DialogDescription className="truncate">{event.name}</DialogDescription>
+                        </div>
+                        <div className="mr-1 flex shrink-0 flex-wrap justify-end gap-1.5">
+                            {event.sport && <Badge variant="secondary">{event.sport.name}</Badge>}
+                            <Badge variant="outline">{t(event.gender_class)}</Badge>
+                        </div>
+                    </div>
                 </DialogHeader>
 
-                <form id="add-participant-form" onSubmit={handleSubmit} className="space-y-5">
-                    {/* Member picker with filter chips */}
-                    <div className="space-y-2">
-                        <Label>{t('Athlete')}</Label>
-                        <div className="flex flex-wrap gap-2">
-                            <FilterChip
-                                active={!!filterCategory}
-                                label={t('Category')}
-                                options={PLAYER_CATEGORIES}
-                                value={filterCategory}
-                                onSelect={setFilterCategory}
-                                onClear={() => setFilterCategory('')}
-                            />
-                            <FilterChip
-                                active={!!filterLevel}
-                                label={t('Level')}
-                                options={PLAYER_LEVELS}
-                                value={filterLevel}
-                                onSelect={setFilterLevel}
-                                onClear={() => setFilterLevel('')}
-                            />
-                            <FilterChip
-                                active={!!filterStatus}
-                                label={t('Status')}
-                                options={PLAYER_STATUSES}
-                                value={filterStatus}
-                                onSelect={setFilterStatus}
-                                onClear={() => setFilterStatus('')}
-                            />
+                <form id="add-participant-form" onSubmit={handleSubmit} className="flex max-h-[72vh] flex-col">
+                    <div className="space-y-3 border-b bg-muted/20 px-5 py-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="space-y-0.5">
+                                <Label>{t('Eligible roster')}</Label>
+                                <p className="text-muted-foreground text-xs">
+                                    {visibleCandidates.length} {t('shown')} · {totalCandidates}{' '}
+                                    {t(totalCandidates === 1 ? 'eligible athlete' : 'eligible athletes')}
+                                </p>
+                            </div>
+                            <div className="rounded-md border bg-background px-2.5 py-1.5 text-sm">
+                                <span className="font-semibold">{selectedCandidates.length}</span>{' '}
+                                <span className="text-muted-foreground">{t('selected')}</span>
+                            </div>
                         </div>
-                        <MemberPicker
-                            value={pickedMember}
-                            onChange={setPickedMember}
-                            placeholder={t('Search by name or P.No…')}
-                            extraFilters={extraFilters}
-                        />
+
+                        <div className="grid gap-3 lg:grid-cols-[minmax(14rem,1fr)_auto_auto]">
+                            <div className="relative">
+                                <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
+                                <Input
+                                    value={query}
+                                    onChange={(event) => setQuery(event.target.value)}
+                                    className="pl-8"
+                                    placeholder={t('Search name, P.No, role, category…')}
+                                />
+                            </div>
+                            <div>
+                                <FilterDropdown
+                                    label={t('Category')}
+                                    value={filterCategory}
+                                    options={PLAYER_CATEGORY_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
+                                    counts={categoryCounts}
+                                    onChange={setFilterCategory}
+                                />
+                            </div>
+                            <div>
+                                <FilterDropdown
+                                    label={t('Tier / level')}
+                                    value={filterLevel}
+                                    options={participantFilterOptions.levels}
+                                    counts={levelCounts}
+                                    onChange={setFilterLevel}
+                                />
+                            </div>
+                        </div>
+                        <InputError message={errors.participants ?? (errors as Record<string, string>)['participants.0.member_id']} />
                     </div>
 
-                    <ParticipantFormFields
-                        data={data}
-                        setData={(f, v) => setData(f, v)}
-                        errors={errors}
-                        idPrefix="add_p"
-                    />
+                    <div className="flex min-h-0 flex-1 flex-col">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-2.5">
+                            <div className="text-muted-foreground text-xs">
+                                {hasActiveFilters ? t('Filtered roster') : t('All matching active teams')}
+                            </div>
+                            {visibleCandidates.length > 0 && (
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={allVisibleSelected ? clearVisibleCandidates : selectVisibleCandidates}
+                                    >
+                                        <Check className="mr-1.5 h-4 w-4" />
+                                        {allVisibleSelected ? t('Clear shown') : t('Select shown')}
+                                    </Button>
+                                    {hasActiveFilters && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                setQuery('');
+                                                setFilterCategory('');
+                                                setFilterLevel('');
+                                            }}
+                                        >
+                                            {t('Reset filters')}
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {selectedCandidates.length > 0 && (
+                            <div className="border-b bg-background px-5 py-3">
+                                <div className="flex flex-wrap gap-2">
+                                    {selectedCandidates.slice(0, 6).map((member) => (
+                                        <span
+                                            key={member.id}
+                                            className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-xs"
+                                        >
+                                            <span className="truncate font-medium">{member.full_name}</span>
+                                            {member.pno && <span className="text-muted-foreground font-mono">{member.pno}</span>}
+                                            <button
+                                                type="button"
+                                                className="text-muted-foreground hover:text-foreground"
+                                                onClick={() => removeSelectedCandidate(member.id)}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                                <span className="sr-only">{t('Remove')}</span>
+                                            </button>
+                                        </span>
+                                    ))}
+                                    {selectedCandidates.length > 6 && (
+                                        <span className="inline-flex items-center rounded-md border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+                                            +{selectedCandidates.length - 6}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="min-h-72 flex-1 overflow-y-auto">
+                            {candidatesLoading && (
+                                <div className="space-y-2 p-5">
+                                    <Skeleton className="h-14 w-full" />
+                                    <Skeleton className="h-14 w-full" />
+                                    <Skeleton className="h-14 w-2/3" />
+                                </div>
+                            )}
+
+                            {!candidatesLoading && candidates.length === 0 && (
+                                <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                                    <Users className="text-muted-foreground h-8 w-8" />
+                                    <p className="text-sm font-medium">{t('No active teams found for this event.')}</p>
+                                    <p className="max-w-md text-sm text-muted-foreground">
+                                        {event.sport
+                                            ? t('Create or activate a :sport team for this session first.').replace(':sport', event.sport.name)
+                                            : t('Set the event sport before adding participants.')}
+                                    </p>
+                                </div>
+                            )}
+
+                            {!candidatesLoading && candidates.length > 0 && totalCandidates === 0 && (
+                                <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                                    <Users className="text-muted-foreground h-8 w-8" />
+                                    <p className="text-sm font-medium">{t('No eligible athletes left to add.')}</p>
+                                    <p className="max-w-md text-sm text-muted-foreground">
+                                        {t('Everyone on the matching active roster is already added or filtered out by the event gender.')}
+                                    </p>
+                                </div>
+                            )}
+
+                            {!candidatesLoading && totalCandidates > 0 && visibleCandidateTeams.length === 0 && (
+                                <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                                    <Search className="text-muted-foreground h-8 w-8" />
+                                    <p className="text-sm font-medium">{t('No roster members match the filters.')}</p>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setQuery('');
+                                            setFilterCategory('');
+                                            setFilterLevel('');
+                                        }}
+                                    >
+                                        {t('Reset filters')}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {visibleCandidateTeams.map((team) => (
+                                <div key={team.id} className="border-b last:border-b-0">
+                                    <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-sky-50 px-5 py-2.5 backdrop-blur dark:bg-sky-950/30">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-semibold text-sky-950 dark:text-sky-100">{team.name}</p>
+                                            <p className="text-xs text-sky-700 dark:text-sky-300">
+                                                {team.members.length} {t(team.members.length === 1 ? 'athlete' : 'athletes')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-2 p-3 sm:grid-cols-2">
+                                        {team.members.map((member) => {
+                                            const selected = selectedIdSet.has(member.id);
+
+                                            return (
+                                                <label
+                                                    key={member.team_member_id}
+                                                    className={cn(
+                                                        'flex cursor-pointer items-start gap-3 rounded-md border px-3 py-3 transition-colors',
+                                                        selected
+                                                            ? 'border-sky-300 bg-sky-50/80 ring-1 ring-sky-200 dark:border-sky-800 dark:bg-sky-950/30 dark:ring-sky-900'
+                                                            : 'border-border bg-background hover:border-sky-200 hover:bg-sky-50/40 dark:hover:border-sky-900 dark:hover:bg-sky-950/20',
+                                                    )}
+                                                >
+                                                    <Checkbox
+                                                        className="mt-0.5"
+                                                        checked={selected}
+                                                        onCheckedChange={() => toggleCandidate(member.id)}
+                                                    />
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="truncate text-base font-semibold leading-5">{member.full_name}</span>
+                                                            {member.pno && (
+                                                                <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                                                    {member.pno}
+                                                                </span>
+                                                            )}
+                                                            <Badge
+                                                                variant={selected ? 'secondary' : 'outline'}
+                                                                className={cn(
+                                                                    'text-[11px]',
+                                                                    selected ? 'border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-100' : '',
+                                                                )}
+                                                            >
+                                                                {t(member.role)}
+                                                            </Badge>
+                                                        </div>
+                                                        <p className="mt-1 truncate text-sm text-muted-foreground">
+                                                            {[
+                                                                t(member.gender),
+                                                                t(member.player_category),
+                                                                levelLabelByCode.get(member.player_level) ?? t(member.player_level),
+                                                                t(member.current_status),
+                                                            ]
+                                                                .filter(Boolean)
+                                                                .join(' · ')}
+                                                        </p>
+                                                    </div>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </form>
 
-                <DialogFooter>
+                <DialogFooter className="border-t bg-muted/20 px-5 py-4">
                     <Button variant="outline" type="button" onClick={handleClose}>
                         {t('Cancel')}
                     </Button>
-                    <Button type="submit" form="add-participant-form" disabled={submitting || !pickedMember}>
+                    <Button type="submit" form="add-participant-form" disabled={submitting || selectedCandidates.length === 0}>
                         <Plus className="mr-1.5 h-4 w-4" />
-                        {submitting ? t('Saving…') : t('Add participant')}
+                        {submitting
+                            ? t('Saving…')
+                            : t('Add :count participants').replace(':count', String(selectedCandidates.length))}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -1068,12 +1326,16 @@ export default function EventsShow({
     sports,
     eventVariants = [],
     participations,
+    participantCandidates,
+    participantFilterOptions = { levels: [] },
 }: {
     tournament: TournamentRef;
     event: EventProp;
     sports: Sport[];
     eventVariants?: EventVariant[];
     participations?: ParticipationRow[];
+    participantCandidates?: ParticipantCandidateTeam[];
+    participantFilterOptions?: ParticipantFilterOptions;
 }) {
     const { t } = useTranslation();
     const permissions = usePage().props.auth.permissions;
@@ -1209,6 +1471,8 @@ export default function EventsShow({
                 onOpenChange={setAddParticipantOpen}
                 tournament={tournament}
                 event={event}
+                participantCandidates={participantCandidates}
+                participantFilterOptions={participantFilterOptions}
             />
         </>
     );

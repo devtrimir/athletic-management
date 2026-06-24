@@ -14,6 +14,8 @@ use App\Models\Sport;
 use App\Models\SportEvent;
 use App\Models\SportEventVariant;
 use App\Models\SportSession;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\User;
@@ -117,6 +119,28 @@ function makeSportEventVariantForUser(User $user): SportEventVariant
         'is_active' => true,
         'sort_order' => 10,
     ]);
+}
+
+function makeEventRosterMember(Tournament $tournament, Event $event, array $memberState = [], array $teamState = []): array
+{
+    $team = Team::factory()->create(array_merge([
+        'organization_id' => $tournament->organization_id,
+        'sport_id' => $event->sport_id,
+        'session_id' => $tournament->session_id,
+        'is_active' => true,
+    ], $teamState));
+    $member = Member::factory()->create(array_merge([
+        'organization_id' => $tournament->organization_id,
+    ], $memberState));
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $tournament->session_id,
+        'left_on' => null,
+    ]);
+
+    return [$member, $team];
 }
 
 // ---------------------------------------------------------------------------
@@ -406,6 +430,28 @@ test('show returns event in Inertia props', function () {
         );
 });
 
+test('show returns participant level filters from tier master data', function () {
+    $user = eventUser('tournaments.view');
+    $tournament = makeTournamentForUser($user);
+    $event = Event::factory()->forTournament($tournament)->create();
+    TournamentTier::firstOrCreate(
+        ['code' => 'AIPSC'],
+        ['label_hi' => 'एआईपीएससी', 'label_en' => 'AIPSC', 'weight' => 70],
+    );
+
+    $this->actingAs($user)
+        ->get(route('tournaments.events.show', [$tournament, $event]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('participantFilterOptions.levels.0.value', 'NATIONAL')
+            ->has('participantFilterOptions.levels', fn ($levels) => $levels
+                ->where('1.value', 'AIPSC')
+                ->where('1.label', 'एआईपीएससी')
+                ->etc()
+            )
+        );
+});
+
 test('show deferred participations prop is absent from initial response', function () {
     $user = eventUser('tournaments.view');
     $tournament = makeTournamentForUser($user);
@@ -415,6 +461,103 @@ test('show deferred participations prop is absent from initial response', functi
         ->get(route('tournaments.events.show', [$tournament, $event]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->missing('participations'));
+});
+
+test('show deferred participant candidates returns active event roster only', function () {
+    $user = eventUser('tournaments.view');
+    $tournament = makeTournamentForUser($user);
+    $event = Event::factory()->forTournament($tournament)->create(['gender_class' => 'OPEN']);
+    [$eligibleMember, $eligibleTeam] = makeEventRosterMember($tournament, $event);
+    makeEventRosterMember($tournament, $event, ['full_name' => 'Inactive Team Player'], ['is_active' => false]);
+    makeEventRosterMember($tournament, $event, ['full_name' => 'Other Sport Player'], [
+        'sport_id' => Sport::factory()->create(['organization_id' => $user->organization_id])->id,
+    ]);
+
+    $version = file_exists(public_path('build/manifest.json'))
+        ? hash_file('xxh128', public_path('build/manifest.json'))
+        : null;
+
+    $response = $this->actingAs($user)
+        ->getJson(route('tournaments.events.show', [$tournament, $event]), [
+            'X-Inertia' => 'true',
+            'X-Inertia-Partial-Component' => 'events/show',
+            'X-Inertia-Partial-Data' => 'participantCandidates',
+            'X-Inertia-Version' => $version,
+        ])
+        ->assertOk();
+
+    expect($response->json('props.participantCandidates'))->toHaveCount(1)
+        ->and($response->json('props.participantCandidates.0.id'))->toBe($eligibleTeam->id)
+        ->and($response->json('props.participantCandidates.0.members'))->toHaveCount(1)
+        ->and($response->json('props.participantCandidates.0.members.0.id'))->toBe($eligibleMember->id);
+});
+
+test('show deferred participant candidates exclude existing participants', function () {
+    $user = eventUser('tournaments.view');
+    $tournament = makeTournamentForUser($user);
+    $event = Event::factory()->forTournament($tournament)->create(['gender_class' => 'OPEN']);
+    [$existingMember] = makeEventRosterMember($tournament, $event);
+    [$availableMember] = makeEventRosterMember($tournament, $event);
+    Participation::factory()->forEvent($event)->create(['member_id' => $existingMember->id]);
+
+    $version = file_exists(public_path('build/manifest.json'))
+        ? hash_file('xxh128', public_path('build/manifest.json'))
+        : null;
+
+    $response = $this->actingAs($user)
+        ->getJson(route('tournaments.events.show', [$tournament, $event]), [
+            'X-Inertia' => 'true',
+            'X-Inertia-Partial-Component' => 'events/show',
+            'X-Inertia-Partial-Data' => 'participantCandidates',
+            'X-Inertia-Version' => $version,
+        ])
+        ->assertOk();
+
+    $memberIds = collect($response->json('props.participantCandidates'))->flatMap(fn (array $team): array => $team['members'])->pluck('id');
+
+    expect($memberIds)->toContain($availableMember->id)
+        ->and($memberIds)->not->toContain($existingMember->id);
+});
+
+test('show deferred participant candidates filter men and women but not open events', function () {
+    $user = eventUser('tournaments.view');
+    $tournament = makeTournamentForUser($user);
+    $event = Event::factory()->forTournament($tournament)->create(['gender_class' => 'F']);
+    [$maleMember] = makeEventRosterMember($tournament, $event, ['gender' => 'M']);
+    [$femaleMember] = makeEventRosterMember($tournament, $event, ['gender' => 'F']);
+
+    $version = file_exists(public_path('build/manifest.json'))
+        ? hash_file('xxh128', public_path('build/manifest.json'))
+        : null;
+
+    $womenResponse = $this->actingAs($user)
+        ->getJson(route('tournaments.events.show', [$tournament, $event]), [
+            'X-Inertia' => 'true',
+            'X-Inertia-Partial-Component' => 'events/show',
+            'X-Inertia-Partial-Data' => 'participantCandidates',
+            'X-Inertia-Version' => $version,
+        ])
+        ->assertOk();
+
+    $womenIds = collect($womenResponse->json('props.participantCandidates'))->flatMap(fn (array $team): array => $team['members'])->pluck('id');
+
+    $event->update(['gender_class' => 'OPEN']);
+
+    $openResponse = $this->actingAs($user)
+        ->getJson(route('tournaments.events.show', [$tournament, $event]), [
+            'X-Inertia' => 'true',
+            'X-Inertia-Partial-Component' => 'events/show',
+            'X-Inertia-Partial-Data' => 'participantCandidates',
+            'X-Inertia-Version' => $version,
+        ])
+        ->assertOk();
+
+    $openIds = collect($openResponse->json('props.participantCandidates'))->flatMap(fn (array $team): array => $team['members'])->pluck('id');
+
+    expect($womenIds)->toContain($femaleMember->id)
+        ->and($womenIds)->not->toContain($maleMember->id)
+        ->and($openIds)->toContain($femaleMember->id)
+        ->and($openIds)->toContain($maleMember->id);
 });
 
 test('show deferred participations include pno but not member code', function () {

@@ -2064,11 +2064,6 @@ export default function MembersShow({
                                                                                 </TableHead>
                                                                                 <TableHead>
                                                                                     {t(
-                                                                                        'Tier',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
                                                                                         'Tier / Level',
                                                                                     )}
                                                                                 </TableHead>
@@ -2151,9 +2146,6 @@ export default function MembersShow({
                                                                                                 achievement.id ===
                                                                                                 -participation.id,
                                                                                         );
-                                                                                    const isCurrentSessionFilterActive =
-                                                                                        sessionFilter ===
-                                                                                        'current';
                                                                                     const promotionsForRow =
                                                                                         eventPromotionRows(
                                                                                             participation,
@@ -2183,34 +2175,6 @@ export default function MembersShow({
                                                                                                 {
                                                                                                     ++tierAchievementSerial
                                                                                                 }
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                {isSyntheticParticipation ? (
-                                                                                                    <span className="text-xs text-muted-foreground">
-                                                                                                        {
-                                                                                                            group
-                                                                                                                .session
-                                                                                                                .name
-                                                                                                        }
-                                                                                                    </span>
-                                                                                                ) : isCurrentSessionFilterActive &&
-                                                                                                    group
-                                                                                                        .session
-                                                                                                        .is_current ? (
-                                                                                                    <span
-                                                                                                        className={eventBadgeClass(
-                                                                                                            'session',
-                                                                                                        )}
-                                                                                                    >
-                                                                                                        {t(
-                                                                                                            'Current',
-                                                                                                        )}
-                                                                                                    </span>
-                                                                                                ) : (
-                                                                                                    <span className="text-xs text-muted-foreground">
-                                                                                                        —
-                                                                                                    </span>
-                                                                                                )}
                                                                                             </TableCell>
                                                                                             <TableCell>
                                                                                                 <span

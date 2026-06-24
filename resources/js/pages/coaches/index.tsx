@@ -806,8 +806,8 @@ export default function CoachesIndex({
         <>
             <Head title={t('Coaches')} />
 
-            <div className="space-y-5">
-                <div className="sticky top-0 z-40 space-y-5 bg-card/95 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/85">
+            <div className="min-w-0 max-w-full space-y-5 overflow-x-hidden">
+                <div className="sticky top-0 z-40 min-w-0 max-w-full space-y-5 overflow-x-hidden bg-card/95 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/85">
                     <div className="flex items-start justify-between gap-4">
                         <Heading
                             variant="small"
@@ -839,7 +839,7 @@ export default function CoachesIndex({
                         </div>
                     </div>
 
-                    <div className="space-y-3 rounded-xl border bg-card p-4">
+                    <div className="min-w-0 max-w-full space-y-3 rounded-xl border bg-card p-4">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div className="relative w-full lg:max-w-md">
                                 <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1107,7 +1107,7 @@ export default function CoachesIndex({
                     </div>
 
                     <ListingPagination paginator={coaches} itemLabel={t('coaches')} className="sticky top-0 z-40 shadow-sm" />
-                    <div className="rounded-xl border bg-card">
+                    <div className="min-w-0 max-w-full overflow-hidden rounded-xl border bg-card">
                         <Table className="min-w-[980px] border-separate border border-border/60 [&_td]:border-r [&_td]:border-b [&_td]:border-border/45 [&_th]:border-r [&_th]:border-b [&_th]:border-border/45">
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
