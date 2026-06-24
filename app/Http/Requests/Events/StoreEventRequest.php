@@ -20,13 +20,17 @@ class StoreEventRequest extends FormRequest
     public function rules(): array
     {
         $orgId = (int) $this->user()->organization_id;
+        $isProvisional = $this->input('event_mode') === 'provisional';
 
         return [
-            'sport_id' => ['required', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
-            'name' => ['required', 'string', 'max:255'],
+            'event_mode' => ['required', Rule::in(['official', 'provisional'])],
+            'sport_event_variant_id' => [Rule::requiredIf(! $isProvisional), 'nullable', 'integer', Rule::exists('sport_event_variants', 'id')],
+            'sport_id' => [Rule::requiredIf($isProvisional), 'nullable', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
+            'name' => [Rule::requiredIf($isProvisional), 'nullable', 'string', 'max:255'],
             'discipline' => ['nullable', 'string', 'max:255'],
             'weight_category' => ['nullable', 'string', 'max:100'],
-            'gender_class' => ['required', Rule::in(['M', 'F', 'MIXED', 'OPEN'])],
+            'gender_class' => [Rule::requiredIf($isProvisional), 'nullable', Rule::in(['M', 'F', 'MIXED', 'OPEN'])],
+            'provisional_reason' => [Rule::requiredIf($isProvisional), 'nullable', 'string', 'max:1000'],
         ];
     }
 }

@@ -3,6 +3,7 @@ import {
     CalendarDays,
     Dumbbell,
     Eye,
+    Info,
     MapPin,
     Medal,
     Pencil,
@@ -83,13 +84,38 @@ type EventRow = {
     discipline: string | null;
     weight_category: string | null;
     gender_class: string;
+    sport_event_variant_id: number | null;
+    event_source: string;
+    provisional_reason: string | null;
     participations_count: number;
+    can_update_structure: boolean;
     teams_count: number;
     medals_count: number;
     sport: { id: number; name: string } | null;
 };
 
 type Sport = { id: number; name: string };
+type EventVariant = {
+    id: number;
+    sport_id: number;
+    sport_name: string;
+    label: string;
+    name: string;
+    discipline: string | null;
+    weight_category: string | null;
+    gender_class: string;
+    gender_label: string | null;
+    format: string | null;
+    result_type: string | null;
+    measurement_unit: string | null;
+    measurement_symbol: string | null;
+    min_participants: number | null;
+    max_participants: number | null;
+    substitute_allowed: boolean;
+    substitute_limit: number | null;
+    is_team_based: boolean;
+    is_medal_event: boolean;
+};
 type EventFilters = {
     q?: string | null;
     sport_id?: string | null;
@@ -98,11 +124,14 @@ type EventFilters = {
 };
 
 type EventForm = {
+    event_mode: 'official' | 'provisional';
+    sport_event_variant_id: string;
     sport_id: string;
     name: string;
     discipline: string;
     weight_category: string;
     gender_class: string;
+    provisional_reason: string;
 };
 
 const GENDER_CLASSES = ['M', 'F', 'MIXED', 'OPEN'] as const;
@@ -139,6 +168,45 @@ function eventBadgeClass(kind: 'sport' | 'class' | 'count' | 'detail'): string {
     }
 }
 
+function participantRange(min: number | null, max: number | null): string {
+    if (min === null && max === null) {
+        return '—';
+    }
+
+    if (min !== null && max !== null && min === max) {
+        return String(min);
+    }
+
+    return `${min ?? '—'}-${max ?? '—'}`;
+}
+
+function eventVariantOption(variant: EventVariant, t: (key: string) => string) {
+    const participantText = participantRange(
+        variant.min_participants,
+        variant.max_participants,
+    );
+    const details = [
+        variant.gender_label ?? genderClassLabel(variant.gender_class, t),
+        variant.result_type,
+        variant.measurement_symbol ?? variant.measurement_unit,
+        participantText !== '—' ? `${t('Participants')}: ${participantText}` : null,
+        variant.substitute_allowed
+            ? `${t('Substitutes')}: ${variant.substitute_limit ?? t('Allowed')}`
+            : null,
+    ].filter(Boolean);
+
+    return {
+        value: String(variant.id),
+        label: variant.label,
+        badge: variant.is_team_based ? t('Team') : t('Individual'),
+        badgeTone: variant.is_team_based ? ('team' as const) : ('individual' as const),
+        group: [variant.sport_name, variant.format ?? t('Events')]
+            .filter(Boolean)
+            .join(' / '),
+        description: details.join(' · '),
+    };
+}
+
 // ---------------------------------------------------------------------------
 // Shared event form fields
 // ---------------------------------------------------------------------------
@@ -147,18 +215,95 @@ function EventFormFields({
     setData,
     errors,
     sports,
+    eventVariants,
     idPrefix,
 }: {
     data: EventForm;
     setData: (field: keyof EventForm, value: string) => void;
     errors: Partial<Record<keyof EventForm, string>>;
     sports: Sport[];
+    eventVariants: EventVariant[];
     idPrefix: string;
 }) {
     const { t } = useTranslation();
+    const selectedVariant = eventVariants.find(
+        (variant) => String(variant.id) === data.sport_event_variant_id,
+    );
+    const filteredVariants = eventVariants.filter(
+        (variant) => !data.sport_id || String(variant.sport_id) === data.sport_id,
+    );
+
+    function selectSport(value: string) {
+        setData('sport_id', value);
+
+        if (
+            data.sport_event_variant_id &&
+            !eventVariants.some(
+                (variant) =>
+                    String(variant.id) === data.sport_event_variant_id &&
+                    String(variant.sport_id) === value,
+            )
+        ) {
+            setData('sport_event_variant_id', '');
+        }
+    }
+
+    function selectVariant(value: string) {
+        const variant = eventVariants.find((item) => String(item.id) === value);
+
+        setData('sport_event_variant_id', value);
+
+        if (variant) {
+            setData('sport_id', String(variant.sport_id));
+            setData('name', variant.name);
+            setData('discipline', variant.discipline ?? '');
+            setData('weight_category', variant.weight_category ?? '');
+            setData('gender_class', variant.gender_class);
+        }
+    }
+
+    function useOfficialMode() {
+        setData('event_mode', 'official');
+    }
+
+    function useProvisionalMode() {
+        setData('event_mode', 'provisional');
+
+        if (!data.provisional_reason) {
+            setData('provisional_reason', t('Reference event not available in master data'));
+        }
+
+        if (selectedVariant) {
+            setData('sport_id', String(selectedVariant.sport_id));
+            setData('name', selectedVariant.name);
+            setData('discipline', selectedVariant.discipline ?? '');
+            setData('weight_category', selectedVariant.weight_category ?? '');
+            setData('gender_class', selectedVariant.gender_class);
+        }
+    }
 
     return (
         <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex rounded-lg border bg-muted/20 p-1 sm:col-span-2">
+                <Button
+                    type="button"
+                    variant={data.event_mode === 'official' ? 'default' : 'ghost'}
+                    className="flex-1"
+                    disabled={eventVariants.length === 0}
+                    onClick={useOfficialMode}
+                >
+                    {t('Official event')}
+                </Button>
+                <Button
+                    type="button"
+                    variant={data.event_mode === 'provisional' ? 'default' : 'ghost'}
+                    className="flex-1"
+                    onClick={useProvisionalMode}
+                >
+                    {t('Provisional event')}
+                </Button>
+            </div>
+
             <div className="grid gap-2">
                 <Label htmlFor={`${idPrefix}_sport_id`}>
                     {t('Sport')} <span className="text-destructive">*</span>
@@ -166,7 +311,7 @@ function EventFormFields({
                 <Combobox
                     id={`${idPrefix}_sport_id`}
                     value={data.sport_id}
-                    onValueChange={(v) => setData('sport_id', v)}
+                    onValueChange={selectSport}
                     items={sports.map((sp) => ({
                         value: String(sp.id),
                         label: sp.name,
@@ -177,7 +322,52 @@ function EventFormFields({
                 <InputError message={errors.sport_id} />
             </div>
 
-            <div className="grid gap-2">
+            {data.event_mode === 'official' ? (
+                <div className="grid gap-2 sm:col-span-2">
+                    <Label htmlFor={`${idPrefix}_sport_event_variant_id`}>
+                        {t('Official event')}{' '}
+                        <span className="text-destructive">*</span>
+                    </Label>
+                    <Combobox
+                        id={`${idPrefix}_sport_event_variant_id`}
+                        value={data.sport_event_variant_id}
+                        onValueChange={selectVariant}
+                        items={filteredVariants.map((variant) =>
+                            eventVariantOption(variant, t),
+                        )}
+                        placeholder={t('Select official event')}
+                        searchPlaceholder={t('Search official events…')}
+                        emptyMessage={t('No official events found.')}
+                        popoverClassName="w-[min(760px,calc(100vw-2rem))]"
+                    />
+                    <InputError message={errors.sport_event_variant_id} />
+                </div>
+            ) : null}
+
+            {selectedVariant && data.event_mode === 'official' ? (
+                <div className="rounded-lg border bg-muted/20 p-3 sm:col-span-2">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                        {t('Official event details')}
+                    </div>
+                    <div className="grid gap-2 text-sm sm:grid-cols-3">
+                        <span>{t('Gender')}: {selectedVariant.gender_label ?? genderClassLabel(selectedVariant.gender_class, t)}</span>
+                        <span>{t('Format')}: {selectedVariant.format ?? '—'}</span>
+                        <span>{t('Result type')}: {selectedVariant.result_type ?? '—'}</span>
+                        <span>{t('Participants')}: {participantRange(selectedVariant.min_participants, selectedVariant.max_participants)}</span>
+                        <span>{t('Unit')}: {selectedVariant.measurement_symbol ?? selectedVariant.measurement_unit ?? '—'}</span>
+                        <span>{t('Substitutes')}: {selectedVariant.substitute_allowed ? selectedVariant.substitute_limit ?? t('Allowed') : t('No')}</span>
+                    </div>
+                </div>
+            ) : null}
+
+            {data.event_mode === 'provisional' ? (
+                <>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                        {t('Use provisional entry only when the official event is not available in sport master data.')}
+                    </div>
+
+                    <div className="grid gap-2">
                 <Label htmlFor={`${idPrefix}_gender_class`}>
                     {t('Gender class')}{' '}
                     <span className="text-destructive">*</span>
@@ -240,6 +430,22 @@ function EventFormFields({
                 />
                 <InputError message={errors.weight_category} />
             </div>
+                    <div className="grid gap-2 sm:col-span-2">
+                        <Label htmlFor={`${idPrefix}_provisional_reason`}>
+                            {t('Reason')}{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id={`${idPrefix}_provisional_reason`}
+                            value={data.provisional_reason}
+                            onChange={(e) => setData('provisional_reason', e.target.value)}
+                            maxLength={1000}
+                            placeholder={t('Reference event not available in master data')}
+                        />
+                        <InputError message={errors.provisional_reason} />
+                    </div>
+                </>
+            ) : null}
         </div>
     );
 }
@@ -252,20 +458,25 @@ function AddEventDialog({
     onOpenChange,
     tournament,
     sports,
+    eventVariants = [],
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     tournament: Tournament;
     sports: Sport[];
+    eventVariants?: EventVariant[];
 }) {
     const { t } = useTranslation();
     const { data, setData, post, errors, processing, reset } =
         useForm<EventForm>({
+            event_mode: eventVariants.length > 0 ? 'official' : 'provisional',
+            sport_event_variant_id: '',
             sport_id: tournament.sport ? String(tournament.sport.id) : '',
             name: '',
             discipline: '',
             weight_category: '',
             gender_class: 'M',
+            provisional_reason: '',
         });
 
     function handleSubmit(e: React.FormEvent) {
@@ -280,7 +491,7 @@ function AddEventDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>{t('Add event')}</DialogTitle>
                     <DialogDescription>
@@ -293,6 +504,7 @@ function AddEventDialog({
                         setData={(field, value) => setData(field, value)}
                         errors={errors}
                         sports={sports}
+                        eventVariants={eventVariants}
                         idPrefix="add_ev"
                     />
                 </form>
@@ -325,21 +537,28 @@ function EditEventDialog({
     event,
     tournament,
     sports,
+    eventVariants = [],
     onClose,
 }: {
     event: EventRow | null;
     tournament: Tournament;
     sports: Sport[];
+    eventVariants?: EventVariant[];
     onClose: () => void;
 }) {
     const { t } = useTranslation();
     const { data, setData, patch, errors, processing, reset } =
         useForm<EventForm>({
+            event_mode: event?.sport_event_variant_id ? 'official' : 'provisional',
+            sport_event_variant_id: event?.sport_event_variant_id
+                ? String(event.sport_event_variant_id)
+                : '',
             sport_id: event?.sport ? String(event.sport.id) : '',
             name: event?.name ?? '',
             discipline: event?.discipline ?? '',
             weight_category: event?.weight_category ?? '',
             gender_class: event?.gender_class ?? 'M',
+            provisional_reason: event?.provisional_reason ?? '',
         });
 
     function handleSubmit(e: React.FormEvent) {
@@ -366,7 +585,7 @@ function EditEventDialog({
                 }
             }}
         >
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>{t('Edit event')}</DialogTitle>
                     <DialogDescription>{event?.name}</DialogDescription>
@@ -377,6 +596,7 @@ function EditEventDialog({
                         setData={(field, value) => setData(field, value)}
                         errors={errors}
                         sports={sports}
+                        eventVariants={eventVariants}
                         idPrefix="edit_ev"
                     />
                 </form>
@@ -455,12 +675,14 @@ export default function TournamentsShow({
     tournament,
     activeTab,
     sports,
+    eventVariants = [],
     eventFilters = {},
     events,
 }: {
     tournament: Tournament;
     activeTab: 'overview' | 'events';
     sports: Sport[];
+    eventVariants?: EventVariant[];
     eventFilters?: EventFilters;
     events?: EventRow[];
 }) {
@@ -1100,6 +1322,23 @@ export default function TournamentsShow({
                                                                         }
                                                                     </Link>
                                                                     <div className="flex flex-wrap gap-1.5">
+                                                                        <Badge
+                                                                            variant={
+                                                                                ev.event_source ===
+                                                                                'official'
+                                                                                    ? 'default'
+                                                                                    : 'secondary'
+                                                                            }
+                                                                        >
+                                                                            {ev.event_source ===
+                                                                            'official'
+                                                                                ? t(
+                                                                                      'Official',
+                                                                                  )
+                                                                                : t(
+                                                                                      'Provisional',
+                                                                                  )}
+                                                                        </Badge>
                                                                         {ev.discipline ? (
                                                                             <span
                                                                                 className={eventBadgeClass(
@@ -1219,8 +1458,13 @@ export default function TournamentsShow({
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         title={t(
-                                                                            'Edit event',
+                                                                            ev.can_update_structure
+                                                                                ? 'Edit event'
+                                                                                : 'Event cannot be edited after participants are added',
                                                                         )}
+                                                                        disabled={
+                                                                            !ev.can_update_structure
+                                                                        }
                                                                         onClick={() =>
                                                                             setEditingEvent(
                                                                                 ev,
@@ -1277,11 +1521,14 @@ export default function TournamentsShow({
                 onOpenChange={setAddEventOpen}
                 tournament={tournament}
                 sports={sports}
+                eventVariants={eventVariants}
             />
             <EditEventDialog
+                key={editingEvent?.id ?? 'new'}
                 event={editingEvent}
                 tournament={tournament}
                 sports={sports}
+                eventVariants={eventVariants}
                 onClose={() => setEditingEvent(null)}
             />
             <ConfirmDeleteDialog
