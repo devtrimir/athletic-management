@@ -48,6 +48,11 @@ class CoachPolicy
         return $user->can('coaches.manageSports') || $user->can('coaches.update');
     }
 
+    public function managePromotions(User $user, mixed $coach): bool
+    {
+        return $user->can('coaches.managePromotions') || $user->can('coaches.update');
+    }
+
     public function manageAlias(User $user, mixed $coach): bool
     {
         return $user->can('coaches.update');

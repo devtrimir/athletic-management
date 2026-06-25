@@ -3,10 +3,13 @@
 use App\Http\Controllers\AchievementBenefitController;
 use App\Http\Controllers\Api\V1\MemberAuditLogController;
 use App\Http\Controllers\CoachAliasController;
+use App\Http\Controllers\CoachCertificationController;
 use App\Http\Controllers\CoachController;
 use App\Http\Controllers\CoachExportController;
 use App\Http\Controllers\CoachPhotoController;
 use App\Http\Controllers\CoachProfileTabController;
+use App\Http\Controllers\CoachPromotionController;
+use App\Http\Controllers\CoachSportController;
 use App\Http\Controllers\CoachStatusController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
@@ -73,6 +76,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('coaches/{coach}/status', [CoachProfileTabController::class, 'status'])->name('coaches.status');
     Route::get('coaches/{coach}/export', [CoachExportController::class, 'show'])->name('coaches.export.show');
     Route::post('coaches/{coach}/status', [CoachStatusController::class, 'store'])->name('coaches.status.store');
+    Route::post('coaches/{coach}/sports', [CoachSportController::class, 'store'])->name('coaches.sports.store');
+    Route::delete('coaches/{coach}/sports/{coachSport}', [CoachSportController::class, 'destroy'])->name('coaches.sports.destroy');
+    Route::post('coaches/{coach}/certifications', [CoachCertificationController::class, 'store'])->name('coaches.certifications.store');
+    Route::delete('coaches/{coach}/certifications/{certification}', [CoachCertificationController::class, 'destroy'])->name('coaches.certifications.destroy');
+    Route::post('coaches/{coach}/promotions', [CoachPromotionController::class, 'store'])->name('coaches.promotions.store');
+    Route::patch('coaches/{coach}/promotions/{promotion}', [CoachPromotionController::class, 'update'])->name('coaches.promotions.update');
+    Route::delete('coaches/{coach}/promotions/{promotion}', [CoachPromotionController::class, 'destroy'])->name('coaches.promotions.destroy');
     Route::post('coaches/{coach}/aliases', [CoachAliasController::class, 'store'])->name('coaches.aliases.store');
     Route::delete('coaches/{coach}/aliases/{alias}', [CoachAliasController::class, 'destroy'])->name('coaches.aliases.destroy');
     Route::post('coaches/{coach}/photo', [CoachPhotoController::class, 'store'])->name('coaches.photo.store');

@@ -53,6 +53,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, CoachAlias> $aliases
  * @property-read Collection<int, CoachStatusHistory> $statusHistory
  * @property-read Collection<int, CoachCertification> $certifications
+ * @property-read Collection<int, CoachPromotion> $promotions
  * @property-read Collection<int, Sport> $sports
  * @property-read Collection<int, CoachAssignment> $assignmentHistory
  * @property-read Collection<int, CoachAssignment> $currentAssignments
@@ -158,6 +159,12 @@ class Coach extends Model
     public function certifications(): HasMany
     {
         return $this->hasMany(CoachCertification::class);
+    }
+
+    /** @return HasMany<CoachPromotion, $this> */
+    public function promotions(): HasMany
+    {
+        return $this->hasMany(CoachPromotion::class);
     }
 
     /** @return BelongsToMany<Sport, $this> */

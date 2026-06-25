@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 use App\Models\Coach;
 use App\Models\CoachAssignment;
+use App\Models\CoachCertification;
+use App\Models\CoachPromotion;
+use App\Models\CoachSport;
 use App\Models\Member;
+use App\Models\NisMaster;
 use App\Models\Organization;
 use App\Models\Permission;
+use App\Models\Rank;
 use App\Models\Role;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\AuditLogBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -40,6 +46,18 @@ function coachUser(string ...$permissions): User
     }
 
     return $user;
+}
+
+function coachRank(string $code, int $order): Rank
+{
+    return Rank::create([
+        'code' => $code,
+        'name' => str($code)->replace('_', ' ')->title()->toString(),
+        'short_name' => $code,
+        'rank_order' => $order,
+        'is_gazetted' => false,
+        'is_active' => true,
+    ]);
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +188,51 @@ test('index inactive tab shows coaches without active current-session team assig
         );
 });
 
+test('index includes own organization certificate type filter values', function () {
+    $user = coachUser('coaches.view');
+    $other = Organization::factory()->create();
+
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $otherCoach = Coach::factory()->create(['organization_id' => $other->id]);
+
+    CoachCertification::factory()->create([
+        'coach_id' => $coach->id,
+        'certificate_type' => 'NIS',
+    ]);
+    CoachCertification::factory()->create([
+        'coach_id' => $otherCoach->id,
+        'certificate_type' => 'FITNESS',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.index', ['filter' => ['status_scope' => 'active']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('certificateTypes.0', 'NIS')
+            ->missing('certificateTypes.1')
+        );
+});
+
+test('index includes active nis master names as certificate type filter values', function () {
+    $user = coachUser('coaches.view');
+
+    NisMaster::query()->create([
+        'kind' => 'nis',
+        'code' => 'NIS_DIPLOMA',
+        'name' => 'NIS diploma',
+        'short_name' => 'Diploma',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.index', ['filter' => ['status_scope' => 'active']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('certificateTypes.0', 'NIS diploma')
+        );
+});
+
 // ---------------------------------------------------------------------------
 // create
 // ---------------------------------------------------------------------------
@@ -211,6 +274,7 @@ test('store creates a standalone coach', function () {
 
     $this->assertDatabaseHas('coaches', [
         'full_name' => 'राम प्रसाद',
+        'display_name' => 'राम प्रसाद',
         'member_id' => null,
         'organization_id' => $user->organization_id,
     ]);
@@ -364,6 +428,35 @@ test('coach assignment tab returns assignment data only on assignments route', f
         );
 });
 
+test('coach sports tab returns sport rows and form options', function () {
+    $user = coachUser('coaches.view');
+    $sport = Sport::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'Athletics',
+    ]);
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+
+    CoachSport::factory()->create([
+        'coach_id' => $coach->id,
+        'sport_id' => $sport->id,
+        'is_primary' => true,
+        'sport_event' => '100m',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.sports', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/show')
+            ->where('activeTab', 'sports')
+            ->where('coach.sports.0.name', 'Athletics')
+            ->where('coach.sports.0.sport_event', '100m')
+            ->has('coach.sports.0.coach_sport_id')
+            ->where('sports.0.name', 'Athletics')
+            ->has('tiers')
+        );
+});
+
 test('user without coaches view gets 403 on coach profile tab', function () {
     $user = coachUser();
     $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
@@ -371,6 +464,274 @@ test('user without coaches view gets 403 on coach profile tab', function () {
     $this->actingAs($user)
         ->get(route('coaches.status', $coach))
         ->assertForbidden();
+});
+
+test('user with coach sports permission can add sport from profile tab', function () {
+    $user = coachUser('coaches.manageSports', 'coaches.view');
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Original Coach Name',
+    ]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->post(route('coaches.sports.store', $coach), [
+            'sport_id' => $sport->id,
+            'sport_event' => 'Freestyle',
+            'level' => 'State',
+            'is_primary' => true,
+            'effective_from' => '2026-01-01',
+        ])
+        ->assertRedirect(route('coaches.sports', $coach));
+
+    $this->assertDatabaseHas('coach_sport', [
+        'coach_id' => $coach->id,
+        'sport_id' => $sport->id,
+        'sport_event' => 'Freestyle',
+        'level' => 'State',
+        'is_primary' => true,
+    ]);
+    $this->assertDatabaseHas('audit_logs', [
+        'entity' => 'CoachSport',
+        'action' => 'created',
+    ]);
+    expect($coach->fresh()->full_name)->toBe('Original Coach Name');
+
+    expect(collect(app(AuditLogBuilder::class)->forCoach($coach))
+        ->contains(fn (array $entry): bool => $entry['subject'] === 'Sport specialization'))
+        ->toBeTrue();
+});
+
+test('user with coach sports permission can remove sport from profile tab', function () {
+    $user = coachUser('coaches.manageSports');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $coachSport = CoachSport::factory()->create([
+        'coach_id' => $coach->id,
+        'sport_id' => $sport->id,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('coaches.sports.destroy', [$coach, $coachSport]))
+        ->assertRedirect(route('coaches.sports', $coach));
+
+    $this->assertDatabaseMissing('coach_sport', ['id' => $coachSport->id]);
+    $this->assertDatabaseHas('audit_logs', [
+        'entity' => 'CoachSport',
+        'action' => 'deleted',
+    ]);
+});
+
+test('user with coach certification permission can save certification from profile tab', function () {
+    $user = coachUser('coaches.manageCertifications', 'coaches.view');
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Original Coach Name',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('coaches.certifications.store', $coach), [
+            'name' => 'NIS Diploma',
+            'certificate_type' => 'NIS',
+            'issuer' => 'SAI',
+            'issued_at' => '2026-01-01',
+            'expired_at' => '2026-12-31',
+        ])
+        ->assertRedirect(route('coaches.certifications', $coach));
+
+    $certification = CoachCertification::query()->where('coach_id', $coach->id)->firstOrFail();
+
+    expect($certification)
+        ->name->toBe('NIS Diploma')
+        ->certificate_type->toBe('NIS');
+    expect($coach->fresh()->full_name)->toBe('Original Coach Name');
+    expect(collect(app(AuditLogBuilder::class)->forCoach($coach))
+        ->contains(fn (array $entry): bool => $entry['subject'] === 'Certification'))
+        ->toBeTrue();
+});
+
+test('user with coach certification permission can update certification from profile tab', function () {
+    $user = coachUser('coaches.manageCertifications');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $certification = CoachCertification::factory()->create([
+        'coach_id' => $coach->id,
+        'name' => 'Old Certificate',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('coaches.certifications.store', $coach), [
+            'id' => $certification->id,
+            'name' => 'Updated Certificate',
+            'certificate_type' => 'Federation',
+        ])
+        ->assertRedirect(route('coaches.certifications', $coach));
+
+    expect($certification->fresh())
+        ->name->toBe('Updated Certificate')
+        ->certificate_type->toBe('Federation');
+});
+
+test('user with coach certification permission can remove certification from profile tab', function () {
+    $user = coachUser('coaches.manageCertifications');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $certification = CoachCertification::factory()->create(['coach_id' => $coach->id]);
+
+    $this->actingAs($user)
+        ->delete(route('coaches.certifications.destroy', [$coach, $certification]))
+        ->assertRedirect(route('coaches.certifications', $coach));
+
+    $this->assertSoftDeleted('coach_certifications', ['id' => $certification->id]);
+    $this->assertDatabaseHas('audit_logs', [
+        'entity' => 'CoachCertification',
+        'action' => 'deleted',
+    ]);
+});
+
+test('coach promotions tab returns promotion rows and rank options', function () {
+    $user = coachUser('coaches.view');
+    $fromRank = coachRank('CONSTABLE', 1);
+    $toRank = coachRank('HEAD_CONSTABLE', 2);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank_master_id' => $fromRank->id,
+    ]);
+    CoachPromotion::factory()->create([
+        'coach_id' => $coach->id,
+        'organization_id' => $user->organization_id,
+        'promotion_date' => '2026-02-01',
+        'from_rank' => $fromRank->code,
+        'to_rank' => $toRank->code,
+        'cash_reward_amount' => '5000.00',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.promotions', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/show')
+            ->where('activeTab', 'promotions')
+            ->where('coach.promotions.0.to_rank', $toRank->code)
+            ->where('coach.promotions.0.cash_reward_amount', '5000.00')
+            ->where('ranks.0.code', $fromRank->code)
+        );
+});
+
+test('user with coach promotions permission can add promotion and reward from profile tab', function () {
+    $user = coachUser('coaches.managePromotions', 'coaches.view');
+    $fromRank = coachRank('CONSTABLE', 1);
+    $toRank = coachRank('HEAD_CONSTABLE', 2);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank_master_id' => $fromRank->id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('coaches.promotions.store', $coach), [
+            'promotion_date' => '2026-02-01',
+            'from_rank' => $fromRank->code,
+            'to_rank' => $toRank->code,
+            'cash_reward_amount' => '5000.00',
+            'cash_reward_date' => '2026-02-02',
+            'cash_reward_reference' => 'ORDER-42',
+            'reason' => 'Outstanding coaching performance.',
+        ])
+        ->assertRedirect(route('coaches.promotions', $coach));
+
+    $this->assertDatabaseHas('coach_promotions', [
+        'coach_id' => $coach->id,
+        'to_rank' => $toRank->code,
+        'cash_reward_reference' => 'ORDER-42',
+    ]);
+    expect($coach->fresh()->rank_master_id)->toBe($toRank->id);
+    expect(collect(app(AuditLogBuilder::class)->forCoach($coach))
+        ->contains(fn (array $entry): bool => $entry['subject'] === 'Promotion'))
+        ->toBeTrue();
+});
+
+test('coach promotion can be reward only', function () {
+    $user = coachUser('coaches.managePromotions');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->post(route('coaches.promotions.store', $coach), [
+            'cash_reward_amount' => '7500.00',
+            'cash_reward_reference' => 'REWARD-1',
+        ])
+        ->assertRedirect(route('coaches.promotions', $coach));
+
+    $this->assertDatabaseHas('coach_promotions', [
+        'coach_id' => $coach->id,
+        'to_rank' => null,
+        'cash_reward_amount' => '7500.00',
+        'cash_reward_reference' => 'REWARD-1',
+    ]);
+});
+
+test('coach promotion requires rank or reward amount', function () {
+    $user = coachUser('coaches.managePromotions');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->from(route('coaches.promotions', $coach))
+        ->post(route('coaches.promotions.store', $coach), [
+            'reason' => 'Empty record',
+        ])
+        ->assertRedirect(route('coaches.promotions', $coach))
+        ->assertSessionHasErrors('to_rank');
+
+    $this->assertDatabaseMissing('coach_promotions', [
+        'coach_id' => $coach->id,
+        'reason' => 'Empty record',
+    ]);
+});
+
+test('user with coach promotions permission can update promotion from profile tab', function () {
+    $user = coachUser('coaches.managePromotions');
+    $fromRank = coachRank('CONSTABLE', 1);
+    $toRank = coachRank('HEAD_CONSTABLE', 2);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank_master_id' => $fromRank->id,
+    ]);
+    $promotion = CoachPromotion::factory()->create([
+        'coach_id' => $coach->id,
+        'organization_id' => $user->organization_id,
+        'from_rank' => $fromRank->code,
+        'to_rank' => $toRank->code,
+        'cash_reward_amount' => '1000.00',
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('coaches.promotions.update', [$coach, $promotion]), [
+            'from_rank' => $fromRank->code,
+            'to_rank' => $toRank->code,
+            'cash_reward_amount' => '2500.00',
+            'cash_reward_reference' => 'UPDATED',
+        ])
+        ->assertRedirect(route('coaches.promotions', $coach));
+
+    expect($promotion->fresh())
+        ->cash_reward_amount->toBe('2500.00')
+        ->cash_reward_reference->toBe('UPDATED');
+});
+
+test('user with coach promotions permission can remove promotion from profile tab', function () {
+    $user = coachUser('coaches.managePromotions');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $promotion = CoachPromotion::factory()->create([
+        'coach_id' => $coach->id,
+        'organization_id' => $user->organization_id,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('coaches.promotions.destroy', [$coach, $promotion]))
+        ->assertRedirect(route('coaches.promotions', $coach));
+
+    $this->assertDatabaseMissing('coach_promotions', ['id' => $promotion->id]);
+    $this->assertDatabaseHas('audit_logs', [
+        'entity' => 'CoachPromotion',
+        'action' => 'deleted',
+    ]);
 });
 
 // ---------------------------------------------------------------------------
@@ -428,8 +789,10 @@ test('update persists changed fields and redirects', function () {
         ])
         ->assertRedirect(route('coaches.show', $coach));
 
-    expect($coach->fresh()->full_name)->toBe('नया नाम');
-    expect($coach->fresh()->nis_certified)->toBeTrue();
+    expect($coach->fresh())
+        ->full_name->toBe('नया नाम')
+        ->display_name->toBe('नया नाम')
+        ->nis_certified->toBeTrue();
 });
 
 test('update ignores submitted member_id because coach members come from team assignments', function () {
@@ -453,6 +816,31 @@ test('update ignores submitted member_id because coach members come from team as
     expect($coach->fresh())
         ->full_name->toBe('नया नाम')
         ->member_id->toBeNull();
+});
+
+test('profile update keeps existing certifications and sports when tab data is omitted', function () {
+    $user = coachUser('coaches.update');
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'पुराना नाम',
+    ]);
+    $certification = CoachCertification::factory()->create(['coach_id' => $coach->id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $coachSport = CoachSport::factory()->create([
+        'coach_id' => $coach->id,
+        'sport_id' => $sport->id,
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('coaches.update', $coach), ['full_name' => 'नया नाम'])
+        ->assertRedirect(route('coaches.show', $coach));
+
+    expect($coach->fresh()->full_name)->toBe('नया नाम');
+    $this->assertDatabaseHas('coach_certifications', [
+        'id' => $certification->id,
+        'deleted_at' => null,
+    ]);
+    $this->assertDatabaseHas('coach_sport', ['id' => $coachSport->id]);
 });
 
 // ---------------------------------------------------------------------------

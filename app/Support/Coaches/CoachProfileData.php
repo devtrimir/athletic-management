@@ -9,6 +9,9 @@ use App\Http\Resources\CoachResource;
 use App\Http\Resources\CoachStatusHistoryResource;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
+use App\Models\Rank;
+use App\Models\Sport;
+use App\Models\TournamentTier;
 use App\Services\AuditLogBuilder;
 
 class CoachProfileData
@@ -54,6 +57,15 @@ class CoachProfileData
         return [
             ...$this->shell($coach),
             'activeTab' => 'sports',
+            'sports' => Sport::query()
+                ->select(['id', 'name', 'category'])
+                ->where('organization_id', $coach->organization_id)
+                ->orderBy('name')
+                ->get(),
+            'tiers' => TournamentTier::query()
+                ->select(['id', 'code', 'label_hi', 'label_en', 'weight'])
+                ->orderByDesc('weight')
+                ->get(),
         ];
     }
 
@@ -98,9 +110,17 @@ class CoachProfileData
     /** @return array<string, mixed> */
     public function promotions(Coach $coach): array
     {
+        $coach->loadMissing([
+            'promotions' => fn ($query) => $query
+                ->with('recorder:id,name')
+                ->orderByDesc('promotion_date')
+                ->orderByDesc('id'),
+        ]);
+
         return [
             ...$this->shell($coach),
             'activeTab' => 'promotions',
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
         ];
     }
 

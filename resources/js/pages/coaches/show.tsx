@@ -4,10 +4,23 @@ import {
     Link,
     router,
     setLayoutProps,
+    useForm,
 } from '@inertiajs/react';
-import { ArrowLeft, Camera, Download, Printer, Trash2 } from 'lucide-react';
+import {
+    ArrowLeft,
+    Camera,
+    Download,
+    Pencil,
+    Plus,
+    Printer,
+    Trash2,
+} from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react';
+import {
+    destroy as destroyCoachCertification,
+    store as storeCoachCertification,
+} from '@/actions/App/Http/Controllers/CoachCertificationController';
 import {
     destroy,
     edit as editCoach,
@@ -31,7 +44,19 @@ import {
     sports as coachSports,
     status as coachStatus,
 } from '@/actions/App/Http/Controllers/CoachProfileTabController';
+import {
+    destroy as destroyCoachPromotion,
+    store as storeCoachPromotion,
+    update as updateCoachPromotion,
+} from '@/actions/App/Http/Controllers/CoachPromotionController';
+import {
+    destroy as destroyCoachSport,
+    store as storeCoachSport,
+} from '@/actions/App/Http/Controllers/CoachSportController';
 import { store as storeCoachStatus } from '@/actions/App/Http/Controllers/CoachStatusController';
+import { Combobox } from '@/components/combobox';
+import { DatePicker } from '@/components/date-picker';
+import InputError from '@/components/input-error';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +88,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type CoachCertification = {
@@ -77,12 +103,50 @@ type CoachCertification = {
 
 type CoachSport = {
     id: number;
+    coach_sport_id: number | null;
     name: string;
     is_primary: boolean;
+    level_master_id: number | null;
+    sport_event: string | null;
     level: string | null;
     effective_from: string | null;
     effective_to: string | null;
     notes: string | null;
+};
+
+type CoachPromotion = {
+    id: number;
+    promotion_date: string | null;
+    from_rank: string | null;
+    to_rank: string | null;
+    cash_reward_amount: string | null;
+    cash_reward_date: string | null;
+    cash_reward_reference: string | null;
+    cash_reward_remarks: string | null;
+    reason: string | null;
+    remarks: string | null;
+    recorded_by_name: string | null;
+};
+
+type SportOption = {
+    id: number;
+    name: string;
+    category?: string | null;
+};
+
+type TierOption = {
+    id: number;
+    code: string;
+    label_hi: string;
+    label_en: string | null;
+    weight: number;
+};
+
+type RankOption = {
+    code: string;
+    name: string;
+    short_name: string | null;
+    rank_order?: number | null;
 };
 
 type CoachAssignment = {
@@ -123,6 +187,7 @@ type Coach = {
     photo_path: string | null;
     team_activity_status?: 'active' | 'inactive';
     certifications?: CoachCertification[];
+    promotions?: CoachPromotion[];
     sports?: CoachSport[];
     assignment_history?: CoachAssignment[];
     status_history?: CoachStatusHistory[];
@@ -210,18 +275,39 @@ export default function CoachesShow({
     coachTeams,
     statusHistory,
     auditLog,
+    sports = [],
+    tiers = [],
+    ranks = [],
 }: {
     coach: Coach;
     activeTab?: CoachShowTab;
     coachTeams?: CoachAssignment[];
     statusHistory?: CoachStatusHistory[];
     auditLog?: AuditEntry[];
+    sports?: SportOption[];
+    tiers?: TierOption[];
+    ranks?: RankOption[];
 }) {
     const { t } = useTranslation();
 
     const [exportOpen, setExportOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [statusOpen, setStatusOpen] = useState(false);
+    const [certificationDialogOpen, setCertificationDialogOpen] =
+        useState(false);
+    const [editingCertification, setEditingCertification] =
+        useState<CoachCertification | null>(null);
+    const [sportDialogOpen, setSportDialogOpen] = useState(false);
+    const [editingSport, setEditingSport] = useState<CoachSport | null>(null);
+    const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
+    const [editingPromotion, setEditingPromotion] =
+        useState<CoachPromotion | null>(null);
+    const [promotionDialogMode, setPromotionDialogMode] = useState<
+        'promotion' | 'reward'
+    >('promotion');
+    const [activePromotionTab, setActivePromotionTab] = useState<
+        'promotions' | 'rewards'
+    >('promotions');
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
@@ -229,6 +315,36 @@ export default function CoachesShow({
         'download',
     );
     const photoInputRef = useRef<HTMLInputElement | null>(null);
+    const sportForm = useForm({
+        sport_id: '',
+        level_master_id: '',
+        level: '',
+        sport_event: '',
+        is_primary: false,
+        effective_from: '',
+        effective_to: '',
+        notes: '',
+    });
+    const certificationForm = useForm({
+        id: '',
+        name: '',
+        certificate_type: '',
+        issuer: '',
+        issued_at: '',
+        expired_at: '',
+        attachment_path: '',
+    });
+    const promotionForm = useForm({
+        promotion_date: '',
+        from_rank: '',
+        to_rank: '',
+        cash_reward_amount: '',
+        cash_reward_date: '',
+        cash_reward_reference: '',
+        cash_reward_remarks: '',
+        reason: '',
+        remarks: '',
+    });
     const activeTab = COACH_SHOW_TABS.includes(activeTabProp)
         ? activeTabProp
         : 'overview';
@@ -327,6 +443,323 @@ export default function CoachesShow({
             : [];
     const statusRows = statusHistory ?? coach.status_history ?? [];
     const teamActivityStatus = coach.team_activity_status ?? 'inactive';
+    const sportItems = sports.map((sport) => ({
+        value: String(sport.id),
+        label: sport.name,
+        badge: sport.category ? t(sport.category) : undefined,
+    }));
+    const tierItems = tiers.map((tier) => ({
+        value: String(tier.id),
+        label: tier.label_hi || tier.label_en || tier.code,
+    }));
+    const rankItems = ranks.map((rank) => ({
+        value: rank.code,
+        label: [rank.code, rank.name, rank.short_name]
+            .filter(Boolean)
+            .join(' · '),
+    }));
+
+    function rankLabel(value: string | null | undefined): string {
+        if (!value) {
+            return '';
+        }
+
+        return (
+            rankItems.find((rank) => rank.value === value)?.label ?? value
+        );
+    }
+
+    function hasPromotionFields(promotion: CoachPromotion): boolean {
+        return Boolean(
+            promotion.promotion_date ||
+                (promotion.from_rank &&
+                    promotion.to_rank &&
+                    promotion.from_rank !== promotion.to_rank) ||
+                promotion.to_rank ||
+                promotion.reason ||
+                promotion.remarks,
+        );
+    }
+
+    function hasRewardFields(promotion: CoachPromotion): boolean {
+        return Boolean(
+            promotion.cash_reward_amount ||
+                promotion.cash_reward_date ||
+                promotion.cash_reward_reference ||
+                promotion.cash_reward_remarks,
+        );
+    }
+
+    function promotionCategory(promotion: CoachPromotion): string {
+        const hasPromotion = hasPromotionFields(promotion);
+        const hasReward = hasRewardFields(promotion);
+
+        if (hasPromotion && hasReward) {
+            return t('Promotion + Reward');
+        }
+
+        if (hasReward) {
+            return t('Reward');
+        }
+
+        return t('Promotion');
+    }
+
+    function promotionCategoryClass(promotion: CoachPromotion): string {
+        const hasPromotion = hasPromotionFields(promotion);
+        const hasReward = hasRewardFields(promotion);
+
+        if (hasPromotion && hasReward) {
+            return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200';
+        }
+
+        if (hasReward) {
+            return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200';
+        }
+
+        return 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200';
+    }
+
+    const promotionRows = (coach.promotions ?? []).filter(hasPromotionFields);
+    const rewardRows = (coach.promotions ?? []).filter(hasRewardFields);
+    const activePromotionRows =
+        activePromotionTab === 'promotions' ? promotionRows : rewardRows;
+
+    function resetCertificationForm() {
+        setEditingCertification(null);
+        certificationForm.setData({
+            id: '',
+            name: '',
+            certificate_type: '',
+            issuer: '',
+            issued_at: '',
+            expired_at: '',
+            attachment_path: '',
+        });
+        certificationForm.clearErrors();
+    }
+
+    function openAddCertificationDialog() {
+        resetCertificationForm();
+        setCertificationDialogOpen(true);
+    }
+
+    function openEditCertificationDialog(certification: CoachCertification) {
+        setEditingCertification(certification);
+        certificationForm.setData({
+            id: String(certification.id),
+            name: certification.name,
+            certificate_type: certification.certificate_type ?? '',
+            issuer: certification.issuer ?? '',
+            issued_at: certification.issued_at ?? '',
+            expired_at: certification.expired_at ?? '',
+            attachment_path: certification.attachment_path ?? '',
+        });
+        certificationForm.clearErrors();
+        setCertificationDialogOpen(true);
+    }
+
+    function submitCertification(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        certificationForm.transform((data) => ({
+            ...data,
+            id: data.id || null,
+            certificate_type: data.certificate_type || null,
+            issuer: data.issuer || null,
+            issued_at: data.issued_at || null,
+            expired_at: data.expired_at || null,
+            attachment_path: data.attachment_path || null,
+        }));
+
+        certificationForm.post(storeCoachCertification.url(coach), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setCertificationDialogOpen(false);
+                resetCertificationForm();
+            },
+        });
+    }
+
+    function removeCertification(certificationId: number) {
+        router.delete(
+            destroyCoachCertification.url({
+                coach,
+                certification: certificationId,
+            }),
+            { preserveScroll: true },
+        );
+    }
+
+    function resetPromotionForm() {
+        setEditingPromotion(null);
+        promotionForm.setData({
+            promotion_date: '',
+            from_rank: '',
+            to_rank: '',
+            cash_reward_amount: '',
+            cash_reward_date: '',
+            cash_reward_reference: '',
+            cash_reward_remarks: '',
+            reason: '',
+            remarks: '',
+        });
+        promotionForm.clearErrors();
+    }
+
+    function openAddPromotionDialog(mode: 'promotion' | 'reward' = 'promotion') {
+        resetPromotionForm();
+        setPromotionDialogMode(mode);
+        setPromotionDialogOpen(true);
+    }
+
+    function openEditPromotionDialog(
+        promotion: CoachPromotion,
+        mode: 'promotion' | 'reward' = hasPromotionFields(promotion)
+            ? 'promotion'
+            : 'reward',
+    ) {
+        setEditingPromotion(promotion);
+        setPromotionDialogMode(mode);
+        promotionForm.setData({
+            promotion_date: promotion.promotion_date ?? '',
+            from_rank: promotion.from_rank ?? '',
+            to_rank: promotion.to_rank ?? '',
+            cash_reward_amount: promotion.cash_reward_amount ?? '',
+            cash_reward_date: promotion.cash_reward_date ?? '',
+            cash_reward_reference: promotion.cash_reward_reference ?? '',
+            cash_reward_remarks: promotion.cash_reward_remarks ?? '',
+            reason: promotion.reason ?? '',
+            remarks: promotion.remarks ?? '',
+        });
+        promotionForm.clearErrors();
+        setPromotionDialogOpen(true);
+    }
+
+    function submitPromotion(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        const isRewardMode = promotionDialogMode === 'reward';
+
+        promotionForm.transform((data) => ({
+            ...data,
+            promotion_date: isRewardMode ? null : data.promotion_date || null,
+            from_rank: isRewardMode ? null : data.from_rank || null,
+            to_rank: isRewardMode ? null : data.to_rank || null,
+            cash_reward_amount: data.cash_reward_amount || null,
+            cash_reward_date: data.cash_reward_date || null,
+            cash_reward_reference: data.cash_reward_reference || null,
+            cash_reward_remarks: data.cash_reward_remarks || null,
+            reason: isRewardMode ? null : data.reason || null,
+            remarks: isRewardMode ? null : data.remarks || null,
+        }));
+
+        const options = {
+            preserveScroll: true,
+            onSuccess: () => {
+                setPromotionDialogOpen(false);
+                resetPromotionForm();
+            },
+        };
+
+        if (editingPromotion) {
+            promotionForm.patch(
+                updateCoachPromotion.url({
+                    coach,
+                    promotion: editingPromotion.id,
+                }),
+                options,
+            );
+
+            return;
+        }
+
+        promotionForm.post(storeCoachPromotion.url(coach), options);
+    }
+
+    function removePromotion(promotionId: number) {
+        router.delete(
+            destroyCoachPromotion.url({
+                coach,
+                promotion: promotionId,
+            }),
+            { preserveScroll: true },
+        );
+    }
+
+    function resetSportForm() {
+        setEditingSport(null);
+        sportForm.setData({
+            sport_id: '',
+            level_master_id: '',
+            level: '',
+            sport_event: '',
+            is_primary: false,
+            effective_from: '',
+            effective_to: '',
+            notes: '',
+        });
+        sportForm.clearErrors();
+    }
+
+    function openAddSportDialog() {
+        resetSportForm();
+        setSportDialogOpen(true);
+    }
+
+    function openEditSportDialog(sport: CoachSport) {
+        setEditingSport(sport);
+        sportForm.setData({
+            sport_id: String(sport.id),
+            level_master_id: sport.level_master_id
+                ? String(sport.level_master_id)
+                : '',
+            level: sport.level ?? '',
+            sport_event: sport.sport_event ?? '',
+            is_primary: sport.is_primary,
+            effective_from: sport.effective_from ?? '',
+            effective_to: sport.effective_to ?? '',
+            notes: sport.notes ?? '',
+        });
+        sportForm.clearErrors();
+        setSportDialogOpen(true);
+    }
+
+    function submitSport(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        sportForm.transform((data) => ({
+                ...data,
+                sport_id: data.sport_id,
+                level_master_id: data.level_master_id || null,
+                level: data.level || null,
+                sport_event: data.sport_event || null,
+                effective_from: data.effective_from || null,
+                effective_to: data.effective_to || null,
+                notes: data.notes || null,
+            }));
+
+        sportForm.post(storeCoachSport.url(coach), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setSportDialogOpen(false);
+                resetSportForm();
+            },
+        });
+    }
+
+    function removeSport(coachSportId: number | null) {
+        if (coachSportId === null) {
+            return;
+        }
+
+        router.delete(
+            destroyCoachSport.url({
+                coach,
+                coachSport: coachSportId,
+            }),
+            { preserveScroll: true },
+        );
+    }
 
     return (
         <>
@@ -578,67 +1011,142 @@ export default function CoachesShow({
                     </TabsContent>
 
                     <TabsContent value="certifications">
-                        <div className="rounded-xl border bg-card">
-                            {(coach.certifications ?? []).length === 0 ? (
-                                <p className="p-4 text-sm text-muted-foreground">
-                                    {t('No certifications yet.')}
-                                </p>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>{t('Name')}</TableHead>
-                                            <TableHead>{t('Type')}</TableHead>
-                                            <TableHead>{t('Issuer')}</TableHead>
-                                            <TableHead>{t('Issued')}</TableHead>
-                                            <TableHead>
-                                                {t('Expired')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Attachment')}
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(coach.certifications ?? []).map(
-                                            (certification) => (
-                                                <TableRow
-                                                    key={certification.id}
-                                                >
-                                                    <TableCell className="font-medium">
-                                                        {certification.name}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.certificate_type ??
-                                                            ''}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.issuer ??
-                                                            ''}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.issued_at ??
-                                                            ''}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.expired_at ??
-                                                            ''}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.attachment_path ??
-                                                            ''}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ),
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Certifications')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Manage certifications without editing the full coach profile.',
                                         )}
-                                    </TableBody>
-                                </Table>
-                            )}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={openAddCertificationDialog}
+                                >
+                                    <Plus className="mr-1.5 h-4 w-4" />
+                                    {t('Add certification')}
+                                </Button>
+                            </div>
+
+                            <div className="rounded-xl border bg-card">
+                                {(coach.certifications ?? []).length === 0 ? (
+                                    <p className="p-4 text-sm text-muted-foreground">
+                                        {t('No certifications yet.')}
+                                    </p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>{t('Name')}</TableHead>
+                                                <TableHead>{t('Type')}</TableHead>
+                                                <TableHead>{t('Issuer')}</TableHead>
+                                                <TableHead>{t('Issued')}</TableHead>
+                                                <TableHead>{t('Expired')}</TableHead>
+                                                <TableHead>
+                                                    {t('Attachment')}
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    {t('Actions')}
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {(coach.certifications ?? []).map(
+                                                (certification) => (
+                                                    <TableRow
+                                                        key={certification.id}
+                                                    >
+                                                        <TableCell className="font-medium">
+                                                            {certification.name}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.certificate_type ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.issuer ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.issued_at ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.expired_at ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.attachment_path ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        openEditCertificationDialog(
+                                                                            certification,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Pencil className="mr-1.5 h-4 w-4" />
+                                                                    {t('Edit')}
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        removeCertification(
+                                                                            certification.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    {t('Remove')}
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </div>
                         </div>
                     </TabsContent>
 
                     <TabsContent value="sports">
-                        <div className="rounded-xl border bg-card">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Sports')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Manage sport specializations without editing the full coach profile.',
+                                        )}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={openAddSportDialog}
+                                >
+                                    <Plus className="mr-1.5 h-4 w-4" />
+                                    {t('Add sport')}
+                                </Button>
+                            </div>
+
+                            <div className="rounded-xl border bg-card">
                             {(coach.sports ?? []).length === 0 ? (
                                 <p className="p-4 text-sm text-muted-foreground">
                                     {t('No sports specialization yet.')}
@@ -652,8 +1160,13 @@ export default function CoachesShow({
                                                 {t('Primary')}
                                             </TableHead>
                                             <TableHead>{t('Level')}</TableHead>
+                                            <TableHead>{t('Event')}</TableHead>
                                             <TableHead>{t('From')}</TableHead>
                                             <TableHead>{t('To')}</TableHead>
+                                            <TableHead>{t('Notes')}</TableHead>
+                                            <TableHead className="text-right">
+                                                {t('Actions')}
+                                            </TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -671,16 +1184,55 @@ export default function CoachesShow({
                                                     {sport.level ?? ''}
                                                 </TableCell>
                                                 <TableCell>
+                                                    {sport.sport_event ?? ''}
+                                                </TableCell>
+                                                <TableCell>
                                                     {sport.effective_from ?? ''}
                                                 </TableCell>
                                                 <TableCell>
                                                     {sport.effective_to ?? ''}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {sport.notes ?? ''}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                openEditSportDialog(
+                                                                    sport,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Pencil className="mr-1.5 h-4 w-4" />
+                                                            {t('Edit')}
+                                                        </Button>
+                                                        {sport.coach_sport_id !==
+                                                        null ? (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    removeSport(
+                                                                        sport.coach_sport_id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {t('Remove')}
+                                                            </Button>
+                                                        ) : null}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
                             )}
+                            </div>
                         </div>
                     </TabsContent>
 
@@ -794,10 +1346,281 @@ export default function CoachesShow({
                     </TabsContent>
 
                     <TabsContent value="promotions">
-                        <EmptyCoachTab
-                            title={t('Promotions & Rewards')}
-                            message={t('No coach promotions or rewards recorded yet.')}
-                        />
+                        <div className="rounded-xl border bg-card">
+                            <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <h3 className="text-sm font-semibold">
+                                        {t('Promotions & Rewards')}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Manage promotion and cash reward records without editing the full coach profile.',
+                                        )}
+                                    </p>
+                                </div>
+                                {activePromotionTab === 'promotions' ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() =>
+                                            openAddPromotionDialog('promotion')
+                                        }
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        {t('Add promotion')}
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() =>
+                                            openAddPromotionDialog('reward')
+                                        }
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        {t('Add cash reward')}
+                                    </Button>
+                                )}
+                            </div>
+
+                            <div className="border-b px-4 py-3">
+                                <Tabs
+                                    value={activePromotionTab}
+                                    onValueChange={(value) =>
+                                        setActivePromotionTab(
+                                            value as 'promotions' | 'rewards',
+                                        )
+                                    }
+                                >
+                                    <TabsList>
+                                        <TabsTrigger value="promotions">
+                                            {t('Promotions')}
+                                        </TabsTrigger>
+                                        <TabsTrigger value="rewards">
+                                            {t('Rewards')}
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            </div>
+
+                            {activePromotionRows.length === 0 ? (
+                                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                    {activePromotionTab === 'promotions'
+                                        ? t('No promotions yet.')
+                                        : t('No rewards yet.')}
+                                </div>
+                            ) : activePromotionTab === 'promotions' ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>{t('Type')}</TableHead>
+                                            <TableHead>{t('From rank')}</TableHead>
+                                            <TableHead>{t('To rank')}</TableHead>
+                                            <TableHead>{t('Decision date')}</TableHead>
+                                            <TableHead>
+                                                {t('Reason / Remarks')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('Recorded by')}
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                {t('Actions')}
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {activePromotionRows.map(
+                                            (promotion) => (
+                                                <TableRow key={promotion.id}>
+                                                    <TableCell>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={promotionCategoryClass(
+                                                                promotion,
+                                                            )}
+                                                        >
+                                                            {promotionCategory(
+                                                                promotion,
+                                                            )}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.from_rank ? (
+                                                            rankLabel(
+                                                                promotion.from_rank,
+                                                            )
+                                                        ) : (
+                                                            <span className="text-muted-foreground">
+                                                                —
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.to_rank ? (
+                                                            rankLabel(
+                                                                promotion.to_rank,
+                                                            )
+                                                        ) : (
+                                                            <span className="text-muted-foreground">
+                                                                —
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.promotion_date ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell className="max-w-[18rem]">
+                                                        <span className="line-clamp-2">
+                                                            {promotion.reason ??
+                                                                promotion.remarks ??
+                                                                '—'}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.recorded_by_name ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    openEditPromotionDialog(
+                                                                        promotion,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                                {t('Edit')}
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    removePromotion(
+                                                                        promotion.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                                {t('Remove')}
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ),
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>{t('Type')}</TableHead>
+                                            <TableHead>{t('Reward date')}</TableHead>
+                                            <TableHead>
+                                                {t('Reward amount')}
+                                            </TableHead>
+                                            <TableHead>{t('Reference')}</TableHead>
+                                            <TableHead>{t('Remarks')}</TableHead>
+                                            <TableHead>
+                                                {t('Recorded by')}
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                {t('Actions')}
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {activePromotionRows.map(
+                                            (promotion) => (
+                                                <TableRow key={promotion.id}>
+                                                    <TableCell>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={promotionCategoryClass(
+                                                                promotion,
+                                                            )}
+                                                        >
+                                                            {promotionCategory(
+                                                                promotion,
+                                                            )}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.cash_reward_date ??
+                                                            promotion.promotion_date ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.cash_reward_amount ? (
+                                                            `₹${promotion.cash_reward_amount}`
+                                                        ) : (
+                                                            <span className="text-muted-foreground">
+                                                                —
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.cash_reward_reference ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell className="max-w-[18rem]">
+                                                        <span className="line-clamp-2">
+                                                            {promotion.cash_reward_remarks ??
+                                                                '—'}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.recorded_by_name ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    openEditPromotionDialog(
+                                                                        promotion,
+                                                                        hasPromotionFields(
+                                                                            promotion,
+                                                                        )
+                                                                            ? 'promotion'
+                                                                            : 'reward',
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                                {t('Edit')}
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    removePromotion(
+                                                                        promotion.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                                {t('Remove')}
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ),
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="media">
@@ -902,6 +1725,586 @@ export default function CoachesShow({
                     </TabsContent>
                 </Tabs>
             </div>
+
+            <Dialog
+                open={promotionDialogOpen}
+                onOpenChange={(open) => {
+                    setPromotionDialogOpen(open);
+
+                    if (!open) {
+                        resetPromotionForm();
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-2xl">
+                    <form onSubmit={submitPromotion}>
+                        <DialogHeader>
+                            <DialogTitle>
+                                {promotionDialogMode === 'reward'
+                                    ? editingPromotion
+                                        ? t('Edit reward')
+                                        : t('Add cash reward')
+                                    : editingPromotion
+                                      ? t('Edit promotion')
+                                      : t('Add promotion')}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {promotionDialogMode === 'reward'
+                                    ? t(
+                                          'Save a cash reward without changing the full coach profile.',
+                                      )
+                                    : t(
+                                          'Save a promotion without changing the full coach profile.',
+                                      )}
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="grid gap-4 py-4">
+                            {promotionDialogMode === 'promotion' ? (
+                                <>
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="promotion_date">
+                                                {t('Promotion date')}
+                                            </Label>
+                                            <DatePicker
+                                                id="promotion_date"
+                                                value={
+                                                    promotionForm.data
+                                                        .promotion_date
+                                                }
+                                                onChange={(value) =>
+                                                    promotionForm.setData(
+                                                        'promotion_date',
+                                                        value,
+                                                    )
+                                                }
+                                            />
+                                            <InputError
+                                                message={
+                                                    promotionForm.errors
+                                                        .promotion_date
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="from_rank">
+                                                {t('From rank')}
+                                            </Label>
+                                            <Combobox
+                                                id="from_rank"
+                                                value={
+                                                    promotionForm.data.from_rank
+                                                }
+                                                onValueChange={(value) =>
+                                                    promotionForm.setData(
+                                                        'from_rank',
+                                                        value,
+                                                    )
+                                                }
+                                                items={rankItems}
+                                                placeholder={t('Select rank')}
+                                                searchPlaceholder={t(
+                                                    'Search ranks…',
+                                                )}
+                                            />
+                                            <InputError
+                                                message={
+                                                    promotionForm.errors
+                                                        .from_rank
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="to_rank">
+                                            {t('To rank')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                        <Combobox
+                                            id="to_rank"
+                                            value={promotionForm.data.to_rank}
+                                            onValueChange={(value) =>
+                                                promotionForm.setData(
+                                                    'to_rank',
+                                                    value,
+                                                )
+                                            }
+                                            items={rankItems}
+                                            placeholder={t('Select rank')}
+                                            searchPlaceholder={t(
+                                                'Search ranks…',
+                                            )}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors.to_rank
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="reason">
+                                            {t('Reason')}
+                                        </Label>
+                                        <Textarea
+                                            id="reason"
+                                            value={promotionForm.data.reason}
+                                            onChange={(event) =>
+                                                promotionForm.setData(
+                                                    'reason',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            rows={3}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors.reason
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="promotion_remarks">
+                                            {t('Remarks')}
+                                        </Label>
+                                        <Textarea
+                                            id="promotion_remarks"
+                                            value={promotionForm.data.remarks}
+                                            onChange={(event) =>
+                                                promotionForm.setData(
+                                                    'remarks',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            rows={3}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors.remarks
+                                            }
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="cash_reward_amount">
+                                                {t('Cash reward amount')}{' '}
+                                                <span className="text-destructive">
+                                                    *
+                                                </span>
+                                            </Label>
+                                            <Input
+                                                id="cash_reward_amount"
+                                                value={
+                                                    promotionForm.data
+                                                        .cash_reward_amount
+                                                }
+                                                onChange={(event) =>
+                                                    promotionForm.setData(
+                                                        'cash_reward_amount',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                inputMode="decimal"
+                                            />
+                                            <InputError
+                                                message={
+                                                    promotionForm.errors
+                                                        .cash_reward_amount
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="cash_reward_date">
+                                                {t('Cash reward date')}
+                                            </Label>
+                                            <DatePicker
+                                                id="cash_reward_date"
+                                                value={
+                                                    promotionForm.data
+                                                        .cash_reward_date
+                                                }
+                                                onChange={(value) =>
+                                                    promotionForm.setData(
+                                                        'cash_reward_date',
+                                                        value,
+                                                    )
+                                                }
+                                            />
+                                            <InputError
+                                                message={
+                                                    promotionForm.errors
+                                                        .cash_reward_date
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="cash_reward_reference">
+                                            {t('Cash reward reference')}
+                                        </Label>
+                                        <Input
+                                            id="cash_reward_reference"
+                                            value={
+                                                promotionForm.data
+                                                    .cash_reward_reference
+                                            }
+                                            onChange={(event) =>
+                                                promotionForm.setData(
+                                                    'cash_reward_reference',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            maxLength={100}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors
+                                                    .cash_reward_reference
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="cash_reward_remarks">
+                                            {t('Cash reward remarks')}
+                                        </Label>
+                                        <Textarea
+                                            id="cash_reward_remarks"
+                                            value={
+                                                promotionForm.data
+                                                    .cash_reward_remarks
+                                            }
+                                            onChange={(event) =>
+                                                promotionForm.setData(
+                                                    'cash_reward_remarks',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            rows={3}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors
+                                                    .cash_reward_remarks
+                                            }
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setPromotionDialogOpen(false)}
+                            >
+                                {t('Cancel')}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={promotionForm.processing}
+                            >
+                                {promotionDialogMode === 'reward'
+                                    ? t('Save reward')
+                                    : t('Save promotion')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={certificationDialogOpen}
+                onOpenChange={(open) => {
+                    setCertificationDialogOpen(open);
+
+                    if (!open) {
+                        resetCertificationForm();
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-2xl">
+                    <form onSubmit={submitCertification}>
+                        <DialogHeader>
+                            <DialogTitle>
+                                {editingCertification
+                                    ? t('Edit certification')
+                                    : t('Add certification')}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {t(
+                                    'Save one certification without changing the full coach profile.',
+                                )}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Name')}</Label>
+                                <Input
+                                    value={certificationForm.data.name}
+                                    onChange={(event) =>
+                                        certificationForm.setData(
+                                            'name',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                {certificationForm.errors.name ? (
+                                    <p className="text-sm text-destructive">
+                                        {certificationForm.errors.name}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Type')}</Label>
+                                <Input
+                                    value={
+                                        certificationForm.data.certificate_type
+                                    }
+                                    onChange={(event) =>
+                                        certificationForm.setData(
+                                            'certificate_type',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Issuer')}</Label>
+                                <Input
+                                    value={certificationForm.data.issuer}
+                                    onChange={(event) =>
+                                        certificationForm.setData(
+                                            'issuer',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Attachment path')}</Label>
+                                <Input
+                                    value={
+                                        certificationForm.data.attachment_path
+                                    }
+                                    onChange={(event) =>
+                                        certificationForm.setData(
+                                            'attachment_path',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Issued')}</Label>
+                                <DatePicker
+                                    value={certificationForm.data.issued_at}
+                                    onChange={(value) =>
+                                        certificationForm.setData(
+                                            'issued_at',
+                                            value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Expired')}</Label>
+                                <DatePicker
+                                    value={certificationForm.data.expired_at}
+                                    onChange={(value) =>
+                                        certificationForm.setData(
+                                            'expired_at',
+                                            value,
+                                        )
+                                    }
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() =>
+                                    setCertificationDialogOpen(false)
+                                }
+                            >
+                                {t('Cancel')}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    certificationForm.processing ||
+                                    certificationForm.data.name.trim() === ''
+                                }
+                            >
+                                {t('Save certification')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={sportDialogOpen}
+                onOpenChange={(open) => {
+                    setSportDialogOpen(open);
+
+                    if (!open) {
+                        resetSportForm();
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-2xl">
+                    <form onSubmit={submitSport}>
+                        <DialogHeader>
+                            <DialogTitle>
+                                {editingSport
+                                    ? t('Edit sport')
+                                    : t('Add sport')}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {t(
+                                    'Save one sport specialization without changing the full coach profile.',
+                                )}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4 lg:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Sport')}</Label>
+                                <Combobox
+                                    value={sportForm.data.sport_id}
+                                    onValueChange={(value) =>
+                                        sportForm.setData('sport_id', value)
+                                    }
+                                    items={sportItems}
+                                    placeholder={t('Select sport')}
+                                    searchPlaceholder={t('Search sports…')}
+                                />
+                                {sportForm.errors.sport_id ? (
+                                    <p className="text-sm text-destructive">
+                                        {sportForm.errors.sport_id}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Tier / level')}</Label>
+                                <Combobox
+                                    value={sportForm.data.level_master_id}
+                                    onValueChange={(value) => {
+                                        const selected = tierItems.find(
+                                            (tier) => tier.value === value,
+                                        );
+
+                                        sportForm.setData({
+                                            ...sportForm.data,
+                                            level_master_id: value,
+                                            level: selected?.label ?? '',
+                                        });
+                                    }}
+                                    items={tierItems}
+                                    placeholder={t('Select tier / level')}
+                                    searchPlaceholder={t('Search tiers…')}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Sport event / discipline')}</Label>
+                                <Input
+                                    value={sportForm.data.sport_event}
+                                    onChange={(event) =>
+                                        sportForm.setData(
+                                            'sport_event',
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder={t(
+                                        'e.g. 100m, freestyle, kata',
+                                    )}
+                                />
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label>{t('From')}</Label>
+                                    <DatePicker
+                                        value={sportForm.data.effective_from}
+                                        onChange={(value) =>
+                                            sportForm.setData(
+                                                'effective_from',
+                                                value,
+                                            )
+                                        }
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>{t('To')}</Label>
+                                    <DatePicker
+                                        value={sportForm.data.effective_to}
+                                        onChange={(value) =>
+                                            sportForm.setData(
+                                                'effective_to',
+                                                value,
+                                            )
+                                        }
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Notes')}</Label>
+                                <Input
+                                    value={sportForm.data.notes}
+                                    onChange={(event) =>
+                                        sportForm.setData(
+                                            'notes',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="flex items-center gap-3 pt-6">
+                                <Checkbox
+                                    checked={sportForm.data.is_primary}
+                                    onCheckedChange={(checked) =>
+                                        sportForm.setData(
+                                            'is_primary',
+                                            !!checked,
+                                        )
+                                    }
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                    {t('Mark as primary')}
+                                </span>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setSportDialogOpen(false)}
+                            >
+                                {t('Cancel')}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    sportForm.processing ||
+                                    sportForm.data.sport_id === ''
+                                }
+                            >
+                                {t('Save sport')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             <ExportDialog
                 open={exportOpen}

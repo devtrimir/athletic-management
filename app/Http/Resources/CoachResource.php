@@ -79,6 +79,7 @@ class CoachResource extends JsonResource
             'sports' => $this->whenLoaded('sports', fn () => $this->sports
                 ->map(fn ($sport) => [
                     'id' => $sport->id,
+                    'coach_sport_id' => $sport->pivot?->id,
                     'name' => $sport->name,
                     'is_primary' => (bool) $sport->pivot?->is_primary,
                     'level_master_id' => $sport->pivot?->level_master_id,
@@ -87,6 +88,21 @@ class CoachResource extends JsonResource
                     'effective_from' => $sport->pivot?->effective_from?->toDateString(),
                     'effective_to' => $sport->pivot?->effective_to?->toDateString(),
                     'notes' => $sport->pivot?->notes,
+                ])
+                ->values()),
+            'promotions' => $this->whenLoaded('promotions', fn () => $this->promotions
+                ->map(fn ($promotion) => [
+                    'id' => $promotion->id,
+                    'promotion_date' => $promotion->promotion_date?->toDateString(),
+                    'from_rank' => $promotion->from_rank,
+                    'to_rank' => $promotion->to_rank,
+                    'cash_reward_amount' => $promotion->cash_reward_amount,
+                    'cash_reward_date' => $promotion->cash_reward_date?->toDateString(),
+                    'cash_reward_reference' => $promotion->cash_reward_reference,
+                    'cash_reward_remarks' => $promotion->cash_reward_remarks,
+                    'reason' => $promotion->reason,
+                    'remarks' => $promotion->remarks,
+                    'recorded_by_name' => $promotion->recorder?->name,
                 ])
                 ->values()),
             'assignment_history' => $this->whenLoaded('assignmentHistory', fn () => $this->assignmentHistory

@@ -8,6 +8,7 @@ use App\Http\Requests\Coaches\StoreCoachRequest;
 use App\Http\Requests\Coaches\UpdateCoachRequest;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
+use App\Models\CoachCertification;
 use App\Models\Designation;
 use App\Models\District;
 use App\Models\NisMaster;
@@ -324,11 +325,16 @@ class CoachController extends Controller
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
             'nisMasters' => NisMaster::query()->active()->ordered()->get(),
-            'certificateTypes' => Coach::query()
-                ->join('coach_certifications', 'coach_certifications.coach_id', '=', 'coaches.id')
+            'certificateTypes' => CoachCertification::query()
+                ->whereHas('coach', fn (Builder $query) => $query->where('organization_id', $request->user()->organization_id))
+                ->whereNotNull('certificate_type')
+                ->where('certificate_type', '!=', '')
                 ->distinct()
-                ->pluck('coach_certifications.certificate_type')
+                ->pluck('certificate_type')
+                ->concat(NisMaster::query()->active()->ordered()->pluck('name'))
                 ->filter()
+                ->unique()
+                ->sort()
                 ->values(),
             'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
@@ -362,13 +368,7 @@ class CoachController extends Controller
     {
         Gate::authorize('create', Coach::class);
 
-        $sports = Sport::select(['id', 'name'])
-            ->where('organization_id', $request->user()->organization_id)
-            ->orderBy('name')
-            ->get();
-
         return Inertia::render('coaches/create', [
-            'sports' => $sports,
             'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
             'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
@@ -388,15 +388,20 @@ class CoachController extends Controller
 
         $coach = DB::transaction(function () use ($request, $payload): Coach {
             $payload['organization_id'] = (int) $request->user()->organization_id;
-            $payload['display_name'] = ($payload['display_name'] ?? null) ?: $payload['full_name'];
+            $payload['display_name'] = $payload['full_name'];
             $payload['coach_status'] = $payload['coach_status'] ?? 'ACTIVE';
             $payload['designation'] = $payload['designation'] ?? null;
 
             /** @var Coach $coach */
             $coach = Coach::create(Arr::except($payload, ['certifications', 'sports']));
 
-            $this->syncCertifications($coach, (array) ($payload['certifications'] ?? []));
-            $coach->sports()->sync($this->buildSyncPayload((array) ($payload['sports'] ?? [])));
+            if (array_key_exists('certifications', $payload)) {
+                $this->syncCertifications($coach, (array) $payload['certifications']);
+            }
+
+            if (array_key_exists('sports', $payload)) {
+                $coach->sports()->sync($this->buildSyncPayload((array) $payload['sports']));
+            }
 
             return $coach;
         });
@@ -417,39 +422,14 @@ class CoachController extends Controller
     {
         Gate::authorize('update', $coach);
 
-        $sports = Sport::select(['id', 'name'])
-            ->where('organization_id', $request->user()->organization_id)
-            ->orderBy('name')
-            ->get();
-
-        $protectedSports = $this->protectedSportsForCoach(
-            $coach,
-            $coach->sports()->pluck('sports.id')->map(fn (mixed $id): int => (int) $id)->all(),
-        );
-
         return Inertia::render('coaches/edit', [
-            'coach' => $coach
-                ->loadMissing([
-                    'certifications',
-                    'sports' => fn ($q) => $q->select('sports.id', 'sports.name')->withPivot([
-                        'is_primary',
-                        'level_master_id',
-                        'level',
-                        'sport_event',
-                        'effective_from',
-                        'effective_to',
-                        'notes',
-                    ]),
-                    'assignmentHistory',
-                ]),
-            'sports' => $sports,
+            'coach' => $coach,
             'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
             'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
             'nisMasters' => NisMaster::query()->active()->ordered()->get(),
-            'protectedSports' => $protectedSports,
             'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
         ]);
@@ -460,13 +440,21 @@ class CoachController extends Controller
         Gate::authorize('update', $coach);
 
         $payload = $request->validated();
-        $payload['display_name'] = $payload['display_name'] ?? $coach->full_name;
-        $this->ensureProtectedSportsRemainUnchanged($coach, (array) ($payload['sports'] ?? []));
+        $payload['display_name'] = (string) ($payload['full_name'] ?? $coach->full_name);
+        if (array_key_exists('sports', $payload)) {
+            $this->ensureProtectedSportsRemainUnchanged($coach, (array) $payload['sports']);
+        }
 
         DB::transaction(function () use ($coach, $payload): void {
             $coach->update(Arr::except($payload, ['certifications', 'sports']));
-            $this->syncCertifications($coach, (array) ($payload['certifications'] ?? []));
-            $coach->sports()->sync($this->buildSyncPayload((array) ($payload['sports'] ?? [])));
+
+            if (array_key_exists('certifications', $payload)) {
+                $this->syncCertifications($coach, (array) $payload['certifications']);
+            }
+
+            if (array_key_exists('sports', $payload)) {
+                $coach->sports()->sync($this->buildSyncPayload((array) $payload['sports']));
+            }
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach updated.')]);

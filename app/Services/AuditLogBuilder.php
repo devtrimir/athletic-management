@@ -9,6 +9,9 @@ use App\Models\AuditLog;
 use App\Models\Coach;
 use App\Models\CoachAlias;
 use App\Models\CoachAssignment;
+use App\Models\CoachCertification;
+use App\Models\CoachPromotion;
+use App\Models\CoachSport;
 use App\Models\CoachStatusHistory;
 use App\Models\District;
 use App\Models\Incharge;
@@ -600,12 +603,18 @@ class AuditLogBuilder
     {
         $coachAssignmentIds = CoachAssignment::where('coach_id', $coach->id)->pluck('id');
         $coachAliasIds = CoachAlias::where('coach_id', $coach->id)->pluck('id');
+        $coachCertificationIds = CoachCertification::where('coach_id', $coach->id)->pluck('id');
+        $coachPromotionIds = CoachPromotion::where('coach_id', $coach->id)->pluck('id');
+        $coachSportIds = CoachSport::where('coach_id', $coach->id)->pluck('id');
         $coachStatusHistoryIds = CoachStatusHistory::where('coach_id', $coach->id)->pluck('id');
 
         $logs = AuditLog::where('entity', 'Coach')->where('entity_id', $coach->id)->get();
 
         foreach ([
             ['entity' => 'CoachAlias', 'ids' => $coachAliasIds],
+            ['entity' => 'CoachCertification', 'ids' => $coachCertificationIds],
+            ['entity' => 'CoachPromotion', 'ids' => $coachPromotionIds],
+            ['entity' => 'CoachSport', 'ids' => $coachSportIds],
             ['entity' => 'CoachStatusHistory', 'ids' => $coachStatusHistoryIds],
         ] as ['entity' => $entity, 'ids' => $ids]) {
             $logs = $logs->merge(
@@ -646,10 +655,14 @@ class AuditLogBuilder
         $userMap = User::pluck('name', 'id');
         $teamMap = Team::pluck('name', 'id');
         $memberMap = Member::withoutGlobalScopes()->pluck('full_name', 'id');
+        $sportMap = Sport::pluck('name', 'id');
 
         $subjectMap = [
             'Coach' => 'Coach',
             'CoachAlias' => 'Alias',
+            'CoachCertification' => 'Certification',
+            'CoachPromotion' => 'Promotion',
+            'CoachSport' => 'Sport specialization',
             'CoachStatusHistory' => 'Status',
             'CoachAssignment' => 'Team assignment',
         ];
@@ -668,6 +681,36 @@ class AuditLogBuilder
                 'alias' => 'Alias',
                 'source' => 'Source',
             ],
+            'CoachCertification' => [
+                'name' => 'Name',
+                'certificate_type' => 'Type',
+                'issuer' => 'Issuer',
+                'issued_at' => 'Issued',
+                'expired_at' => 'Expired',
+                'attachment_path' => 'Attachment',
+            ],
+            'CoachPromotion' => [
+                'promotion_date' => 'Promotion date',
+                'from_rank' => 'From rank',
+                'to_rank' => 'To rank',
+                'cash_reward_amount' => 'Cash reward amount',
+                'cash_reward_date' => 'Cash reward date',
+                'cash_reward_reference' => 'Cash reward reference',
+                'cash_reward_remarks' => 'Cash reward remarks',
+                'reason' => 'Reason',
+                'remarks' => 'Remarks',
+                'recorded_by' => 'Recorded by',
+            ],
+            'CoachSport' => [
+                'sport_id' => 'Sport',
+                'is_primary' => 'Primary',
+                'level_master_id' => 'Tier / level',
+                'level' => 'Level',
+                'sport_event' => 'Sport event',
+                'effective_from' => 'From',
+                'effective_to' => 'To',
+                'notes' => 'Notes',
+            ],
             'CoachStatusHistory' => [
                 'status' => 'Status',
                 'effective_on' => 'Effective on',
@@ -684,12 +727,15 @@ class AuditLogBuilder
         $hiddenFields = [
             'Coach' => ['id', 'organization_id', 'deleted_at'],
             'CoachAlias' => ['id', 'coach_id', 'alias_normalized'],
+            'CoachCertification' => ['id', 'coach_id', 'metadata', 'deleted_at'],
+            'CoachPromotion' => ['id', 'organization_id', 'coach_id', 'recorded_by'],
+            'CoachSport' => ['id', 'coach_id'],
             'CoachStatusHistory' => ['id', 'coach_id'],
             'CoachAssignment' => ['id', 'coach_id'],
         ];
 
         $resolve = function (string $entity, string $field, mixed $value, array $diff = []) use (
-            $sessionMap, $teamMap, $memberMap, $userMap
+            $sessionMap, $sportMap, $teamMap, $memberMap, $userMap
         ): ?string {
             if ($value === null) {
                 return null;
@@ -697,6 +743,7 @@ class AuditLogBuilder
 
             return match (true) {
                 $field === 'session_id' => $sessionMap->get((int) $value) ?? (string) $value,
+                $field === 'sport_id' => $sportMap->get((int) $value) ?? (string) $value,
                 $field === 'team_id' => $teamMap->get((int) $value) ?? (string) $value,
                 $field === 'member_id' => $memberMap->get((int) $value) ?? (string) $value,
                 $field === 'recorded_by' => $userMap->get((int) $value) ?? (string) $value,
