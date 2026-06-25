@@ -36,11 +36,31 @@ type PivotRow = {
     SILVER: number;
     BRONZE: number;
     MERIT: number;
+    display_only: number;
+};
+
+type TeamPivotRow = {
+    team: {
+        id: number;
+        name: string;
+        sport_name: string | null;
+        session_name: string | null;
+        unit_name: string | null;
+        district_name: string | null;
+    };
+    GOLD: number;
+    SILVER: number;
+    BRONZE: number;
+    MERIT: number;
+    display_only: number;
+    events: number;
+    players: number;
 };
 
 type PivotResponse = {
-    data: PivotRow[];
+    data: PivotRow[] | TeamPivotRow[];
     filters: Record<string, unknown>;
+    group_by: 'tier' | 'team';
 };
 
 type Benefit = {
@@ -217,6 +237,32 @@ function MedalBadge({ type, size = 'sm' }: { type: string; size?: 'sm' | 'lg' })
             ].join(' ')}
         >
             {t(type)}
+        </span>
+    );
+}
+
+function CountCell({ value, strong = false }: { value: number; strong?: boolean }) {
+    return (
+        <span
+            className={[
+                'inline-flex min-w-8 justify-center rounded-md px-2 py-1 font-mono text-sm tabular-nums',
+                strong ? 'bg-foreground text-background font-bold' : value > 0 ? 'bg-muted font-semibold text-foreground' : 'text-muted-foreground',
+            ].join(' ')}
+        >
+            {value}
+        </span>
+    );
+}
+
+function DisplayOnlyCell({ value }: { value: number }) {
+    return (
+        <span
+            className={[
+                'inline-flex min-w-8 justify-center rounded-md border px-2 py-1 font-mono text-sm tabular-nums',
+                value > 0 ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-transparent text-muted-foreground',
+            ].join(' ')}
+        >
+            {value}
         </span>
     );
 }
@@ -809,12 +855,13 @@ export default function ReportsMedals({
     const [memberSearchDraft, setMemberSearchDraft] = useState('');
 
     const [tab, setTab] = useState<'tally' | 'detail'>('tally');
+    const [tallyMode, setTallyMode] = useState<'tier' | 'team'>('tier');
     const [perPage, setPerPage] = useState(25);
     const [page, setPage] = useState(1);
     const [advancedOpen, setAdvancedOpen] = useState(false);
 
     // Pivot (tally)
-    const [pivotRows, setPivotRows] = useState<PivotRow[] | null>(null);
+    const [pivotRows, setPivotRows] = useState<(PivotRow | TeamPivotRow)[] | null>(null);
     const { get: getPivot, processing: pivotLoading } = useHttp<Record<string, never>, PivotResponse>({});
 
     // Detail
@@ -870,14 +917,14 @@ export default function ReportsMedals({
  return;
 }
 
-        getPivot(MedalsPivotController.url({ query: buildParams() }), {
+        getPivot(MedalsPivotController.url({ query: buildParams(tallyMode === 'team' ? { group_by: 'team' } : undefined) }), {
             onSuccess: (res) => {
                 const r = res as unknown as PivotResponse;
                 setPivotRows(r?.data ?? []);
             },
             onError: () => setPivotRows([]),
         });
-    }, [filters, memberSearch, tab, getPivot, buildParams]);
+    }, [filters, memberSearch, tab, tallyMode, getPivot, buildParams]);
 
     // Fetch detail
     useEffect(() => {
@@ -989,6 +1036,10 @@ export default function ReportsMedals({
             params.set(key, value);
         }
 
+        if (tab === 'tally' && tallyMode === 'team') {
+            params.set('group_by', 'team');
+        }
+
         const qs = params.toString();
 
         return MedalsExportController.url() + (qs ? '?' + qs : '');
@@ -1075,6 +1126,11 @@ return `≤ ${to}`;
     const grandTotal = pivotRows
         ? pivotRows.reduce((acc, r) => acc + r.GOLD + r.SILVER + r.BRONZE + r.MERIT, 0)
         : null;
+    const displayOnlyTotal = pivotRows
+        ? pivotRows.reduce((acc, r) => acc + r.display_only, 0)
+        : null;
+    const tierRows = (pivotRows ?? []) as PivotRow[];
+    const teamRows = (pivotRows ?? []) as TeamPivotRow[];
 
     return (
         <>
@@ -1453,6 +1509,29 @@ return `≤ ${to}`;
                             <TabsTrigger value="detail">{t('Medal Detail')}</TabsTrigger>
                         </TabsList>
 
+                        {tab === 'tally' && (
+                            <div className="inline-flex h-9 rounded-md border bg-background p-0.5">
+                                {([
+                                    ['tier', t('By Tier')],
+                                    ['team', t('By Team')],
+                                ] as const).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => setTallyMode(value)}
+                                        className={[
+                                            'rounded px-3 text-xs font-medium transition-colors',
+                                            tallyMode === value
+                                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:text-foreground',
+                                        ].join(' ')}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
                         {/* Medal counts — shown inline to the right of the tab bar */}
                         {detailData !== null && detailData.total > 0 && (
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -1478,7 +1557,29 @@ return `≤ ${to}`;
 
                     {/* ── Tally tab ── */}
                     <TabsContent value="tally" className="mt-4">
-                        <div className="rounded-xl border bg-card">
+                        <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
+                                <div>
+                                    <div className="text-sm font-semibold">
+                                        {t(tallyMode === 'team' ? 'Team medal tally' : 'Tier medal tally')}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {t(tallyMode === 'team' ? 'Team medals are counted once per team, event, and medal type.' : 'Tier totals exclude display-only medals.')}
+                                    </div>
+                                </div>
+                                {pivotRows !== null && pivotRows.length > 0 && (
+                                    <div className="flex items-center gap-3 text-xs">
+                                        <span className="text-muted-foreground">{t('Calculated total')}</span>
+                                        <CountCell value={grandTotal ?? 0} strong />
+                                        {displayOnlyTotal !== null && displayOnlyTotal > 0 && (
+                                            <>
+                                                <span className="text-muted-foreground">{t('Display only')}</span>
+                                                <DisplayOnlyCell value={displayOnlyTotal} />
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                             {pivotLoading || pivotRows === null ? (
                                 <div className="space-y-2 p-4">
                                     {[1, 2, 3, 4].map((n) => <Skeleton key={n} className="h-10 w-full" />)}
@@ -1488,25 +1589,40 @@ return `≤ ${to}`;
                                     <p className="text-sm text-muted-foreground">{t('No data.')}</p>
                                 </div>
                             ) : (
+                                <div className="overflow-x-auto">
                                 <Table>
-                                    <TableHeader>
+                                    <TableHeader className="sticky top-0 z-10 bg-muted/60">
                                         <TableRow>
-                                            <TableHead>{t('Tier')}</TableHead>
-                                            <TableHead className="text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('GOLD')].join(' ')}>{t('GOLD')}</span></TableHead>
-                                            <TableHead className="text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('SILVER')].join(' ')}>{t('SILVER')}</span></TableHead>
-                                            <TableHead className="text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('BRONZE')].join(' ')}>{t('BRONZE')}</span></TableHead>
-                                            <TableHead className="text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('MERIT')].join(' ')}>{t('MERIT')}</span></TableHead>
-                                            <TableHead className="text-center">{t('Total')}</TableHead>
+                                            <TableHead className="w-12 text-center">{t(tallyMode === 'team' ? 'S No' : 'Rank')}</TableHead>
+                                            <TableHead className="min-w-56">{t(tallyMode === 'team' ? 'Team' : 'Tier')}</TableHead>
+                                            {tallyMode === 'team' && (
+                                                <>
+                                                    <TableHead className="min-w-36">{t('Sport')}</TableHead>
+                                                    <TableHead className="min-w-32">{t('Session')}</TableHead>
+                                                </>
+                                            )}
+                                            <TableHead className="w-24 text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('GOLD')].join(' ')}>{t('GOLD')}</span></TableHead>
+                                            <TableHead className="w-24 text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('SILVER')].join(' ')}>{t('SILVER')}</span></TableHead>
+                                            <TableHead className="w-24 text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('BRONZE')].join(' ')}>{t('BRONZE')}</span></TableHead>
+                                            <TableHead className="w-24 text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('MERIT')].join(' ')}>{t('MERIT')}</span></TableHead>
+                                            <TableHead className="w-28 text-center">{t('Calculated')}</TableHead>
+                                            <TableHead className="w-28 text-center">{t('Display only')}</TableHead>
+                                            {tallyMode === 'team' && (
+                                                <>
+                                                    <TableHead className="w-24 text-center">{t('Events')}</TableHead>
+                                                    <TableHead className="w-24 text-center">{t('Players')}</TableHead>
+                                                </>
+                                            )}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {pivotRows.map((row) => {
+                                        {tallyMode === 'tier' && tierRows.map((row, index) => {
                                             const total = row.GOLD + row.SILVER + row.BRONZE + row.MERIT;
 
                                             return (
                                                 <TableRow
                                                     key={row.tier.code}
-                                                    className="cursor-pointer hover:bg-muted/40"
+                                                    className="cursor-pointer border-b hover:bg-muted/40"
                                                     onClick={() => {
  const tierId = tiers.find((ti) => ti.code === row.tier.code)?.id;
 
@@ -1517,31 +1633,82 @@ return `≤ ${to}`;
  setTab('detail');
 }}
                                                 >
-                                                    <TableCell className="font-medium">{row.tier.label}</TableCell>
-                                                    <TableCell className="text-center font-semibold">{row.GOLD}</TableCell>
-                                                    <TableCell className="text-center font-semibold">{row.SILVER}</TableCell>
-                                                    <TableCell className="text-center font-semibold">{row.BRONZE}</TableCell>
-                                                    <TableCell className="text-center font-semibold">{row.MERIT}</TableCell>
-                                                    <TableCell className="text-center font-bold">{total}</TableCell>
+                                                    <TableCell className="text-center font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
+                                                    <TableCell>
+                                                        <div className="font-medium">{row.tier.label}</div>
+                                                        <div className="text-xs text-muted-foreground">{row.tier.code}</div>
+                                                    </TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.GOLD} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.SILVER} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.BRONZE} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.MERIT} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={total} strong={total > 0} /></TableCell>
+                                                    <TableCell className="text-center"><DisplayOnlyCell value={row.display_only} /></TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                        {tallyMode === 'team' && teamRows.map((row, index) => {
+                                            const total = row.GOLD + row.SILVER + row.BRONZE + row.MERIT;
+
+                                            return (
+                                                <TableRow key={row.team.id} className="border-b hover:bg-muted/40">
+                                                    <TableCell className="text-center font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
+                                                    <TableCell>
+                                                        <div className="max-w-72 truncate font-medium">{row.team.name}</div>
+                                                        <div className="mt-1 flex flex-wrap gap-1">
+                                                            {[row.team.unit_name, row.team.district_name].filter(Boolean).map((label) => (
+                                                                <Badge key={label} variant="outline" className="px-1.5 py-0 text-[11px] font-normal">
+                                                                    {label}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">{row.team.sport_name ?? '—'}</TableCell>
+                                                    <TableCell className="text-sm text-muted-foreground">{row.team.session_name ?? '—'}</TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.GOLD} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.SILVER} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.BRONZE} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.MERIT} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={total} strong={total > 0} /></TableCell>
+                                                    <TableCell className="text-center"><DisplayOnlyCell value={row.display_only} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.events} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.players} /></TableCell>
                                                 </TableRow>
                                             );
                                         })}
                                         {pivotRows.length > 1 && (
-                                            <TableRow className="border-t-2 font-bold">
+                                            <TableRow className="border-t-2 bg-muted/40 font-bold">
+                                                {tallyMode === 'team' && <TableCell />}
                                                 <TableCell>{t('Total')}</TableCell>
-                                                <TableCell className="text-center">{pivotRows.reduce((a, r) => a + r.GOLD, 0)}</TableCell>
-                                                <TableCell className="text-center">{pivotRows.reduce((a, r) => a + r.SILVER, 0)}</TableCell>
-                                                <TableCell className="text-center">{pivotRows.reduce((a, r) => a + r.BRONZE, 0)}</TableCell>
-                                                <TableCell className="text-center">{pivotRows.reduce((a, r) => a + r.MERIT, 0)}</TableCell>
-                                                <TableCell className="text-center">{grandTotal}</TableCell>
+                                                {tallyMode === 'team' && (
+                                                    <>
+                                                        <TableCell />
+                                                        <TableCell />
+                                                    </>
+                                                )}
+                                                <TableCell className="text-center"><CountCell value={pivotRows.reduce((a, r) => a + r.GOLD, 0)} /></TableCell>
+                                                <TableCell className="text-center"><CountCell value={pivotRows.reduce((a, r) => a + r.SILVER, 0)} /></TableCell>
+                                                <TableCell className="text-center"><CountCell value={pivotRows.reduce((a, r) => a + r.BRONZE, 0)} /></TableCell>
+                                                <TableCell className="text-center"><CountCell value={pivotRows.reduce((a, r) => a + r.MERIT, 0)} /></TableCell>
+                                                <TableCell className="text-center"><CountCell value={grandTotal ?? 0} strong /></TableCell>
+                                                <TableCell className="text-center"><DisplayOnlyCell value={displayOnlyTotal ?? 0} /></TableCell>
+                                                {tallyMode === 'team' && (
+                                                    <>
+                                                        <TableCell />
+                                                        <TableCell />
+                                                    </>
+                                                )}
                                             </TableRow>
                                         )}
                                     </TableBody>
                                 </Table>
+                                </div>
                             )}
                         </div>
                         {!pivotLoading && pivotRows !== null && pivotRows.length > 0 && (
-                            <p className="mt-2 text-xs text-muted-foreground">{t('Click a row to drill into its medals in the Detail tab.')}</p>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {t('Display-only medals are visible for review but excluded from calculated medal totals.')}
+                            </p>
                         )}
                     </TabsContent>
 
@@ -1572,7 +1739,23 @@ return `≤ ${to}`;
                             </div>
                         </div>
 
-                        <div className="rounded-xl border bg-card">
+                        <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
+                                <div>
+                                    <div className="text-sm font-semibold">{t('Medal records')}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {t('Player-level medal records with tournament and event context.')}
+                                    </div>
+                                </div>
+                                {detailData !== null && (
+                                    <div className="text-xs text-muted-foreground">
+                                        {t('Showing :from–:to of :total')
+                                            .replace(':from', String(detailData.from ?? 0))
+                                            .replace(':to', String(detailData.to ?? 0))
+                                            .replace(':total', String(detailData.total))}
+                                    </div>
+                                )}
+                            </div>
                             {detailLoading || detailData === null ? (
                                 <div className="space-y-2 p-4">
                                     {[1, 2, 3, 4, 5].map((n) => <Skeleton key={n} className="h-10 w-full" />)}
@@ -1582,49 +1765,50 @@ return `≤ ${to}`;
                                     <p className="text-sm text-muted-foreground">{t('No data.')}</p>
                                 </div>
                             ) : (
+                                <div className="overflow-x-auto">
                                 <Table>
-                                    <TableHeader>
+                                    <TableHeader className="sticky top-0 z-10 bg-muted/60">
                                         <TableRow>
-                                            <TableHead className="w-8">#</TableHead>
-                                            <TableHead>{t('Medal')}</TableHead>
-                                            <TableHead>{t('Athlete')}</TableHead>
-                                            <TableHead>{t('Rank')}</TableHead>
-                                            <TableHead>{t('Unit')}</TableHead>
-                                            <TableHead>{t('Sport / Event')}</TableHead>
-                                            <TableHead>{t('Tournament')}</TableHead>
-                                            <TableHead>{t('Tier')}</TableHead>
-                                            <TableHead>{t('Session')}</TableHead>
+                                            <TableHead className="w-12 text-center">#</TableHead>
+                                            <TableHead className="w-28">{t('Medal')}</TableHead>
+                                            <TableHead className="min-w-56">{t('Athlete')}</TableHead>
+                                            <TableHead className="min-w-24">{t('Rank')}</TableHead>
+                                            <TableHead className="min-w-36">{t('Unit')}</TableHead>
+                                            <TableHead className="min-w-56">{t('Sport / Event')}</TableHead>
+                                            <TableHead className="min-w-64">{t('Tournament')}</TableHead>
+                                            <TableHead className="min-w-28">{t('Tier')}</TableHead>
+                                            <TableHead className="min-w-28">{t('Session')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {detailData.data.map((row, idx) => (
                                             <TableRow
                                                 key={row.id}
-                                                className="cursor-pointer hover:bg-muted/40"
+                                                className="cursor-pointer border-b hover:bg-muted/40"
                                                 onClick={() => {
  setSelectedRow(row); setModalOpen(true);
 }}
                                             >
-                                                <TableCell className="text-muted-foreground text-xs">
+                                                <TableCell className="text-center font-mono text-xs text-muted-foreground">
                                                     {(detailData.from ?? 0) + idx}
                                                 </TableCell>
                                                 <TableCell>
                                                     <MedalBadge type={row.medal_type} />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-medium">{row.member.full_name}</div>
-                                                    <div className="text-xs text-muted-foreground">
+                                                    <div className="max-w-56 truncate font-medium">{row.member.full_name}</div>
+                                                    <div className="mt-0.5 text-xs text-muted-foreground">
                                                         {[row.member.member_code, row.member.pno].filter(Boolean).join(' · ')}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-sm">{row.member.rank ?? '—'}</TableCell>
                                                 <TableCell className="text-sm">{row.member.unit_name ?? '—'}</TableCell>
                                                 <TableCell>
-                                                    <div className="text-sm">{row.sport.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{row.event.name}</div>
+                                                    <div className="max-w-52 truncate text-sm font-medium">{row.sport.name}</div>
+                                                    <div className="max-w-52 truncate text-xs text-muted-foreground">{row.event.name}</div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="max-w-48 truncate text-sm">{row.tournament.name}</div>
+                                                    <div className="max-w-64 truncate text-sm font-medium">{row.tournament.name}</div>
                                                     {row.tournament.date_from && (
                                                         <div className="text-xs text-muted-foreground">{formatDisplayDate(row.tournament.date_from)}</div>
                                                     )}
@@ -1639,6 +1823,7 @@ return `≤ ${to}`;
                                         ))}
                                     </TableBody>
                                 </Table>
+                                </div>
                             )}
                         </div>
 

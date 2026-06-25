@@ -128,6 +128,8 @@ class MedalsFilters
      */
     public static function apply(Builder $query, array $filters): Builder
     {
+        $filters = self::withLegacyKeys($filters);
+
         return $query
             ->when($filters['year_from'] ?? null, fn (Builder $query, int $year): Builder => $query->whereYear('t.date_from', '>=', $year))
             ->when($filters['year_to'] ?? null, fn (Builder $query, int $year): Builder => $query->whereYear('t.date_from', '<=', $year))
@@ -165,6 +167,30 @@ class MedalsFilters
             ->when($filters['benefit_date_from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('ab.benefit_date', '>=', $date))
             ->when($filters['benefit_date_to'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('ab.benefit_date', '<=', $date))
             ->when($filters['order_reference'] ?? null, fn (Builder $query, string $value): Builder => $query->where('ab.order_reference', 'like', "%{$value}%"));
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    private static function withLegacyKeys(array $filters): array
+    {
+        foreach ([
+            'sport_ids' => 'sport_id',
+            'unit_ids' => 'unit_id',
+            'tier_ids' => 'tier_id',
+            'session_ids' => 'session_id',
+            'tournament_ids' => 'tournament_id',
+            'event_ids' => 'event_id',
+            'medal_types' => 'medal_type',
+            'genders' => 'gender',
+        ] as $arrayKey => $legacyKey) {
+            if (($filters[$arrayKey] ?? []) === [] && ($filters[$legacyKey] ?? null) !== null) {
+                $filters[$arrayKey] = [$filters[$legacyKey]];
+            }
+        }
+
+        return $filters;
     }
 
     private static function stringOrNull(Request $request, string $key): ?string

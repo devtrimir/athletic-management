@@ -11,6 +11,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sport;
 use App\Models\SportSession;
+use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\User;
@@ -248,4 +249,102 @@ test('pivot counts match seeded fixture ground truth', function () {
         ->and($data['STATE']['SILVER'])->toBe(0)
         ->and($data['STATE']['BRONZE'])->toBe(0)
         ->and($data['STATE']['MERIT'])->toBe(1);
+});
+
+test('team medal tally groups medals by participation team', function () {
+    $user = medalsUser('reports.view');
+    $setup = medalsSetup($user, 'NATIONAL', 'GOLD');
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $setup['sport']->id,
+        'session_id' => $setup['session']->id,
+        'name' => 'Lucknow Athletics',
+    ]);
+
+    $setup['participation']->update(['team_id' => $team->id]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.reports.medals', ['group_by' => 'team']))
+        ->assertOk();
+
+    expect($response->json('group_by'))->toBe('team');
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.team.name'))->toBe('Lucknow Athletics');
+    expect($response->json('data.0.GOLD'))->toBe(1);
+    expect($response->json('data.0.SILVER'))->toBe(0);
+    expect($response->json('data.0.display_only'))->toBe(0);
+    expect($response->json('data.0.players'))->toBe(1);
+    expect($response->json('data.0.events'))->toBe(1);
+});
+
+test('team medal tally counts one team medal when multiple players medal in the same event', function () {
+    $user = medalsUser('reports.view');
+    $setup = medalsSetup($user, 'NATIONAL', 'GOLD');
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $setup['sport']->id,
+        'session_id' => $setup['session']->id,
+        'name' => 'Cricket XI',
+    ]);
+    $secondMember = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $secondParticipation = Participation::factory()->create([
+        'member_id' => $secondMember->id,
+        'event_id' => $setup['event']->id,
+        'session_id' => $setup['session']->id,
+        'team_id' => $team->id,
+    ]);
+
+    $setup['participation']->update(['team_id' => $team->id]);
+    Achievement::factory()->create([
+        'participation_id' => $secondParticipation->id,
+        'medal_type' => 'GOLD',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.reports.medals', ['group_by' => 'team']))
+        ->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.team.name'))->toBe('Cricket XI');
+    expect($response->json('data.0.GOLD'))->toBe(1);
+    expect($response->json('data.0.players'))->toBe(2);
+    expect($response->json('data.0.events'))->toBe(1);
+});
+
+test('other tier medals are shown as display only and excluded from calculated medal counts', function () {
+    $user = medalsUser('reports.view');
+    medalsSetup($user, 'OTHER', 'GOLD');
+
+    $tierResponse = $this->actingAs($user)
+        ->getJson(route('v1.reports.medals'))
+        ->assertOk();
+
+    expect($tierResponse->json('data'))->toHaveCount(1);
+    expect($tierResponse->json('data.0.tier.code'))->toBe('OTHER');
+    expect($tierResponse->json('data.0.GOLD'))->toBe(0);
+    expect($tierResponse->json('data.0.display_only'))->toBe(1);
+});
+
+test('team medal tally export returns team rows', function () {
+    $user = medalsUser('reports.view');
+    $setup = medalsSetup($user, 'NATIONAL', 'SILVER');
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $setup['sport']->id,
+        'session_id' => $setup['session']->id,
+        'name' => 'Kanpur Team',
+    ]);
+
+    $setup['participation']->update(['team_id' => $team->id]);
+
+    $response = $this->actingAs($user)
+        ->get(route('reports.medals.export', ['group_by' => 'team']))
+        ->assertOk();
+
+    $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+    expect($response->streamedContent())
+        ->toContain('Team')
+        ->toContain('Kanpur Team')
+        ->toContain('Gold,Silver,Bronze,Merit')
+        ->toContain(',0,1,0,0,1,0,1,1');
 });

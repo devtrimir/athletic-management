@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Concerns\HasReportFilters;
 use App\Services\Reports\MedalsDetailReport;
+use App\Services\Reports\MedalTallyReport;
 use App\Support\Reports\MedalsFilters;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,10 @@ class MedalsExportController extends Controller
 {
     use HasReportFilters;
 
-    public function __construct(private readonly MedalsDetailReport $report) {}
+    public function __construct(
+        private readonly MedalsDetailReport $report,
+        private readonly MedalTallyReport $tallyReport,
+    ) {}
 
     public function __invoke(Request $request): StreamedResponse
     {
@@ -25,6 +29,11 @@ class MedalsExportController extends Controller
 
         $orgId = (int) $request->user()->organization_id;
         $filters = $this->resolvedFilters($request);
+        $groupBy = $request->string('group_by')->toString();
+
+        if ($groupBy === 'team') {
+            return $this->teamTallyExport($orgId, $filters);
+        }
 
         $benefitSub = DB::table('achievement_benefits')
             ->where('benefitable_type', 'App\\Models\\Achievement')
@@ -124,5 +133,51 @@ class MedalsExportController extends Controller
 
             fclose($out);
         }, 'medals_export.csv', $headers);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function teamTallyExport(int $orgId, array $filters): StreamedResponse
+    {
+        $rows = $this->tallyReport->runTeams($orgId, $filters);
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="team_medal_tally_'.now()->format('Ymd_His').'.csv"',
+        ];
+
+        return response()->streamDownload(function () use ($rows): void {
+            $out = fopen('php://output', 'w');
+
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, [
+                'S No', 'Team', 'Sport', 'Session', 'Unit', 'District',
+                'Gold', 'Silver', 'Bronze', 'Merit', 'Calculated Total',
+                'Display Only', 'Events', 'Players',
+            ]);
+
+            foreach ($rows as $index => $row) {
+                fputcsv($out, [
+                    $index + 1,
+                    $row['team']['name'],
+                    $row['team']['sport_name'],
+                    $row['team']['session_name'],
+                    $row['team']['unit_name'],
+                    $row['team']['district_name'],
+                    $row['GOLD'],
+                    $row['SILVER'],
+                    $row['BRONZE'],
+                    $row['MERIT'],
+                    $row['GOLD'] + $row['SILVER'] + $row['BRONZE'] + $row['MERIT'],
+                    $row['display_only'],
+                    $row['events'],
+                    $row['players'],
+                ]);
+            }
+
+            fclose($out);
+        }, 'team_medal_tally.csv', $headers);
     }
 }

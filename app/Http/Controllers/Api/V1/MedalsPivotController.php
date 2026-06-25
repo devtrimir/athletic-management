@@ -17,10 +17,14 @@ class MedalsPivotController extends Controller
     {
         $orgId = (int) $request->user()->organization_id;
         $filters = $request->filters();
+        $groupBy = $request->string('group_by')->toString();
 
         return response()->json([
-            'data' => $this->report->run($orgId, $filters),
+            'data' => $groupBy === 'team'
+                ? $this->report->runTeams($orgId, $filters)
+                : $this->report->run($orgId, $filters),
             'filters' => $filters,
+            'group_by' => $groupBy === 'team' ? 'team' : 'tier',
         ]);
     }
 }
