@@ -9,13 +9,17 @@ import {
 import {
     ArrowLeft,
     Camera,
+    ChevronDown,
+    ChevronRight,
     Download,
+    Medal,
     Pencil,
     Plus,
     Printer,
+    Search,
     Trash2,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react';
 import {
     destroy as destroyCoachCertification,
@@ -33,7 +37,7 @@ import {
     store as storeCoachPhoto,
 } from '@/actions/App/Http/Controllers/CoachPhotoController';
 import {
-    achievements as coachAchievements,
+    achievements as coachAchievementsTab,
     assignments as coachAssignments,
     certifications as coachCertifications,
     changelog as coachChangelog,
@@ -54,6 +58,7 @@ import {
     store as storeCoachSport,
 } from '@/actions/App/Http/Controllers/CoachSportController';
 import { store as storeCoachStatus } from '@/actions/App/Http/Controllers/CoachStatusController';
+import { events as memberEvents } from '@/actions/App/Http/Controllers/MemberProfileTabController';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
@@ -126,6 +131,77 @@ type CoachPromotion = {
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
+};
+
+type AchievementBenefit = {
+    id: number;
+    benefit_type: string;
+    promoted_from_rank: string | null;
+    promoted_to_rank: string | null;
+    cash_amount: string | null;
+    benefit_date: string | null;
+    order_reference: string | null;
+    remarks: string | null;
+};
+
+type CoachAchievementPlayer = {
+    achievement_id: number;
+    participation_id: number;
+    member: {
+        id: number;
+        full_name: string;
+        pno: string | null;
+    };
+    medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT';
+    position: number | null;
+    participation_position: number | null;
+    remarks: string | null;
+    benefits: AchievementBenefit[];
+};
+
+type CoachAchievementGroup = {
+    id: string;
+    session: { id: number; name: string; is_current: boolean };
+    team: { id: number; name: string };
+    tournament: {
+        id: number;
+        name: string;
+        tier_code: string | null;
+        tier_weight: number | null;
+        date_from: string | null;
+        date_to: string | null;
+        venue: string | null;
+        sport: { id: number; name: string } | null;
+    };
+    event: {
+        id: number;
+        name: string;
+        gender_class: string | null;
+        discipline: string | null;
+        weight_category: string | null;
+        sport: { id: number; name: string } | null;
+    };
+    medal_counts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
+    players: CoachAchievementPlayer[];
+};
+
+type CoachAchievementTournamentGroup = {
+    id: string;
+    session: CoachAchievementGroup['session'];
+    team: CoachAchievementGroup['team'];
+    tournament: CoachAchievementGroup['tournament'];
+    rows: CoachAchievementGroup[];
+    medalCounts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
+    playerCount: number;
+    prizeMoney: number;
+};
+
+type CoachAchievementsData = {
+    summary: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number> & {
+        total_events: number;
+        medal_winning_players: number;
+    };
+    groups: CoachAchievementGroup[];
 };
 
 type SportOption = {
@@ -278,6 +354,7 @@ export default function CoachesShow({
     sports = [],
     tiers = [],
     ranks = [],
+    coachAchievements,
 }: {
     coach: Coach;
     activeTab?: CoachShowTab;
@@ -287,6 +364,7 @@ export default function CoachesShow({
     sports?: SportOption[];
     tiers?: TierOption[];
     ranks?: RankOption[];
+    coachAchievements?: CoachAchievementsData;
 }) {
     const { t } = useTranslation();
 
@@ -308,6 +386,13 @@ export default function CoachesShow({
     const [activePromotionTab, setActivePromotionTab] = useState<
         'promotions' | 'rewards'
     >('promotions');
+    const [achievementSearch, setAchievementSearch] = useState('');
+    const [achievementSessionFilter, setAchievementSessionFilter] =
+        useState('all');
+    const [achievementMedalFilter, setAchievementMedalFilter] = useState('all');
+    const [expandedAchievementGroups, setExpandedAchievementGroups] = useState<
+        string[]
+    >([]);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
@@ -524,6 +609,180 @@ export default function CoachesShow({
     const rewardRows = (coach.promotions ?? []).filter(hasRewardFields);
     const activePromotionRows =
         activePromotionTab === 'promotions' ? promotionRows : rewardRows;
+    const achievementGroups = useMemo(
+        () => coachAchievements?.groups ?? [],
+        [coachAchievements],
+    );
+    const achievementSummary =
+        coachAchievements?.summary ??
+        ({
+            GOLD: 0,
+            SILVER: 0,
+            BRONZE: 0,
+            MERIT: 0,
+            total_events: 0,
+            medal_winning_players: 0,
+        } satisfies CoachAchievementsData['summary']);
+    const achievementSessions = useMemo(
+        () =>
+            Array.from(
+                new Map(
+                    achievementGroups.map((group) => [
+                        String(group.session.id),
+                        group.session.name,
+                    ]),
+                ),
+            ),
+        [achievementGroups],
+    );
+    const filteredAchievementGroups = useMemo(() => {
+        const query = achievementSearch.trim().toLowerCase();
+
+        return achievementGroups.filter((group) => {
+            const matchesSession =
+                achievementSessionFilter === 'all' ||
+                String(group.session.id) === achievementSessionFilter;
+            const matchesMedal =
+                achievementMedalFilter === 'all' ||
+                group.players.some(
+                    (player) => player.medal_type === achievementMedalFilter,
+                );
+            const searchable = [
+                group.session.name,
+                group.team.name,
+                group.tournament.name,
+                group.tournament.tier_code,
+                group.tournament.venue,
+                group.event.name,
+                group.event.gender_class,
+                group.event.discipline,
+                group.event.weight_category,
+                group.event.sport?.name,
+                group.tournament.sport?.name,
+                ...group.players.flatMap((player) => [
+                    player.member.full_name,
+                    player.member.pno,
+                    player.medal_type,
+                ]),
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return (
+                matchesSession &&
+                matchesMedal &&
+                (query === '' || searchable.includes(query))
+            );
+        });
+    }, [
+        achievementGroups,
+        achievementMedalFilter,
+        achievementSearch,
+        achievementSessionFilter,
+    ]);
+    const achievementTournamentGroups = useMemo(() => {
+        const groups = new Map<string, CoachAchievementTournamentGroup>();
+
+        for (const group of filteredAchievementGroups) {
+            const key = [
+                group.session.id,
+                group.team.id,
+                group.tournament.id,
+            ].join(':');
+            const existing =
+                groups.get(key) ??
+                {
+                    id: key,
+                    session: group.session,
+                    team: group.team,
+                    tournament: group.tournament,
+                    rows: [],
+                    medalCounts: {
+                        GOLD: 0,
+                        SILVER: 0,
+                        BRONZE: 0,
+                        MERIT: 0,
+                    },
+                    playerCount: 0,
+                    prizeMoney: 0,
+                };
+
+            existing.rows.push(group);
+            existing.playerCount += group.players.length;
+
+            for (const medal of [
+                'GOLD',
+                'SILVER',
+                'BRONZE',
+                'MERIT',
+            ] as const) {
+                existing.medalCounts[medal] += group.medal_counts[medal];
+            }
+
+            existing.prizeMoney += group.players.reduce(
+                (total, player) =>
+                    total +
+                    player.benefits.reduce(
+                        (sum, benefit) =>
+                            sum + Number(benefit.cash_amount ?? 0),
+                        0,
+                    ),
+                0,
+            );
+
+            groups.set(key, existing);
+        }
+
+        return Array.from(groups.values()).sort((a, b) => {
+            const tierWeightDiff =
+                (b.tournament.tier_weight ?? 0) -
+                (a.tournament.tier_weight ?? 0);
+
+            if (tierWeightDiff !== 0) {
+                return tierWeightDiff;
+            }
+
+            return (
+                (b.tournament.date_from ?? '').localeCompare(
+                    a.tournament.date_from ?? '',
+                ) || a.tournament.name.localeCompare(b.tournament.name)
+            );
+        });
+    }, [filteredAchievementGroups]);
+    function medalBadgeClass(medal: string): string {
+        switch (medal) {
+            case 'GOLD':
+                return 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200';
+            case 'SILVER':
+                return 'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200';
+            case 'BRONZE':
+                return 'border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-200';
+            default:
+                return 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200';
+        }
+    }
+
+    function memberAchievementUrl(
+        player: CoachAchievementPlayer,
+        group: CoachAchievementGroup,
+    ): string {
+        return `${memberEvents.url(player.member, {
+            query: {
+                highlight_achievement: player.achievement_id,
+                highlight_event: group.event.id,
+                highlight_participation: player.participation_id,
+            },
+        })}#achievement-${player.achievement_id}`;
+    }
+
+    function toggleAchievementGroup(groupId: string): void {
+        setExpandedAchievementGroups((current) =>
+            current.includes(groupId)
+                ? current.filter((id) => id !== groupId)
+                : [...current, groupId],
+        );
+    }
 
     function resetCertificationForm() {
         setEditingCertification(null);
@@ -934,7 +1193,7 @@ export default function CoachesShow({
                             </Link>
                         </TabsTrigger>
                         <TabsTrigger value="achievements" asChild>
-                            <Link href={coachAchievements.url(coach)}>
+                            <Link href={coachAchievementsTab.url(coach)}>
                                 {t('Achievements')}
                             </Link>
                         </TabsTrigger>
@@ -1332,10 +1591,608 @@ export default function CoachesShow({
                     </TabsContent>
 
                     <TabsContent value="achievements">
-                        <EmptyCoachTab
-                            title={t('Achievements')}
-                            message={t('No coach achievements recorded yet.')}
-                        />
+                        <div className="space-y-4 rounded-xl border bg-card p-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h3 className="text-sm font-semibold">
+                                        {t('Coached player achievements')}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Medals earned by players from teams coached by this coach in the matching session.',
+                                        )}
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge variant="outline">
+                                        {achievementSummary.total_events}{' '}
+                                        {t('events')}
+                                    </Badge>
+                                    <Badge variant="outline">
+                                        {
+                                            achievementSummary.medal_winning_players
+                                        }{' '}
+                                        {t('players')}
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-3">
+                                {(['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const).map(
+                                    (medal) => (
+                                        <div
+                                            key={medal}
+                                            className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2"
+                                        >
+                                            <span
+                                                className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
+                                            >
+                                                <Medal className="h-3.5 w-3.5" />
+                                                {t(medal)}
+                                            </span>
+                                            <span className="text-lg font-semibold">
+                                                {achievementSummary[medal]}
+                                            </span>
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+
+                            <div className="grid gap-3 md:grid-cols-[1fr_12rem_12rem]">
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        value={achievementSearch}
+                                        onChange={(event) =>
+                                            setAchievementSearch(
+                                                event.target.value,
+                                            )
+                                        }
+                                        placeholder={t(
+                                            'Search teams, events, players…',
+                                        )}
+                                        className="pl-9"
+                                    />
+                                </div>
+                                <Select
+                                    value={achievementSessionFilter}
+                                    onValueChange={
+                                        setAchievementSessionFilter
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue
+                                            placeholder={t('Session')}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            {t('All sessions')}
+                                        </SelectItem>
+                                        {achievementSessions.map(
+                                            ([id, name]) => (
+                                                <SelectItem
+                                                    key={id}
+                                                    value={id}
+                                                >
+                                                    {name}
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <Select
+                                    value={achievementMedalFilter}
+                                    onValueChange={setAchievementMedalFilter}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={t('Medal')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            {t('All medals')}
+                                        </SelectItem>
+                                        {(
+                                            [
+                                                'GOLD',
+                                                'SILVER',
+                                                'BRONZE',
+                                                'MERIT',
+                                            ] as const
+                                        ).map((medal) => (
+                                            <SelectItem
+                                                key={medal}
+                                                value={medal}
+                                            >
+                                                {t(medal)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {achievementGroups.length === 0 ? (
+                                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                                    {t(
+                                        'No coached player achievements recorded yet.',
+                                    )}
+                                </div>
+                            ) : filteredAchievementGroups.length === 0 ? (
+                                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                                    {t('No results')}
+                                </div>
+                            ) : (
+                                <div className="space-y-5">
+                                    {achievementTournamentGroups.map(
+                                        (tournamentGroup) => {
+                                            let rowNumber = 0;
+
+                                            return (
+                                                <div
+                                                    key={tournamentGroup.id}
+                                                    className="overflow-hidden rounded-xl border bg-card"
+                                                >
+                                                    <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/40 px-4 py-3">
+                                                        <div className="min-w-0 space-y-1">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <Badge variant="outline">
+                                                                    {tournamentGroup
+                                                                        .tournament
+                                                                        .tier_code ??
+                                                                        t(
+                                                                            'Unknown',
+                                                                        )}
+                                                                </Badge>
+                                                                <h4 className="text-sm font-semibold">
+                                                                    {
+                                                                        tournamentGroup
+                                                                            .tournament
+                                                                            .name
+                                                                    }
+                                                                </h4>
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                                <span>
+                                                                    {t('Team')}
+                                                                    :{' '}
+                                                                    {
+                                                                        tournamentGroup
+                                                                            .team
+                                                                            .name
+                                                                    }
+                                                                </span>
+                                                                <span>
+                                                                    {t(
+                                                                        'Session',
+                                                                    )}
+                                                                    :{' '}
+                                                                    {
+                                                                        tournamentGroup
+                                                                            .session
+                                                                            .name
+                                                                    }
+                                                                </span>
+                                                                <span>
+                                                                    {t(
+                                                                        'Venue',
+                                                                    )}
+                                                                    :{' '}
+                                                                    {tournamentGroup
+                                                                        .tournament
+                                                                        .venue ??
+                                                                        '—'}
+                                                                </span>
+                                                                <span>
+                                                                    {t('Date')}
+                                                                    :{' '}
+                                                                    {tournamentGroup
+                                                                        .tournament
+                                                                        .date_from ??
+                                                                        t(
+                                                                            'No date',
+                                                                        )}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-wrap items-center justify-end gap-2">
+                                                            <div className="rounded-md border bg-background px-3 py-1.5 text-right">
+                                                                <div className="text-[11px] uppercase text-muted-foreground">
+                                                                    {t(
+                                                                        'Events',
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-sm font-semibold">
+                                                                    {
+                                                                        tournamentGroup
+                                                                            .rows
+                                                                            .length
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-md border bg-background px-3 py-1.5 text-right">
+                                                                <div className="text-[11px] uppercase text-muted-foreground">
+                                                                    {t(
+                                                                        'Players',
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-sm font-semibold">
+                                                                    {
+                                                                        tournamentGroup.playerCount
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-md border bg-background px-3 py-1.5 text-right">
+                                                                <div className="text-[11px] uppercase text-muted-foreground">
+                                                                    {t(
+                                                                        'Coach prize money',
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-sm font-semibold">
+                                                                    {tournamentGroup.prizeMoney >
+                                                                    0
+                                                                        ? `₹${tournamentGroup.prizeMoney.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                                                        : '—'}
+                                                                </div>
+                                                            </div>
+                                                            {(
+                                                                [
+                                                                    'GOLD',
+                                                                    'SILVER',
+                                                                    'BRONZE',
+                                                                    'MERIT',
+                                                                ] as const
+                                                            ).map((medal) =>
+                                                                tournamentGroup
+                                                                    .medalCounts[
+                                                                    medal
+                                                                ] > 0 ? (
+                                                                    <span
+                                                                        key={
+                                                                            medal
+                                                                        }
+                                                                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
+                                                                    >
+                                                                        {t(
+                                                                            medal,
+                                                                        )}
+                                                                        :{' '}
+                                                                        {
+                                                                            tournamentGroup
+                                                                                .medalCounts[
+                                                                                medal
+                                                                            ]
+                                                                        }
+                                                                    </span>
+                                                                ) : null,
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="overflow-x-auto">
+                                                        <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
+                                                            <TableHeader>
+                                                                <TableRow>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'S.No.',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Event',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Date',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Class',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Medals',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead className="text-right">
+                                                                        {t(
+                                                                            'Players',
+                                                                        )}
+                                                                    </TableHead>
+                                                                </TableRow>
+                                                            </TableHeader>
+                                                            <TableBody>
+                                                                {tournamentGroup.rows.map(
+                                                                    (group) => {
+                                                                        const expanded =
+                                                                            expandedAchievementGroups.includes(
+                                                                                group.id,
+                                                                            );
+
+                                                                        return (
+                                                                            <Fragment
+                                                                                key={
+                                                                                    group.id
+                                                                                }
+                                                                            >
+                                                                                <TableRow
+                                                                                    className="cursor-pointer align-top hover:bg-muted/40"
+                                                                                    onClick={() =>
+                                                                                        toggleAchievementGroup(
+                                                                                            group.id,
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <TableCell>
+                                                                                        <div className="flex items-center gap-1.5">
+                                                                                            {expanded ? (
+                                                                                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                                            ) : (
+                                                                                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                                            )}
+                                                                                            {
+                                                                                                ++rowNumber
+                                                                                            }
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="max-w-[14rem] space-y-1">
+                                                                                            <div className="font-medium">
+                                                                                                {
+                                                                                                    group
+                                                                                                        .event
+                                                                                                        .name
+                                                                                                }
+                                                                                            </div>
+                                                                                            {group
+                                                                                                .event
+                                                                                                .discipline ||
+                                                                                            group
+                                                                                                .event
+                                                                                                .weight_category ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {[
+                                                                                                        group
+                                                                                                            .event
+                                                                                                            .discipline,
+                                                                                                        group
+                                                                                                            .event
+                                                                                                            .weight_category,
+                                                                                                    ]
+                                                                                                        .filter(
+                                                                                                            Boolean,
+                                                                                                        )
+                                                                                                        .join(
+                                                                                                            ' · ',
+                                                                                                        )}
+                                                                                                </p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {group
+                                                                                            .tournament
+                                                                                            .date_from ??
+                                                                                            t(
+                                                                                                'No date',
+                                                                                            )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {group
+                                                                                            .event
+                                                                                            .gender_class
+                                                                                            ? t(
+                                                                                                  group
+                                                                                                      .event
+                                                                                                      .gender_class,
+                                                                                              )
+                                                                                            : '—'}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                                            {(
+                                                                                                [
+                                                                                                    'GOLD',
+                                                                                                    'SILVER',
+                                                                                                    'BRONZE',
+                                                                                                    'MERIT',
+                                                                                                ] as const
+                                                                                            ).map(
+                                                                                                (
+                                                                                                    medal,
+                                                                                                ) =>
+                                                                                                    group
+                                                                                                        .medal_counts[
+                                                                                                        medal
+                                                                                                    ] >
+                                                                                                    0 ? (
+                                                                                                        <span
+                                                                                                            key={
+                                                                                                                medal
+                                                                                                            }
+                                                                                                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
+                                                                                                        >
+                                                                                                            {t(
+                                                                                                                medal,
+                                                                                                            )}
+                                                                                                            :{' '}
+                                                                                                            {
+                                                                                                                group
+                                                                                                                    .medal_counts[
+                                                                                                                    medal
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        </span>
+                                                                                                    ) : null,
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right">
+                                                                                        {
+                                                                                            group
+                                                                                                .players
+                                                                                                .length
+                                                                                        }
+                                                                                    </TableCell>
+                                                                                </TableRow>
+                                                                                {expanded ? (
+                                                                                    <TableRow>
+                                                                                        <TableCell
+                                                                                            colSpan={
+                                                                                                6
+                                                                                            }
+                                                                                            className="bg-muted/20 p-0"
+                                                                                        >
+                                                                                            <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
+                                                                                                <TableHeader>
+                                                                                                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                                                                                                        <TableHead className="pl-8">
+                                                                                                            {t(
+                                                                                                                'S.No.',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'Player',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'PNO',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'Medal',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'Position',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'Remarks',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                    </TableRow>
+                                                                                                </TableHeader>
+                                                                                                <TableBody>
+                                                                                                    {group.players.map(
+                                                                                                        (
+                                                                                                            player,
+                                                                                                            index,
+                                                                                                        ) => {
+                                                                                                            const playerAchievementUrl =
+                                                                                                                memberAchievementUrl(
+                                                                                                                    player,
+                                                                                                                    group,
+                                                                                                                );
+
+                                                                                                            return (
+                                                                                                                <TableRow
+                                                                                                                    key={
+                                                                                                                        player.achievement_id
+                                                                                                                    }
+                                                                                                                    className="bg-background/80"
+                                                                                                                >
+                                                                                                                    <TableCell className="pl-8 text-muted-foreground">
+                                                                                                                        {index +
+                                                                                                                            1}
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell>
+                                                                                                                        <a
+                                                                                                                            href={
+                                                                                                                                playerAchievementUrl
+                                                                                                                            }
+                                                                                                                            target="_blank"
+                                                                                                                            rel="noreferrer"
+                                                                                                                            className="font-medium text-primary underline-offset-4 hover:underline"
+                                                                                                                            title={t(
+                                                                                                                                'Open member achievement in a new tab',
+                                                                                                                            )}
+                                                                                                                        >
+                                                                                                                            {
+                                                                                                                                player
+                                                                                                                                    .member
+                                                                                                                                    .full_name
+                                                                                                                            }
+                                                                                                                        </a>
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell>
+                                                                                                                        {player
+                                                                                                                            .member
+                                                                                                                            .pno ? (
+                                                                                                                            <a
+                                                                                                                                href={
+                                                                                                                                    playerAchievementUrl
+                                                                                                                                }
+                                                                                                                                target="_blank"
+                                                                                                                                rel="noreferrer"
+                                                                                                                                className="text-primary underline-offset-4 hover:underline"
+                                                                                                                                title={t(
+                                                                                                                                    'Open member achievement in a new tab',
+                                                                                                                                )}
+                                                                                                                            >
+                                                                                                                                {
+                                                                                                                                    player
+                                                                                                                                        .member
+                                                                                                                                        .pno
+                                                                                                                                }
+                                                                                                                            </a>
+                                                                                                                        ) : (
+                                                                                                                            <span className="text-muted-foreground">
+                                                                                                                                —
+                                                                                                                            </span>
+                                                                                                                        )}
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell>
+                                                                                                                        <span
+                                                                                                                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(player.medal_type)}`}
+                                                                                                                        >
+                                                                                                                            {t(
+                                                                                                                                player.medal_type,
+                                                                                                                            )}
+                                                                                                                        </span>
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell>
+                                                                                                                        #
+                                                                                                                        {player.position ??
+                                                                                                                            player.participation_position ??
+                                                                                                                            '—'}
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell className="max-w-xs text-muted-foreground">
+                                                                                                                        <span className="line-clamp-2">
+                                                                                                                            {player.remarks ??
+                                                                                                                                '—'}
+                                                                                                                        </span>
+                                                                                                                    </TableCell>
+                                                                                                                </TableRow>
+                                                                                                            );
+                                                                                                        },
+                                                                                                    )}
+                                                                                                </TableBody>
+                                                                                            </Table>
+                                                                                        </TableCell>
+                                                                                    </TableRow>
+                                                                                ) : null}
+                                                                            </Fragment>
+                                                                        );
+                                                                    },
+                                                                )}
+                                                            </TableBody>
+                                                        </Table>
+                                                    </div>
+                                                </div>
+                                            );
+                                        },
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="performance">

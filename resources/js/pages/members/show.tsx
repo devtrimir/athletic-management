@@ -442,9 +442,10 @@ export default function MembersShow({
     const achievementsData = achievementsDataProp ?? null;
     const loadingParticipations = false;
     const loadingAchievements = false;
-    const permissions = usePage().props.auth.permissions;
+    const page = usePage();
+    const permissions = page.props.auth.permissions;
     const { t } = useTranslation();
-    const { locale: pageLocale } = usePage().props;
+    const { locale: pageLocale } = page.props;
     const canDeleteMedia = permissions.includes('media.delete');
     const canUploadMedia = permissions.includes('media.upload');
     const [mediaParticipationId, setMediaParticipationId] = useState<{
@@ -469,6 +470,21 @@ export default function MembersShow({
         media: memberMedia.url(member),
         status: memberStatus.url(member),
     };
+    const highlightedAchievement = useMemo(() => {
+        const queryString = page.url.split('?')[1]?.split('#')[0] ?? '';
+        const params = new URLSearchParams(queryString);
+        const numberParam = (key: string): number | null => {
+            const value = Number(params.get(key));
+
+            return Number.isFinite(value) && value > 0 ? value : null;
+        };
+
+        return {
+            achievementId: numberParam('highlight_achievement'),
+            eventId: numberParam('highlight_event'),
+            participationId: numberParam('highlight_participation'),
+        };
+    }, [page.url]);
 
     const refreshMemberHistory = useCallback(() => {
         router.reload();
@@ -2164,11 +2180,40 @@ export default function MembersShow({
                                                                                         isLegacyAchievementLinked(
                                                                                             participation,
                                                                                         );
+                                                                                    const isHighlightedAchievement =
+                                                                                        (highlightedAchievement.achievementId !==
+                                                                                            null &&
+                                                                                            participation
+                                                                                                .achievement
+                                                                                                ?.id ===
+                                                                                                highlightedAchievement.achievementId) ||
+                                                                                        (highlightedAchievement.participationId !==
+                                                                                            null &&
+                                                                                            participation.id ===
+                                                                                                highlightedAchievement.participationId) ||
+                                                                                        (highlightedAchievement.eventId !==
+                                                                                            null &&
+                                                                                            participation
+                                                                                                .event
+                                                                                                .id ===
+                                                                                                highlightedAchievement.eventId);
 
                                                                                     return (
                                                                                         <TableRow
                                                                                             key={
                                                                                                 participation.id
+                                                                                            }
+                                                                                            id={
+                                                                                                participation
+                                                                                                    .achievement
+                                                                                                    ?.id
+                                                                                                    ? `achievement-${participation.achievement.id}`
+                                                                                                    : `participation-${participation.id}`
+                                                                                            }
+                                                                                            className={
+                                                                                                isHighlightedAchievement
+                                                                                                    ? 'scroll-mt-28 bg-amber-50/80 ring-1 ring-inset ring-amber-300 dark:bg-amber-950/20 dark:ring-amber-700'
+                                                                                                    : undefined
                                                                                             }
                                                                                         >
                                                                                             <TableCell>
