@@ -90,12 +90,24 @@ class MedalTallyReport
                 'order_reference',
             ]);
 
+        $activeTeamMemberIds = DB::table('team_members as tm')
+            ->select('tm.member_id', 'tm.session_id', DB::raw('MAX(tm.id) as team_member_id'))
+            ->whereNull('tm.left_on')
+            ->groupBy('tm.member_id', 'tm.session_id');
+
         $query = DB::table('achievements as a')
             ->join('participations as p', 'p.id', '=', 'a.participation_id')
             ->join('members as m', 'm.id', '=', 'p.member_id')
-            ->join('teams as team', 'team.id', '=', 'p.team_id')
             ->join('events as e', 'e.id', '=', 'p.event_id')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
+            ->leftJoinSub($activeTeamMemberIds, 'active_tm', function ($join): void {
+                $join->on('active_tm.member_id', '=', 'p.member_id')
+                    ->on('active_tm.session_id', '=', 'p.session_id');
+            })
+            ->leftJoin('team_members as member_tm', 'member_tm.id', '=', 'active_tm.team_member_id')
+            ->leftJoin('teams as team', function ($join): void {
+                $join->whereRaw('team.id = COALESCE(p.team_id, member_tm.team_id)');
+            })
             ->leftJoin('tournament_tiers as tt', 'tt.id', '=', 't.tier_id')
             ->leftJoin('sports as ts', 'ts.id', '=', 'team.sport_id')
             ->leftJoin('sport_sessions as ss', 'ss.id', '=', 'team.session_id')
@@ -117,10 +129,11 @@ class MedalTallyReport
             ->where('t.organization_id', $orgId)
             ->where('team.organization_id', $orgId)
             ->whereNull('t.deleted_at')
-            ->whereNull('team.deleted_at')
             ->whereNull('m.deleted_at');
 
         $medalUnits = MedalsFilters::apply($query, $filters)
+            ->whereNull('team.deleted_at')
+            ->whereNotNull('team.id')
             ->groupBy(
                 'team.id',
                 'team.name',

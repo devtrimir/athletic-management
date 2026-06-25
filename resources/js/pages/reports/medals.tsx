@@ -56,6 +56,10 @@ type TeamPivotRow = {
     events: number;
     players: number;
 };
+type TeamModalState = {
+    team_name: string;
+    filters: FilterQuery;
+};
 
 type PivotResponse = {
     data: PivotRow[] | TeamPivotRow[];
@@ -387,9 +391,26 @@ function PrintDialog({ open, onOpenChange, onPrint }: {
 // ── Sub-modal: Related Medals ─────────────────────────────────────────────────
 
 type RelatedResponse = { data: MedalRow[]; total: number; per_page: number };
+type FilterQuery = Record<string, string | string[]>;
+
+function buildQueryString(params: FilterQuery): string {
+    const query = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(params)) {
+        if (Array.isArray(value)) {
+            value.forEach((item) => query.append(`${key}[]`, item));
+
+            continue;
+        }
+
+        query.set(key, value);
+    }
+
+    return query.toString();
+}
 
 function exportRelatedCsv(rows: MedalRow[], filename: string): void {
-    const header = ['Medal', 'Name', 'PNO', 'Rank', 'Unit', 'Sport', 'Event', 'Tournament', 'Date'].join(',');
+    const header = ['Medal', 'Name', 'PNO', 'Rank', 'Unit', 'Sport', 'Event', 'Tournament', 'Session', 'Date', 'Position', 'Remarks'].join(',');
     const body = rows.map((r) => [
         r.medal_type,
         r.member.full_name,
@@ -399,7 +420,10 @@ function exportRelatedCsv(rows: MedalRow[], filename: string): void {
         r.sport.name,
         r.event.name,
         r.tournament.name,
+        r.session_name ?? '',
         formatDisplayDate(r.tournament.date_from) ?? '',
+        r.position ?? '',
+        r.remarks ?? '',
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
 
     const csv = '\uFEFF' + header + '\n' + body;
@@ -438,7 +462,10 @@ function printRelated(rows: MedalRow[], title: string): void {
             <td>${r.sport.name}</td>
             <td>${r.event.name}</td>
             <td>${r.tournament.name}</td>
+            <td>${r.session_name ?? ''}</td>
             <td>${formatDisplayDate(r.tournament.date_from) ?? ''}</td>
+            <td>${r.position ?? ''}</td>
+            <td>${r.remarks ?? ''}</td>
         </tr>`).join('');
 
     win.document.write(`<!DOCTYPE html><html><head>
@@ -460,7 +487,7 @@ function printRelated(rows: MedalRow[], title: string): void {
         <table>
             <thead><tr>
                 <th>Medal</th><th>Name</th><th>PNO</th><th>Rank</th><th>Unit</th>
-                <th>Sport</th><th>Event</th><th>Tournament</th><th>Date</th>
+                <th>Sport</th><th>Event</th><th>Tournament</th><th>Session</th><th>Date</th><th>Position</th><th>Remarks</th>
             </tr></thead>
             <tbody>${tableRows}</tbody>
         </table>
@@ -474,12 +501,14 @@ function RelatedMedalsModal({
     title,
     description,
     params,
+    exportUrl,
     open,
     onOpenChange,
 }: {
     title: string;
     description: string;
-    params: Record<string, string>;
+    params: FilterQuery;
+    exportUrl?: string;
     open: boolean;
     onOpenChange: (v: boolean) => void;
 }) {
@@ -507,13 +536,22 @@ function RelatedMedalsModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-xl gap-0 p-0 overflow-hidden" aria-describedby="related-desc">
+            <DialogContent
+                className="gap-0 p-0 overflow-hidden"
+                style={{
+                    width: '95vw',
+                    maxWidth: '98vw',
+                    height: '94vh',
+                    maxHeight: '94vh',
+                }}
+                aria-describedby="related-desc"
+            >
                 <DialogHeader className="px-5 pt-5 pb-3 border-b">
                     <DialogTitle className="text-base">{title}</DialogTitle>
                     <DialogDescription id="related-desc" className="text-xs">{description}</DialogDescription>
                 </DialogHeader>
 
-                <div className="max-h-[55vh] overflow-y-auto p-4">
+                <div className="max-h-[76vh] overflow-y-auto p-4">
                     {processing && (
                         <div className="space-y-2">
                             {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
@@ -529,23 +567,53 @@ function RelatedMedalsModal({
                                     {t('Showing first 50 of')} {total}
                                 </p>
                             )}
-                            <div className="divide-y rounded-lg border overflow-hidden">
-                                {rows.map((r) => (
-                                    <div key={r.id} className="flex items-center gap-3 px-3 py-2.5 bg-card hover:bg-muted/40">
-                                        <MedalBadge type={r.medal_type} />
-                                        <div className="min-w-0 flex-1">
-                                            <div className="text-sm font-medium truncate">{r.member.full_name}</div>
-                                            <div className="text-xs text-muted-foreground truncate">
-                                                {[r.sport.name, r.event.name].filter(Boolean).join(' · ')}
-                                            </div>
-                                        </div>
-                                        <div className="shrink-0 text-right">
-                                            {r.member.unit_name && (
-                                                <div className="text-xs text-muted-foreground">{r.member.unit_name}</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                            <div className="overflow-x-auto rounded-lg border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-16 text-center">#</TableHead>
+                                            <TableHead className="w-28">{t('Medal')}</TableHead>
+                                            <TableHead className="min-w-52">{t('Athlete')}</TableHead>
+                                            <TableHead className="w-20">{t('PNO')}</TableHead>
+                                            <TableHead className="w-20">{t('Rank')}</TableHead>
+                                            <TableHead className="min-w-40">{t('Unit')}</TableHead>
+                                            <TableHead className="min-w-36">{t('Sport')}</TableHead>
+                                            <TableHead className="min-w-44">{t('Event')}</TableHead>
+                                            <TableHead className="min-w-52">{t('Tournament')}</TableHead>
+                                            <TableHead className="min-w-32">{t('Session')}</TableHead>
+                                            <TableHead className="w-20 text-center">{t('Position')}</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {rows.map((r, index) => (
+                                            <TableRow key={r.id}>
+                                                <TableCell className="text-center text-xs text-muted-foreground">{index + 1}</TableCell>
+                                                <TableCell><MedalBadge type={r.medal_type} /></TableCell>
+                                                <TableCell className="font-medium">{r.member.full_name}</TableCell>
+                                                <TableCell className="text-xs">{r.member.pno ?? '—'}</TableCell>
+                                                <TableCell>{r.member.rank ?? '—'}</TableCell>
+                                                <TableCell>{r.member.unit_name ?? '—'}</TableCell>
+                                                <TableCell>
+                                                    <div>{r.sport.name}</div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div>{r.event.name}</div>
+                                                    {r.event.discipline && (
+                                                        <div className="text-xs text-muted-foreground">{r.event.discipline}</div>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="truncate">{r.tournament.name}</div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {formatDisplayDate(r.tournament.date_from)}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>{r.session_name ?? '—'}</TableCell>
+                                                <TableCell className="text-center">{r.position ?? '—'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             </div>
                         </>
                     )}
@@ -561,7 +629,7 @@ function RelatedMedalsModal({
                                 size="sm"
                                 variant="outline"
                                 className="gap-1.5"
-                                onClick={() => exportRelatedCsv(rows, title)}
+                                onClick={() => (exportUrl ? (window.location.href = exportUrl) : exportRelatedCsv(rows, title))}
                             >
                                 <Download className="size-3.5" />
                                 {t('Export CSV')}
@@ -862,6 +930,7 @@ export default function ReportsMedals({
 
     // Pivot (tally)
     const [pivotRows, setPivotRows] = useState<(PivotRow | TeamPivotRow)[] | null>(null);
+    const pivotRequestId = useRef(0);
     const { get: getPivot, processing: pivotLoading } = useHttp<Record<string, never>, PivotResponse>({});
 
     // Detail
@@ -871,6 +940,7 @@ export default function ReportsMedals({
     // Modals
     const [selectedRow, setSelectedRow] = useState<MedalRow | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [teamModalParams, setTeamModalParams] = useState<TeamModalState | null>(null);
     const [printOpen, setPrintOpen] = useState(false);
 
     const hasFilterValue = (value: string | string[]): boolean =>
@@ -879,7 +949,7 @@ export default function ReportsMedals({
     const hasAnyFilter = Object.values(filters).some(hasFilterValue) || !!memberSearch;
 
     const buildParams = useCallback(
-        (extra?: Record<string, string | number>): Record<string, string | string[]> => {
+        (extra?: Record<string, string | number | string[]>): FilterQuery => {
             const p: Record<string, string | string[]> = {};
 
             for (const [key, value] of Object.entries(filters)) {
@@ -902,6 +972,14 @@ export default function ReportsMedals({
 
             if (extra) {
                 for (const [k, v] of Object.entries(extra)) {
+                    if (Array.isArray(v)) {
+                        if (v.length > 0) {
+                            p[k] = v;
+                        }
+
+                        continue;
+                    }
+
                     p[k] = String(v);
                 }
             }
@@ -911,18 +989,37 @@ export default function ReportsMedals({
         [filters, memberSearch],
     );
 
+    const buildDownloadQuery = useCallback(
+        (extra?: Record<string, string | number | string[]>): FilterQuery => {
+            return buildParams(extra);
+        },
+        [buildParams],
+    );
+
     // Fetch pivot
     useEffect(() => {
         if (tab !== 'tally') {
- return;
-}
+            return;
+        }
+
+        const requestId = ++pivotRequestId.current;
 
         getPivot(MedalsPivotController.url({ query: buildParams(tallyMode === 'team' ? { group_by: 'team' } : undefined) }), {
             onSuccess: (res) => {
+                if (pivotRequestId.current !== requestId) {
+                    return;
+                }
+
                 const r = res as unknown as PivotResponse;
-                setPivotRows(r?.data ?? []);
+                setPivotRows(Array.isArray(r?.data) ? r.data : []);
             },
-            onError: () => setPivotRows([]),
+            onError: () => {
+                if (pivotRequestId.current !== requestId) {
+                    return;
+                }
+
+                setPivotRows([]);
+            },
         });
     }, [filters, memberSearch, tab, tallyMode, getPivot, buildParams]);
 
@@ -1022,28 +1119,25 @@ export default function ReportsMedals({
     };
 
     const buildExportUrl = () => {
-        const params = new URLSearchParams();
-
-        for (const [key, value] of Object.entries(buildParams())) {
-            if (Array.isArray(value)) {
-                for (const item of value) {
-                    params.append(`${key}[]`, item);
-                }
-
-                continue;
-            }
-
-            params.set(key, value);
-        }
+        const query = buildDownloadQuery();
 
         if (tab === 'tally' && tallyMode === 'team') {
-            params.set('group_by', 'team');
+            query.group_by = 'team';
         }
 
-        const qs = params.toString();
+        const qs = buildQueryString(query);
 
-        return MedalsExportController.url() + (qs ? '?' + qs : '');
+        return MedalsExportController.url() + (qs ? `?${qs}` : '');
     };
+
+    const teamExportUrl = useCallback(
+        (query: FilterQuery) => {
+            const qs = buildQueryString(query);
+
+            return MedalsExportController.url() + (qs ? `?${qs}` : '');
+        },
+        [],
+    );
 
     const optionLabels = (options: MultiSelectOption[], values: string[]): string | undefined => {
         if (values.length === 0) {
@@ -1129,8 +1223,9 @@ return `≤ ${to}`;
     const displayOnlyTotal = pivotRows
         ? pivotRows.reduce((acc, r) => acc + r.display_only, 0)
         : null;
-    const tierRows = (pivotRows ?? []) as PivotRow[];
-    const teamRows = (pivotRows ?? []) as TeamPivotRow[];
+    const isTeamPivot = tab === 'tally' && tallyMode === 'team';
+    const tierRows = (!isTeamPivot ? (pivotRows ?? []) : []) as PivotRow[];
+    const teamRows = (isTeamPivot ? (pivotRows ?? []) : []) as TeamPivotRow[];
 
     return (
         <>
@@ -1593,9 +1688,9 @@ return `≤ ${to}`;
                                 <Table>
                                     <TableHeader className="sticky top-0 z-10 bg-muted/60">
                                         <TableRow>
-                                            <TableHead className="w-12 text-center">{t(tallyMode === 'team' ? 'S No' : 'Rank')}</TableHead>
-                                            <TableHead className="min-w-56">{t(tallyMode === 'team' ? 'Team' : 'Tier')}</TableHead>
-                                            {tallyMode === 'team' && (
+                                            <TableHead className="w-12 text-center">{t(isTeamPivot ? 'S No' : 'Rank')}</TableHead>
+                                            <TableHead className="min-w-56">{t(isTeamPivot ? 'Team' : 'Tier')}</TableHead>
+                                            {isTeamPivot && (
                                                 <>
                                                     <TableHead className="min-w-36">{t('Sport')}</TableHead>
                                                     <TableHead className="min-w-32">{t('Session')}</TableHead>
@@ -1607,7 +1702,7 @@ return `≤ ${to}`;
                                             <TableHead className="w-24 text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('MERIT')].join(' ')}>{t('MERIT')}</span></TableHead>
                                             <TableHead className="w-28 text-center">{t('Calculated')}</TableHead>
                                             <TableHead className="w-28 text-center">{t('Display only')}</TableHead>
-                                            {tallyMode === 'team' && (
+                                            {isTeamPivot && (
                                                 <>
                                                     <TableHead className="w-24 text-center">{t('Events')}</TableHead>
                                                     <TableHead className="w-24 text-center">{t('Players')}</TableHead>
@@ -1616,7 +1711,7 @@ return `≤ ${to}`;
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {tallyMode === 'tier' && tierRows.map((row, index) => {
+                                        {!isTeamPivot && tierRows.map((row, index) => {
                                             const total = row.GOLD + row.SILVER + row.BRONZE + row.MERIT;
 
                                             return (
@@ -1647,24 +1742,42 @@ return `≤ ${to}`;
                                                 </TableRow>
                                             );
                                         })}
-                                        {tallyMode === 'team' && teamRows.map((row, index) => {
+                                        {isTeamPivot && teamRows.map((row, index) => {
                                             const total = row.GOLD + row.SILVER + row.BRONZE + row.MERIT;
+                                            const teamName = row.team?.name ?? '—';
+                                            const teamSport = row.team?.sport_name ?? '—';
+                                            const teamSession = row.team?.session_name ?? '—';
+                                            const teamUnit = row.team?.unit_name;
+                                            const teamDistrict = row.team?.district_name;
 
                                             return (
-                                                <TableRow key={row.team.id} className="border-b hover:bg-muted/40">
+                                                <TableRow
+                                                    key={row.team?.id ?? `team-row-${index}`}
+                                                    className="cursor-pointer border-b hover:bg-muted/40"
+                                                    onClick={() => {
+                                                        if (row.team?.id === undefined || row.team?.id === null) {
+                                                            return;
+                                                        }
+
+                                                        setTeamModalParams({
+                                                            team_name: teamName,
+                                                            filters: buildDownloadQuery({ team_id: String(row.team.id) }),
+                                                        });
+                                                    }}
+                                                >
                                                     <TableCell className="text-center font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
                                                     <TableCell>
-                                                        <div className="max-w-72 truncate font-medium">{row.team.name}</div>
+                                                        <div className="max-w-72 truncate font-medium">{teamName}</div>
                                                         <div className="mt-1 flex flex-wrap gap-1">
-                                                            {[row.team.unit_name, row.team.district_name].filter(Boolean).map((label) => (
+                                                            {[teamUnit, teamDistrict].filter(Boolean).map((label) => (
                                                                 <Badge key={label} variant="outline" className="px-1.5 py-0 text-[11px] font-normal">
                                                                     {label}
                                                                 </Badge>
                                                             ))}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="text-sm">{row.team.sport_name ?? '—'}</TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">{row.team.session_name ?? '—'}</TableCell>
+                                                    <TableCell className="text-sm">{teamSport}</TableCell>
+                                                    <TableCell className="text-sm text-muted-foreground">{teamSession}</TableCell>
                                                     <TableCell className="text-center"><CountCell value={row.GOLD} /></TableCell>
                                                     <TableCell className="text-center"><CountCell value={row.SILVER} /></TableCell>
                                                     <TableCell className="text-center"><CountCell value={row.BRONZE} /></TableCell>
@@ -1678,9 +1791,9 @@ return `≤ ${to}`;
                                         })}
                                         {pivotRows.length > 1 && (
                                             <TableRow className="border-t-2 bg-muted/40 font-bold">
-                                                {tallyMode === 'team' && <TableCell />}
+                                                {isTeamPivot && <TableCell />}
                                                 <TableCell>{t('Total')}</TableCell>
-                                                {tallyMode === 'team' && (
+                                                {isTeamPivot && (
                                                     <>
                                                         <TableCell />
                                                         <TableCell />
@@ -1692,7 +1805,7 @@ return `≤ ${to}`;
                                                 <TableCell className="text-center"><CountCell value={pivotRows.reduce((a, r) => a + r.MERIT, 0)} /></TableCell>
                                                 <TableCell className="text-center"><CountCell value={grandTotal ?? 0} strong /></TableCell>
                                                 <TableCell className="text-center"><DisplayOnlyCell value={displayOnlyTotal ?? 0} /></TableCell>
-                                                {tallyMode === 'team' && (
+                                                {isTeamPivot && (
                                                     <>
                                                         <TableCell />
                                                         <TableCell />
@@ -1876,6 +1989,20 @@ return `≤ ${to}`;
 
             {/* Modals */}
             <MedalDetailModal row={selectedRow} open={modalOpen} onOpenChange={setModalOpen} />
+            {teamModalParams !== null && (
+                <RelatedMedalsModal
+                    open={teamModalParams !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setTeamModalParams(null);
+                        }
+                    }}
+                    title={teamModalParams.team_name}
+                    description={t('All medals for this team')}
+                    params={teamModalParams.filters}
+                    exportUrl={teamExportUrl(teamModalParams.filters)}
+                />
+            )}
             <PrintDialog open={printOpen} onOpenChange={setPrintOpen} onPrint={handlePrint} />
         </>
     );
