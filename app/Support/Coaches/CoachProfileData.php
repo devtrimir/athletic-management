@@ -10,6 +10,7 @@ use App\Http\Resources\CoachStatusHistoryResource;
 use App\Models\Achievement;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
+use App\Models\CoachPromotionEvidence;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TeamMember;
@@ -116,7 +117,15 @@ class CoachProfileData
     {
         $coach->loadMissing([
             'promotions' => fn ($query) => $query
-                ->with('recorder:id,name')
+                ->with([
+                    'recorder:id,name',
+                    'evidences.session:id,name',
+                    'evidences.tournament:id,name,tier_id,date_from,date_to,venue',
+                    'evidences.tournament.tier:id,code',
+                    'evidences.event:id,tournament_id,name,gender_class,discipline,weight_category',
+                    'evidences.team:id,name',
+                    'evidences.achievement:id,medal_type,position',
+                ])
                 ->orderByDesc('promotion_date')
                 ->orderByDesc('id'),
         ]);
@@ -125,6 +134,7 @@ class CoachProfileData
             ...$this->shell($coach),
             'activeTab' => 'promotions',
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
+            'rewardEvidenceOptions' => $this->rewardEvidenceOptionsPayload($coach),
         ];
     }
 
@@ -338,6 +348,88 @@ class CoachProfileData
         ];
     }
 
+    /** @return array<int, array<string, mixed>> */
+    private function rewardEvidenceOptionsPayload(Coach $coach): array
+    {
+        $achievementGroups = collect($this->achievementsPayload($coach)['groups']);
+
+        if ($achievementGroups->isEmpty()) {
+            return [];
+        }
+
+        $usedEventKeys = CoachPromotionEvidence::query()
+            ->whereHas('coachPromotion', fn ($query) => $query->where('coach_id', $coach->id))
+            ->whereNotNull('event_id')
+            ->get(['session_id', 'tournament_id', 'event_id', 'team_id'])
+            ->map(fn (CoachPromotionEvidence $evidence): string => $this->rewardEvidenceKey(
+                $evidence->session_id,
+                $evidence->tournament_id,
+                $evidence->event_id,
+                $evidence->team_id,
+            ))
+            ->flip();
+
+        return $achievementGroups
+            ->groupBy(fn (array $group): int => (int) $group['session']['id'])
+            ->map(function (Collection $sessionGroups): array {
+                $first = $sessionGroups->first();
+
+                return [
+                    'session' => $first['session'],
+                    'tournaments' => $sessionGroups
+                        ->groupBy(fn (array $group): string => $group['tournament']['id'].':'.$group['team']['id'])
+                        ->map(function (Collection $tournamentGroups): array {
+                            $first = $tournamentGroups->first();
+
+                            return [
+                                'id' => $first['tournament']['id'].':'.$first['team']['id'],
+                                'tournament' => $first['tournament'],
+                                'team' => $first['team'],
+                                'events' => $tournamentGroups
+                                    ->map(fn (array $group): array => [
+                                        'id' => $this->rewardEvidenceKey(
+                                            (int) $group['session']['id'],
+                                            (int) $group['tournament']['id'],
+                                            (int) $group['event']['id'],
+                                            (int) $group['team']['id'],
+                                        ),
+                                        'session_id' => $group['session']['id'],
+                                        'tournament_id' => $group['tournament']['id'],
+                                        'event_id' => $group['event']['id'],
+                                        'team_id' => $group['team']['id'],
+                                        'event' => $group['event'],
+                                        'medal_counts' => $group['medal_counts'],
+                                        'player_count' => count($group['players']),
+                                    ])
+                                    ->values()
+                                    ->all(),
+                            ];
+                        })
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->map(function (array $sessionGroup) use ($usedEventKeys): array {
+                $sessionGroup['tournaments'] = collect($sessionGroup['tournaments'])
+                    ->map(function (array $tournamentGroup) use ($usedEventKeys): array {
+                        $tournamentGroup['events'] = collect($tournamentGroup['events'])
+                            ->reject(fn (array $event): bool => $usedEventKeys->has($event['id']))
+                            ->values()
+                            ->all();
+
+                        return $tournamentGroup;
+                    })
+                    ->filter(fn (array $tournamentGroup): bool => count($tournamentGroup['events']) > 0)
+                    ->values()
+                    ->all();
+
+                return $sessionGroup;
+            })
+            ->filter(fn (array $sessionGroup): bool => count($sessionGroup['tournaments']) > 0)
+            ->values()
+            ->all();
+    }
+
     /** @return array<string, mixed> */
     private function emptyAchievementsPayload(): array
     {
@@ -473,5 +565,10 @@ class CoachProfileData
     private function memberTeamSessionKey(int $memberId, int $teamId, int $sessionId): string
     {
         return $memberId.':'.$teamId.':'.$sessionId;
+    }
+
+    private function rewardEvidenceKey(int $sessionId, int $tournamentId, int $eventId, int $teamId): string
+    {
+        return $sessionId.':'.$tournamentId.':'.$eventId.':'.$teamId;
     }
 }

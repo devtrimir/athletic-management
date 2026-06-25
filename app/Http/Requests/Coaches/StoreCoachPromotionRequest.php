@@ -31,6 +31,11 @@ class StoreCoachPromotionRequest extends FormRequest
             'cash_reward_remarks' => ['nullable', 'string'],
             'reason' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string'],
+            'evidences' => ['nullable', 'array'],
+            'evidences.*.session_id' => ['required', 'integer', 'min:1'],
+            'evidences.*.tournament_id' => ['required', 'integer', 'min:1'],
+            'evidences.*.event_id' => ['required', 'integer', 'min:1'],
+            'evidences.*.team_id' => ['required', 'integer', 'min:1'],
         ];
     }
 
@@ -41,6 +46,13 @@ class StoreCoachPromotionRequest extends FormRequest
                 $validator->errors()->add(
                     'to_rank',
                     __('Add a target rank or a cash reward amount.'),
+                );
+            }
+
+            if (($this->filled('to_rank') || $this->filled('cash_reward_amount')) && count($this->input('evidences', [])) === 0) {
+                $validator->errors()->add(
+                    'evidences',
+                    __('Select at least one tournament event for this record.'),
                 );
             }
 

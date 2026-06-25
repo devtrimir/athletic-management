@@ -131,6 +131,60 @@ type CoachPromotion = {
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
+    evidences: RewardEvidence[];
+};
+
+type RewardEvidence = {
+    id: number;
+    session_id: number;
+    tournament_id: number;
+    event_id: number | null;
+    team_id: number | null;
+    achievement_id: number | null;
+    summary: string | null;
+    session: { id: number; name: string } | null;
+    tournament: {
+        id: number;
+        name: string;
+        tier_code: string | null;
+        date_from: string | null;
+        date_to: string | null;
+        venue: string | null;
+    } | null;
+    event: {
+        id: number;
+        name: string;
+        gender_class: string | null;
+        discipline: string | null;
+        weight_category: string | null;
+    } | null;
+    team: { id: number; name: string } | null;
+};
+
+type RewardEvidenceInput = {
+    session_id: number;
+    tournament_id: number;
+    event_id: number;
+    team_id: number;
+};
+
+type RewardEvidenceOption = RewardEvidenceInput & {
+    id: string;
+    event: CoachAchievementGroup['event'];
+    medal_counts: CoachAchievementGroup['medal_counts'];
+    player_count: number;
+};
+
+type RewardEvidenceTournamentOption = {
+    id: string;
+    tournament: CoachAchievementGroup['tournament'];
+    team: CoachAchievementGroup['team'];
+    events: RewardEvidenceOption[];
+};
+
+type RewardEvidenceSessionOption = {
+    session: CoachAchievementGroup['session'];
+    tournaments: RewardEvidenceTournamentOption[];
 };
 
 type AchievementBenefit = {
@@ -355,6 +409,7 @@ export default function CoachesShow({
     tiers = [],
     ranks = [],
     coachAchievements,
+    rewardEvidenceOptions = [],
 }: {
     coach: Coach;
     activeTab?: CoachShowTab;
@@ -365,6 +420,7 @@ export default function CoachesShow({
     tiers?: TierOption[];
     ranks?: RankOption[];
     coachAchievements?: CoachAchievementsData;
+    rewardEvidenceOptions?: RewardEvidenceSessionOption[];
 }) {
     const { t } = useTranslation();
 
@@ -386,6 +442,11 @@ export default function CoachesShow({
     const [activePromotionTab, setActivePromotionTab] = useState<
         'promotions' | 'rewards'
     >('promotions');
+    const [selectedRewardSessionId, setSelectedRewardSessionId] =
+        useState<string>('all');
+    const [rewardEvidenceSelection, setRewardEvidenceSelection] = useState<
+        RewardEvidenceInput[]
+    >([]);
     const [achievementSearch, setAchievementSearch] = useState('');
     const [achievementSessionFilter, setAchievementSessionFilter] =
         useState('all');
@@ -429,6 +490,7 @@ export default function CoachesShow({
         cash_reward_remarks: '',
         reason: '',
         remarks: '',
+        evidences: [] as RewardEvidenceInput[],
     });
     const activeTab = COACH_SHOW_TABS.includes(activeTabProp)
         ? activeTabProp
@@ -609,6 +671,218 @@ export default function CoachesShow({
     const rewardRows = (coach.promotions ?? []).filter(hasRewardFields);
     const activePromotionRows =
         activePromotionTab === 'promotions' ? promotionRows : rewardRows;
+    const rewardSessionOptions = rewardEvidenceOptions.map(
+        (option) => option.session,
+    );
+    const visibleRewardEvidenceOptions = rewardEvidenceOptions.filter(
+        (option) =>
+            selectedRewardSessionId === 'all' ||
+            String(option.session.id) === selectedRewardSessionId,
+    );
+    const rewardEvidenceLookup = useMemo(() => {
+        const lookup = new Map<string, RewardEvidenceOption>();
+
+        for (const session of rewardEvidenceOptions) {
+            for (const tournament of session.tournaments) {
+                for (const event of tournament.events) {
+                    lookup.set(event.id, event);
+                }
+            }
+        }
+
+        return lookup;
+    }, [rewardEvidenceOptions]);
+
+    function rewardEvidenceKey(evidence: RewardEvidenceInput): string {
+        return [
+            evidence.session_id,
+            evidence.tournament_id,
+            evidence.event_id,
+            evidence.team_id,
+        ].join(':');
+    }
+
+    function collectText(values: Array<string | number | null | undefined>): string {
+        return values.filter(Boolean).join(' · ');
+    }
+
+    function rewardEvidenceSelected(evidence: RewardEvidenceInput): boolean {
+        const key = rewardEvidenceKey(evidence);
+
+        return rewardEvidenceSelection.some(
+            (selected) => rewardEvidenceKey(selected) === key,
+        );
+    }
+
+    function toggleRewardEvidence(evidence: RewardEvidenceInput): void {
+        const key = rewardEvidenceKey(evidence);
+
+        setRewardEvidenceSelection((current) =>
+            current.some((selected) => rewardEvidenceKey(selected) === key)
+                ? current.filter((selected) => rewardEvidenceKey(selected) !== key)
+                : [...current, evidence],
+        );
+    }
+
+    function selectedRewardEvidenceLabel(evidence: RewardEvidenceInput): string {
+        const option = rewardEvidenceLookup.get(rewardEvidenceKey(evidence));
+
+        return collectText([
+            option?.event.name,
+            option?.event.gender_class,
+            option ? `${option.player_count} ${t('players')}` : null,
+        ]);
+    }
+
+    function renderPromotionEvidenceSummary(promotion: CoachPromotion) {
+        if (promotion.evidences.length === 0) {
+            return <span className="text-muted-foreground">—</span>;
+        }
+
+        return (
+            <div className="space-y-1">
+                {promotion.evidences.slice(0, 2).map((evidence) => (
+                    <div key={evidence.id} className="truncate text-xs">
+                        {evidence.summary ?? '—'}
+                    </div>
+                ))}
+                {promotion.evidences.length > 2 ? (
+                    <div className="text-xs text-muted-foreground">
+                        +{promotion.evidences.length - 2} {t('more')}
+                    </div>
+                ) : null}
+            </div>
+        );
+    }
+
+    function renderEvidencePicker(context: 'promotion' | 'reward') {
+        return (
+            <div className="grid gap-3 rounded-lg border p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <Label>{t('Tournament events')}</Label>
+                        <p className="text-xs text-muted-foreground">
+                            {context === 'reward'
+                                ? t(
+                                      'Select unrewarded events connected to this coach reward.',
+                                  )
+                                : t(
+                                      'Select unrewarded events connected to this coach promotion.',
+                                  )}
+                        </p>
+                    </div>
+                    <Select
+                        value={selectedRewardSessionId}
+                        onValueChange={setSelectedRewardSessionId}
+                    >
+                        <SelectTrigger className="sm:w-56">
+                            <SelectValue placeholder={t('Session')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">
+                                {t('All sessions')}
+                            </SelectItem>
+                            {rewardSessionOptions.map((session) => (
+                                <SelectItem
+                                    key={session.id}
+                                    value={String(session.id)}
+                                >
+                                    {session.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {visibleRewardEvidenceOptions.length === 0 ? (
+                    <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        {t(
+                            'No unrewarded tournament achievements available for this session.',
+                        )}
+                    </div>
+                ) : (
+                    <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+                        {visibleRewardEvidenceOptions.map((session) =>
+                            session.tournaments.map((tournament) => (
+                                <div
+                                    key={`${session.session.id}-${tournament.id}`}
+                                    className="rounded-md border"
+                                >
+                                    <div className="border-b bg-muted/40 px-3 py-2">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Badge variant="outline">
+                                                {tournament.tournament
+                                                    .tier_code ?? t('Unknown')}
+                                            </Badge>
+                                            <span className="text-sm font-medium">
+                                                {tournament.tournament.name}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {session.session.name} ·{' '}
+                                            {tournament.team.name} ·{' '}
+                                            {tournament.events.length}{' '}
+                                            {t('available events')}
+                                        </p>
+                                    </div>
+                                    <div className="divide-y">
+                                        {tournament.events.map((event) => (
+                                            <label
+                                                key={event.id}
+                                                className="flex cursor-pointer items-start gap-3 px-3 py-2 text-sm hover:bg-muted/30"
+                                            >
+                                                <Checkbox
+                                                    checked={rewardEvidenceSelected(
+                                                        event,
+                                                    )}
+                                                    onCheckedChange={() =>
+                                                        toggleRewardEvidence(
+                                                            event,
+                                                        )
+                                                    }
+                                                />
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block font-medium">
+                                                        {event.event.name}
+                                                    </span>
+                                                    <span className="block text-xs text-muted-foreground">
+                                                        {collectText([
+                                                            event.event
+                                                                .gender_class,
+                                                            event.event
+                                                                .discipline,
+                                                            event.event
+                                                                .weight_category,
+                                                            `${event.player_count} ${t('players')}`,
+                                                        ])}
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )),
+                        )}
+                    </div>
+                )}
+
+                {rewardEvidenceSelection.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                        {rewardEvidenceSelection.map((evidence) => (
+                            <Badge
+                                key={rewardEvidenceKey(evidence)}
+                                variant="secondary"
+                            >
+                                {selectedRewardEvidenceLabel(evidence) ||
+                                    t('Selected')}
+                            </Badge>
+                        ))}
+                    </div>
+                ) : null}
+                <InputError message={promotionForm.errors.evidences} />
+            </div>
+        );
+    }
     const achievementGroups = useMemo(
         () => coachAchievements?.groups ?? [],
         [coachAchievements],
@@ -862,13 +1136,21 @@ export default function CoachesShow({
             cash_reward_remarks: '',
             reason: '',
             remarks: '',
+            evidences: [],
         });
+        setRewardEvidenceSelection([]);
+        setSelectedRewardSessionId('all');
         promotionForm.clearErrors();
     }
 
     function openAddPromotionDialog(mode: 'promotion' | 'reward' = 'promotion') {
         resetPromotionForm();
         setPromotionDialogMode(mode);
+        setSelectedRewardSessionId(
+            mode === 'reward' && rewardSessionOptions[0]
+                ? String(rewardSessionOptions[0].id)
+                : 'all',
+        );
         setPromotionDialogOpen(true);
     }
 
@@ -890,7 +1172,26 @@ export default function CoachesShow({
             cash_reward_remarks: promotion.cash_reward_remarks ?? '',
             reason: promotion.reason ?? '',
             remarks: promotion.remarks ?? '',
+            evidences: [],
         });
+        setRewardEvidenceSelection(
+            promotion.evidences
+                .filter(
+                    (evidence) =>
+                        evidence.event_id !== null && evidence.team_id !== null,
+                )
+                .map((evidence) => ({
+                    session_id: evidence.session_id,
+                    tournament_id: evidence.tournament_id,
+                    event_id: evidence.event_id as number,
+                    team_id: evidence.team_id as number,
+                })),
+        );
+        setSelectedRewardSessionId(
+            mode === 'reward' && promotion.evidences[0]
+                ? String(promotion.evidences[0].session_id)
+                : 'all',
+        );
         promotionForm.clearErrors();
         setPromotionDialogOpen(true);
     }
@@ -910,6 +1211,7 @@ export default function CoachesShow({
             cash_reward_remarks: data.cash_reward_remarks || null,
             reason: isRewardMode ? null : data.reason || null,
             remarks: isRewardMode ? null : data.remarks || null,
+            evidences: rewardEvidenceSelection,
         }));
 
         const options = {
@@ -2278,6 +2580,9 @@ export default function CoachesShow({
                                                 {t('Reason / Remarks')}
                                             </TableHead>
                                             <TableHead>
+                                                {t('Tournament events')}
+                                            </TableHead>
+                                            <TableHead>
                                                 {t('Recorded by')}
                                             </TableHead>
                                             <TableHead className="text-right">
@@ -2334,6 +2639,11 @@ export default function CoachesShow({
                                                                 '—'}
                                                         </span>
                                                     </TableCell>
+                                                    <TableCell className="max-w-[18rem]">
+                                                        {renderPromotionEvidenceSummary(
+                                                            promotion,
+                                                        )}
+                                                    </TableCell>
                                                     <TableCell>
                                                         {promotion.recorded_by_name ??
                                                             '—'}
@@ -2382,6 +2692,9 @@ export default function CoachesShow({
                                             <TableHead>
                                                 {t('Reward amount')}
                                             </TableHead>
+                                            <TableHead>
+                                                {t('Tournament events')}
+                                            </TableHead>
                                             <TableHead>{t('Reference')}</TableHead>
                                             <TableHead>{t('Remarks')}</TableHead>
                                             <TableHead>
@@ -2420,6 +2733,11 @@ export default function CoachesShow({
                                                             <span className="text-muted-foreground">
                                                                 —
                                                             </span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="max-w-[18rem]">
+                                                        {renderPromotionEvidenceSummary(
+                                                            promotion,
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
@@ -2593,7 +2911,7 @@ export default function CoachesShow({
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-2xl">
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
                     <form onSubmit={submitPromotion}>
                         <DialogHeader>
                             <DialogTitle>
@@ -2746,6 +3064,8 @@ export default function CoachesShow({
                                             }
                                         />
                                     </div>
+
+                                    {renderEvidencePicker('promotion')}
                                 </>
                             ) : (
                                 <>
@@ -2829,6 +3149,8 @@ export default function CoachesShow({
                                             }
                                         />
                                     </div>
+
+                                    {renderEvidencePicker('reward')}
 
                                     <div className="grid gap-2">
                                         <Label htmlFor="cash_reward_remarks">

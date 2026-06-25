@@ -31,6 +31,11 @@ class UpdateCoachPromotionRequest extends FormRequest
             'cash_reward_remarks' => ['sometimes', 'nullable', 'string'],
             'reason' => ['sometimes', 'nullable', 'string'],
             'remarks' => ['sometimes', 'nullable', 'string'],
+            'evidences' => ['sometimes', 'nullable', 'array'],
+            'evidences.*.session_id' => ['required', 'integer', 'min:1'],
+            'evidences.*.tournament_id' => ['required', 'integer', 'min:1'],
+            'evidences.*.event_id' => ['required', 'integer', 'min:1'],
+            'evidences.*.team_id' => ['required', 'integer', 'min:1'],
         ];
     }
 
@@ -46,6 +51,13 @@ class UpdateCoachPromotionRequest extends FormRequest
                 $validator->errors()->add(
                     'to_rank',
                     __('Add a target rank or a cash reward amount.'),
+                );
+            }
+
+            if (($toRank || $cashRewardAmount) && $this->has('evidences') && count($this->input('evidences', [])) === 0) {
+                $validator->errors()->add(
+                    'evidences',
+                    __('Select at least one tournament event for this record.'),
                 );
             }
 

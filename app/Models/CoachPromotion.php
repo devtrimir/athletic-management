@@ -10,9 +10,11 @@ use App\Observers\AuditObserver;
 use Database\Factories\CoachPromotionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -33,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  * @property-read Coach $coach
  * @property-read User|null $recorder
+ * @property-read Collection<int, CoachPromotionEvidence> $evidences
  */
 #[Fillable([
     'organization_id',
@@ -73,5 +76,11 @@ class CoachPromotion extends Model
     public function recorder(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    /** @return HasMany<CoachPromotionEvidence, $this> */
+    public function evidences(): HasMany
+    {
+        return $this->hasMany(CoachPromotionEvidence::class);
     }
 }

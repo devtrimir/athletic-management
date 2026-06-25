@@ -8,6 +8,7 @@ use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\CoachCertification;
 use App\Models\CoachPromotion;
+use App\Models\CoachPromotionEvidence;
 use App\Models\CoachSport;
 use App\Models\Event;
 use App\Models\Member;
@@ -933,6 +934,17 @@ test('user with coach promotions permission can add promotion and reward from pr
         'organization_id' => $user->organization_id,
         'rank_master_id' => $fromRank->id,
     ]);
+    $achievement = coachedMedal([
+        'organization' => Organization::findOrFail($user->organization_id),
+        'team' => Team::factory()->create(['organization_id' => $user->organization_id]),
+    ]);
+    $teamId = $achievement->participation->team_id;
+    $sessionId = $achievement->participation->session_id;
+    CoachAssignment::factory()->head()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $teamId,
+        'session_id' => $sessionId,
+    ]);
 
     $this->actingAs($user)
         ->post(route('coaches.promotions.store', $coach), [
@@ -943,6 +955,12 @@ test('user with coach promotions permission can add promotion and reward from pr
             'cash_reward_date' => '2026-02-02',
             'cash_reward_reference' => 'ORDER-42',
             'reason' => 'Outstanding coaching performance.',
+            'evidences' => [[
+                'session_id' => $sessionId,
+                'tournament_id' => $achievement->participation->event->tournament_id,
+                'event_id' => $achievement->participation->event_id,
+                'team_id' => $teamId,
+            ]],
         ])
         ->assertRedirect(route('coaches.promotions', $coach));
 
@@ -951,20 +969,47 @@ test('user with coach promotions permission can add promotion and reward from pr
         'to_rank' => $toRank->code,
         'cash_reward_reference' => 'ORDER-42',
     ]);
+    $promotion = CoachPromotion::where('coach_id', $coach->id)->firstOrFail();
+    $this->assertDatabaseHas('coach_promotion_evidence', [
+        'coach_promotion_id' => $promotion->id,
+        'session_id' => $sessionId,
+        'event_id' => $achievement->participation->event_id,
+        'team_id' => $teamId,
+    ]);
     expect($coach->fresh()->rank_master_id)->toBe($toRank->id);
     expect(collect(app(AuditLogBuilder::class)->forCoach($coach))
         ->contains(fn (array $entry): bool => $entry['subject'] === 'Promotion'))
+        ->toBeTrue();
+    expect(collect(app(AuditLogBuilder::class)->forCoach($coach))
+        ->contains(fn (array $entry): bool => $entry['subject'] === 'Reward event'))
         ->toBeTrue();
 });
 
 test('coach promotion can be reward only', function () {
     $user = coachUser('coaches.managePromotions');
     $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $achievement = coachedMedal([
+        'organization' => Organization::findOrFail($user->organization_id),
+        'team' => Team::factory()->create(['organization_id' => $user->organization_id]),
+    ]);
+    $teamId = $achievement->participation->team_id;
+    $sessionId = $achievement->participation->session_id;
+    CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $teamId,
+        'session_id' => $sessionId,
+    ]);
 
     $this->actingAs($user)
         ->post(route('coaches.promotions.store', $coach), [
             'cash_reward_amount' => '7500.00',
             'cash_reward_reference' => 'REWARD-1',
+            'evidences' => [[
+                'session_id' => $sessionId,
+                'tournament_id' => $achievement->participation->event->tournament_id,
+                'event_id' => $achievement->participation->event_id,
+                'team_id' => $teamId,
+            ]],
         ])
         ->assertRedirect(route('coaches.promotions', $coach));
 
@@ -974,6 +1019,54 @@ test('coach promotion can be reward only', function () {
         'cash_reward_amount' => '7500.00',
         'cash_reward_reference' => 'REWARD-1',
     ]);
+});
+
+test('coach reward evidence options exclude already rewarded events', function () {
+    $user = coachUser('coaches.view');
+    $organization = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create(['organization_id' => $organization->id]);
+    $sport = Sport::factory()->create(['organization_id' => $organization->id]);
+    $team = Team::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+    ]);
+    $coach = Coach::factory()->create(['organization_id' => $organization->id]);
+    CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+    ]);
+    $achievement = coachedMedal([
+        'organization' => $organization,
+        'session' => $session,
+        'sport' => $sport,
+        'team' => $team,
+    ]);
+    $promotion = CoachPromotion::factory()->create([
+        'organization_id' => $organization->id,
+        'coach_id' => $coach->id,
+        'cash_reward_amount' => '7500.00',
+        'to_rank' => null,
+    ]);
+    CoachPromotionEvidence::factory()->create([
+        'organization_id' => $organization->id,
+        'coach_promotion_id' => $promotion->id,
+        'session_id' => $session->id,
+        'tournament_id' => $achievement->participation->event->tournament_id,
+        'event_id' => $achievement->participation->event_id,
+        'team_id' => $team->id,
+        'achievement_id' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.promotions', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/show')
+            ->where('rewardEvidenceOptions', [])
+            ->where('coach.promotions.0.evidences.0.event_id', $achievement->participation->event_id)
+        );
 });
 
 test('coach promotion requires rank or reward amount', function () {

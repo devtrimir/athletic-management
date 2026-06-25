@@ -103,6 +103,45 @@ class CoachResource extends JsonResource
                     'reason' => $promotion->reason,
                     'remarks' => $promotion->remarks,
                     'recorded_by_name' => $promotion->recorder?->name,
+                    'evidences' => $promotion->relationLoaded('evidences')
+                        ? $promotion->evidences->map(fn ($evidence) => [
+                            'id' => $evidence->id,
+                            'session_id' => $evidence->session_id,
+                            'tournament_id' => $evidence->tournament_id,
+                            'event_id' => $evidence->event_id,
+                            'team_id' => $evidence->team_id,
+                            'achievement_id' => $evidence->achievement_id,
+                            'summary' => collect([
+                                $evidence->session?->name,
+                                $evidence->tournament?->name,
+                                $evidence->event?->name,
+                                $evidence->team?->name,
+                            ])->filter()->join(' · '),
+                            'session' => $evidence->session ? [
+                                'id' => $evidence->session->id,
+                                'name' => $evidence->session->name,
+                            ] : null,
+                            'tournament' => $evidence->tournament ? [
+                                'id' => $evidence->tournament->id,
+                                'name' => $evidence->tournament->name,
+                                'tier_code' => $evidence->tournament->tier?->code,
+                                'date_from' => $evidence->tournament->date_from?->toDateString(),
+                                'date_to' => $evidence->tournament->date_to?->toDateString(),
+                                'venue' => $evidence->tournament->venue,
+                            ] : null,
+                            'event' => $evidence->event ? [
+                                'id' => $evidence->event->id,
+                                'name' => $evidence->event->name,
+                                'gender_class' => $evidence->event->gender_class,
+                                'discipline' => $evidence->event->discipline,
+                                'weight_category' => $evidence->event->weight_category,
+                            ] : null,
+                            'team' => $evidence->team ? [
+                                'id' => $evidence->team->id,
+                                'name' => $evidence->team->name,
+                            ] : null,
+                        ])->values()
+                        : [],
                 ])
                 ->values()),
             'assignment_history' => $this->whenLoaded('assignmentHistory', fn () => $this->assignmentHistory
