@@ -1,6 +1,5 @@
 import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
-import { Award, Dumbbell, IdCard, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { IdCard, UserRound } from 'lucide-react';
 import {
     index as coachesIndex,
     show as showCoach,
@@ -10,16 +9,6 @@ import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -31,11 +20,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
-type SportOption = { id: number; name: string };
 type NisMasterOption = {
     id: number;
     code: string;
@@ -75,7 +62,6 @@ type Coach = {
     pno: string | null;
     mobile: string | null;
     nis_certified: boolean;
-    display_name: string | null;
     designation: string | null;
     email: string | null;
     gender: string | null;
@@ -90,57 +76,6 @@ type Coach = {
     designation_master_id: number | null;
     bio: string | null;
     address: string | null;
-    certifications: Array<{
-        id: number;
-        name: string;
-        certificate_type: string | null;
-        issuer: string | null;
-        issued_at: string | null;
-        expired_at: string | null;
-        attachment_path: string | null;
-    }>;
-    sports: Array<{
-        id: number;
-        pivot: {
-            level_master_id: number | null;
-            level: string | null;
-            sport_event: string | null;
-            is_primary: boolean;
-            effective_from: string | null;
-            effective_to: string | null;
-            notes: string | null;
-        };
-        name: string;
-    }>;
-};
-
-type CertificationRow = {
-    id: number | '';
-    name: string;
-    certificate_type: string;
-    issuer: string;
-    issued_at: string;
-    expired_at: string;
-    attachment_path: string;
-};
-
-type SportRow = {
-    id: number | '';
-    sport_id: string;
-    level_master_id: string;
-    level: string;
-    sport_event: string;
-    is_primary: boolean;
-    effective_from: string;
-    effective_to: string;
-    notes: string;
-};
-
-type ProtectedSport = {
-    sport_id: number;
-    sport_name: string;
-    teams: string[];
-    message: string;
 };
 
 type FormData = {
@@ -149,7 +84,6 @@ type FormData = {
     mobile: string;
     blood_group: string;
     nis_certified: boolean;
-    display_name: string;
     designation: string;
     rank_master_id: string;
     designation_master_id: string;
@@ -164,60 +98,26 @@ type FormData = {
     bio: string;
     address: string;
     photo_path: string;
-    certifications: CertificationRow[];
-    sports: SportRow[];
 };
-
-function coachToCertificationRows(coach: Coach): CertificationRow[] {
-    return coach.certifications.map((cert) => ({
-        id: cert.id,
-        name: cert.name,
-        certificate_type: cert.certificate_type ?? '',
-        issuer: cert.issuer ?? '',
-        issued_at: cert.issued_at ?? '',
-        expired_at: cert.expired_at ?? '',
-        attachment_path: cert.attachment_path ?? '',
-    }));
-}
-
-function coachToSportRows(coach: Coach): SportRow[] {
-    return coach.sports.map((sport) => ({
-        id: sport.id,
-        sport_id: String(sport.id),
-        level_master_id: sport.pivot.level_master_id
-            ? String(sport.pivot.level_master_id)
-            : '',
-        level: sport.pivot.level ?? '',
-        sport_event: sport.pivot.sport_event ?? '',
-        is_primary: sport.pivot.is_primary,
-        effective_from: sport.pivot.effective_from ?? '',
-        effective_to: sport.pivot.effective_to ?? '',
-        notes: sport.pivot.notes ?? '',
-    }));
-}
 
 export default function CoachesEdit({
     coach,
-    sports,
     districts,
     units,
     ranks,
     designations,
     tiers,
     nisMasters,
-    protectedSports,
     coachStatuses,
     genders,
 }: {
     coach: Coach;
-    sports: SportOption[];
     districts: { id: number; name: string }[];
     units: { id: number; name: string; district_id: number | null }[];
     ranks: RankOption[];
     designations: DesignationOption[];
     tiers: TierOption[];
     nisMasters: NisMasterOption[];
-    protectedSports: ProtectedSport[];
     coachStatuses: string[];
     genders: string[];
 }) {
@@ -265,10 +165,6 @@ export default function CoachesEdit({
             ? `${master.name} (${master.short_name})`
             : master.name,
     }));
-    const sportItems: ComboboxItem[] = sports.map((sport) => ({
-        value: String(sport.id),
-        label: sport.name,
-    }));
 
     setLayoutProps({
         breadcrumbs: [
@@ -278,17 +174,12 @@ export default function CoachesEdit({
         ],
     });
 
-    const [pendingSportRemovalIndex, setPendingSportRemovalIndex] = useState<
-        number | null
-    >(null);
-
     const { data, setData, patch, errors, processing } = useForm<FormData>({
         full_name: coach.full_name,
         pno: coach.pno ?? '',
         mobile: coach.mobile ?? '',
         blood_group: coach.blood_group ?? '',
         nis_certified: coach.nis_certified,
-        display_name: coach.display_name ?? '',
         designation: coach.designation ?? '',
         rank_master_id: coach.rank_master_id
             ? String(coach.rank_master_id)
@@ -309,8 +200,6 @@ export default function CoachesEdit({
         bio: coach.bio ?? '',
         address: coach.address ?? '',
         photo_path: '',
-        certifications: coachToCertificationRows(coach),
-        sports: coachToSportRows(coach),
     });
 
     function handleSubmit(e: React.FormEvent): void {
@@ -318,109 +207,10 @@ export default function CoachesEdit({
         patch(update.url(coach));
     }
 
-    function addCertification(): void {
-        setData('certifications', [
-            ...data.certifications,
-            {
-                id: '',
-                name: '',
-                certificate_type: '',
-                issuer: '',
-                issued_at: '',
-                expired_at: '',
-                attachment_path: '',
-            },
-        ]);
-    }
-
-    function removeCertification(index: number): void {
-        setData(
-            'certifications',
-            data.certifications.filter((_, i) => i !== index),
-        );
-    }
-
-    function setCertificationField(
-        index: number,
-        key: keyof Omit<CertificationRow, 'id'>,
-        value: string,
-    ): void {
-        setData(
-            'certifications',
-            data.certifications.map((row, i) =>
-                i === index ? { ...row, [key]: value } : row,
-            ),
-        );
-    }
-
-    function addSport(): void {
-        setData('sports', [
-            ...data.sports,
-            {
-                id: '',
-                sport_id: '',
-                level_master_id: '',
-                level: '',
-                sport_event: '',
-                is_primary: false,
-                effective_from: '',
-                effective_to: '',
-                notes: '',
-            },
-        ]);
-    }
-
-    function removeSport(index: number): void {
-        setData(
-            'sports',
-            data.sports.filter((_, i) => i !== index),
-        );
-    }
-
-    function setSportField(
-        index: number,
-        key: keyof Omit<SportRow, 'id'>,
-        value: string | boolean,
-    ): void {
-        setData(
-            'sports',
-            data.sports.map((row, i) =>
-                i === index ? { ...row, [key]: value } : row,
-            ),
-        );
-    }
-
-    function patchSportField(
-        index: number,
-        patch: Partial<Omit<SportRow, 'id'>>,
-    ): void {
-        setData(
-            'sports',
-            data.sports.map((row, i) =>
-                i === index ? { ...row, ...patch } : row,
-            ),
-        );
-    }
-
-    const pendingSportRemoval =
-        pendingSportRemovalIndex !== null
-            ? data.sports[pendingSportRemovalIndex]
-            : null;
-    const pendingSportRemovalLabel = pendingSportRemoval
-        ? (sportItems.find(
-              (item) => item.value === pendingSportRemoval.sport_id,
-          )?.label ?? t('this sport specialization'))
-        : t('this sport specialization');
-    const profileTitle = data.display_name || data.full_name || coach.full_name;
+    const profileTitle = data.full_name || coach.full_name;
     const profileSubtitle = [data.designation, data.pno]
         .filter(Boolean)
         .join(' · ');
-    const selectedSportsCount = data.sports.filter(
-        (sport) => sport.sport_id,
-    ).length;
-    const completedCertificationsCount = data.certifications.filter(
-        (certification) => certification.name.trim() !== '',
-    ).length;
     const errorKeys = Object.keys(errors);
     const hasProfileErrors = [
         'full_name',
@@ -431,23 +221,10 @@ export default function CoachesEdit({
         'coach_status',
         'gender',
         'date_of_birth',
-        'display_name',
         'address',
         'bio',
         'nis_certified',
     ].some((field) => errorKeys.includes(field));
-    const hasCertificationErrors = errorKeys.some((field) =>
-        field.startsWith('certifications.'),
-    );
-    const hasSportErrors = errorKeys.some((field) =>
-        field.startsWith('sports.'),
-    );
-
-    function protectedSportForRow(sportId: string): ProtectedSport | undefined {
-        return protectedSports.find(
-            (sport) => String(sport.sport_id) === sportId,
-        );
-    }
 
     return (
         <>
@@ -461,7 +238,7 @@ export default function CoachesEdit({
                             variant="small"
                             title={t('Edit coach')}
                             description={t(
-                                'Maintain coach profile, certifications, and sport specialization.',
+                                'Maintain coach identity, contact, and service profile.',
                             )}
                         />
                     </div>
@@ -495,46 +272,15 @@ export default function CoachesEdit({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <Tabs defaultValue="profile">
-                        <div className="overflow-hidden rounded-xl border bg-card">
-                            <div className="overflow-x-auto">
-                                <TabsList className="px-2">
-                                    <TabsTrigger value="profile">
-                                        {t('Coach details')}
-                                        {hasProfileErrors && (
-                                            <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />
-                                        )}
-                                    </TabsTrigger>
-                                    <TabsTrigger value="certifications">
-                                        {t('Certifications')}
-                                        {completedCertificationsCount > 0 && (
-                                            <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold">
-                                                {completedCertificationsCount}
-                                            </span>
-                                        )}
-                                        {hasCertificationErrors && (
-                                            <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />
-                                        )}
-                                    </TabsTrigger>
-                                    <TabsTrigger value="sports">
-                                        {t('Sports specialization')}
-                                        {selectedSportsCount > 0 && (
-                                            <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold">
-                                                {selectedSportsCount}
-                                            </span>
-                                        )}
-                                        {hasSportErrors && (
-                                            <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />
-                                        )}
-                                    </TabsTrigger>
-                                </TabsList>
-                            </div>
+                    <div className="overflow-hidden rounded-xl border bg-card">
+                        <div className="border-b px-6 py-3 text-sm font-medium">
+                            {t('Coach details')}
+                            {hasProfileErrors && (
+                                <span className="ml-2 inline-flex size-1.5 rounded-full bg-destructive" />
+                            )}
+                        </div>
 
-                            <div className="p-6">
-                                <TabsContent
-                                    value="profile"
-                                    className="mt-0 space-y-5"
-                                >
+                        <div className="space-y-5 p-6">
                                     <div className="flex items-center gap-3 border-b pb-4">
                                         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                             <IdCard className="h-4 w-4" />
@@ -904,26 +650,6 @@ export default function CoachesEdit({
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="display_name">
-                                            {t('Display name')}
-                                        </Label>
-                                        <Input
-                                            id="display_name"
-                                            value={data.display_name}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'display_name',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            maxLength={255}
-                                        />
-                                        <InputError
-                                            message={errors.display_name}
-                                        />
-                                    </div>
-
-                                    <div className="grid gap-2">
                                         <Label htmlFor="address">
                                             {t('Address')}
                                         </Label>
@@ -972,481 +698,8 @@ export default function CoachesEdit({
                                     <InputError
                                         message={errors.nis_certified}
                                     />
-                                </TabsContent>
-
-                                <TabsContent
-                                    value="certifications"
-                                    className="mt-0 space-y-4"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
-                                                <Award className="h-4 w-4" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-semibold">
-                                                    {t('Certifications')}
-                                                </h3>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {t(
-                                                        'NIS, federation, and specialist qualifications',
-                                                    )}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={addCertification}
-                                        >
-                                            {t('Add certification')}
-                                        </Button>
-                                    </div>
-
-                                    {data.certifications.length === 0 ? (
-                                        <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-                                            {t('No certifications added yet.')}
-                                        </div>
-                                    ) : (
-                                        data.certifications.map(
-                                            (certification, index) => (
-                                                <div
-                                                    key={`${certification.id}-${index}`}
-                                                    className="space-y-4 rounded-lg border bg-muted/25 p-4"
-                                                >
-                                                    <div className="grid gap-2 sm:grid-cols-2">
-                                                        <div className="grid gap-2">
-                                                            <Label>
-                                                                {t('Name')}
-                                                            </Label>
-                                                            <Input
-                                                                value={
-                                                                    certification.name
-                                                                }
-                                                                onChange={(e) =>
-                                                                    setCertificationField(
-                                                                        index,
-                                                                        'name',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                            />
-                                                            <InputError
-                                                                message={
-                                                                    (
-                                                                        errors as Record<
-                                                                            string,
-                                                                            string
-                                                                        >
-                                                                    )?.[
-                                                                        `certifications.${index}.name`
-                                                                    ]
-                                                                }
-                                                            />
-                                                        </div>
-                                                        <div className="grid gap-2">
-                                                            <Label>
-                                                                {t('Type')}
-                                                            </Label>
-                                                            <Input
-                                                                value={
-                                                                    certification.certificate_type
-                                                                }
-                                                                onChange={(e) =>
-                                                                    setCertificationField(
-                                                                        index,
-                                                                        'certificate_type',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="grid gap-2 sm:grid-cols-2">
-                                                        <div className="grid gap-2">
-                                                            <Label>
-                                                                {t('Issuer')}
-                                                            </Label>
-                                                            <Input
-                                                                value={
-                                                                    certification.issuer
-                                                                }
-                                                                onChange={(e) =>
-                                                                    setCertificationField(
-                                                                        index,
-                                                                        'issuer',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                            />
-                                                        </div>
-                                                        <div className="grid gap-2">
-                                                            <Label>
-                                                                {t(
-                                                                    'Attachment path',
-                                                                )}
-                                                            </Label>
-                                                            <Input
-                                                                value={
-                                                                    certification.attachment_path
-                                                                }
-                                                                onChange={(e) =>
-                                                                    setCertificationField(
-                                                                        index,
-                                                                        'attachment_path',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="grid gap-2 sm:grid-cols-2">
-                                                        <div className="grid gap-2">
-                                                            <Label>
-                                                                {t('Issued at')}
-                                                            </Label>
-                                                            <Input
-                                                                value={
-                                                                    certification.issued_at
-                                                                }
-                                                                onChange={(e) =>
-                                                                    setCertificationField(
-                                                                        index,
-                                                                        'issued_at',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                            />
-                                                        </div>
-                                                        <div className="grid gap-2">
-                                                            <Label>
-                                                                {t(
-                                                                    'Expired at',
-                                                                )}
-                                                            </Label>
-                                                            <Input
-                                                                value={
-                                                                    certification.expired_at
-                                                                }
-                                                                onChange={(e) =>
-                                                                    setCertificationField(
-                                                                        index,
-                                                                        'expired_at',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex justify-end">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() =>
-                                                                removeCertification(
-                                                                    index,
-                                                                )
-                                                            }
-                                                        >
-                                                            {t('Remove')}
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ),
-                                        )
-                                    )}
-                                </TabsContent>
-
-                                <TabsContent
-                                    value="sports"
-                                    className="mt-0 space-y-4"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                                                <Dumbbell className="h-4 w-4" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-semibold">
-                                                    {t('Sports specialization')}
-                                                </h3>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {t(
-                                                        'Choose the sports this coach can be assigned to',
-                                                    )}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={addSport}
-                                        >
-                                            {t('Add sport')}
-                                        </Button>
-                                    </div>
-
-                                    {data.sports.length === 0 ? (
-                                        <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-                                            {t(
-                                                'No sport specialization added yet.',
-                                            )}
-                                        </div>
-                                    ) : (
-                                        data.sports.map((sport, index) => (
-                                            <div
-                                                key={`${sport.id}-${index}`}
-                                                className="space-y-4 rounded-lg border bg-muted/25 p-4"
-                                            >
-                                                {(() => {
-                                                    const protectedSport =
-                                                        protectedSportForRow(
-                                                            sport.sport_id,
-                                                        );
-                                                    const isProtected =
-                                                        !!protectedSport;
-
-                                                    return (
-                                                        <>
-                                                            <div className="grid gap-2 sm:grid-cols-2">
-                                                                <div className="grid gap-2">
-                                                                    <Label>
-                                                                        {t(
-                                                                            'Sport',
-                                                                        )}
-                                                                    </Label>
-                                                                    <Combobox
-                                                                        value={
-                                                                            sport.sport_id
-                                                                        }
-                                                                        onValueChange={(
-                                                                            v,
-                                                                        ) =>
-                                                                            setSportField(
-                                                                                index,
-                                                                                'sport_id',
-                                                                                v,
-                                                                            )
-                                                                        }
-                                                                        items={
-                                                                            sportItems
-                                                                        }
-                                                                        placeholder={t(
-                                                                            'Select sport',
-                                                                        )}
-                                                                        searchPlaceholder={t(
-                                                                            'Search sports…',
-                                                                        )}
-                                                                        disabled={
-                                                                            isProtected
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <div className="grid gap-2">
-                                                                    <Label>
-                                                                        {t(
-                                                                            'Tier / level',
-                                                                        )}
-                                                                    </Label>
-                                                                    <Combobox
-                                                                        value={
-                                                                            sport.level_master_id
-                                                                        }
-                                                                        onValueChange={(
-                                                                            v,
-                                                                        ) => {
-                                                                            const selected =
-                                                                                tierItems.find(
-                                                                                    (
-                                                                                        item,
-                                                                                    ) =>
-                                                                                        item.value ===
-                                                                                        v,
-                                                                                );
-                                                                            patchSportField(
-                                                                                index,
-                                                                                {
-                                                                                    level_master_id:
-                                                                                        v,
-                                                                                    level:
-                                                                                        selected?.label ??
-                                                                                        '',
-                                                                                },
-                                                                            );
-                                                                        }}
-                                                                        items={
-                                                                            tierItems
-                                                                        }
-                                                                        placeholder={t(
-                                                                            'Select tier / level',
-                                                                        )}
-                                                                        searchPlaceholder={t(
-                                                                            'Search tiers…',
-                                                                        )}
-                                                                        disabled={
-                                                                            isProtected
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="grid gap-2">
-                                                                <Label>
-                                                                    {t(
-                                                                        'Sport event / discipline',
-                                                                    )}
-                                                                </Label>
-                                                                <Input
-                                                                    value={
-                                                                        sport.sport_event
-                                                                    }
-                                                                    onChange={(
-                                                                        e,
-                                                                    ) =>
-                                                                        setSportField(
-                                                                            index,
-                                                                            'sport_event',
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        )
-                                                                    }
-                                                                    placeholder={t(
-                                                                        'e.g. 100m, freestyle, kata',
-                                                                    )}
-                                                                    disabled={
-                                                                        isProtected
-                                                                    }
-                                                                />
-                                                            </div>
-
-                                                            <div className="grid gap-2 sm:grid-cols-3">
-                                                                <div className="grid gap-2">
-                                                                    <Label>
-                                                                        {t(
-                                                                            'From',
-                                                                        )}
-                                                                    </Label>
-                                                                    <DatePicker
-                                                                        value={
-                                                                            sport.effective_from
-                                                                        }
-                                                                        onChange={(
-                                                                            value,
-                                                                        ) =>
-                                                                            setSportField(
-                                                                                index,
-                                                                                'effective_from',
-                                                                                value,
-                                                                            )
-                                                                        }
-                                                                        disabled={
-                                                                            isProtected
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <div className="grid gap-2">
-                                                                    <Label>
-                                                                        {t(
-                                                                            'To',
-                                                                        )}
-                                                                    </Label>
-                                                                    <DatePicker
-                                                                        value={
-                                                                            sport.effective_to
-                                                                        }
-                                                                        onChange={(
-                                                                            value,
-                                                                        ) =>
-                                                                            setSportField(
-                                                                                index,
-                                                                                'effective_to',
-                                                                                value,
-                                                                            )
-                                                                        }
-                                                                        disabled={
-                                                                            isProtected
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <div className="grid gap-2">
-                                                                    <Label>
-                                                                        {t(
-                                                                            'Primary',
-                                                                        )}
-                                                                    </Label>
-                                                                    <div className="flex items-center gap-3 pt-1">
-                                                                        <Checkbox
-                                                                            checked={
-                                                                                sport.is_primary
-                                                                            }
-                                                                            onCheckedChange={(
-                                                                                checked,
-                                                                            ) =>
-                                                                                setSportField(
-                                                                                    index,
-                                                                                    'is_primary',
-                                                                                    !!checked,
-                                                                                )
-                                                                            }
-                                                                            disabled={
-                                                                                isProtected
-                                                                            }
-                                                                        />
-                                                                        <span className="text-sm text-muted-foreground">
-                                                                            {t(
-                                                                                'Mark as primary',
-                                                                            )}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            {protectedSport ? (
-                                                                <p className="text-sm text-amber-700 dark:text-amber-300">
-                                                                    {
-                                                                        protectedSport.message
-                                                                    }
-                                                                </p>
-                                                            ) : null}
-                                                            <div className="flex justify-end">
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() =>
-                                                                        setPendingSportRemovalIndex(
-                                                                            index,
-                                                                        )
-                                                                    }
-                                                                    disabled={
-                                                                        isProtected
-                                                                    }
-                                                                >
-                                                                    {t(
-                                                                        'Remove',
-                                                                    )}
-                                                                </Button>
-                                                            </div>
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                        ))
-                                    )}
-                                </TabsContent>
-
-                            </div>
                         </div>
-                    </Tabs>
+                    </div>
 
                     <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm text-muted-foreground">
@@ -1468,39 +721,6 @@ export default function CoachesEdit({
                 </form>
             </div>
 
-            <AlertDialog
-                open={pendingSportRemovalIndex !== null}
-                onOpenChange={(open) =>
-                    !open && setPendingSportRemovalIndex(null)
-                }
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            {t('Remove sport specialization?')}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {t(
-                                'This will remove :sport from the coach profile. Existing protected sports cannot be removed.',
-                            ).replace(':sport', pendingSportRemovalLabel)}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={() => {
-                                if (pendingSportRemovalIndex !== null) {
-                                    removeSport(pendingSportRemovalIndex);
-                                }
-
-                                setPendingSportRemovalIndex(null);
-                            }}
-                        >
-                            {t('Remove')}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </>
     );
 }

@@ -41,20 +41,13 @@ type CoachPreview = {
     gender: string | null;
     date_of_birth: string | null;
     coach_status: string | null;
+    team_activity_status: 'active' | 'inactive';
     bio: string | null;
     address: string | null;
     photo_path: string | null;
     certifications: CertificationItem[];
     sports: SportItem[];
     assignment_history: AssignmentHistoryItem[];
-};
-
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    ACTIVE: 'default',
-    RESIGNED: 'outline',
-    DISMISSED: 'destructive',
-    DECEASED: 'secondary',
-    RETIRED: 'secondary',
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -114,7 +107,8 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
         <h1>${data.full_name}${data.full_name ? ` <small>(${data.full_name})</small>` : ''}</h1>
         <span class="meta">${data.pno ?? ''} · ${data.nis_certified ? t('NIS Certified') : t('Not NIS Certified')}</span>
         ${data.designation ? `<p>${t('Designation')}: ${data.designation}</p>` : ''}
-        ${data.coach_status ? `<p>${t('Status')}: ${t(data.coach_status)}</p>` : ''}
+        <p>${t('Team status')}: ${data.team_activity_status === 'active' ? t('Active') : t('Inactive')}</p>
+        ${data.coach_status ? `<p>${t('Profile status')}: ${t(data.coach_status)}</p>` : ''}
         ${data.email ? `<p>${t('Email')}: ${data.email}</p>` : ''}
     </div>
     <h2>${t('Contact')}</h2>
@@ -207,7 +201,14 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                                 <Badge variant={data.nis_certified ? 'default' : 'secondary'} className="ml-auto">
                                     {data.nis_certified ? t('NIS Certified') : t('Not NIS Certified')}
                                 </Badge>
-                                {data.coach_status && <Badge variant={STATUS_VARIANT[data.coach_status] ?? 'outline'}>{t(data.coach_status)}</Badge>}
+                                <Badge variant={data.team_activity_status === 'active' ? 'default' : 'outline'}>
+                                    {data.team_activity_status === 'active' ? t('Active') : t('Inactive')}
+                                </Badge>
+                                {data.coach_status && (
+                                    <Badge variant="outline">
+                                        {t('Profile')}: {t(data.coach_status)}
+                                    </Badge>
+                                )}
                             </div>
                         </>
                     )}
@@ -232,7 +233,15 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                                 <InfoRow label={t('Email')} value={data.email} />
                                 <InfoRow label={t('Gender')} value={genderLabel(data.gender, t) || null} />
                                 <InfoRow label={t('Date of birth')} value={data.date_of_birth} />
-                                <InfoRow label={t('Coach status')} value={data.coach_status ? t(data.coach_status) : null} />
+                                <InfoRow
+                                    label={t('Team status')}
+                                    value={
+                                        data.team_activity_status === 'active'
+                                            ? t('Active')
+                                            : t('Inactive')
+                                    }
+                                />
+                                <InfoRow label={t('Profile status')} value={data.coach_status ? t(data.coach_status) : null} />
                                 <InfoRow label={t('Address')} value={data.address} />
                                 <InfoRow label={t('Bio')} value={data.bio} />
                             </Section>

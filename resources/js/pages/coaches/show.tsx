@@ -4,25 +4,64 @@ import {
     Link,
     router,
     setLayoutProps,
+    useForm,
 } from '@inertiajs/react';
-import { ArrowLeft, Camera, Download, Printer, Trash2 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import {
+    ArrowLeft,
+    Camera,
+    ChevronDown,
+    ChevronRight,
+    Download,
+    Medal,
+    Pencil,
+    Plus,
+    Printer,
+    Search,
+    Trash2,
+} from 'lucide-react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react';
 import {
-    destroy as destroyCoachAlias,
-    store as storeCoachAlias,
-} from '@/actions/App/Http/Controllers/CoachAliasController';
+    destroy as destroyCoachCertification,
+    store as storeCoachCertification,
+} from '@/actions/App/Http/Controllers/CoachCertificationController';
 import {
     destroy,
     edit as editCoach,
     index as coachesIndex,
+    show as coachOverview,
 } from '@/actions/App/Http/Controllers/CoachController';
 import { show as exportCoach } from '@/actions/App/Http/Controllers/CoachExportController';
 import {
     destroy as destroyCoachPhoto,
     store as storeCoachPhoto,
 } from '@/actions/App/Http/Controllers/CoachPhotoController';
+import {
+    achievements as coachAchievementsTab,
+    assignments as coachAssignments,
+    certifications as coachCertifications,
+    changelog as coachChangelog,
+    events as coachEvents,
+    media as coachMedia,
+    performance as coachPerformance,
+    promotions as coachPromotions,
+    sports as coachSports,
+    status as coachStatus,
+} from '@/actions/App/Http/Controllers/CoachProfileTabController';
+import {
+    destroy as destroyCoachPromotion,
+    store as storeCoachPromotion,
+    update as updateCoachPromotion,
+} from '@/actions/App/Http/Controllers/CoachPromotionController';
+import {
+    destroy as destroyCoachSport,
+    store as storeCoachSport,
+} from '@/actions/App/Http/Controllers/CoachSportController';
 import { store as storeCoachStatus } from '@/actions/App/Http/Controllers/CoachStatusController';
+import { events as memberEvents } from '@/actions/App/Http/Controllers/MemberProfileTabController';
+import { Combobox } from '@/components/combobox';
+import { DatePicker } from '@/components/date-picker';
+import InputError from '@/components/input-error';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +93,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
 type CoachCertification = {
@@ -68,12 +108,175 @@ type CoachCertification = {
 
 type CoachSport = {
     id: number;
+    coach_sport_id: number | null;
     name: string;
     is_primary: boolean;
+    level_master_id: number | null;
+    sport_event: string | null;
     level: string | null;
     effective_from: string | null;
     effective_to: string | null;
     notes: string | null;
+};
+
+type CoachPromotion = {
+    id: number;
+    promotion_date: string | null;
+    from_rank: string | null;
+    to_rank: string | null;
+    cash_reward_amount: string | null;
+    cash_reward_date: string | null;
+    cash_reward_reference: string | null;
+    cash_reward_remarks: string | null;
+    reason: string | null;
+    remarks: string | null;
+    recorded_by_name: string | null;
+    evidences: RewardEvidence[];
+};
+
+type RewardEvidence = {
+    id: number;
+    session_id: number;
+    tournament_id: number;
+    event_id: number | null;
+    team_id: number | null;
+    achievement_id: number | null;
+    summary: string | null;
+    session: { id: number; name: string } | null;
+    tournament: {
+        id: number;
+        name: string;
+        tier_code: string | null;
+        date_from: string | null;
+        date_to: string | null;
+        venue: string | null;
+    } | null;
+    event: {
+        id: number;
+        name: string;
+        gender_class: string | null;
+        discipline: string | null;
+        weight_category: string | null;
+    } | null;
+    team: { id: number; name: string } | null;
+};
+
+type RewardEvidenceInput = {
+    session_id: number;
+    tournament_id: number;
+    event_id: number;
+    team_id: number;
+};
+
+type RewardEvidenceOption = RewardEvidenceInput & {
+    id: string;
+    event: CoachAchievementGroup['event'];
+    medal_counts: CoachAchievementGroup['medal_counts'];
+    player_count: number;
+};
+
+type RewardEvidenceTournamentOption = {
+    id: string;
+    tournament: CoachAchievementGroup['tournament'];
+    team: CoachAchievementGroup['team'];
+    events: RewardEvidenceOption[];
+};
+
+type RewardEvidenceSessionOption = {
+    session: CoachAchievementGroup['session'];
+    tournaments: RewardEvidenceTournamentOption[];
+};
+
+type AchievementBenefit = {
+    id: number;
+    benefit_type: string;
+    promoted_from_rank: string | null;
+    promoted_to_rank: string | null;
+    cash_amount: string | null;
+    benefit_date: string | null;
+    order_reference: string | null;
+    remarks: string | null;
+};
+
+type CoachAchievementPlayer = {
+    achievement_id: number;
+    participation_id: number;
+    member: {
+        id: number;
+        full_name: string;
+        pno: string | null;
+    };
+    medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT';
+    position: number | null;
+    participation_position: number | null;
+    remarks: string | null;
+    benefits: AchievementBenefit[];
+};
+
+type CoachAchievementGroup = {
+    id: string;
+    session: { id: number; name: string; is_current: boolean };
+    team: { id: number; name: string };
+    tournament: {
+        id: number;
+        name: string;
+        tier_code: string | null;
+        tier_weight: number | null;
+        date_from: string | null;
+        date_to: string | null;
+        venue: string | null;
+        sport: { id: number; name: string } | null;
+    };
+    event: {
+        id: number;
+        name: string;
+        gender_class: string | null;
+        discipline: string | null;
+        weight_category: string | null;
+        sport: { id: number; name: string } | null;
+    };
+    medal_counts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
+    players: CoachAchievementPlayer[];
+};
+
+type CoachAchievementTournamentGroup = {
+    id: string;
+    session: CoachAchievementGroup['session'];
+    team: CoachAchievementGroup['team'];
+    tournament: CoachAchievementGroup['tournament'];
+    rows: CoachAchievementGroup[];
+    medalCounts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
+    playerCount: number;
+    prizeMoney: number;
+};
+
+type CoachAchievementsData = {
+    summary: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number> & {
+        total_events: number;
+        medal_winning_players: number;
+    };
+    groups: CoachAchievementGroup[];
+};
+
+type SportOption = {
+    id: number;
+    name: string;
+    category?: string | null;
+};
+
+type TierOption = {
+    id: number;
+    code: string;
+    label_hi: string;
+    label_en: string | null;
+    weight: number;
+};
+
+type RankOption = {
+    code: string;
+    name: string;
+    short_name: string | null;
+    rank_order?: number | null;
 };
 
 type CoachAssignment = {
@@ -87,12 +290,6 @@ type CoachAssignment = {
     assigned_at: string | null;
     removed_at: string | null;
     notes: string | null;
-};
-
-type CoachAlias = {
-    id: number;
-    alias: string;
-    source: string;
 };
 
 type CoachStatusHistory = {
@@ -118,12 +315,40 @@ type Coach = {
     mobile: string | null;
     nis_certified: boolean;
     photo_path: string | null;
-    certifications: CoachCertification[];
-    sports: CoachSport[];
-    assignment_history: CoachAssignment[];
-    aliases?: CoachAlias[];
+    team_activity_status?: 'active' | 'inactive';
+    certifications?: CoachCertification[];
+    promotions?: CoachPromotion[];
+    sports?: CoachSport[];
+    assignment_history?: CoachAssignment[];
     status_history?: CoachStatusHistory[];
 };
+
+type CoachShowTab =
+    | 'overview'
+    | 'assignments'
+    | 'sports'
+    | 'certifications'
+    | 'events'
+    | 'achievements'
+    | 'performance'
+    | 'promotions'
+    | 'media'
+    | 'changelog'
+    | 'status';
+
+const COACH_SHOW_TABS: CoachShowTab[] = [
+    'overview',
+    'assignments',
+    'sports',
+    'certifications',
+    'events',
+    'achievements',
+    'performance',
+    'promotions',
+    'media',
+    'changelog',
+    'status',
+];
 
 const ALL_COLUMNS = [
     { key: 'pno', label: 'PNO' },
@@ -158,14 +383,6 @@ const COACH_STATUSES = [
     'DECEASED',
     'SUSPENDED',
 ] as const;
-const ALIAS_SOURCES = [
-    'manual',
-    'legacy',
-    'krutidev',
-    'spelling_variant',
-    'rank_prefixed',
-] as const;
-
 function genderLabel(
     gender: string | null | undefined,
     t: (key: string) => string,
@@ -184,23 +401,59 @@ function genderLabel(
 
 export default function CoachesShow({
     coach,
+    activeTab: activeTabProp = 'overview',
     coachTeams,
-    aliases,
     statusHistory,
     auditLog,
+    sports = [],
+    tiers = [],
+    ranks = [],
+    coachAchievements,
+    rewardEvidenceOptions = [],
 }: {
     coach: Coach;
+    activeTab?: CoachShowTab;
     coachTeams?: CoachAssignment[];
-    aliases?: CoachAlias[];
     statusHistory?: CoachStatusHistory[];
     auditLog?: AuditEntry[];
+    sports?: SportOption[];
+    tiers?: TierOption[];
+    ranks?: RankOption[];
+    coachAchievements?: CoachAchievementsData;
+    rewardEvidenceOptions?: RewardEvidenceSessionOption[];
 }) {
     const { t } = useTranslation();
 
     const [exportOpen, setExportOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [statusOpen, setStatusOpen] = useState(false);
-    const [aliasForm, setAliasForm] = useState({ alias: '', source: 'manual' });
+    const [certificationDialogOpen, setCertificationDialogOpen] =
+        useState(false);
+    const [editingCertification, setEditingCertification] =
+        useState<CoachCertification | null>(null);
+    const [sportDialogOpen, setSportDialogOpen] = useState(false);
+    const [editingSport, setEditingSport] = useState<CoachSport | null>(null);
+    const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
+    const [editingPromotion, setEditingPromotion] =
+        useState<CoachPromotion | null>(null);
+    const [promotionDialogMode, setPromotionDialogMode] = useState<
+        'promotion' | 'reward'
+    >('promotion');
+    const [activePromotionTab, setActivePromotionTab] = useState<
+        'promotions' | 'rewards'
+    >('promotions');
+    const [selectedRewardSessionId, setSelectedRewardSessionId] =
+        useState<string>('all');
+    const [rewardEvidenceSelection, setRewardEvidenceSelection] = useState<
+        RewardEvidenceInput[]
+    >([]);
+    const [achievementSearch, setAchievementSearch] = useState('');
+    const [achievementSessionFilter, setAchievementSessionFilter] =
+        useState('all');
+    const [achievementMedalFilter, setAchievementMedalFilter] = useState('all');
+    const [expandedAchievementGroups, setExpandedAchievementGroups] = useState<
+        string[]
+    >([]);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
@@ -208,6 +461,40 @@ export default function CoachesShow({
         'download',
     );
     const photoInputRef = useRef<HTMLInputElement | null>(null);
+    const sportForm = useForm({
+        sport_id: '',
+        level_master_id: '',
+        level: '',
+        sport_event: '',
+        is_primary: false,
+        effective_from: '',
+        effective_to: '',
+        notes: '',
+    });
+    const certificationForm = useForm({
+        id: '',
+        name: '',
+        certificate_type: '',
+        issuer: '',
+        issued_at: '',
+        expired_at: '',
+        attachment_path: '',
+    });
+    const promotionForm = useForm({
+        promotion_date: '',
+        from_rank: '',
+        to_rank: '',
+        cash_reward_amount: '',
+        cash_reward_date: '',
+        cash_reward_reference: '',
+        cash_reward_remarks: '',
+        reason: '',
+        remarks: '',
+        evidences: [] as RewardEvidenceInput[],
+    });
+    const activeTab = COACH_SHOW_TABS.includes(activeTabProp)
+        ? activeTabProp
+        : 'overview';
 
     setLayoutProps({
         breadcrumbs: [
@@ -288,21 +575,6 @@ export default function CoachesShow({
         router.delete(destroyCoachPhoto.url(coach), { preserveScroll: true });
     }
 
-    function handleAliasSubmit(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault();
-
-        router.post(storeCoachAlias.url(coach), aliasForm, {
-            preserveScroll: true,
-            onSuccess: () => setAliasForm({ alias: '', source: 'manual' }),
-        });
-    }
-
-    function handleAliasDelete(alias: CoachAlias) {
-        router.delete(destroyCoachAlias.url({ coach, alias }), {
-            preserveScroll: true,
-        });
-    }
-
     const detail = (label: string, value: string) => (
         <div className="grid gap-1">
             <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -312,9 +584,743 @@ export default function CoachesShow({
         </div>
     );
 
-    const assignmentRows = coachTeams ?? coach.assignment_history ?? [];
-    const aliasRows = aliases ?? coach.aliases ?? [];
+    const assignmentRows =
+        activeTab === 'assignments'
+            ? (coachTeams ?? coach.assignment_history ?? [])
+            : [];
     const statusRows = statusHistory ?? coach.status_history ?? [];
+    const teamActivityStatus = coach.team_activity_status ?? 'inactive';
+    const sportItems = sports.map((sport) => ({
+        value: String(sport.id),
+        label: sport.name,
+        badge: sport.category ? t(sport.category) : undefined,
+    }));
+    const tierItems = tiers.map((tier) => ({
+        value: String(tier.id),
+        label: tier.label_hi || tier.label_en || tier.code,
+    }));
+    const rankItems = ranks.map((rank) => ({
+        value: rank.code,
+        label: [rank.code, rank.name, rank.short_name]
+            .filter(Boolean)
+            .join(' · '),
+    }));
+
+    function rankLabel(value: string | null | undefined): string {
+        if (!value) {
+            return '';
+        }
+
+        return (
+            rankItems.find((rank) => rank.value === value)?.label ?? value
+        );
+    }
+
+    function hasPromotionFields(promotion: CoachPromotion): boolean {
+        return Boolean(
+            promotion.promotion_date ||
+                (promotion.from_rank &&
+                    promotion.to_rank &&
+                    promotion.from_rank !== promotion.to_rank) ||
+                promotion.to_rank ||
+                promotion.reason ||
+                promotion.remarks,
+        );
+    }
+
+    function hasRewardFields(promotion: CoachPromotion): boolean {
+        return Boolean(
+            promotion.cash_reward_amount ||
+                promotion.cash_reward_date ||
+                promotion.cash_reward_reference ||
+                promotion.cash_reward_remarks,
+        );
+    }
+
+    function promotionCategory(promotion: CoachPromotion): string {
+        const hasPromotion = hasPromotionFields(promotion);
+        const hasReward = hasRewardFields(promotion);
+
+        if (hasPromotion && hasReward) {
+            return t('Promotion + Reward');
+        }
+
+        if (hasReward) {
+            return t('Reward');
+        }
+
+        return t('Promotion');
+    }
+
+    function promotionCategoryClass(promotion: CoachPromotion): string {
+        const hasPromotion = hasPromotionFields(promotion);
+        const hasReward = hasRewardFields(promotion);
+
+        if (hasPromotion && hasReward) {
+            return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200';
+        }
+
+        if (hasReward) {
+            return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200';
+        }
+
+        return 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200';
+    }
+
+    const promotionRows = (coach.promotions ?? []).filter(hasPromotionFields);
+    const rewardRows = (coach.promotions ?? []).filter(hasRewardFields);
+    const activePromotionRows =
+        activePromotionTab === 'promotions' ? promotionRows : rewardRows;
+    const rewardSessionOptions = rewardEvidenceOptions.map(
+        (option) => option.session,
+    );
+    const visibleRewardEvidenceOptions = rewardEvidenceOptions.filter(
+        (option) =>
+            selectedRewardSessionId === 'all' ||
+            String(option.session.id) === selectedRewardSessionId,
+    );
+    const rewardEvidenceLookup = useMemo(() => {
+        const lookup = new Map<string, RewardEvidenceOption>();
+
+        for (const session of rewardEvidenceOptions) {
+            for (const tournament of session.tournaments) {
+                for (const event of tournament.events) {
+                    lookup.set(event.id, event);
+                }
+            }
+        }
+
+        return lookup;
+    }, [rewardEvidenceOptions]);
+
+    function rewardEvidenceKey(evidence: RewardEvidenceInput): string {
+        return [
+            evidence.session_id,
+            evidence.tournament_id,
+            evidence.event_id,
+            evidence.team_id,
+        ].join(':');
+    }
+
+    function collectText(values: Array<string | number | null | undefined>): string {
+        return values.filter(Boolean).join(' · ');
+    }
+
+    function rewardEvidenceSelected(evidence: RewardEvidenceInput): boolean {
+        const key = rewardEvidenceKey(evidence);
+
+        return rewardEvidenceSelection.some(
+            (selected) => rewardEvidenceKey(selected) === key,
+        );
+    }
+
+    function toggleRewardEvidence(evidence: RewardEvidenceInput): void {
+        const key = rewardEvidenceKey(evidence);
+
+        setRewardEvidenceSelection((current) =>
+            current.some((selected) => rewardEvidenceKey(selected) === key)
+                ? current.filter((selected) => rewardEvidenceKey(selected) !== key)
+                : [...current, evidence],
+        );
+    }
+
+    function selectedRewardEvidenceLabel(evidence: RewardEvidenceInput): string {
+        const option = rewardEvidenceLookup.get(rewardEvidenceKey(evidence));
+
+        return collectText([
+            option?.event.name,
+            option?.event.gender_class,
+            option ? `${option.player_count} ${t('players')}` : null,
+        ]);
+    }
+
+    function renderPromotionEvidenceSummary(promotion: CoachPromotion) {
+        if (promotion.evidences.length === 0) {
+            return <span className="text-muted-foreground">—</span>;
+        }
+
+        return (
+            <div className="space-y-1">
+                {promotion.evidences.slice(0, 2).map((evidence) => (
+                    <div key={evidence.id} className="truncate text-xs">
+                        {evidence.summary ?? '—'}
+                    </div>
+                ))}
+                {promotion.evidences.length > 2 ? (
+                    <div className="text-xs text-muted-foreground">
+                        +{promotion.evidences.length - 2} {t('more')}
+                    </div>
+                ) : null}
+            </div>
+        );
+    }
+
+    function renderEvidencePicker(context: 'promotion' | 'reward') {
+        return (
+            <div className="grid gap-3 rounded-lg border p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <Label>{t('Tournament events')}</Label>
+                        <p className="text-xs text-muted-foreground">
+                            {context === 'reward'
+                                ? t(
+                                      'Select unrewarded events connected to this coach reward.',
+                                  )
+                                : t(
+                                      'Select unrewarded events connected to this coach promotion.',
+                                  )}
+                        </p>
+                    </div>
+                    <Select
+                        value={selectedRewardSessionId}
+                        onValueChange={setSelectedRewardSessionId}
+                    >
+                        <SelectTrigger className="sm:w-56">
+                            <SelectValue placeholder={t('Session')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">
+                                {t('All sessions')}
+                            </SelectItem>
+                            {rewardSessionOptions.map((session) => (
+                                <SelectItem
+                                    key={session.id}
+                                    value={String(session.id)}
+                                >
+                                    {session.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {visibleRewardEvidenceOptions.length === 0 ? (
+                    <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        {t(
+                            'No unrewarded tournament achievements available for this session.',
+                        )}
+                    </div>
+                ) : (
+                    <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+                        {visibleRewardEvidenceOptions.map((session) =>
+                            session.tournaments.map((tournament) => (
+                                <div
+                                    key={`${session.session.id}-${tournament.id}`}
+                                    className="rounded-md border"
+                                >
+                                    <div className="border-b bg-muted/40 px-3 py-2">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Badge variant="outline">
+                                                {tournament.tournament
+                                                    .tier_code ?? t('Unknown')}
+                                            </Badge>
+                                            <span className="text-sm font-medium">
+                                                {tournament.tournament.name}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {session.session.name} ·{' '}
+                                            {tournament.team.name} ·{' '}
+                                            {tournament.events.length}{' '}
+                                            {t('available events')}
+                                        </p>
+                                    </div>
+                                    <div className="divide-y">
+                                        {tournament.events.map((event) => (
+                                            <label
+                                                key={event.id}
+                                                className="flex cursor-pointer items-start gap-3 px-3 py-2 text-sm hover:bg-muted/30"
+                                            >
+                                                <Checkbox
+                                                    checked={rewardEvidenceSelected(
+                                                        event,
+                                                    )}
+                                                    onCheckedChange={() =>
+                                                        toggleRewardEvidence(
+                                                            event,
+                                                        )
+                                                    }
+                                                />
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block font-medium">
+                                                        {event.event.name}
+                                                    </span>
+                                                    <span className="block text-xs text-muted-foreground">
+                                                        {collectText([
+                                                            event.event
+                                                                .gender_class,
+                                                            event.event
+                                                                .discipline,
+                                                            event.event
+                                                                .weight_category,
+                                                            `${event.player_count} ${t('players')}`,
+                                                        ])}
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )),
+                        )}
+                    </div>
+                )}
+
+                {rewardEvidenceSelection.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                        {rewardEvidenceSelection.map((evidence) => (
+                            <Badge
+                                key={rewardEvidenceKey(evidence)}
+                                variant="secondary"
+                            >
+                                {selectedRewardEvidenceLabel(evidence) ||
+                                    t('Selected')}
+                            </Badge>
+                        ))}
+                    </div>
+                ) : null}
+                <InputError message={promotionForm.errors.evidences} />
+            </div>
+        );
+    }
+    const achievementGroups = useMemo(
+        () => coachAchievements?.groups ?? [],
+        [coachAchievements],
+    );
+    const achievementSummary =
+        coachAchievements?.summary ??
+        ({
+            GOLD: 0,
+            SILVER: 0,
+            BRONZE: 0,
+            MERIT: 0,
+            total_events: 0,
+            medal_winning_players: 0,
+        } satisfies CoachAchievementsData['summary']);
+    const achievementSessions = useMemo(
+        () =>
+            Array.from(
+                new Map(
+                    achievementGroups.map((group) => [
+                        String(group.session.id),
+                        group.session.name,
+                    ]),
+                ),
+            ),
+        [achievementGroups],
+    );
+    const filteredAchievementGroups = useMemo(() => {
+        const query = achievementSearch.trim().toLowerCase();
+
+        return achievementGroups.filter((group) => {
+            const matchesSession =
+                achievementSessionFilter === 'all' ||
+                String(group.session.id) === achievementSessionFilter;
+            const matchesMedal =
+                achievementMedalFilter === 'all' ||
+                group.players.some(
+                    (player) => player.medal_type === achievementMedalFilter,
+                );
+            const searchable = [
+                group.session.name,
+                group.team.name,
+                group.tournament.name,
+                group.tournament.tier_code,
+                group.tournament.venue,
+                group.event.name,
+                group.event.gender_class,
+                group.event.discipline,
+                group.event.weight_category,
+                group.event.sport?.name,
+                group.tournament.sport?.name,
+                ...group.players.flatMap((player) => [
+                    player.member.full_name,
+                    player.member.pno,
+                    player.medal_type,
+                ]),
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return (
+                matchesSession &&
+                matchesMedal &&
+                (query === '' || searchable.includes(query))
+            );
+        });
+    }, [
+        achievementGroups,
+        achievementMedalFilter,
+        achievementSearch,
+        achievementSessionFilter,
+    ]);
+    const achievementTournamentGroups = useMemo(() => {
+        const groups = new Map<string, CoachAchievementTournamentGroup>();
+
+        for (const group of filteredAchievementGroups) {
+            const key = [
+                group.session.id,
+                group.team.id,
+                group.tournament.id,
+            ].join(':');
+            const existing =
+                groups.get(key) ??
+                {
+                    id: key,
+                    session: group.session,
+                    team: group.team,
+                    tournament: group.tournament,
+                    rows: [],
+                    medalCounts: {
+                        GOLD: 0,
+                        SILVER: 0,
+                        BRONZE: 0,
+                        MERIT: 0,
+                    },
+                    playerCount: 0,
+                    prizeMoney: 0,
+                };
+
+            existing.rows.push(group);
+            existing.playerCount += group.players.length;
+
+            for (const medal of [
+                'GOLD',
+                'SILVER',
+                'BRONZE',
+                'MERIT',
+            ] as const) {
+                existing.medalCounts[medal] += group.medal_counts[medal];
+            }
+
+            existing.prizeMoney += group.players.reduce(
+                (total, player) =>
+                    total +
+                    player.benefits.reduce(
+                        (sum, benefit) =>
+                            sum + Number(benefit.cash_amount ?? 0),
+                        0,
+                    ),
+                0,
+            );
+
+            groups.set(key, existing);
+        }
+
+        return Array.from(groups.values()).sort((a, b) => {
+            const tierWeightDiff =
+                (b.tournament.tier_weight ?? 0) -
+                (a.tournament.tier_weight ?? 0);
+
+            if (tierWeightDiff !== 0) {
+                return tierWeightDiff;
+            }
+
+            return (
+                (b.tournament.date_from ?? '').localeCompare(
+                    a.tournament.date_from ?? '',
+                ) || a.tournament.name.localeCompare(b.tournament.name)
+            );
+        });
+    }, [filteredAchievementGroups]);
+    function medalBadgeClass(medal: string): string {
+        switch (medal) {
+            case 'GOLD':
+                return 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200';
+            case 'SILVER':
+                return 'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200';
+            case 'BRONZE':
+                return 'border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-200';
+            default:
+                return 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200';
+        }
+    }
+
+    function memberAchievementUrl(
+        player: CoachAchievementPlayer,
+        group: CoachAchievementGroup,
+    ): string {
+        return `${memberEvents.url(player.member, {
+            query: {
+                highlight_achievement: player.achievement_id,
+                highlight_event: group.event.id,
+                highlight_participation: player.participation_id,
+            },
+        })}#achievement-${player.achievement_id}`;
+    }
+
+    function toggleAchievementGroup(groupId: string): void {
+        setExpandedAchievementGroups((current) =>
+            current.includes(groupId)
+                ? current.filter((id) => id !== groupId)
+                : [...current, groupId],
+        );
+    }
+
+    function resetCertificationForm() {
+        setEditingCertification(null);
+        certificationForm.setData({
+            id: '',
+            name: '',
+            certificate_type: '',
+            issuer: '',
+            issued_at: '',
+            expired_at: '',
+            attachment_path: '',
+        });
+        certificationForm.clearErrors();
+    }
+
+    function openAddCertificationDialog() {
+        resetCertificationForm();
+        setCertificationDialogOpen(true);
+    }
+
+    function openEditCertificationDialog(certification: CoachCertification) {
+        setEditingCertification(certification);
+        certificationForm.setData({
+            id: String(certification.id),
+            name: certification.name,
+            certificate_type: certification.certificate_type ?? '',
+            issuer: certification.issuer ?? '',
+            issued_at: certification.issued_at ?? '',
+            expired_at: certification.expired_at ?? '',
+            attachment_path: certification.attachment_path ?? '',
+        });
+        certificationForm.clearErrors();
+        setCertificationDialogOpen(true);
+    }
+
+    function submitCertification(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        certificationForm.transform((data) => ({
+            ...data,
+            id: data.id || null,
+            certificate_type: data.certificate_type || null,
+            issuer: data.issuer || null,
+            issued_at: data.issued_at || null,
+            expired_at: data.expired_at || null,
+            attachment_path: data.attachment_path || null,
+        }));
+
+        certificationForm.post(storeCoachCertification.url(coach), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setCertificationDialogOpen(false);
+                resetCertificationForm();
+            },
+        });
+    }
+
+    function removeCertification(certificationId: number) {
+        router.delete(
+            destroyCoachCertification.url({
+                coach,
+                certification: certificationId,
+            }),
+            { preserveScroll: true },
+        );
+    }
+
+    function resetPromotionForm() {
+        setEditingPromotion(null);
+        promotionForm.setData({
+            promotion_date: '',
+            from_rank: '',
+            to_rank: '',
+            cash_reward_amount: '',
+            cash_reward_date: '',
+            cash_reward_reference: '',
+            cash_reward_remarks: '',
+            reason: '',
+            remarks: '',
+            evidences: [],
+        });
+        setRewardEvidenceSelection([]);
+        setSelectedRewardSessionId('all');
+        promotionForm.clearErrors();
+    }
+
+    function openAddPromotionDialog(mode: 'promotion' | 'reward' = 'promotion') {
+        resetPromotionForm();
+        setPromotionDialogMode(mode);
+        setSelectedRewardSessionId(
+            mode === 'reward' && rewardSessionOptions[0]
+                ? String(rewardSessionOptions[0].id)
+                : 'all',
+        );
+        setPromotionDialogOpen(true);
+    }
+
+    function openEditPromotionDialog(
+        promotion: CoachPromotion,
+        mode: 'promotion' | 'reward' = hasPromotionFields(promotion)
+            ? 'promotion'
+            : 'reward',
+    ) {
+        setEditingPromotion(promotion);
+        setPromotionDialogMode(mode);
+        promotionForm.setData({
+            promotion_date: promotion.promotion_date ?? '',
+            from_rank: promotion.from_rank ?? '',
+            to_rank: promotion.to_rank ?? '',
+            cash_reward_amount: promotion.cash_reward_amount ?? '',
+            cash_reward_date: promotion.cash_reward_date ?? '',
+            cash_reward_reference: promotion.cash_reward_reference ?? '',
+            cash_reward_remarks: promotion.cash_reward_remarks ?? '',
+            reason: promotion.reason ?? '',
+            remarks: promotion.remarks ?? '',
+            evidences: [],
+        });
+        setRewardEvidenceSelection(
+            promotion.evidences
+                .filter(
+                    (evidence) =>
+                        evidence.event_id !== null && evidence.team_id !== null,
+                )
+                .map((evidence) => ({
+                    session_id: evidence.session_id,
+                    tournament_id: evidence.tournament_id,
+                    event_id: evidence.event_id as number,
+                    team_id: evidence.team_id as number,
+                })),
+        );
+        setSelectedRewardSessionId(
+            mode === 'reward' && promotion.evidences[0]
+                ? String(promotion.evidences[0].session_id)
+                : 'all',
+        );
+        promotionForm.clearErrors();
+        setPromotionDialogOpen(true);
+    }
+
+    function submitPromotion(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        const isRewardMode = promotionDialogMode === 'reward';
+
+        promotionForm.transform((data) => ({
+            ...data,
+            promotion_date: isRewardMode ? null : data.promotion_date || null,
+            from_rank: isRewardMode ? null : data.from_rank || null,
+            to_rank: isRewardMode ? null : data.to_rank || null,
+            cash_reward_amount: data.cash_reward_amount || null,
+            cash_reward_date: data.cash_reward_date || null,
+            cash_reward_reference: data.cash_reward_reference || null,
+            cash_reward_remarks: data.cash_reward_remarks || null,
+            reason: isRewardMode ? null : data.reason || null,
+            remarks: isRewardMode ? null : data.remarks || null,
+            evidences: rewardEvidenceSelection,
+        }));
+
+        const options = {
+            preserveScroll: true,
+            onSuccess: () => {
+                setPromotionDialogOpen(false);
+                resetPromotionForm();
+            },
+        };
+
+        if (editingPromotion) {
+            promotionForm.patch(
+                updateCoachPromotion.url({
+                    coach,
+                    promotion: editingPromotion.id,
+                }),
+                options,
+            );
+
+            return;
+        }
+
+        promotionForm.post(storeCoachPromotion.url(coach), options);
+    }
+
+    function removePromotion(promotionId: number) {
+        router.delete(
+            destroyCoachPromotion.url({
+                coach,
+                promotion: promotionId,
+            }),
+            { preserveScroll: true },
+        );
+    }
+
+    function resetSportForm() {
+        setEditingSport(null);
+        sportForm.setData({
+            sport_id: '',
+            level_master_id: '',
+            level: '',
+            sport_event: '',
+            is_primary: false,
+            effective_from: '',
+            effective_to: '',
+            notes: '',
+        });
+        sportForm.clearErrors();
+    }
+
+    function openAddSportDialog() {
+        resetSportForm();
+        setSportDialogOpen(true);
+    }
+
+    function openEditSportDialog(sport: CoachSport) {
+        setEditingSport(sport);
+        sportForm.setData({
+            sport_id: String(sport.id),
+            level_master_id: sport.level_master_id
+                ? String(sport.level_master_id)
+                : '',
+            level: sport.level ?? '',
+            sport_event: sport.sport_event ?? '',
+            is_primary: sport.is_primary,
+            effective_from: sport.effective_from ?? '',
+            effective_to: sport.effective_to ?? '',
+            notes: sport.notes ?? '',
+        });
+        sportForm.clearErrors();
+        setSportDialogOpen(true);
+    }
+
+    function submitSport(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        sportForm.transform((data) => ({
+                ...data,
+                sport_id: data.sport_id,
+                level_master_id: data.level_master_id || null,
+                level: data.level || null,
+                sport_event: data.sport_event || null,
+                effective_from: data.effective_from || null,
+                effective_to: data.effective_to || null,
+                notes: data.notes || null,
+            }));
+
+        sportForm.post(storeCoachSport.url(coach), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setSportDialogOpen(false);
+                resetSportForm();
+            },
+        });
+    }
+
+    function removeSport(coachSportId: number | null) {
+        if (coachSportId === null) {
+            return;
+        }
+
+        router.delete(
+            destroyCoachSport.url({
+                coach,
+                coachSport: coachSportId,
+            }),
+            { preserveScroll: true },
+        );
+    }
 
     return (
         <>
@@ -398,15 +1404,22 @@ export default function CoachesShow({
                                             {t('Not NIS Certified')}
                                         </Badge>
                                     )}
+                                    <Badge
+                                        variant={
+                                            teamActivityStatus === 'active'
+                                                ? 'default'
+                                                : 'outline'
+                                        }
+                                    >
+                                        {teamActivityStatus === 'active'
+                                            ? t('Active')
+                                            : t('Inactive')}
+                                    </Badge>
                                     {coach.coach_status ? (
                                         <Badge
-                                            variant={
-                                                BASE_STATUS_STYLES[
-                                                    coach.coach_status
-                                                ] ?? 'outline'
-                                            }
+                                            variant="outline"
                                         >
-                                            {t(coach.coach_status)}
+                                            {t('Profile')}: {t(coach.coach_status)}
                                         </Badge>
                                     ) : null}
                                     {coach.designation ? (
@@ -454,39 +1467,62 @@ export default function CoachesShow({
                     </div>
                 </div>
 
-                <Tabs defaultValue="overview">
+                <Tabs value={activeTab}>
                     <TabsList className="flex-wrap justify-start overflow-x-visible">
-                        <TabsTrigger value="overview">
-                            {t('Overview')}
+                        <TabsTrigger value="overview" asChild>
+                            <Link href={coachOverview.url(coach)}>
+                                {t('Overview')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="assignments">
-                            {t('Teams')}
+                        <TabsTrigger value="assignments" asChild>
+                            <Link href={coachAssignments.url(coach)}>
+                                {t('Teams')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="sports">{t('Sports')}</TabsTrigger>
-                        <TabsTrigger value="certifications">
-                            {t('Certifications')}
+                        <TabsTrigger value="sports" asChild>
+                            <Link href={coachSports.url(coach)}>
+                                {t('Sports')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="events">
-                            {t('Coached Events')}
+                        <TabsTrigger value="certifications" asChild>
+                            <Link href={coachCertifications.url(coach)}>
+                                {t('Certifications')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="achievements">
-                            {t('Achievements')}
+                        <TabsTrigger value="events" asChild>
+                            <Link href={coachEvents.url(coach)}>
+                                {t('Coached Events')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="performance">
-                            {t('Performance')}
+                        <TabsTrigger value="achievements" asChild>
+                            <Link href={coachAchievementsTab.url(coach)}>
+                                {t('Achievements')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="promotions">
-                            {t('Promotions, Rewards and Benefits')}
+                        <TabsTrigger value="performance" asChild>
+                            <Link href={coachPerformance.url(coach)}>
+                                {t('Performance')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="media">{t('Media')}</TabsTrigger>
-                        <TabsTrigger value="aliases">
-                            {t('Aliases')}
+                        <TabsTrigger value="promotions" asChild>
+                            <Link href={coachPromotions.url(coach)}>
+                                {t('Promotions & Rewards')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="changelog">
-                            {t('Change log')}
+                        <TabsTrigger value="media" asChild>
+                            <Link href={coachMedia.url(coach)}>
+                                {t('Media')}
+                            </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="status">
-                            {t('Status history')}
+                        <TabsTrigger value="changelog" asChild>
+                            <Link href={coachChangelog.url(coach)}>
+                                {t('Change log')}
+                            </Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="status" asChild>
+                            <Link href={coachStatus.url(coach)}>
+                                {t('Status history')}
+                            </Link>
                         </TabsTrigger>
                     </TabsList>
 
@@ -513,7 +1549,13 @@ export default function CoachesShow({
                                     )}
                                     {detail(t('Address'), coach.address ?? '')}
                                     {detail(
-                                        t('Status'),
+                                        t('Team status'),
+                                        teamActivityStatus === 'active'
+                                            ? t('Active')
+                                            : t('Inactive'),
+                                    )}
+                                    {detail(
+                                        t('Profile status'),
                                         coach.coach_status ?? '',
                                     )}
                                     {detail(t('PNO'), coach.pno ?? '')}
@@ -530,68 +1572,143 @@ export default function CoachesShow({
                     </TabsContent>
 
                     <TabsContent value="certifications">
-                        <div className="rounded-xl border bg-card">
-                            {coach.certifications.length === 0 ? (
-                                <p className="p-4 text-sm text-muted-foreground">
-                                    {t('No certifications yet.')}
-                                </p>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>{t('Name')}</TableHead>
-                                            <TableHead>{t('Type')}</TableHead>
-                                            <TableHead>{t('Issuer')}</TableHead>
-                                            <TableHead>{t('Issued')}</TableHead>
-                                            <TableHead>
-                                                {t('Expired')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Attachment')}
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {coach.certifications.map(
-                                            (certification) => (
-                                                <TableRow
-                                                    key={certification.id}
-                                                >
-                                                    <TableCell className="font-medium">
-                                                        {certification.name}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.certificate_type ??
-                                                            ''}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.issuer ??
-                                                            ''}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.issued_at ??
-                                                            ''}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.expired_at ??
-                                                            ''}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {certification.attachment_path ??
-                                                            ''}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ),
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Certifications')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Manage certifications without editing the full coach profile.',
                                         )}
-                                    </TableBody>
-                                </Table>
-                            )}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={openAddCertificationDialog}
+                                >
+                                    <Plus className="mr-1.5 h-4 w-4" />
+                                    {t('Add certification')}
+                                </Button>
+                            </div>
+
+                            <div className="rounded-xl border bg-card">
+                                {(coach.certifications ?? []).length === 0 ? (
+                                    <p className="p-4 text-sm text-muted-foreground">
+                                        {t('No certifications yet.')}
+                                    </p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>{t('Name')}</TableHead>
+                                                <TableHead>{t('Type')}</TableHead>
+                                                <TableHead>{t('Issuer')}</TableHead>
+                                                <TableHead>{t('Issued')}</TableHead>
+                                                <TableHead>{t('Expired')}</TableHead>
+                                                <TableHead>
+                                                    {t('Attachment')}
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    {t('Actions')}
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {(coach.certifications ?? []).map(
+                                                (certification) => (
+                                                    <TableRow
+                                                        key={certification.id}
+                                                    >
+                                                        <TableCell className="font-medium">
+                                                            {certification.name}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.certificate_type ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.issuer ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.issued_at ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.expired_at ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.attachment_path ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        openEditCertificationDialog(
+                                                                            certification,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Pencil className="mr-1.5 h-4 w-4" />
+                                                                    {t('Edit')}
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        removeCertification(
+                                                                            certification.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    {t('Remove')}
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </div>
                         </div>
                     </TabsContent>
 
                     <TabsContent value="sports">
-                        <div className="rounded-xl border bg-card">
-                            {coach.sports.length === 0 ? (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Sports')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Manage sport specializations without editing the full coach profile.',
+                                        )}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={openAddSportDialog}
+                                >
+                                    <Plus className="mr-1.5 h-4 w-4" />
+                                    {t('Add sport')}
+                                </Button>
+                            </div>
+
+                            <div className="rounded-xl border bg-card">
+                            {(coach.sports ?? []).length === 0 ? (
                                 <p className="p-4 text-sm text-muted-foreground">
                                     {t('No sports specialization yet.')}
                                 </p>
@@ -604,12 +1721,17 @@ export default function CoachesShow({
                                                 {t('Primary')}
                                             </TableHead>
                                             <TableHead>{t('Level')}</TableHead>
+                                            <TableHead>{t('Event')}</TableHead>
                                             <TableHead>{t('From')}</TableHead>
                                             <TableHead>{t('To')}</TableHead>
+                                            <TableHead>{t('Notes')}</TableHead>
+                                            <TableHead className="text-right">
+                                                {t('Actions')}
+                                            </TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {coach.sports.map((sport) => (
+                                        {(coach.sports ?? []).map((sport) => (
                                             <TableRow key={sport.id}>
                                                 <TableCell className="font-medium">
                                                     {sport.name}
@@ -623,16 +1745,55 @@ export default function CoachesShow({
                                                     {sport.level ?? ''}
                                                 </TableCell>
                                                 <TableCell>
+                                                    {sport.sport_event ?? ''}
+                                                </TableCell>
+                                                <TableCell>
                                                     {sport.effective_from ?? ''}
                                                 </TableCell>
                                                 <TableCell>
                                                     {sport.effective_to ?? ''}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {sport.notes ?? ''}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                openEditSportDialog(
+                                                                    sport,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Pencil className="mr-1.5 h-4 w-4" />
+                                                            {t('Edit')}
+                                                        </Button>
+                                                        {sport.coach_sport_id !==
+                                                        null ? (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    removeSport(
+                                                                        sport.coach_sport_id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {t('Remove')}
+                                                            </Button>
+                                                        ) : null}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
                             )}
+                            </div>
                         </div>
                     </TabsContent>
 
@@ -732,10 +1893,608 @@ export default function CoachesShow({
                     </TabsContent>
 
                     <TabsContent value="achievements">
-                        <EmptyCoachTab
-                            title={t('Achievements')}
-                            message={t('No coach achievements recorded yet.')}
-                        />
+                        <div className="space-y-4 rounded-xl border bg-card p-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h3 className="text-sm font-semibold">
+                                        {t('Coached player achievements')}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Medals earned by players from teams coached by this coach in the matching session.',
+                                        )}
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge variant="outline">
+                                        {achievementSummary.total_events}{' '}
+                                        {t('events')}
+                                    </Badge>
+                                    <Badge variant="outline">
+                                        {
+                                            achievementSummary.medal_winning_players
+                                        }{' '}
+                                        {t('players')}
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-3">
+                                {(['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const).map(
+                                    (medal) => (
+                                        <div
+                                            key={medal}
+                                            className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2"
+                                        >
+                                            <span
+                                                className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
+                                            >
+                                                <Medal className="h-3.5 w-3.5" />
+                                                {t(medal)}
+                                            </span>
+                                            <span className="text-lg font-semibold">
+                                                {achievementSummary[medal]}
+                                            </span>
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+
+                            <div className="grid gap-3 md:grid-cols-[1fr_12rem_12rem]">
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        value={achievementSearch}
+                                        onChange={(event) =>
+                                            setAchievementSearch(
+                                                event.target.value,
+                                            )
+                                        }
+                                        placeholder={t(
+                                            'Search teams, events, players…',
+                                        )}
+                                        className="pl-9"
+                                    />
+                                </div>
+                                <Select
+                                    value={achievementSessionFilter}
+                                    onValueChange={
+                                        setAchievementSessionFilter
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue
+                                            placeholder={t('Session')}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            {t('All sessions')}
+                                        </SelectItem>
+                                        {achievementSessions.map(
+                                            ([id, name]) => (
+                                                <SelectItem
+                                                    key={id}
+                                                    value={id}
+                                                >
+                                                    {name}
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <Select
+                                    value={achievementMedalFilter}
+                                    onValueChange={setAchievementMedalFilter}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={t('Medal')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            {t('All medals')}
+                                        </SelectItem>
+                                        {(
+                                            [
+                                                'GOLD',
+                                                'SILVER',
+                                                'BRONZE',
+                                                'MERIT',
+                                            ] as const
+                                        ).map((medal) => (
+                                            <SelectItem
+                                                key={medal}
+                                                value={medal}
+                                            >
+                                                {t(medal)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {achievementGroups.length === 0 ? (
+                                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                                    {t(
+                                        'No coached player achievements recorded yet.',
+                                    )}
+                                </div>
+                            ) : filteredAchievementGroups.length === 0 ? (
+                                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                                    {t('No results')}
+                                </div>
+                            ) : (
+                                <div className="space-y-5">
+                                    {achievementTournamentGroups.map(
+                                        (tournamentGroup) => {
+                                            let rowNumber = 0;
+
+                                            return (
+                                                <div
+                                                    key={tournamentGroup.id}
+                                                    className="overflow-hidden rounded-xl border bg-card"
+                                                >
+                                                    <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/40 px-4 py-3">
+                                                        <div className="min-w-0 space-y-1">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <Badge variant="outline">
+                                                                    {tournamentGroup
+                                                                        .tournament
+                                                                        .tier_code ??
+                                                                        t(
+                                                                            'Unknown',
+                                                                        )}
+                                                                </Badge>
+                                                                <h4 className="text-sm font-semibold">
+                                                                    {
+                                                                        tournamentGroup
+                                                                            .tournament
+                                                                            .name
+                                                                    }
+                                                                </h4>
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                                <span>
+                                                                    {t('Team')}
+                                                                    :{' '}
+                                                                    {
+                                                                        tournamentGroup
+                                                                            .team
+                                                                            .name
+                                                                    }
+                                                                </span>
+                                                                <span>
+                                                                    {t(
+                                                                        'Session',
+                                                                    )}
+                                                                    :{' '}
+                                                                    {
+                                                                        tournamentGroup
+                                                                            .session
+                                                                            .name
+                                                                    }
+                                                                </span>
+                                                                <span>
+                                                                    {t(
+                                                                        'Venue',
+                                                                    )}
+                                                                    :{' '}
+                                                                    {tournamentGroup
+                                                                        .tournament
+                                                                        .venue ??
+                                                                        '—'}
+                                                                </span>
+                                                                <span>
+                                                                    {t('Date')}
+                                                                    :{' '}
+                                                                    {tournamentGroup
+                                                                        .tournament
+                                                                        .date_from ??
+                                                                        t(
+                                                                            'No date',
+                                                                        )}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-wrap items-center justify-end gap-2">
+                                                            <div className="rounded-md border bg-background px-3 py-1.5 text-right">
+                                                                <div className="text-[11px] uppercase text-muted-foreground">
+                                                                    {t(
+                                                                        'Events',
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-sm font-semibold">
+                                                                    {
+                                                                        tournamentGroup
+                                                                            .rows
+                                                                            .length
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-md border bg-background px-3 py-1.5 text-right">
+                                                                <div className="text-[11px] uppercase text-muted-foreground">
+                                                                    {t(
+                                                                        'Players',
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-sm font-semibold">
+                                                                    {
+                                                                        tournamentGroup.playerCount
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-md border bg-background px-3 py-1.5 text-right">
+                                                                <div className="text-[11px] uppercase text-muted-foreground">
+                                                                    {t(
+                                                                        'Coach prize money',
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-sm font-semibold">
+                                                                    {tournamentGroup.prizeMoney >
+                                                                    0
+                                                                        ? `₹${tournamentGroup.prizeMoney.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                                                        : '—'}
+                                                                </div>
+                                                            </div>
+                                                            {(
+                                                                [
+                                                                    'GOLD',
+                                                                    'SILVER',
+                                                                    'BRONZE',
+                                                                    'MERIT',
+                                                                ] as const
+                                                            ).map((medal) =>
+                                                                tournamentGroup
+                                                                    .medalCounts[
+                                                                    medal
+                                                                ] > 0 ? (
+                                                                    <span
+                                                                        key={
+                                                                            medal
+                                                                        }
+                                                                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
+                                                                    >
+                                                                        {t(
+                                                                            medal,
+                                                                        )}
+                                                                        :{' '}
+                                                                        {
+                                                                            tournamentGroup
+                                                                                .medalCounts[
+                                                                                medal
+                                                                            ]
+                                                                        }
+                                                                    </span>
+                                                                ) : null,
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="overflow-x-auto">
+                                                        <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
+                                                            <TableHeader>
+                                                                <TableRow>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'S.No.',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Event',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Date',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Class',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Medals',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead className="text-right">
+                                                                        {t(
+                                                                            'Players',
+                                                                        )}
+                                                                    </TableHead>
+                                                                </TableRow>
+                                                            </TableHeader>
+                                                            <TableBody>
+                                                                {tournamentGroup.rows.map(
+                                                                    (group) => {
+                                                                        const expanded =
+                                                                            expandedAchievementGroups.includes(
+                                                                                group.id,
+                                                                            );
+
+                                                                        return (
+                                                                            <Fragment
+                                                                                key={
+                                                                                    group.id
+                                                                                }
+                                                                            >
+                                                                                <TableRow
+                                                                                    className="cursor-pointer align-top hover:bg-muted/40"
+                                                                                    onClick={() =>
+                                                                                        toggleAchievementGroup(
+                                                                                            group.id,
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <TableCell>
+                                                                                        <div className="flex items-center gap-1.5">
+                                                                                            {expanded ? (
+                                                                                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                                            ) : (
+                                                                                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                                            )}
+                                                                                            {
+                                                                                                ++rowNumber
+                                                                                            }
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="max-w-[14rem] space-y-1">
+                                                                                            <div className="font-medium">
+                                                                                                {
+                                                                                                    group
+                                                                                                        .event
+                                                                                                        .name
+                                                                                                }
+                                                                                            </div>
+                                                                                            {group
+                                                                                                .event
+                                                                                                .discipline ||
+                                                                                            group
+                                                                                                .event
+                                                                                                .weight_category ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {[
+                                                                                                        group
+                                                                                                            .event
+                                                                                                            .discipline,
+                                                                                                        group
+                                                                                                            .event
+                                                                                                            .weight_category,
+                                                                                                    ]
+                                                                                                        .filter(
+                                                                                                            Boolean,
+                                                                                                        )
+                                                                                                        .join(
+                                                                                                            ' · ',
+                                                                                                        )}
+                                                                                                </p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {group
+                                                                                            .tournament
+                                                                                            .date_from ??
+                                                                                            t(
+                                                                                                'No date',
+                                                                                            )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {group
+                                                                                            .event
+                                                                                            .gender_class
+                                                                                            ? t(
+                                                                                                  group
+                                                                                                      .event
+                                                                                                      .gender_class,
+                                                                                              )
+                                                                                            : '—'}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                                            {(
+                                                                                                [
+                                                                                                    'GOLD',
+                                                                                                    'SILVER',
+                                                                                                    'BRONZE',
+                                                                                                    'MERIT',
+                                                                                                ] as const
+                                                                                            ).map(
+                                                                                                (
+                                                                                                    medal,
+                                                                                                ) =>
+                                                                                                    group
+                                                                                                        .medal_counts[
+                                                                                                        medal
+                                                                                                    ] >
+                                                                                                    0 ? (
+                                                                                                        <span
+                                                                                                            key={
+                                                                                                                medal
+                                                                                                            }
+                                                                                                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
+                                                                                                        >
+                                                                                                            {t(
+                                                                                                                medal,
+                                                                                                            )}
+                                                                                                            :{' '}
+                                                                                                            {
+                                                                                                                group
+                                                                                                                    .medal_counts[
+                                                                                                                    medal
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        </span>
+                                                                                                    ) : null,
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right">
+                                                                                        {
+                                                                                            group
+                                                                                                .players
+                                                                                                .length
+                                                                                        }
+                                                                                    </TableCell>
+                                                                                </TableRow>
+                                                                                {expanded ? (
+                                                                                    <TableRow>
+                                                                                        <TableCell
+                                                                                            colSpan={
+                                                                                                6
+                                                                                            }
+                                                                                            className="bg-muted/20 p-0"
+                                                                                        >
+                                                                                            <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
+                                                                                                <TableHeader>
+                                                                                                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                                                                                                        <TableHead className="pl-8">
+                                                                                                            {t(
+                                                                                                                'S.No.',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'Player',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'PNO',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'Medal',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'Position',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                        <TableHead>
+                                                                                                            {t(
+                                                                                                                'Remarks',
+                                                                                                            )}
+                                                                                                        </TableHead>
+                                                                                                    </TableRow>
+                                                                                                </TableHeader>
+                                                                                                <TableBody>
+                                                                                                    {group.players.map(
+                                                                                                        (
+                                                                                                            player,
+                                                                                                            index,
+                                                                                                        ) => {
+                                                                                                            const playerAchievementUrl =
+                                                                                                                memberAchievementUrl(
+                                                                                                                    player,
+                                                                                                                    group,
+                                                                                                                );
+
+                                                                                                            return (
+                                                                                                                <TableRow
+                                                                                                                    key={
+                                                                                                                        player.achievement_id
+                                                                                                                    }
+                                                                                                                    className="bg-background/80"
+                                                                                                                >
+                                                                                                                    <TableCell className="pl-8 text-muted-foreground">
+                                                                                                                        {index +
+                                                                                                                            1}
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell>
+                                                                                                                        <a
+                                                                                                                            href={
+                                                                                                                                playerAchievementUrl
+                                                                                                                            }
+                                                                                                                            target="_blank"
+                                                                                                                            rel="noreferrer"
+                                                                                                                            className="font-medium text-primary underline-offset-4 hover:underline"
+                                                                                                                            title={t(
+                                                                                                                                'Open member achievement in a new tab',
+                                                                                                                            )}
+                                                                                                                        >
+                                                                                                                            {
+                                                                                                                                player
+                                                                                                                                    .member
+                                                                                                                                    .full_name
+                                                                                                                            }
+                                                                                                                        </a>
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell>
+                                                                                                                        {player
+                                                                                                                            .member
+                                                                                                                            .pno ? (
+                                                                                                                            <a
+                                                                                                                                href={
+                                                                                                                                    playerAchievementUrl
+                                                                                                                                }
+                                                                                                                                target="_blank"
+                                                                                                                                rel="noreferrer"
+                                                                                                                                className="text-primary underline-offset-4 hover:underline"
+                                                                                                                                title={t(
+                                                                                                                                    'Open member achievement in a new tab',
+                                                                                                                                )}
+                                                                                                                            >
+                                                                                                                                {
+                                                                                                                                    player
+                                                                                                                                        .member
+                                                                                                                                        .pno
+                                                                                                                                }
+                                                                                                                            </a>
+                                                                                                                        ) : (
+                                                                                                                            <span className="text-muted-foreground">
+                                                                                                                                —
+                                                                                                                            </span>
+                                                                                                                        )}
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell>
+                                                                                                                        <span
+                                                                                                                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(player.medal_type)}`}
+                                                                                                                        >
+                                                                                                                            {t(
+                                                                                                                                player.medal_type,
+                                                                                                                            )}
+                                                                                                                        </span>
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell>
+                                                                                                                        #
+                                                                                                                        {player.position ??
+                                                                                                                            player.participation_position ??
+                                                                                                                            '—'}
+                                                                                                                    </TableCell>
+                                                                                                                    <TableCell className="max-w-xs text-muted-foreground">
+                                                                                                                        <span className="line-clamp-2">
+                                                                                                                            {player.remarks ??
+                                                                                                                                '—'}
+                                                                                                                        </span>
+                                                                                                                    </TableCell>
+                                                                                                                </TableRow>
+                                                                                                            );
+                                                                                                        },
+                                                                                                    )}
+                                                                                                </TableBody>
+                                                                                            </Table>
+                                                                                        </TableCell>
+                                                                                    </TableRow>
+                                                                                ) : null}
+                                                                            </Fragment>
+                                                                        );
+                                                                    },
+                                                                )}
+                                                            </TableBody>
+                                                        </Table>
+                                                    </div>
+                                                </div>
+                                            );
+                                        },
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="performance">
@@ -746,10 +2505,297 @@ export default function CoachesShow({
                     </TabsContent>
 
                     <TabsContent value="promotions">
-                        <EmptyCoachTab
-                            title={t('Promotions, Rewards and Benefits')}
-                            message={t('No coach promotions or rewards recorded yet.')}
-                        />
+                        <div className="rounded-xl border bg-card">
+                            <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <h3 className="text-sm font-semibold">
+                                        {t('Promotions & Rewards')}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Manage promotion and cash reward records without editing the full coach profile.',
+                                        )}
+                                    </p>
+                                </div>
+                                {activePromotionTab === 'promotions' ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() =>
+                                            openAddPromotionDialog('promotion')
+                                        }
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        {t('Add promotion')}
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() =>
+                                            openAddPromotionDialog('reward')
+                                        }
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        {t('Add cash reward')}
+                                    </Button>
+                                )}
+                            </div>
+
+                            <div className="border-b px-4 py-3">
+                                <Tabs
+                                    value={activePromotionTab}
+                                    onValueChange={(value) =>
+                                        setActivePromotionTab(
+                                            value as 'promotions' | 'rewards',
+                                        )
+                                    }
+                                >
+                                    <TabsList>
+                                        <TabsTrigger value="promotions">
+                                            {t('Promotions')}
+                                        </TabsTrigger>
+                                        <TabsTrigger value="rewards">
+                                            {t('Rewards')}
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            </div>
+
+                            {activePromotionRows.length === 0 ? (
+                                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                    {activePromotionTab === 'promotions'
+                                        ? t('No promotions yet.')
+                                        : t('No rewards yet.')}
+                                </div>
+                            ) : activePromotionTab === 'promotions' ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>{t('Type')}</TableHead>
+                                            <TableHead>{t('From rank')}</TableHead>
+                                            <TableHead>{t('To rank')}</TableHead>
+                                            <TableHead>{t('Decision date')}</TableHead>
+                                            <TableHead>
+                                                {t('Reason / Remarks')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('Tournament events')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('Recorded by')}
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                {t('Actions')}
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {activePromotionRows.map(
+                                            (promotion) => (
+                                                <TableRow key={promotion.id}>
+                                                    <TableCell>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={promotionCategoryClass(
+                                                                promotion,
+                                                            )}
+                                                        >
+                                                            {promotionCategory(
+                                                                promotion,
+                                                            )}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.from_rank ? (
+                                                            rankLabel(
+                                                                promotion.from_rank,
+                                                            )
+                                                        ) : (
+                                                            <span className="text-muted-foreground">
+                                                                —
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.to_rank ? (
+                                                            rankLabel(
+                                                                promotion.to_rank,
+                                                            )
+                                                        ) : (
+                                                            <span className="text-muted-foreground">
+                                                                —
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.promotion_date ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell className="max-w-[18rem]">
+                                                        <span className="line-clamp-2">
+                                                            {promotion.reason ??
+                                                                promotion.remarks ??
+                                                                '—'}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="max-w-[18rem]">
+                                                        {renderPromotionEvidenceSummary(
+                                                            promotion,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.recorded_by_name ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    openEditPromotionDialog(
+                                                                        promotion,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                                {t('Edit')}
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    removePromotion(
+                                                                        promotion.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                                {t('Remove')}
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ),
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>{t('Type')}</TableHead>
+                                            <TableHead>{t('Reward date')}</TableHead>
+                                            <TableHead>
+                                                {t('Reward amount')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('Tournament events')}
+                                            </TableHead>
+                                            <TableHead>{t('Reference')}</TableHead>
+                                            <TableHead>{t('Remarks')}</TableHead>
+                                            <TableHead>
+                                                {t('Recorded by')}
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                {t('Actions')}
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {activePromotionRows.map(
+                                            (promotion) => (
+                                                <TableRow key={promotion.id}>
+                                                    <TableCell>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={promotionCategoryClass(
+                                                                promotion,
+                                                            )}
+                                                        >
+                                                            {promotionCategory(
+                                                                promotion,
+                                                            )}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.cash_reward_date ??
+                                                            promotion.promotion_date ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.cash_reward_amount ? (
+                                                            `₹${promotion.cash_reward_amount}`
+                                                        ) : (
+                                                            <span className="text-muted-foreground">
+                                                                —
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="max-w-[18rem]">
+                                                        {renderPromotionEvidenceSummary(
+                                                            promotion,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.cash_reward_reference ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell className="max-w-[18rem]">
+                                                        <span className="line-clamp-2">
+                                                            {promotion.cash_reward_remarks ??
+                                                                '—'}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {promotion.recorded_by_name ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    openEditPromotionDialog(
+                                                                        promotion,
+                                                                        hasPromotionFields(
+                                                                            promotion,
+                                                                        )
+                                                                            ? 'promotion'
+                                                                            : 'reward',
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                                {t('Edit')}
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    removePromotion(
+                                                                        promotion.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                                {t('Remove')}
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ),
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="media">
@@ -757,116 +2803,6 @@ export default function CoachesShow({
                             title={t('Media')}
                             message={t('No media files recorded yet.')}
                         />
-                    </TabsContent>
-
-                    <TabsContent value="aliases">
-                        <div className="space-y-4 rounded-xl border bg-card p-6">
-                            <form
-                                className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]"
-                                onSubmit={handleAliasSubmit}
-                            >
-                                <div className="grid gap-1.5">
-                                    <Label htmlFor="coach-alias">
-                                        {t('Alias')}
-                                    </Label>
-                                    <Input
-                                        id="coach-alias"
-                                        value={aliasForm.alias}
-                                        onChange={(event) =>
-                                            setAliasForm((current) => ({
-                                                ...current,
-                                                alias: event.target.value,
-                                            }))
-                                        }
-                                        placeholder={t(
-                                            'Old name or spelling variant',
-                                        )}
-                                    />
-                                </div>
-                                <div className="grid gap-1.5">
-                                    <Label>{t('Source')}</Label>
-                                    <Select
-                                        value={aliasForm.source}
-                                        onValueChange={(value) =>
-                                            setAliasForm((current) => ({
-                                                ...current,
-                                                source: value,
-                                            }))
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {ALIAS_SOURCES.map((source) => (
-                                                <SelectItem
-                                                    key={source}
-                                                    value={source}
-                                                >
-                                                    {t(source)}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex items-end">
-                                    <Button
-                                        type="submit"
-                                        disabled={aliasForm.alias.trim() === ''}
-                                    >
-                                        {t('Add alias')}
-                                    </Button>
-                                </div>
-                            </form>
-
-                            <Deferred
-                                data="aliases"
-                                fallback={
-                                    <div className="space-y-2">
-                                        {[1, 2].map((n) => (
-                                            <div
-                                                key={n}
-                                                className="h-10 w-full animate-pulse rounded bg-muted"
-                                            />
-                                        ))}
-                                    </div>
-                                }
-                            >
-                                <div className="divide-y rounded-md border">
-                                    {aliasRows.length === 0 ? (
-                                        <p className="p-4 text-sm text-muted-foreground">
-                                            {t('No aliases yet.')}
-                                        </p>
-                                    ) : (
-                                        aliasRows.map((alias) => (
-                                            <div
-                                                key={alias.id}
-                                                className="flex items-center justify-between gap-3 p-3"
-                                            >
-                                                <div>
-                                                    <p className="text-sm font-medium">
-                                                        {alias.alias}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {t(alias.source)}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        handleAliasDelete(alias)
-                                                    }
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </Deferred>
-                        </div>
                     </TabsContent>
 
                     <TabsContent value="changelog">
@@ -964,6 +2900,590 @@ export default function CoachesShow({
                     </TabsContent>
                 </Tabs>
             </div>
+
+            <Dialog
+                open={promotionDialogOpen}
+                onOpenChange={(open) => {
+                    setPromotionDialogOpen(open);
+
+                    if (!open) {
+                        resetPromotionForm();
+                    }
+                }}
+            >
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+                    <form onSubmit={submitPromotion}>
+                        <DialogHeader>
+                            <DialogTitle>
+                                {promotionDialogMode === 'reward'
+                                    ? editingPromotion
+                                        ? t('Edit reward')
+                                        : t('Add cash reward')
+                                    : editingPromotion
+                                      ? t('Edit promotion')
+                                      : t('Add promotion')}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {promotionDialogMode === 'reward'
+                                    ? t(
+                                          'Save a cash reward without changing the full coach profile.',
+                                      )
+                                    : t(
+                                          'Save a promotion without changing the full coach profile.',
+                                      )}
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="grid gap-4 py-4">
+                            {promotionDialogMode === 'promotion' ? (
+                                <>
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="promotion_date">
+                                                {t('Promotion date')}
+                                            </Label>
+                                            <DatePicker
+                                                id="promotion_date"
+                                                value={
+                                                    promotionForm.data
+                                                        .promotion_date
+                                                }
+                                                onChange={(value) =>
+                                                    promotionForm.setData(
+                                                        'promotion_date',
+                                                        value,
+                                                    )
+                                                }
+                                            />
+                                            <InputError
+                                                message={
+                                                    promotionForm.errors
+                                                        .promotion_date
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="from_rank">
+                                                {t('From rank')}
+                                            </Label>
+                                            <Combobox
+                                                id="from_rank"
+                                                value={
+                                                    promotionForm.data.from_rank
+                                                }
+                                                onValueChange={(value) =>
+                                                    promotionForm.setData(
+                                                        'from_rank',
+                                                        value,
+                                                    )
+                                                }
+                                                items={rankItems}
+                                                placeholder={t('Select rank')}
+                                                searchPlaceholder={t(
+                                                    'Search ranks…',
+                                                )}
+                                            />
+                                            <InputError
+                                                message={
+                                                    promotionForm.errors
+                                                        .from_rank
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="to_rank">
+                                            {t('To rank')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                        <Combobox
+                                            id="to_rank"
+                                            value={promotionForm.data.to_rank}
+                                            onValueChange={(value) =>
+                                                promotionForm.setData(
+                                                    'to_rank',
+                                                    value,
+                                                )
+                                            }
+                                            items={rankItems}
+                                            placeholder={t('Select rank')}
+                                            searchPlaceholder={t(
+                                                'Search ranks…',
+                                            )}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors.to_rank
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="reason">
+                                            {t('Reason')}
+                                        </Label>
+                                        <Textarea
+                                            id="reason"
+                                            value={promotionForm.data.reason}
+                                            onChange={(event) =>
+                                                promotionForm.setData(
+                                                    'reason',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            rows={3}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors.reason
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="promotion_remarks">
+                                            {t('Remarks')}
+                                        </Label>
+                                        <Textarea
+                                            id="promotion_remarks"
+                                            value={promotionForm.data.remarks}
+                                            onChange={(event) =>
+                                                promotionForm.setData(
+                                                    'remarks',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            rows={3}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors.remarks
+                                            }
+                                        />
+                                    </div>
+
+                                    {renderEvidencePicker('promotion')}
+                                </>
+                            ) : (
+                                <>
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="cash_reward_amount">
+                                                {t('Cash reward amount')}{' '}
+                                                <span className="text-destructive">
+                                                    *
+                                                </span>
+                                            </Label>
+                                            <Input
+                                                id="cash_reward_amount"
+                                                value={
+                                                    promotionForm.data
+                                                        .cash_reward_amount
+                                                }
+                                                onChange={(event) =>
+                                                    promotionForm.setData(
+                                                        'cash_reward_amount',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                inputMode="decimal"
+                                            />
+                                            <InputError
+                                                message={
+                                                    promotionForm.errors
+                                                        .cash_reward_amount
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="cash_reward_date">
+                                                {t('Cash reward date')}
+                                            </Label>
+                                            <DatePicker
+                                                id="cash_reward_date"
+                                                value={
+                                                    promotionForm.data
+                                                        .cash_reward_date
+                                                }
+                                                onChange={(value) =>
+                                                    promotionForm.setData(
+                                                        'cash_reward_date',
+                                                        value,
+                                                    )
+                                                }
+                                            />
+                                            <InputError
+                                                message={
+                                                    promotionForm.errors
+                                                        .cash_reward_date
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="cash_reward_reference">
+                                            {t('Cash reward reference')}
+                                        </Label>
+                                        <Input
+                                            id="cash_reward_reference"
+                                            value={
+                                                promotionForm.data
+                                                    .cash_reward_reference
+                                            }
+                                            onChange={(event) =>
+                                                promotionForm.setData(
+                                                    'cash_reward_reference',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            maxLength={100}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors
+                                                    .cash_reward_reference
+                                            }
+                                        />
+                                    </div>
+
+                                    {renderEvidencePicker('reward')}
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="cash_reward_remarks">
+                                            {t('Cash reward remarks')}
+                                        </Label>
+                                        <Textarea
+                                            id="cash_reward_remarks"
+                                            value={
+                                                promotionForm.data
+                                                    .cash_reward_remarks
+                                            }
+                                            onChange={(event) =>
+                                                promotionForm.setData(
+                                                    'cash_reward_remarks',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            rows={3}
+                                        />
+                                        <InputError
+                                            message={
+                                                promotionForm.errors
+                                                    .cash_reward_remarks
+                                            }
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setPromotionDialogOpen(false)}
+                            >
+                                {t('Cancel')}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={promotionForm.processing}
+                            >
+                                {promotionDialogMode === 'reward'
+                                    ? t('Save reward')
+                                    : t('Save promotion')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={certificationDialogOpen}
+                onOpenChange={(open) => {
+                    setCertificationDialogOpen(open);
+
+                    if (!open) {
+                        resetCertificationForm();
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-2xl">
+                    <form onSubmit={submitCertification}>
+                        <DialogHeader>
+                            <DialogTitle>
+                                {editingCertification
+                                    ? t('Edit certification')
+                                    : t('Add certification')}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {t(
+                                    'Save one certification without changing the full coach profile.',
+                                )}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Name')}</Label>
+                                <Input
+                                    value={certificationForm.data.name}
+                                    onChange={(event) =>
+                                        certificationForm.setData(
+                                            'name',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                {certificationForm.errors.name ? (
+                                    <p className="text-sm text-destructive">
+                                        {certificationForm.errors.name}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Type')}</Label>
+                                <Input
+                                    value={
+                                        certificationForm.data.certificate_type
+                                    }
+                                    onChange={(event) =>
+                                        certificationForm.setData(
+                                            'certificate_type',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Issuer')}</Label>
+                                <Input
+                                    value={certificationForm.data.issuer}
+                                    onChange={(event) =>
+                                        certificationForm.setData(
+                                            'issuer',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Attachment path')}</Label>
+                                <Input
+                                    value={
+                                        certificationForm.data.attachment_path
+                                    }
+                                    onChange={(event) =>
+                                        certificationForm.setData(
+                                            'attachment_path',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Issued')}</Label>
+                                <DatePicker
+                                    value={certificationForm.data.issued_at}
+                                    onChange={(value) =>
+                                        certificationForm.setData(
+                                            'issued_at',
+                                            value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Expired')}</Label>
+                                <DatePicker
+                                    value={certificationForm.data.expired_at}
+                                    onChange={(value) =>
+                                        certificationForm.setData(
+                                            'expired_at',
+                                            value,
+                                        )
+                                    }
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() =>
+                                    setCertificationDialogOpen(false)
+                                }
+                            >
+                                {t('Cancel')}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    certificationForm.processing ||
+                                    certificationForm.data.name.trim() === ''
+                                }
+                            >
+                                {t('Save certification')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={sportDialogOpen}
+                onOpenChange={(open) => {
+                    setSportDialogOpen(open);
+
+                    if (!open) {
+                        resetSportForm();
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-2xl">
+                    <form onSubmit={submitSport}>
+                        <DialogHeader>
+                            <DialogTitle>
+                                {editingSport
+                                    ? t('Edit sport')
+                                    : t('Add sport')}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {t(
+                                    'Save one sport specialization without changing the full coach profile.',
+                                )}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4 lg:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label>{t('Sport')}</Label>
+                                <Combobox
+                                    value={sportForm.data.sport_id}
+                                    onValueChange={(value) =>
+                                        sportForm.setData('sport_id', value)
+                                    }
+                                    items={sportItems}
+                                    placeholder={t('Select sport')}
+                                    searchPlaceholder={t('Search sports…')}
+                                />
+                                {sportForm.errors.sport_id ? (
+                                    <p className="text-sm text-destructive">
+                                        {sportForm.errors.sport_id}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Tier / level')}</Label>
+                                <Combobox
+                                    value={sportForm.data.level_master_id}
+                                    onValueChange={(value) => {
+                                        const selected = tierItems.find(
+                                            (tier) => tier.value === value,
+                                        );
+
+                                        sportForm.setData({
+                                            ...sportForm.data,
+                                            level_master_id: value,
+                                            level: selected?.label ?? '',
+                                        });
+                                    }}
+                                    items={tierItems}
+                                    placeholder={t('Select tier / level')}
+                                    searchPlaceholder={t('Search tiers…')}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Sport event / discipline')}</Label>
+                                <Input
+                                    value={sportForm.data.sport_event}
+                                    onChange={(event) =>
+                                        sportForm.setData(
+                                            'sport_event',
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder={t(
+                                        'e.g. 100m, freestyle, kata',
+                                    )}
+                                />
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label>{t('From')}</Label>
+                                    <DatePicker
+                                        value={sportForm.data.effective_from}
+                                        onChange={(value) =>
+                                            sportForm.setData(
+                                                'effective_from',
+                                                value,
+                                            )
+                                        }
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>{t('To')}</Label>
+                                    <DatePicker
+                                        value={sportForm.data.effective_to}
+                                        onChange={(value) =>
+                                            sportForm.setData(
+                                                'effective_to',
+                                                value,
+                                            )
+                                        }
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Notes')}</Label>
+                                <Input
+                                    value={sportForm.data.notes}
+                                    onChange={(event) =>
+                                        sportForm.setData(
+                                            'notes',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="flex items-center gap-3 pt-6">
+                                <Checkbox
+                                    checked={sportForm.data.is_primary}
+                                    onCheckedChange={(checked) =>
+                                        sportForm.setData(
+                                            'is_primary',
+                                            !!checked,
+                                        )
+                                    }
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                    {t('Mark as primary')}
+                                </span>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setSportDialogOpen(false)}
+                            >
+                                {t('Cancel')}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    sportForm.processing ||
+                                    sportForm.data.sport_id === ''
+                                }
+                            >
+                                {t('Save sport')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             <ExportDialog
                 open={exportOpen}

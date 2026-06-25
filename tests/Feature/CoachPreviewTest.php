@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use App\Models\Coach;
+use App\Models\CoachAssignment;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\SportSession;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +56,27 @@ test('authorized user can view coach preview', function () {
     $this->actingAs($user)
         ->getJson(route('v1.coaches.preview', $coach))
         ->assertOk()
-        ->assertJsonStructure(['id', 'full_name', 'mobile', 'nis_certified']);
+        ->assertJsonStructure(['id', 'full_name', 'mobile', 'nis_certified', 'team_activity_status'])
+        ->assertJsonPath('team_activity_status', 'inactive');
+});
+
+test('coach preview marks active only with current active team assignment', function () {
+    $user = coachPreviewUser();
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
+    $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+
+    CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('v1.coaches.preview', $coach))
+        ->assertOk()
+        ->assertJsonPath('team_activity_status', 'active');
 });
 
 test('user cannot preview coach from another organization', function () {

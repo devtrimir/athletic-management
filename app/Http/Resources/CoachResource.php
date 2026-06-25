@@ -79,6 +79,7 @@ class CoachResource extends JsonResource
             'sports' => $this->whenLoaded('sports', fn () => $this->sports
                 ->map(fn ($sport) => [
                     'id' => $sport->id,
+                    'coach_sport_id' => $sport->pivot?->id,
                     'name' => $sport->name,
                     'is_primary' => (bool) $sport->pivot?->is_primary,
                     'level_master_id' => $sport->pivot?->level_master_id,
@@ -87,6 +88,60 @@ class CoachResource extends JsonResource
                     'effective_from' => $sport->pivot?->effective_from?->toDateString(),
                     'effective_to' => $sport->pivot?->effective_to?->toDateString(),
                     'notes' => $sport->pivot?->notes,
+                ])
+                ->values()),
+            'promotions' => $this->whenLoaded('promotions', fn () => $this->promotions
+                ->map(fn ($promotion) => [
+                    'id' => $promotion->id,
+                    'promotion_date' => $promotion->promotion_date?->toDateString(),
+                    'from_rank' => $promotion->from_rank,
+                    'to_rank' => $promotion->to_rank,
+                    'cash_reward_amount' => $promotion->cash_reward_amount,
+                    'cash_reward_date' => $promotion->cash_reward_date?->toDateString(),
+                    'cash_reward_reference' => $promotion->cash_reward_reference,
+                    'cash_reward_remarks' => $promotion->cash_reward_remarks,
+                    'reason' => $promotion->reason,
+                    'remarks' => $promotion->remarks,
+                    'recorded_by_name' => $promotion->recorder?->name,
+                    'evidences' => $promotion->relationLoaded('evidences')
+                        ? $promotion->evidences->map(fn ($evidence) => [
+                            'id' => $evidence->id,
+                            'session_id' => $evidence->session_id,
+                            'tournament_id' => $evidence->tournament_id,
+                            'event_id' => $evidence->event_id,
+                            'team_id' => $evidence->team_id,
+                            'achievement_id' => $evidence->achievement_id,
+                            'summary' => collect([
+                                $evidence->session?->name,
+                                $evidence->tournament?->name,
+                                $evidence->event?->name,
+                                $evidence->team?->name,
+                            ])->filter()->join(' · '),
+                            'session' => $evidence->session ? [
+                                'id' => $evidence->session->id,
+                                'name' => $evidence->session->name,
+                            ] : null,
+                            'tournament' => $evidence->tournament ? [
+                                'id' => $evidence->tournament->id,
+                                'name' => $evidence->tournament->name,
+                                'tier_code' => $evidence->tournament->tier?->code,
+                                'date_from' => $evidence->tournament->date_from?->toDateString(),
+                                'date_to' => $evidence->tournament->date_to?->toDateString(),
+                                'venue' => $evidence->tournament->venue,
+                            ] : null,
+                            'event' => $evidence->event ? [
+                                'id' => $evidence->event->id,
+                                'name' => $evidence->event->name,
+                                'gender_class' => $evidence->event->gender_class,
+                                'discipline' => $evidence->event->discipline,
+                                'weight_category' => $evidence->event->weight_category,
+                            ] : null,
+                            'team' => $evidence->team ? [
+                                'id' => $evidence->team->id,
+                                'name' => $evidence->team->name,
+                            ] : null,
+                        ])->values()
+                        : [],
                 ])
                 ->values()),
             'assignment_history' => $this->whenLoaded('assignmentHistory', fn () => $this->assignmentHistory

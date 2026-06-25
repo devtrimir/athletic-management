@@ -1,31 +1,18 @@
 import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
-import { Award, Dumbbell, IdCard, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { IdCard, UserRound } from 'lucide-react';
 import { index as coachesIndex, store as storeCoach } from '@/actions/App/Http/Controllers/CoachController';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
-type SportOption = { id: number; name: string };
 type NisMasterOption = { id: number; code: string; name: string; short_name: string | null };
 type RankOption = { id: number; code: string; name: string; short_name: string | null };
 type DesignationOption = { id: number; code: string; name: string; short_name: string | null };
@@ -37,33 +24,12 @@ const GENDER_OPTIONS: ComboboxItem[] = [
     { value: 'O', label: 'Other gender' },
 ];
 
-type CertificationRow = {
-    name: string;
-    certificate_type: string;
-    issuer: string;
-    issued_at: string;
-    expired_at: string;
-    attachment_path: string;
-};
-
-type SportRow = {
-    sport_id: string;
-    level_master_id: string;
-    level: string;
-    sport_event: string;
-    is_primary: boolean;
-    effective_from: string;
-    effective_to: string;
-    notes: string;
-};
-
 type FormData = {
     full_name: string;
     pno: string;
     mobile: string;
     blood_group: string;
     nis_certified: boolean;
-    display_name: string;
     designation: string;
     rank_master_id: string;
     designation_master_id: string;
@@ -78,12 +44,9 @@ type FormData = {
     bio: string;
     address: string;
     photo_path: string;
-    certifications: CertificationRow[];
-    sports: SportRow[];
 };
 
 export default function CoachesCreate({
-    sports,
     districts,
     units,
     ranks,
@@ -93,7 +56,6 @@ export default function CoachesCreate({
     coachStatuses,
     genders,
 }: {
-    sports: SportOption[];
     districts: { id: number; name: string }[];
     units: { id: number; name: string; district_id: number | null }[];
     ranks: RankOption[];
@@ -132,10 +94,6 @@ export default function CoachesCreate({
         value: String(master.id),
         label: master.short_name ? `${master.name} (${master.short_name})` : master.name,
     }));
-    const sportItems: ComboboxItem[] = sports.map((sport) => ({
-        value: String(sport.id),
-        label: sport.name,
-    }));
 
     setLayoutProps({
         breadcrumbs: [
@@ -144,15 +102,12 @@ export default function CoachesCreate({
         ],
     });
 
-    const [pendingSportRemovalIndex, setPendingSportRemovalIndex] = useState<number | null>(null);
-
     const { data, setData, post, errors, processing } = useForm<FormData>({
         full_name: '',
         pno: '',
         mobile: '',
         blood_group: '',
         nis_certified: false,
-        display_name: '',
         designation: '',
         rank_master_id: '',
         designation_master_id: '',
@@ -167,8 +122,6 @@ export default function CoachesCreate({
         bio: '',
         address: '',
         photo_path: '',
-        certifications: [],
-        sports: [],
     });
 
     function handleSubmit(e: React.FormEvent): void {
@@ -176,83 +129,10 @@ export default function CoachesCreate({
         post(storeCoach.url());
     }
 
-    function addCertification(): void {
-        setData('certifications', [
-            ...data.certifications,
-            {
-                name: '',
-                certificate_type: '',
-                issuer: '',
-                issued_at: '',
-                expired_at: '',
-                attachment_path: '',
-            },
-        ]);
-    }
-
-    function removeCertification(index: number): void {
-        setData(
-            'certifications',
-            data.certifications.filter((_, i) => i !== index),
-        );
-    }
-
-    function setCertificationField(index: number, key: keyof CertificationRow, value: string): void {
-        setData(
-            'certifications',
-            data.certifications.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
-        );
-    }
-
-    function addSport(): void {
-        setData('sports', [
-            ...data.sports,
-            {
-                sport_id: '',
-                level_master_id: '',
-                level: '',
-                sport_event: '',
-                is_primary: false,
-                effective_from: '',
-                effective_to: '',
-                notes: '',
-            },
-        ]);
-    }
-
-    function removeSport(index: number): void {
-        setData(
-            'sports',
-            data.sports.filter((_, i) => i !== index),
-        );
-    }
-
-    function setSportField(index: number, key: keyof SportRow, value: string | boolean): void {
-        setData(
-            'sports',
-            data.sports.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
-        );
-    }
-
-    function patchSportField(index: number, patch: Partial<SportRow>): void {
-        setData(
-            'sports',
-            data.sports.map((row, i) => (i === index ? { ...row, ...patch } : row)),
-        );
-    }
-
-    const profileTitle = data.display_name || data.full_name || t('New coach profile');
+    const profileTitle = data.full_name || t('New coach profile');
     const profileSubtitle = [data.designation, data.pno].filter(Boolean).join(' · ');
-    const selectedSportsCount = data.sports.filter((sport) => sport.sport_id).length;
-    const completedCertificationsCount = data.certifications.filter((certification) => certification.name.trim() !== '').length;
-    const pendingSportRemoval = pendingSportRemovalIndex !== null ? data.sports[pendingSportRemovalIndex] : null;
-    const pendingSportRemovalLabel = pendingSportRemoval
-        ? sportItems.find((item) => item.value === pendingSportRemoval.sport_id)?.label ?? t('this sport specialization')
-        : t('this sport specialization');
     const errorKeys = Object.keys(errors);
-    const hasProfileErrors = ['full_name', 'pno', 'mobile', 'designation', 'email', 'coach_status', 'gender', 'date_of_birth', 'display_name', 'address', 'bio', 'nis_certified'].some((field) => errorKeys.includes(field));
-    const hasCertificationErrors = errorKeys.some((field) => field.startsWith('certifications.'));
-    const hasSportErrors = errorKeys.some((field) => field.startsWith('sports.'));
+    const hasProfileErrors = ['full_name', 'pno', 'mobile', 'designation', 'email', 'coach_status', 'gender', 'date_of_birth', 'address', 'bio', 'nis_certified'].some((field) => errorKeys.includes(field));
 
     return (
         <>
@@ -265,7 +145,7 @@ export default function CoachesCreate({
                         <Heading
                             variant="small"
                             title={t('New coach')}
-                            description={t('Create a coach profile for team assignments, certifications, and sport specialization.')}
+                            description={t('Create a coach profile for team assignments.')}
                         />
                     </div>
                     <div className="grid gap-4 px-6 py-5 md:grid-cols-[1fr_auto] md:items-center">
@@ -292,48 +172,26 @@ export default function CoachesCreate({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <Tabs defaultValue="profile">
-                        <div className="overflow-hidden rounded-xl border bg-card">
-                            <div className="overflow-x-auto">
-                                <TabsList className="px-2">
-                                    <TabsTrigger value="profile">
-                                        {t('Coach details')}
-                                        {hasProfileErrors && <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />}
-                                    </TabsTrigger>
-                                    <TabsTrigger value="certifications">
-                                        {t('Certifications')}
-                                        {completedCertificationsCount > 0 && (
-                                            <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold">
-                                                {completedCertificationsCount}
-                                            </span>
-                                        )}
-                                        {hasCertificationErrors && <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />}
-                                    </TabsTrigger>
-                                    <TabsTrigger value="sports">
-                                        {t('Sports specialization')}
-                                        {selectedSportsCount > 0 && (
-                                            <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold">
-                                                {selectedSportsCount}
-                                            </span>
-                                        )}
-                                        {hasSportErrors && <span className="absolute top-2 right-1.5 size-1.5 rounded-full bg-destructive" />}
-                                    </TabsTrigger>
-                                </TabsList>
-                            </div>
-
-                            <div className="p-6">
-                                <TabsContent value="profile" className="mt-0 space-y-5">
-                        <div className="flex items-center gap-3 border-b pb-4">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                <IdCard className="h-4 w-4" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-semibold">{t('Coach details')}</h3>
-                                <p className="text-xs text-muted-foreground">{t('Identity, contact, and service profile')}</p>
-                            </div>
+                    <div className="overflow-hidden rounded-xl border bg-card">
+                        <div className="border-b px-6 py-3 text-sm font-medium">
+                            {t('Coach details')}
+                            {hasProfileErrors && (
+                                <span className="ml-2 inline-flex size-1.5 rounded-full bg-destructive" />
+                            )}
                         </div>
 
-                        <div className="grid gap-5 sm:grid-cols-2">
+                        <div className="space-y-5 p-6">
+                            <div className="flex items-center gap-3 border-b pb-4">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <IdCard className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-semibold">{t('Coach details')}</h3>
+                                    <p className="text-xs text-muted-foreground">{t('Identity, contact, and service profile')}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="full_name">
                                     {t('Name')} <span className="text-destructive">*</span>
@@ -529,17 +387,6 @@ export default function CoachesCreate({
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="display_name">{t('Display name')}</Label>
-                            <Input
-                                id="display_name"
-                                value={data.display_name}
-                                onChange={(e) => setData('display_name', e.target.value)}
-                                maxLength={255}
-                            />
-                            <InputError message={errors.display_name} />
-                        </div>
-
-                        <div className="grid gap-2">
                             <Label htmlFor="address">{t('Address')}</Label>
                             <Textarea
                                 id="address"
@@ -570,186 +417,8 @@ export default function CoachesCreate({
                             <Label htmlFor="nis_certified">{t('NIS certified')}</Label>
                         </div>
                         <InputError message={errors.nis_certified} />
-                                </TabsContent>
-
-                                <TabsContent value="certifications" className="mt-0 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
-                                    <Award className="h-4 w-4" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold">{t('Certifications')}</h3>
-                                    <p className="text-xs text-muted-foreground">{t('NIS, federation, and specialist qualifications')}</p>
-                                </div>
-                            </div>
-                            <Button type="button" variant="outline" size="sm" onClick={addCertification}>
-                                {t('Add certification')}
-                            </Button>
                         </div>
-
-                        {data.certifications.length === 0 ? (
-                            <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-                                {t('No certifications added yet.')}
-                            </div>
-                        ) : data.certifications.map((certification, index) => (
-                            <div key={index} className="space-y-4 rounded-lg border bg-muted/25 p-4">
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                    <div className="grid gap-2">
-                                        <Label>{t('Name')}</Label>
-                                        <Input
-                                            value={certification.name}
-                                            onChange={(e) => setCertificationField(index, 'name', e.target.value)}
-                                        />
-                                        <InputError message={(errors as Record<string, string>)?.[`certifications.${index}.name`]} />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>{t('Type')}</Label>
-                                        <Input
-                                            value={certification.certificate_type}
-                                            onChange={(e) => setCertificationField(index, 'certificate_type', e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                    <div className="grid gap-2">
-                                        <Label>{t('Issuer')}</Label>
-                                        <Input
-                                            value={certification.issuer}
-                                            onChange={(e) => setCertificationField(index, 'issuer', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>{t('Attachment path')}</Label>
-                                        <Input
-                                            value={certification.attachment_path}
-                                            onChange={(e) => setCertificationField(index, 'attachment_path', e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                    <div className="grid gap-2">
-                                        <Label>{t('Issued at')}</Label>
-                                        <Input
-                                            value={certification.issued_at}
-                                            onChange={(e) => setCertificationField(index, 'issued_at', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>{t('Expired at')}</Label>
-                                        <Input
-                                            value={certification.expired_at}
-                                            onChange={(e) => setCertificationField(index, 'expired_at', e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex justify-end">
-                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeCertification(index)}>
-                                        {t('Remove')}
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                                </TabsContent>
-
-                                <TabsContent value="sports" className="mt-0 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                                    <Dumbbell className="h-4 w-4" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold">{t('Sports specialization')}</h3>
-                                    <p className="text-xs text-muted-foreground">{t('Choose the sports this coach can be assigned to')}</p>
-                                </div>
-                            </div>
-                            <Button type="button" variant="outline" size="sm" onClick={addSport}>
-                                {t('Add sport')}
-                            </Button>
-                        </div>
-
-                        {data.sports.length === 0 ? (
-                            <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-                                {t('No sport specialization added yet.')}
-                            </div>
-                        ) : data.sports.map((sport, index) => (
-                            <div key={index} className="space-y-4 rounded-lg border bg-muted/25 p-4">
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                    <div className="grid gap-2">
-                                        <Label>{t('Sport')}</Label>
-                                        <Combobox
-                                            value={sport.sport_id}
-                                            onValueChange={(v) => setSportField(index, 'sport_id', v)}
-                                            items={sportItems}
-                                            placeholder={t('Select sport')}
-                                            searchPlaceholder={t('Search sports…')}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>{t('Tier / level')}</Label>
-                                        <Combobox
-                                            value={sport.level_master_id}
-                                            onValueChange={(v) => {
-                                                const selected = tierItems.find((item) => item.value === v);
-                                                patchSportField(index, {
-                                                    level_master_id: v,
-                                                    level: selected?.label ?? '',
-                                                });
-                                            }}
-                                            items={tierItems}
-                                            placeholder={t('Select tier / level')}
-                                            searchPlaceholder={t('Search tiers…')}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid gap-2">
-                                    <Label>{t('Sport event / discipline')}</Label>
-                                    <Input
-                                        value={sport.sport_event}
-                                        onChange={(e) => setSportField(index, 'sport_event', e.target.value)}
-                                        placeholder={t('e.g. 100m, freestyle, kata')}
-                                    />
-                                </div>
-
-                                <div className="grid gap-2 sm:grid-cols-3">
-                                    <div className="grid gap-2">
-                                        <Label>{t('From')}</Label>
-                                        <DatePicker
-                                            value={sport.effective_from}
-                                            onChange={(value) => setSportField(index, 'effective_from', value)}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>{t('To')}</Label>
-                                        <DatePicker
-                                            value={sport.effective_to}
-                                            onChange={(value) => setSportField(index, 'effective_to', value)}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>{t('Primary')}</Label>
-                                        <div className="flex items-center gap-3 pt-1">
-                                            <Checkbox
-                                                checked={sport.is_primary}
-                                                onCheckedChange={(checked) => setSportField(index, 'is_primary', !!checked)}
-                                            />
-                                            <span className="text-sm text-muted-foreground">{t('Mark as primary')}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex justify-end">
-                                    <Button type="button" variant="ghost" size="sm" onClick={() => setPendingSportRemovalIndex(index)}>
-                                        {t('Remove')}
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                                </TabsContent>
-
-                            </div>
-                        </div>
-                    </Tabs>
+                    </div>
 
                     <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm text-muted-foreground">
@@ -767,30 +436,6 @@ export default function CoachesCreate({
                 </form>
             </div>
 
-            <AlertDialog open={pendingSportRemovalIndex !== null} onOpenChange={(open) => !open && setPendingSportRemovalIndex(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t('Remove sport specialization?')}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {t('This will remove :sport from the coach profile before saving.').replace(':sport', pendingSportRemovalLabel)}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={() => {
-                                if (pendingSportRemovalIndex !== null) {
-                                    removeSport(pendingSportRemovalIndex);
-                                }
-
-                                setPendingSportRemovalIndex(null);
-                            }}
-                        >
-                            {t('Remove')}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </>
     );
 }

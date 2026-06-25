@@ -36,11 +36,35 @@ type PivotRow = {
     SILVER: number;
     BRONZE: number;
     MERIT: number;
+    display_only: number;
+};
+
+type TeamPivotRow = {
+    team: {
+        id: number;
+        name: string;
+        sport_name: string | null;
+        session_name: string | null;
+        unit_name: string | null;
+        district_name: string | null;
+    };
+    GOLD: number;
+    SILVER: number;
+    BRONZE: number;
+    MERIT: number;
+    display_only: number;
+    events: number;
+    players: number;
+};
+type TeamModalState = {
+    team_name: string;
+    filters: FilterQuery;
 };
 
 type PivotResponse = {
-    data: PivotRow[];
+    data: PivotRow[] | TeamPivotRow[];
     filters: Record<string, unknown>;
+    group_by: 'tier' | 'team';
 };
 
 type Benefit = {
@@ -221,6 +245,32 @@ function MedalBadge({ type, size = 'sm' }: { type: string; size?: 'sm' | 'lg' })
     );
 }
 
+function CountCell({ value, strong = false }: { value: number; strong?: boolean }) {
+    return (
+        <span
+            className={[
+                'inline-flex min-w-8 justify-center rounded-md px-2 py-1 font-mono text-sm tabular-nums',
+                strong ? 'bg-foreground text-background font-bold' : value > 0 ? 'bg-muted font-semibold text-foreground' : 'text-muted-foreground',
+            ].join(' ')}
+        >
+            {value}
+        </span>
+    );
+}
+
+function DisplayOnlyCell({ value }: { value: number }) {
+    return (
+        <span
+            className={[
+                'inline-flex min-w-8 justify-center rounded-md border px-2 py-1 font-mono text-sm tabular-nums',
+                value > 0 ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-transparent text-muted-foreground',
+            ].join(' ')}
+        >
+            {value}
+        </span>
+    );
+}
+
 // ── FilterPill ────────────────────────────────────────────────────────────────
 
 function FilterPill({
@@ -341,9 +391,26 @@ function PrintDialog({ open, onOpenChange, onPrint }: {
 // ── Sub-modal: Related Medals ─────────────────────────────────────────────────
 
 type RelatedResponse = { data: MedalRow[]; total: number; per_page: number };
+type FilterQuery = Record<string, string | string[]>;
+
+function buildQueryString(params: FilterQuery): string {
+    const query = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(params)) {
+        if (Array.isArray(value)) {
+            value.forEach((item) => query.append(`${key}[]`, item));
+
+            continue;
+        }
+
+        query.set(key, value);
+    }
+
+    return query.toString();
+}
 
 function exportRelatedCsv(rows: MedalRow[], filename: string): void {
-    const header = ['Medal', 'Name', 'PNO', 'Rank', 'Unit', 'Sport', 'Event', 'Tournament', 'Date'].join(',');
+    const header = ['Medal', 'Name', 'PNO', 'Rank', 'Unit', 'Sport', 'Event', 'Tournament', 'Session', 'Date', 'Position', 'Remarks'].join(',');
     const body = rows.map((r) => [
         r.medal_type,
         r.member.full_name,
@@ -353,7 +420,10 @@ function exportRelatedCsv(rows: MedalRow[], filename: string): void {
         r.sport.name,
         r.event.name,
         r.tournament.name,
+        r.session_name ?? '',
         formatDisplayDate(r.tournament.date_from) ?? '',
+        r.position ?? '',
+        r.remarks ?? '',
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
 
     const csv = '\uFEFF' + header + '\n' + body;
@@ -392,7 +462,10 @@ function printRelated(rows: MedalRow[], title: string): void {
             <td>${r.sport.name}</td>
             <td>${r.event.name}</td>
             <td>${r.tournament.name}</td>
+            <td>${r.session_name ?? ''}</td>
             <td>${formatDisplayDate(r.tournament.date_from) ?? ''}</td>
+            <td>${r.position ?? ''}</td>
+            <td>${r.remarks ?? ''}</td>
         </tr>`).join('');
 
     win.document.write(`<!DOCTYPE html><html><head>
@@ -414,7 +487,7 @@ function printRelated(rows: MedalRow[], title: string): void {
         <table>
             <thead><tr>
                 <th>Medal</th><th>Name</th><th>PNO</th><th>Rank</th><th>Unit</th>
-                <th>Sport</th><th>Event</th><th>Tournament</th><th>Date</th>
+                <th>Sport</th><th>Event</th><th>Tournament</th><th>Session</th><th>Date</th><th>Position</th><th>Remarks</th>
             </tr></thead>
             <tbody>${tableRows}</tbody>
         </table>
@@ -428,12 +501,14 @@ function RelatedMedalsModal({
     title,
     description,
     params,
+    exportUrl,
     open,
     onOpenChange,
 }: {
     title: string;
     description: string;
-    params: Record<string, string>;
+    params: FilterQuery;
+    exportUrl?: string;
     open: boolean;
     onOpenChange: (v: boolean) => void;
 }) {
@@ -461,13 +536,22 @@ function RelatedMedalsModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-xl gap-0 p-0 overflow-hidden" aria-describedby="related-desc">
+            <DialogContent
+                className="gap-0 p-0 overflow-hidden"
+                style={{
+                    width: '95vw',
+                    maxWidth: '98vw',
+                    height: '94vh',
+                    maxHeight: '94vh',
+                }}
+                aria-describedby="related-desc"
+            >
                 <DialogHeader className="px-5 pt-5 pb-3 border-b">
                     <DialogTitle className="text-base">{title}</DialogTitle>
                     <DialogDescription id="related-desc" className="text-xs">{description}</DialogDescription>
                 </DialogHeader>
 
-                <div className="max-h-[55vh] overflow-y-auto p-4">
+                <div className="max-h-[76vh] overflow-y-auto p-4">
                     {processing && (
                         <div className="space-y-2">
                             {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
@@ -483,23 +567,53 @@ function RelatedMedalsModal({
                                     {t('Showing first 50 of')} {total}
                                 </p>
                             )}
-                            <div className="divide-y rounded-lg border overflow-hidden">
-                                {rows.map((r) => (
-                                    <div key={r.id} className="flex items-center gap-3 px-3 py-2.5 bg-card hover:bg-muted/40">
-                                        <MedalBadge type={r.medal_type} />
-                                        <div className="min-w-0 flex-1">
-                                            <div className="text-sm font-medium truncate">{r.member.full_name}</div>
-                                            <div className="text-xs text-muted-foreground truncate">
-                                                {[r.sport.name, r.event.name].filter(Boolean).join(' · ')}
-                                            </div>
-                                        </div>
-                                        <div className="shrink-0 text-right">
-                                            {r.member.unit_name && (
-                                                <div className="text-xs text-muted-foreground">{r.member.unit_name}</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                            <div className="overflow-x-auto rounded-lg border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-16 text-center">#</TableHead>
+                                            <TableHead className="w-28">{t('Medal')}</TableHead>
+                                            <TableHead className="min-w-52">{t('Athlete')}</TableHead>
+                                            <TableHead className="w-20">{t('PNO')}</TableHead>
+                                            <TableHead className="w-20">{t('Rank')}</TableHead>
+                                            <TableHead className="min-w-40">{t('Unit')}</TableHead>
+                                            <TableHead className="min-w-36">{t('Sport')}</TableHead>
+                                            <TableHead className="min-w-44">{t('Event')}</TableHead>
+                                            <TableHead className="min-w-52">{t('Tournament')}</TableHead>
+                                            <TableHead className="min-w-32">{t('Session')}</TableHead>
+                                            <TableHead className="w-20 text-center">{t('Position')}</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {rows.map((r, index) => (
+                                            <TableRow key={r.id}>
+                                                <TableCell className="text-center text-xs text-muted-foreground">{index + 1}</TableCell>
+                                                <TableCell><MedalBadge type={r.medal_type} /></TableCell>
+                                                <TableCell className="font-medium">{r.member.full_name}</TableCell>
+                                                <TableCell className="text-xs">{r.member.pno ?? '—'}</TableCell>
+                                                <TableCell>{r.member.rank ?? '—'}</TableCell>
+                                                <TableCell>{r.member.unit_name ?? '—'}</TableCell>
+                                                <TableCell>
+                                                    <div>{r.sport.name}</div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div>{r.event.name}</div>
+                                                    {r.event.discipline && (
+                                                        <div className="text-xs text-muted-foreground">{r.event.discipline}</div>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="truncate">{r.tournament.name}</div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {formatDisplayDate(r.tournament.date_from)}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>{r.session_name ?? '—'}</TableCell>
+                                                <TableCell className="text-center">{r.position ?? '—'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             </div>
                         </>
                     )}
@@ -515,7 +629,7 @@ function RelatedMedalsModal({
                                 size="sm"
                                 variant="outline"
                                 className="gap-1.5"
-                                onClick={() => exportRelatedCsv(rows, title)}
+                                onClick={() => (exportUrl ? (window.location.href = exportUrl) : exportRelatedCsv(rows, title))}
                             >
                                 <Download className="size-3.5" />
                                 {t('Export CSV')}
@@ -809,12 +923,14 @@ export default function ReportsMedals({
     const [memberSearchDraft, setMemberSearchDraft] = useState('');
 
     const [tab, setTab] = useState<'tally' | 'detail'>('tally');
+    const [tallyMode, setTallyMode] = useState<'tier' | 'team'>('tier');
     const [perPage, setPerPage] = useState(25);
     const [page, setPage] = useState(1);
     const [advancedOpen, setAdvancedOpen] = useState(false);
 
     // Pivot (tally)
-    const [pivotRows, setPivotRows] = useState<PivotRow[] | null>(null);
+    const [pivotRows, setPivotRows] = useState<(PivotRow | TeamPivotRow)[] | null>(null);
+    const pivotRequestId = useRef(0);
     const { get: getPivot, processing: pivotLoading } = useHttp<Record<string, never>, PivotResponse>({});
 
     // Detail
@@ -824,6 +940,7 @@ export default function ReportsMedals({
     // Modals
     const [selectedRow, setSelectedRow] = useState<MedalRow | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [teamModalParams, setTeamModalParams] = useState<TeamModalState | null>(null);
     const [printOpen, setPrintOpen] = useState(false);
 
     const hasFilterValue = (value: string | string[]): boolean =>
@@ -832,7 +949,7 @@ export default function ReportsMedals({
     const hasAnyFilter = Object.values(filters).some(hasFilterValue) || !!memberSearch;
 
     const buildParams = useCallback(
-        (extra?: Record<string, string | number>): Record<string, string | string[]> => {
+        (extra?: Record<string, string | number | string[]>): FilterQuery => {
             const p: Record<string, string | string[]> = {};
 
             for (const [key, value] of Object.entries(filters)) {
@@ -855,6 +972,14 @@ export default function ReportsMedals({
 
             if (extra) {
                 for (const [k, v] of Object.entries(extra)) {
+                    if (Array.isArray(v)) {
+                        if (v.length > 0) {
+                            p[k] = v;
+                        }
+
+                        continue;
+                    }
+
                     p[k] = String(v);
                 }
             }
@@ -864,20 +989,39 @@ export default function ReportsMedals({
         [filters, memberSearch],
     );
 
+    const buildDownloadQuery = useCallback(
+        (extra?: Record<string, string | number | string[]>): FilterQuery => {
+            return buildParams(extra);
+        },
+        [buildParams],
+    );
+
     // Fetch pivot
     useEffect(() => {
         if (tab !== 'tally') {
- return;
-}
+            return;
+        }
 
-        getPivot(MedalsPivotController.url({ query: buildParams() }), {
+        const requestId = ++pivotRequestId.current;
+
+        getPivot(MedalsPivotController.url({ query: buildParams(tallyMode === 'team' ? { group_by: 'team' } : undefined) }), {
             onSuccess: (res) => {
+                if (pivotRequestId.current !== requestId) {
+                    return;
+                }
+
                 const r = res as unknown as PivotResponse;
-                setPivotRows(r?.data ?? []);
+                setPivotRows(Array.isArray(r?.data) ? r.data : []);
             },
-            onError: () => setPivotRows([]),
+            onError: () => {
+                if (pivotRequestId.current !== requestId) {
+                    return;
+                }
+
+                setPivotRows([]);
+            },
         });
-    }, [filters, memberSearch, tab, getPivot, buildParams]);
+    }, [filters, memberSearch, tab, tallyMode, getPivot, buildParams]);
 
     // Fetch detail
     useEffect(() => {
@@ -975,24 +1119,25 @@ export default function ReportsMedals({
     };
 
     const buildExportUrl = () => {
-        const params = new URLSearchParams();
+        const query = buildDownloadQuery();
 
-        for (const [key, value] of Object.entries(buildParams())) {
-            if (Array.isArray(value)) {
-                for (const item of value) {
-                    params.append(`${key}[]`, item);
-                }
-
-                continue;
-            }
-
-            params.set(key, value);
+        if (tab === 'tally' && tallyMode === 'team') {
+            query.group_by = 'team';
         }
 
-        const qs = params.toString();
+        const qs = buildQueryString(query);
 
-        return MedalsExportController.url() + (qs ? '?' + qs : '');
+        return MedalsExportController.url() + (qs ? `?${qs}` : '');
     };
+
+    const teamExportUrl = useCallback(
+        (query: FilterQuery) => {
+            const qs = buildQueryString(query);
+
+            return MedalsExportController.url() + (qs ? `?${qs}` : '');
+        },
+        [],
+    );
 
     const optionLabels = (options: MultiSelectOption[], values: string[]): string | undefined => {
         if (values.length === 0) {
@@ -1075,6 +1220,12 @@ return `≤ ${to}`;
     const grandTotal = pivotRows
         ? pivotRows.reduce((acc, r) => acc + r.GOLD + r.SILVER + r.BRONZE + r.MERIT, 0)
         : null;
+    const displayOnlyTotal = pivotRows
+        ? pivotRows.reduce((acc, r) => acc + r.display_only, 0)
+        : null;
+    const isTeamPivot = tab === 'tally' && tallyMode === 'team';
+    const tierRows = (!isTeamPivot ? (pivotRows ?? []) : []) as PivotRow[];
+    const teamRows = (isTeamPivot ? (pivotRows ?? []) : []) as TeamPivotRow[];
 
     return (
         <>
@@ -1453,6 +1604,29 @@ return `≤ ${to}`;
                             <TabsTrigger value="detail">{t('Medal Detail')}</TabsTrigger>
                         </TabsList>
 
+                        {tab === 'tally' && (
+                            <div className="inline-flex h-9 rounded-md border bg-background p-0.5">
+                                {([
+                                    ['tier', t('By Tier')],
+                                    ['team', t('By Team')],
+                                ] as const).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => setTallyMode(value)}
+                                        className={[
+                                            'rounded px-3 text-xs font-medium transition-colors',
+                                            tallyMode === value
+                                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:text-foreground',
+                                        ].join(' ')}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
                         {/* Medal counts — shown inline to the right of the tab bar */}
                         {detailData !== null && detailData.total > 0 && (
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -1478,7 +1652,29 @@ return `≤ ${to}`;
 
                     {/* ── Tally tab ── */}
                     <TabsContent value="tally" className="mt-4">
-                        <div className="rounded-xl border bg-card">
+                        <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
+                                <div>
+                                    <div className="text-sm font-semibold">
+                                        {t(tallyMode === 'team' ? 'Team medal tally' : 'Tier medal tally')}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {t(tallyMode === 'team' ? 'Team medals are counted once per team, event, and medal type.' : 'Tier totals exclude display-only medals.')}
+                                    </div>
+                                </div>
+                                {pivotRows !== null && pivotRows.length > 0 && (
+                                    <div className="flex items-center gap-3 text-xs">
+                                        <span className="text-muted-foreground">{t('Calculated total')}</span>
+                                        <CountCell value={grandTotal ?? 0} strong />
+                                        {displayOnlyTotal !== null && displayOnlyTotal > 0 && (
+                                            <>
+                                                <span className="text-muted-foreground">{t('Display only')}</span>
+                                                <DisplayOnlyCell value={displayOnlyTotal} />
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                             {pivotLoading || pivotRows === null ? (
                                 <div className="space-y-2 p-4">
                                     {[1, 2, 3, 4].map((n) => <Skeleton key={n} className="h-10 w-full" />)}
@@ -1488,25 +1684,40 @@ return `≤ ${to}`;
                                     <p className="text-sm text-muted-foreground">{t('No data.')}</p>
                                 </div>
                             ) : (
+                                <div className="overflow-x-auto">
                                 <Table>
-                                    <TableHeader>
+                                    <TableHeader className="sticky top-0 z-10 bg-muted/60">
                                         <TableRow>
-                                            <TableHead>{t('Tier')}</TableHead>
-                                            <TableHead className="text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('GOLD')].join(' ')}>{t('GOLD')}</span></TableHead>
-                                            <TableHead className="text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('SILVER')].join(' ')}>{t('SILVER')}</span></TableHead>
-                                            <TableHead className="text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('BRONZE')].join(' ')}>{t('BRONZE')}</span></TableHead>
-                                            <TableHead className="text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('MERIT')].join(' ')}>{t('MERIT')}</span></TableHead>
-                                            <TableHead className="text-center">{t('Total')}</TableHead>
+                                            <TableHead className="w-12 text-center">{t(isTeamPivot ? 'S No' : 'Rank')}</TableHead>
+                                            <TableHead className="min-w-56">{t(isTeamPivot ? 'Team' : 'Tier')}</TableHead>
+                                            {isTeamPivot && (
+                                                <>
+                                                    <TableHead className="min-w-36">{t('Sport')}</TableHead>
+                                                    <TableHead className="min-w-32">{t('Session')}</TableHead>
+                                                </>
+                                            )}
+                                            <TableHead className="w-24 text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('GOLD')].join(' ')}>{t('GOLD')}</span></TableHead>
+                                            <TableHead className="w-24 text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('SILVER')].join(' ')}>{t('SILVER')}</span></TableHead>
+                                            <TableHead className="w-24 text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('BRONZE')].join(' ')}>{t('BRONZE')}</span></TableHead>
+                                            <TableHead className="w-24 text-center"><span className={['inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', medalColor('MERIT')].join(' ')}>{t('MERIT')}</span></TableHead>
+                                            <TableHead className="w-28 text-center">{t('Calculated')}</TableHead>
+                                            <TableHead className="w-28 text-center">{t('Display only')}</TableHead>
+                                            {isTeamPivot && (
+                                                <>
+                                                    <TableHead className="w-24 text-center">{t('Events')}</TableHead>
+                                                    <TableHead className="w-24 text-center">{t('Players')}</TableHead>
+                                                </>
+                                            )}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {pivotRows.map((row) => {
+                                        {!isTeamPivot && tierRows.map((row, index) => {
                                             const total = row.GOLD + row.SILVER + row.BRONZE + row.MERIT;
 
                                             return (
                                                 <TableRow
                                                     key={row.tier.code}
-                                                    className="cursor-pointer hover:bg-muted/40"
+                                                    className="cursor-pointer border-b hover:bg-muted/40"
                                                     onClick={() => {
  const tierId = tiers.find((ti) => ti.code === row.tier.code)?.id;
 
@@ -1517,31 +1728,100 @@ return `≤ ${to}`;
  setTab('detail');
 }}
                                                 >
-                                                    <TableCell className="font-medium">{row.tier.label}</TableCell>
-                                                    <TableCell className="text-center font-semibold">{row.GOLD}</TableCell>
-                                                    <TableCell className="text-center font-semibold">{row.SILVER}</TableCell>
-                                                    <TableCell className="text-center font-semibold">{row.BRONZE}</TableCell>
-                                                    <TableCell className="text-center font-semibold">{row.MERIT}</TableCell>
-                                                    <TableCell className="text-center font-bold">{total}</TableCell>
+                                                    <TableCell className="text-center font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
+                                                    <TableCell>
+                                                        <div className="font-medium">{row.tier.label}</div>
+                                                        <div className="text-xs text-muted-foreground">{row.tier.code}</div>
+                                                    </TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.GOLD} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.SILVER} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.BRONZE} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.MERIT} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={total} strong={total > 0} /></TableCell>
+                                                    <TableCell className="text-center"><DisplayOnlyCell value={row.display_only} /></TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                        {isTeamPivot && teamRows.map((row, index) => {
+                                            const total = row.GOLD + row.SILVER + row.BRONZE + row.MERIT;
+                                            const teamName = row.team?.name ?? '—';
+                                            const teamSport = row.team?.sport_name ?? '—';
+                                            const teamSession = row.team?.session_name ?? '—';
+                                            const teamUnit = row.team?.unit_name;
+                                            const teamDistrict = row.team?.district_name;
+
+                                            return (
+                                                <TableRow
+                                                    key={row.team?.id ?? `team-row-${index}`}
+                                                    className="cursor-pointer border-b hover:bg-muted/40"
+                                                    onClick={() => {
+                                                        if (row.team?.id === undefined || row.team?.id === null) {
+                                                            return;
+                                                        }
+
+                                                        setTeamModalParams({
+                                                            team_name: teamName,
+                                                            filters: buildDownloadQuery({ team_id: String(row.team.id) }),
+                                                        });
+                                                    }}
+                                                >
+                                                    <TableCell className="text-center font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
+                                                    <TableCell>
+                                                        <div className="max-w-72 truncate font-medium">{teamName}</div>
+                                                        <div className="mt-1 flex flex-wrap gap-1">
+                                                            {[teamUnit, teamDistrict].filter(Boolean).map((label) => (
+                                                                <Badge key={label} variant="outline" className="px-1.5 py-0 text-[11px] font-normal">
+                                                                    {label}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">{teamSport}</TableCell>
+                                                    <TableCell className="text-sm text-muted-foreground">{teamSession}</TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.GOLD} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.SILVER} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.BRONZE} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.MERIT} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={total} strong={total > 0} /></TableCell>
+                                                    <TableCell className="text-center"><DisplayOnlyCell value={row.display_only} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.events} /></TableCell>
+                                                    <TableCell className="text-center"><CountCell value={row.players} /></TableCell>
                                                 </TableRow>
                                             );
                                         })}
                                         {pivotRows.length > 1 && (
-                                            <TableRow className="border-t-2 font-bold">
+                                            <TableRow className="border-t-2 bg-muted/40 font-bold">
+                                                {isTeamPivot && <TableCell />}
                                                 <TableCell>{t('Total')}</TableCell>
-                                                <TableCell className="text-center">{pivotRows.reduce((a, r) => a + r.GOLD, 0)}</TableCell>
-                                                <TableCell className="text-center">{pivotRows.reduce((a, r) => a + r.SILVER, 0)}</TableCell>
-                                                <TableCell className="text-center">{pivotRows.reduce((a, r) => a + r.BRONZE, 0)}</TableCell>
-                                                <TableCell className="text-center">{pivotRows.reduce((a, r) => a + r.MERIT, 0)}</TableCell>
-                                                <TableCell className="text-center">{grandTotal}</TableCell>
+                                                {isTeamPivot && (
+                                                    <>
+                                                        <TableCell />
+                                                        <TableCell />
+                                                    </>
+                                                )}
+                                                <TableCell className="text-center"><CountCell value={pivotRows.reduce((a, r) => a + r.GOLD, 0)} /></TableCell>
+                                                <TableCell className="text-center"><CountCell value={pivotRows.reduce((a, r) => a + r.SILVER, 0)} /></TableCell>
+                                                <TableCell className="text-center"><CountCell value={pivotRows.reduce((a, r) => a + r.BRONZE, 0)} /></TableCell>
+                                                <TableCell className="text-center"><CountCell value={pivotRows.reduce((a, r) => a + r.MERIT, 0)} /></TableCell>
+                                                <TableCell className="text-center"><CountCell value={grandTotal ?? 0} strong /></TableCell>
+                                                <TableCell className="text-center"><DisplayOnlyCell value={displayOnlyTotal ?? 0} /></TableCell>
+                                                {isTeamPivot && (
+                                                    <>
+                                                        <TableCell />
+                                                        <TableCell />
+                                                    </>
+                                                )}
                                             </TableRow>
                                         )}
                                     </TableBody>
                                 </Table>
+                                </div>
                             )}
                         </div>
                         {!pivotLoading && pivotRows !== null && pivotRows.length > 0 && (
-                            <p className="mt-2 text-xs text-muted-foreground">{t('Click a row to drill into its medals in the Detail tab.')}</p>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {t('Display-only medals are visible for review but excluded from calculated medal totals.')}
+                            </p>
                         )}
                     </TabsContent>
 
@@ -1572,7 +1852,23 @@ return `≤ ${to}`;
                             </div>
                         </div>
 
-                        <div className="rounded-xl border bg-card">
+                        <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
+                                <div>
+                                    <div className="text-sm font-semibold">{t('Medal records')}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {t('Player-level medal records with tournament and event context.')}
+                                    </div>
+                                </div>
+                                {detailData !== null && (
+                                    <div className="text-xs text-muted-foreground">
+                                        {t('Showing :from–:to of :total')
+                                            .replace(':from', String(detailData.from ?? 0))
+                                            .replace(':to', String(detailData.to ?? 0))
+                                            .replace(':total', String(detailData.total))}
+                                    </div>
+                                )}
+                            </div>
                             {detailLoading || detailData === null ? (
                                 <div className="space-y-2 p-4">
                                     {[1, 2, 3, 4, 5].map((n) => <Skeleton key={n} className="h-10 w-full" />)}
@@ -1582,49 +1878,50 @@ return `≤ ${to}`;
                                     <p className="text-sm text-muted-foreground">{t('No data.')}</p>
                                 </div>
                             ) : (
+                                <div className="overflow-x-auto">
                                 <Table>
-                                    <TableHeader>
+                                    <TableHeader className="sticky top-0 z-10 bg-muted/60">
                                         <TableRow>
-                                            <TableHead className="w-8">#</TableHead>
-                                            <TableHead>{t('Medal')}</TableHead>
-                                            <TableHead>{t('Athlete')}</TableHead>
-                                            <TableHead>{t('Rank')}</TableHead>
-                                            <TableHead>{t('Unit')}</TableHead>
-                                            <TableHead>{t('Sport / Event')}</TableHead>
-                                            <TableHead>{t('Tournament')}</TableHead>
-                                            <TableHead>{t('Tier')}</TableHead>
-                                            <TableHead>{t('Session')}</TableHead>
+                                            <TableHead className="w-12 text-center">#</TableHead>
+                                            <TableHead className="w-28">{t('Medal')}</TableHead>
+                                            <TableHead className="min-w-56">{t('Athlete')}</TableHead>
+                                            <TableHead className="min-w-24">{t('Rank')}</TableHead>
+                                            <TableHead className="min-w-36">{t('Unit')}</TableHead>
+                                            <TableHead className="min-w-56">{t('Sport / Event')}</TableHead>
+                                            <TableHead className="min-w-64">{t('Tournament')}</TableHead>
+                                            <TableHead className="min-w-28">{t('Tier')}</TableHead>
+                                            <TableHead className="min-w-28">{t('Session')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {detailData.data.map((row, idx) => (
                                             <TableRow
                                                 key={row.id}
-                                                className="cursor-pointer hover:bg-muted/40"
+                                                className="cursor-pointer border-b hover:bg-muted/40"
                                                 onClick={() => {
  setSelectedRow(row); setModalOpen(true);
 }}
                                             >
-                                                <TableCell className="text-muted-foreground text-xs">
+                                                <TableCell className="text-center font-mono text-xs text-muted-foreground">
                                                     {(detailData.from ?? 0) + idx}
                                                 </TableCell>
                                                 <TableCell>
                                                     <MedalBadge type={row.medal_type} />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-medium">{row.member.full_name}</div>
-                                                    <div className="text-xs text-muted-foreground">
+                                                    <div className="max-w-56 truncate font-medium">{row.member.full_name}</div>
+                                                    <div className="mt-0.5 text-xs text-muted-foreground">
                                                         {[row.member.member_code, row.member.pno].filter(Boolean).join(' · ')}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-sm">{row.member.rank ?? '—'}</TableCell>
                                                 <TableCell className="text-sm">{row.member.unit_name ?? '—'}</TableCell>
                                                 <TableCell>
-                                                    <div className="text-sm">{row.sport.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{row.event.name}</div>
+                                                    <div className="max-w-52 truncate text-sm font-medium">{row.sport.name}</div>
+                                                    <div className="max-w-52 truncate text-xs text-muted-foreground">{row.event.name}</div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="max-w-48 truncate text-sm">{row.tournament.name}</div>
+                                                    <div className="max-w-64 truncate text-sm font-medium">{row.tournament.name}</div>
                                                     {row.tournament.date_from && (
                                                         <div className="text-xs text-muted-foreground">{formatDisplayDate(row.tournament.date_from)}</div>
                                                     )}
@@ -1639,6 +1936,7 @@ return `≤ ${to}`;
                                         ))}
                                     </TableBody>
                                 </Table>
+                                </div>
                             )}
                         </div>
 
@@ -1691,6 +1989,20 @@ return `≤ ${to}`;
 
             {/* Modals */}
             <MedalDetailModal row={selectedRow} open={modalOpen} onOpenChange={setModalOpen} />
+            {teamModalParams !== null && (
+                <RelatedMedalsModal
+                    open={teamModalParams !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setTeamModalParams(null);
+                        }
+                    }}
+                    title={teamModalParams.team_name}
+                    description={t('All medals for this team')}
+                    params={teamModalParams.filters}
+                    exportUrl={teamExportUrl(teamModalParams.filters)}
+                />
+            )}
             <PrintDialog open={printOpen} onOpenChange={setPrintOpen} onPrint={handlePrint} />
         </>
     );

@@ -54,7 +54,9 @@ class MedalsDetailReport
             ->select(['a.medal_type', DB::raw('COUNT(*) as cnt')])
             ->where('t.organization_id', $orgId)
             ->whereNull('t.deleted_at')
-            ->whereNull('m.deleted_at');
+            ->whereNull('m.deleted_at')
+            ->whereNotNull('tt.code')
+            ->where('tt.code', '<>', 'OTHER');
 
         $rows = MedalsFilters::apply($query, $filters)
             ->groupBy('a.medal_type')

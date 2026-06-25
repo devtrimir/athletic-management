@@ -76,6 +76,7 @@ class CoachPreviewController extends Controller
             'gender' => $coach->gender,
             'date_of_birth' => $coach->date_of_birth?->toDateString(),
             'coach_status' => $coach->coach_status,
+            'team_activity_status' => $coach->hasActiveCurrentSessionTeamAssignment() ? 'active' : 'inactive',
             'bio' => $coach->bio,
             'address' => $coach->address,
             'photo_path' => $coach->photo_path,

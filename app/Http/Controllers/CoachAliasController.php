@@ -27,7 +27,7 @@ class CoachAliasController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Alias added.')]);
 
-        return to_route('coaches.show', $coach);
+        return to_route('coaches.aliases', $coach);
     }
 
     public function destroy(Coach $coach, CoachAlias $alias): RedirectResponse
@@ -40,6 +40,6 @@ class CoachAliasController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Alias removed.')]);
 
-        return to_route('coaches.show', $coach);
+        return to_route('coaches.aliases', $coach);
     }
 }

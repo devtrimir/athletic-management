@@ -60,8 +60,7 @@ class DashboardController extends Controller
 
         if ($canViewCoaches) {
             $stats['coaches'] = [
-                'total' => Coach::count(),
-                'linked' => Coach::whereNotNull('member_id')->count(),
+                'active' => Coach::whereHas('activeCurrentSessionAssignments')->count(),
             ];
         }
 
