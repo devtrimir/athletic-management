@@ -11,6 +11,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -22,6 +23,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+
+        $middleware->redirectGuestsTo(fn (Request $request): string => $request->is('external-coach/*')
+            ? route('external-coach.login')
+            : route('login'));
+
+        $middleware->redirectUsersTo(fn (Request $request): string => $request->is('external-coach/*')
+            ? route('external-coach.dashboard')
+            : route('dashboard'));
 
         $middleware->alias([
             'external.coach.active' => EnsureExternalCoachIsActive::class,

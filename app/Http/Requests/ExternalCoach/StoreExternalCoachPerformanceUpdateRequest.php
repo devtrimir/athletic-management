@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\ExternalCoach;
 
+use App\Models\ExternalCoach;
+use App\Models\ExternalCoachingAssignment;
+use App\Models\Scopes\BelongsToOrganization;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -15,7 +18,23 @@ class StoreExternalCoachPerformanceUpdateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user('external_coach') !== null;
+        $coach = $this->user('external_coach');
+
+        if (! $coach instanceof ExternalCoach) {
+            return false;
+        }
+
+        $assignmentId = $this->integer('external_coaching_assignment_id');
+
+        if ($assignmentId === 0) {
+            return true;
+        }
+
+        return ExternalCoachingAssignment::withoutGlobalScope(BelongsToOrganization::class)
+            ->where('organization_id', $coach->organization_id)
+            ->where('external_coach_id', $coach->id)
+            ->whereKey($assignmentId)
+            ->exists();
     }
 
     /**

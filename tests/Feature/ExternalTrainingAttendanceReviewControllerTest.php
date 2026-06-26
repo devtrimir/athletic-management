@@ -47,7 +47,9 @@ function reviewAttendanceFixture(array $attendanceOverrides = []): array
         ...$attendanceOverrides,
     ]);
 
-    Storage::disk('local')->put($attendance->submitted_photo_path, 'proof');
+    if ($attendance->submitted_photo_path !== null) {
+        Storage::disk('local')->put($attendance->submitted_photo_path, 'proof');
+    }
 
     return compact('user', 'member', 'coach', 'venue', 'sport', 'assignment', 'attendance');
 }
@@ -75,6 +77,27 @@ test('admin can view attendance detail and private proof photo', function (): vo
     $this->actingAs($fixture['user'])
         ->get(route('external-training-attendances.photo', $fixture['attendance']))
         ->assertDownload('review-proof.jpg');
+});
+
+test('attendance without proof photo does not expose photo links', function (): void {
+    Storage::fake('local');
+    $fixture = reviewAttendanceFixture([
+        'attendance_status' => 'absent',
+        'submitted_photo_path' => null,
+        'submitted_photo_original_name' => null,
+        'submitted_photo_mime_type' => null,
+        'submitted_photo_size_bytes' => null,
+    ]);
+
+    $this->actingAs($fixture['user'])
+        ->get(route('external-training-attendances.show', $fixture['attendance']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('attendance.photo', null));
+
+    $this->actingAs($fixture['user'])
+        ->get(route('external-training-attendances.photo', $fixture['attendance']))
+        ->assertNotFound();
 });
 
 test('admin review actions store reviewer metadata and audit the update', function (): void {
@@ -169,6 +192,39 @@ test('attendance route binding does not expose another organization records', fu
     $this->actingAs($user)
         ->get(route('external-training-attendances.show', $attendance))
         ->assertNotFound();
+});
+
+test('attendance review cannot mutate another organization record', function (): void {
+    Storage::fake('local');
+    $user = rcUser('external-training-attendances.view', 'external-training-attendances.review');
+    $otherOrg = Organization::factory()->create();
+    $otherMember = Member::factory()->create(['organization_id' => $otherOrg->id]);
+    $otherCoach = ExternalCoach::factory()->create(['organization_id' => $otherOrg->id]);
+    $otherVenue = TrainingVenue::factory()->create(['organization_id' => $otherOrg->id]);
+    $otherSport = Sport::factory()->create(['organization_id' => $otherOrg->id]);
+    $otherAssignment = ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $otherOrg->id,
+        'member_id' => $otherMember->id,
+        'external_coach_id' => $otherCoach->id,
+        'training_venue_id' => $otherVenue->id,
+        'sport_id' => $otherSport->id,
+    ]);
+    $attendance = ExternalTrainingAttendance::factory()->create([
+        'organization_id' => $otherOrg->id,
+        'external_coaching_assignment_id' => $otherAssignment->id,
+        'member_id' => $otherMember->id,
+        'external_coach_id' => $otherCoach->id,
+        'training_venue_id' => $otherVenue->id,
+        'review_status' => 'pending',
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('external-training-attendances.review', $attendance), [
+            'action' => 'lock',
+        ])
+        ->assertNotFound();
+
+    expect($attendance->refresh()->review_status)->toBe('pending');
 });
 
 test('example', function () {

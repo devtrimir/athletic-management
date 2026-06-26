@@ -16,7 +16,6 @@ use App\Services\ExternalCoaching\GeoDistanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,15 +28,17 @@ class ExternalTrainingAttendanceController extends Controller
         $coach = $request->user('external_coach');
 
         $assignments = ExternalCoachingAssignment::withoutGlobalScope(BelongsToOrganization::class)
-            ->with(['member:id,member_code,pno,full_name', 'trainingVenue:id,name', 'sport:id,name'])
+            ->with(['member:id,pno,full_name', 'trainingVenue:id,name', 'sport:id,name'])
             ->where('organization_id', $coach->organization_id)
             ->where('external_coach_id', $coach->id)
             ->where('status', 'active')
             ->orderBy('end_date')
             ->get(['id', 'organization_id', 'member_id', 'training_venue_id', 'sport_id', 'start_date', 'end_date', 'training_start_time', 'training_end_time', 'status']);
+        $selectedAssignmentId = (string) $request->integer('assignment');
 
         return Inertia::render('external-coach/attendance/index', [
             'assignments' => $assignments,
+            'selectedAssignmentId' => $assignments->contains('id', (int) $selectedAssignmentId) ? $selectedAssignmentId : null,
             'attendanceStatuses' => ['present', 'absent', 'late', 'excused'],
         ]);
     }
@@ -79,7 +80,9 @@ class ExternalTrainingAttendanceController extends Controller
         );
 
         $file = $request->file('submitted_photo');
-        $path = $file->store("external-training-attendance/org_{$coach->organization_id}/assignment_{$assignment->id}", 'local');
+        $realPath = $file?->getRealPath();
+        $imageSize = $realPath === false || $realPath === null ? false : getimagesize($realPath);
+        $path = $file?->store("external-training-attendance/org_{$coach->organization_id}/assignment_{$assignment->id}", 'local');
 
         ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)->create([
             'organization_id' => $assignment->organization_id,
@@ -99,9 +102,12 @@ class ExternalTrainingAttendanceController extends Controller
             'submitted_gps_accuracy' => $validated['submitted_gps_accuracy'] ?? null,
             'distance_from_venue_meters' => $distanceMeters,
             'submitted_photo_path' => $path,
-            'submitted_photo_original_name' => $file->getClientOriginalName(),
-            'submitted_photo_mime_type' => $file->getMimeType(),
-            'submitted_photo_size_bytes' => $file->getSize(),
+            'submitted_photo_original_name' => $file?->getClientOriginalName(),
+            'submitted_photo_mime_type' => $file?->getMimeType(),
+            'submitted_photo_size_bytes' => $file?->getSize(),
+            'submitted_photo_uploaded_at' => $file === null ? null : $submittedAt,
+            'submitted_photo_width' => $imageSize === false ? null : $imageSize[0],
+            'submitted_photo_height' => $imageSize === false ? null : $imageSize[1],
             'venue_latitude_snapshot' => $venue->latitude,
             'venue_longitude_snapshot' => $venue->longitude,
             'allowed_radius_meters_snapshot' => $venue->allowed_radius_meters,

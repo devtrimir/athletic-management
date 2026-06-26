@@ -14,6 +14,7 @@ use App\Http\Controllers\CoachStatusController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventParticipantController;
+use App\Http\Controllers\ExternalCoach\AthleteController as ExternalCoachAthleteController;
 use App\Http\Controllers\ExternalCoach\Auth\ExternalCoachLoginController;
 use App\Http\Controllers\ExternalCoach\DashboardController as ExternalCoachDashboardController;
 use App\Http\Controllers\ExternalCoach\ExternalCoachPerformanceUpdateController;
@@ -64,6 +65,7 @@ Route::prefix('external-coach')->name('external-coach.')->group(function (): voi
 
     Route::middleware(['auth:external_coach', 'external.coach.active'])->group(function (): void {
         Route::get('dashboard', ExternalCoachDashboardController::class)->name('dashboard');
+        Route::get('athletes/{member}', [ExternalCoachAthleteController::class, 'show'])->name('athletes.show');
         Route::get('attendance', [ExternalTrainingAttendanceController::class, 'index'])->name('attendance.index');
         Route::post('attendance', [ExternalTrainingAttendanceController::class, 'store'])->name('attendance.store');
         Route::get('performance', [ExternalCoachPerformanceUpdateController::class, 'index'])->name('performance.index');

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Auth\Rbac;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -43,7 +44,7 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $user,
-                'permissions' => fn (): array => $user && $user->organization_id
+                'permissions' => fn (): array => $user instanceof User && $user->organization_id
                     ? app(Rbac::class)->userPermissions($user, $user->organization_id)->all()
                     : [],
             ],

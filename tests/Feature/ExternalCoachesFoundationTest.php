@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 use App\Models\AuditLog;
 use App\Models\ExternalCoach;
+use App\Models\ExternalCoachingAssignment;
+use App\Models\ExternalCoachPerformanceUpdate;
 use App\Models\ExternalCoachStatusHistory;
+use App\Models\ExternalTrainingAttendance;
+use App\Models\Member;
 use App\Models\Organization;
+use App\Models\Sport;
+use App\Models\TrainingVenue;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -82,6 +88,179 @@ test('external coach login page is separate from admin login', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('external-coach/auth/login')
             ->etc());
+});
+
+test('external coach protected pages redirect guests to external coach login', function () {
+    $this->get(route('external-coach.dashboard'))
+        ->assertRedirect(route('external-coach.login'));
+});
+
+test('external coach dashboard does not resolve internal rbac permissions', function () {
+    $externalCoach = ExternalCoach::factory()->create(['status' => 'active']);
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('external-coach/dashboard')
+            ->where('auth.permissions', [])
+            ->etc());
+});
+
+test('external coach dashboard lists assigned active athletes', function () {
+    $organization = Organization::factory()->create();
+    $externalCoach = ExternalCoach::factory()->create(['organization_id' => $organization->id, 'status' => 'active']);
+    $otherCoach = ExternalCoach::factory()->create(['organization_id' => $organization->id, 'status' => 'active']);
+    $member = Member::factory()->create(['organization_id' => $organization->id, 'full_name' => 'Assigned Player', 'current_status' => 'ACTIVE']);
+    $otherMember = Member::factory()->create(['organization_id' => $organization->id, 'full_name' => 'Other Coach Player', 'current_status' => 'ACTIVE']);
+    $venue = TrainingVenue::factory()->create(['organization_id' => $organization->id, 'name' => 'Main Training Ground']);
+    $sport = Sport::factory()->create(['organization_id' => $organization->id, 'name' => 'Athletics']);
+
+    ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $organization->id,
+        'member_id' => $member->id,
+        'external_coach_id' => $externalCoach->id,
+        'training_venue_id' => $venue->id,
+        'sport_id' => $sport->id,
+        'status' => 'active',
+    ]);
+    ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $organization->id,
+        'member_id' => $otherMember->id,
+        'external_coach_id' => $otherCoach->id,
+        'training_venue_id' => $venue->id,
+        'sport_id' => $sport->id,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('external-coach/dashboard')
+            ->has('assignments.data', 1)
+            ->where('assignments.data.0.member.full_name', 'Assigned Player')
+            ->where('assignments.data.0.training_venue.name', 'Main Training Ground')
+            ->where('assignments.data.0.sport.name', 'Athletics')
+            ->where('summary.active_assignments', 1)
+            ->etc());
+});
+
+test('external coach dashboard paginates large assigned athlete lists', function () {
+    $organization = Organization::factory()->create();
+    $externalCoach = ExternalCoach::factory()->create(['organization_id' => $organization->id, 'status' => 'active']);
+    $venue = TrainingVenue::factory()->create(['organization_id' => $organization->id]);
+    $sport = Sport::factory()->create(['organization_id' => $organization->id]);
+
+    for ($index = 1; $index <= 12; $index++) {
+        $member = Member::factory()->create([
+            'organization_id' => $organization->id,
+            'full_name' => "Assigned Athlete {$index}",
+            'pno' => "PNO-{$index}",
+            'current_status' => 'ACTIVE',
+        ]);
+
+        ExternalCoachingAssignment::factory()->create([
+            'organization_id' => $organization->id,
+            'member_id' => $member->id,
+            'external_coach_id' => $externalCoach->id,
+            'training_venue_id' => $venue->id,
+            'sport_id' => $sport->id,
+            'status' => 'active',
+            'end_date' => today()->addDays($index),
+        ]);
+    }
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('external-coach/dashboard')
+            ->has('assignments.data', 10)
+            ->where('assignments.total', 12)
+            ->where('assignments.per_page', 10)
+            ->where('summary.active_assignments', 12)
+            ->etc());
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.dashboard', ['page' => 2]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments.data', 2)
+            ->where('assignments.current_page', 2)
+            ->where('summary.active_assignments', 12)
+            ->etc());
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.dashboard', ['pno' => 'PNO-12']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments.data', 1)
+            ->where('assignments.data.0.member.pno', 'PNO-12')
+            ->where('summary.active_assignments', 1)
+            ->where('filters.pno', 'PNO-12')
+            ->etc());
+});
+
+test('external coach can view assigned athlete profile and history only', function () {
+    $organization = Organization::factory()->create();
+    $externalCoach = ExternalCoach::factory()->create(['organization_id' => $organization->id, 'status' => 'active']);
+    $otherCoach = ExternalCoach::factory()->create(['organization_id' => $organization->id, 'status' => 'active']);
+    $member = Member::factory()->create(['organization_id' => $organization->id, 'full_name' => 'Assigned Athlete', 'current_status' => 'ACTIVE']);
+    $otherMember = Member::factory()->create(['organization_id' => $organization->id, 'full_name' => 'Other Athlete', 'current_status' => 'ACTIVE']);
+    $venue = TrainingVenue::factory()->create(['organization_id' => $organization->id, 'name' => 'Training Hall']);
+    $sport = Sport::factory()->create(['organization_id' => $organization->id, 'name' => 'Boxing']);
+    $assignment = ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $organization->id,
+        'member_id' => $member->id,
+        'external_coach_id' => $externalCoach->id,
+        'training_venue_id' => $venue->id,
+        'sport_id' => $sport->id,
+        'status' => 'active',
+    ]);
+    $otherAssignment = ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $organization->id,
+        'member_id' => $otherMember->id,
+        'external_coach_id' => $otherCoach->id,
+        'training_venue_id' => $venue->id,
+        'sport_id' => $sport->id,
+        'status' => 'active',
+    ]);
+
+    ExternalTrainingAttendance::factory()->create([
+        'organization_id' => $organization->id,
+        'external_coaching_assignment_id' => $assignment->id,
+        'member_id' => $member->id,
+        'external_coach_id' => $externalCoach->id,
+        'training_venue_id' => $venue->id,
+        'attendance_status' => 'present',
+    ]);
+    ExternalCoachPerformanceUpdate::factory()->create([
+        'organization_id' => $organization->id,
+        'external_coaching_assignment_id' => $assignment->id,
+        'member_id' => $member->id,
+        'external_coach_id' => $externalCoach->id,
+        'sport_id' => $sport->id,
+        'training_summary' => 'Footwork improved.',
+    ]);
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.athletes.show', $member))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('external-coach/athletes/show')
+            ->where('athlete.full_name', 'Assigned Athlete')
+            ->missing('athlete.member_code')
+            ->has('assignments', 1)
+            ->where('assignments.0.training_venue.name', 'Training Hall')
+            ->has('attendances', 1)
+            ->has('performanceUpdates', 1)
+            ->where('performanceUpdates.0.training_summary', 'Footwork improved.')
+            ->etc());
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.athletes.show', $otherAssignment->member_id))
+        ->assertNotFound();
 });
 
 test('external coach admin routes require permission', function () {

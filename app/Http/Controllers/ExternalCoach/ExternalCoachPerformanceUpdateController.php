@@ -25,15 +25,16 @@ class ExternalCoachPerformanceUpdateController extends Controller
         $coach = $request->user('external_coach');
 
         $assignments = ExternalCoachingAssignment::withoutGlobalScope(BelongsToOrganization::class)
-            ->with(['member:id,member_code,pno,full_name', 'sport:id,name'])
+            ->with(['member:id,pno,full_name', 'sport:id,name'])
             ->where('organization_id', $coach->organization_id)
             ->where('external_coach_id', $coach->id)
             ->where('status', 'active')
             ->latest('id')
             ->get(['id', 'organization_id', 'member_id', 'sport_id', 'start_date', 'end_date', 'status']);
+        $selectedAssignmentId = (string) $request->integer('assignment');
 
         $updates = ExternalCoachPerformanceUpdate::withoutGlobalScope(BelongsToOrganization::class)
-            ->with(['member:id,member_code,pno,full_name', 'sport:id,name'])
+            ->with(['member:id,pno,full_name', 'sport:id,name'])
             ->where('organization_id', $coach->organization_id)
             ->where('external_coach_id', $coach->id)
             ->latest('update_date')
@@ -43,6 +44,7 @@ class ExternalCoachPerformanceUpdateController extends Controller
 
         return Inertia::render('external-coach/performance/index', [
             'assignments' => $assignments,
+            'selectedAssignmentId' => $assignments->contains('id', (int) $selectedAssignmentId) ? $selectedAssignmentId : null,
             'updates' => $updates,
             'performanceLevels' => ['improving', 'stable', 'needs_attention', 'excellent'],
         ]);

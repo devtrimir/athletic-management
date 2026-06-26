@@ -17,7 +17,7 @@ class ExternalCoachPerformanceUpdatePolicy
     public function view(User $user, ExternalCoachPerformanceUpdate $externalCoachPerformanceUpdate): bool
     {
         return $user->can('external-coach-performance-updates.view')
-            && $user->organization_id === $externalCoachPerformanceUpdate->organization_id;
+            && (int) $user->organization_id === (int) $externalCoachPerformanceUpdate->organization_id;
     }
 
     public function create(User $user): bool
@@ -28,7 +28,7 @@ class ExternalCoachPerformanceUpdatePolicy
     public function update(User $user, ExternalCoachPerformanceUpdate $externalCoachPerformanceUpdate): bool
     {
         return $user->can('external-coach-performance-updates.review')
-            && $user->organization_id === $externalCoachPerformanceUpdate->organization_id
+            && (int) $user->organization_id === (int) $externalCoachPerformanceUpdate->organization_id
             && $externalCoachPerformanceUpdate->review_status !== 'locked';
     }
 

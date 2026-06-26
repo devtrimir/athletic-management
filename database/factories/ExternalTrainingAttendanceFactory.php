@@ -40,6 +40,12 @@ class ExternalTrainingAttendanceFactory extends Factory
             'submitted_gps_accuracy' => 20,
             'distance_from_venue_meters' => 0,
             'submitted_photo_path' => 'external-training-attendance/example.jpg',
+            'submitted_photo_original_name' => 'proof.jpg',
+            'submitted_photo_mime_type' => 'image/jpeg',
+            'submitted_photo_size_bytes' => 102400,
+            'submitted_photo_uploaded_at' => now(),
+            'submitted_photo_width' => 800,
+            'submitted_photo_height' => 600,
         ];
     }
 }

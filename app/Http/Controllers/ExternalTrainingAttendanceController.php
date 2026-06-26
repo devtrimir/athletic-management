@@ -161,7 +161,7 @@ class ExternalTrainingAttendanceController extends Controller
 
         return [
             ...$attendance->toArray(),
-            'photo' => [
+            'photo' => $attendance->submitted_photo_path === null ? null : [
                 'name' => $attendance->submitted_photo_original_name,
                 'mime_type' => $attendance->submitted_photo_mime_type,
                 'size_bytes' => $attendance->submitted_photo_size_bytes,
@@ -174,6 +174,7 @@ class ExternalTrainingAttendanceController extends Controller
     private function authorizePhotoAccess(ExternalTrainingAttendance $attendance): void
     {
         Gate::authorize('view', $attendance);
+        abort_if($attendance->submitted_photo_path === null, 404);
         abort_unless(Storage::disk('local')->exists($attendance->submitted_photo_path), 404);
     }
 }

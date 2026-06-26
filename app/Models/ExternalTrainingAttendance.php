@@ -27,7 +27,13 @@ use Illuminate\Support\Carbon;
  * @property string $attendance_status
  * @property string $review_status
  * @property string $geo_status
- * @property string $submitted_photo_path
+ * @property string|null $submitted_photo_path
+ * @property string|null $submitted_photo_original_name
+ * @property string|null $submitted_photo_mime_type
+ * @property int|null $submitted_photo_size_bytes
+ * @property Carbon|null $submitted_photo_uploaded_at
+ * @property int|null $submitted_photo_width
+ * @property int|null $submitted_photo_height
  * @property Carbon $submitted_at
  */
 #[Fillable([
@@ -54,6 +60,9 @@ use Illuminate\Support\Carbon;
     'submitted_photo_original_name',
     'submitted_photo_mime_type',
     'submitted_photo_size_bytes',
+    'submitted_photo_uploaded_at',
+    'submitted_photo_width',
+    'submitted_photo_height',
     'check_in_at',
     'check_in_latitude',
     'check_in_longitude',
@@ -98,6 +107,10 @@ class ExternalTrainingAttendance extends Model
             'submitted_longitude' => 'decimal:7',
             'submitted_gps_accuracy' => 'integer',
             'distance_from_venue_meters' => 'decimal:2',
+            'submitted_photo_size_bytes' => 'integer',
+            'submitted_photo_uploaded_at' => 'datetime',
+            'submitted_photo_width' => 'integer',
+            'submitted_photo_height' => 'integer',
             'check_in_at' => 'datetime',
             'check_in_latitude' => 'decimal:7',
             'check_in_longitude' => 'decimal:7',

@@ -78,6 +78,12 @@ test('external training attendances table exists with proof and review columns',
         'submitted_gps_accuracy',
         'distance_from_venue_meters',
         'submitted_photo_path',
+        'submitted_photo_original_name',
+        'submitted_photo_mime_type',
+        'submitted_photo_size_bytes',
+        'submitted_photo_uploaded_at',
+        'submitted_photo_width',
+        'submitted_photo_height',
         'venue_latitude_snapshot',
         'venue_longitude_snapshot',
         'allowed_radius_meters_snapshot',
@@ -92,9 +98,12 @@ test('external training attendances table exists with proof and review columns',
 test('external coach can submit attendance for assigned active athlete with private proof photo', function (): void {
     Storage::fake('local');
     $fixture = externalAttendanceFixture();
+    $photo = UploadedFile::fake()->image('proof.jpg', 800, 600);
 
     $this->actingAs($fixture['coach'], 'external_coach')
-        ->post(route('external-coach.attendance.store'), externalAttendancePayload($fixture['assignment']))
+        ->post(route('external-coach.attendance.store'), externalAttendancePayload($fixture['assignment'], [
+            'submitted_photo' => $photo,
+        ]))
         ->assertRedirect(route('external-coach.attendance.index'));
 
     $attendance = ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)->firstOrFail();
@@ -104,9 +113,54 @@ test('external coach can submit attendance for assigned active athlete with priv
         ->and($attendance->external_coach_id)->toBe($fixture['coach']->id)
         ->and($attendance->geo_status)->toBe('valid')
         ->and((float) $attendance->distance_from_venue_meters)->toBe(0.0)
-        ->and($attendance->venue_name_snapshot)->toBe($fixture['venue']->name);
+        ->and($attendance->venue_name_snapshot)->toBe($fixture['venue']->name)
+        ->and($attendance->submitted_photo_original_name)->toBe('proof.jpg')
+        ->and($attendance->submitted_photo_mime_type)->toBe('image/jpeg')
+        ->and($attendance->submitted_photo_size_bytes)->toBe($photo->getSize())
+        ->and($attendance->submitted_photo_uploaded_at)->not->toBeNull()
+        ->and($attendance->submitted_photo_width)->toBe(800)
+        ->and($attendance->submitted_photo_height)->toBe(600);
 
     Storage::disk('local')->assertExists($attendance->submitted_photo_path);
+});
+
+test('external coach attendance page only lists their assigned athletes', function (): void {
+    $fixture = externalAttendanceFixture();
+    $otherMember = Member::factory()->create([
+        'organization_id' => $fixture['organization']->id,
+        'full_name' => 'Other Coach Athlete',
+        'current_status' => 'ACTIVE',
+    ]);
+    $otherCoach = ExternalCoach::factory()->create([
+        'organization_id' => $fixture['organization']->id,
+        'status' => 'active',
+    ]);
+    $otherAssignment = ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $fixture['organization']->id,
+        'member_id' => $otherMember->id,
+        'external_coach_id' => $otherCoach->id,
+        'training_venue_id' => $fixture['venue']->id,
+        'sport_id' => $fixture['sport']->id,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($fixture['coach'], 'external_coach')
+        ->get(route('external-coach.attendance.index', ['assignment' => $fixture['assignment']->id]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('external-coach/attendance/index')
+            ->has('assignments', 1)
+            ->where('selectedAssignmentId', (string) $fixture['assignment']->id)
+            ->where('assignments.0.member.full_name', $fixture['member']->full_name)
+            ->missing('assignments.0.member.member_code')
+            ->etc());
+
+    $this->actingAs($fixture['coach'], 'external_coach')
+        ->get(route('external-coach.attendance.index', ['assignment' => $otherAssignment->id]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('selectedAssignmentId', null)
+            ->etc());
 });
 
 test('outside radius attendance is saved and flagged for review', function (): void {
@@ -144,6 +198,30 @@ test('missing gps attendance is saved and flagged instead of blocked', function 
         ->and($attendance->distance_from_venue_meters)->toBeNull();
 });
 
+test('external coach can mark athlete absent without proof photo or gps', function (): void {
+    Storage::fake('local');
+    $fixture = externalAttendanceFixture();
+
+    $this->actingAs($fixture['coach'], 'external_coach')
+        ->post(route('external-coach.attendance.store'), externalAttendancePayload($fixture['assignment'], [
+            'attendance_status' => 'absent',
+            'submitted_latitude' => null,
+            'submitted_longitude' => null,
+            'submitted_gps_accuracy' => null,
+            'submitted_photo' => null,
+            'coach_remarks' => 'Athlete did not attend training.',
+        ]))
+        ->assertRedirect(route('external-coach.attendance.index'));
+
+    $attendance = ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)->firstOrFail();
+
+    expect($attendance->attendance_status)->toBe('absent')
+        ->and($attendance->submitted_photo_path)->toBeNull()
+        ->and($attendance->submitted_photo_original_name)->toBeNull()
+        ->and($attendance->submitted_photo_uploaded_at)->toBeNull()
+        ->and($attendance->geo_status)->toBe('location_missing');
+});
+
 test('external coach cannot submit attendance for another coach assignment', function (): void {
     Storage::fake('local');
     $fixture = externalAttendanceFixture();
@@ -154,7 +232,7 @@ test('external coach cannot submit attendance for another coach assignment', fun
 
     $this->actingAs($otherCoach, 'external_coach')
         ->post(route('external-coach.attendance.store'), externalAttendancePayload($fixture['assignment']))
-        ->assertNotFound();
+        ->assertForbidden();
 });
 
 test('duplicate attendance for same assignment member and date is rejected', function (): void {
