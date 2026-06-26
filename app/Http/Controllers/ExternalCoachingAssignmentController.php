@@ -13,6 +13,7 @@ use App\Models\TrainingVenue;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -24,7 +25,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ExternalCoachingAssignmentController extends Controller
 {
     /** @var string[] */
-    private const array STATUSES = [
+    private const array ASSIGNMENT_STATUSES = [
         'draft',
         'pending_approval',
         'approved',
@@ -101,7 +102,7 @@ class ExternalCoachingAssignmentController extends Controller
                 'start_date_from' => $startDateFrom,
                 'start_date_to' => $startDateTo,
             ],
-            'statuses' => self::STATUSES,
+            'statuses' => $this->assignmentStatuses((int) $request->user()->organization_id),
             'sports' => Sport::query()->where('organization_id', (int) $request->user()->organization_id)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -232,9 +233,49 @@ class ExternalCoachingAssignmentController extends Controller
             'externalCoaches' => ExternalCoach::query()->where('organization_id', $organizationId)->where('status', 'active')->orderBy('name')->get(['id', 'name', 'email', 'phone']),
             'trainingVenues' => TrainingVenue::query()->where('organization_id', $organizationId)->where('status', 'active')->orderBy('name')->get(['id', 'name']),
             'sports' => Sport::query()->where('organization_id', $organizationId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'statuses' => self::STATUSES,
+            'statuses' => $this->assignmentStatuses($organizationId),
             'attendanceModes' => ['single_mark', 'check_in_check_out'],
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function assignmentStatuses(int $organizationId): array
+    {
+        return $this->orderedDistinctValues(
+            ExternalCoachingAssignment::query()
+                ->where('organization_id', $organizationId)
+                ->whereNotNull('status')
+                ->select('status')
+                ->distinct()
+                ->pluck('status')
+                ->filter()
+                ->map(static fn (string $status): string => trim($status))
+                ->values(),
+            self::ASSIGNMENT_STATUSES,
+        );
+    }
+
+    /**
+     * @param  Collection<int, string>  $values
+     * @return list<string>
+     */
+    private function orderedDistinctValues(Collection $values, array $fallback): array
+    {
+        $normalized = $values
+            ->unique()
+            ->values()
+            ->toArray();
+
+        if ($normalized === []) {
+            return $fallback;
+        }
+
+        $ordered = array_values(array_intersect($fallback, $normalized));
+        $additional = array_values(array_filter($normalized, static fn (string $status): bool => ! in_array($status, $fallback, true)));
+
+        return array_values(array_unique(array_merge($ordered, $additional)));
     }
 
     private function filterString(mixed $value): ?string

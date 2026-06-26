@@ -143,8 +143,8 @@ export default function ExternalCoachingAssignmentsIndex({ assignments, filters,
                 </div>
 
                 <form className="space-y-4 rounded-xl border bg-card p-4" onSubmit={applyFilters}>
-                    <div className="flex flex-wrap items-end gap-3">
-                        <div className="w-full min-w-44 max-w-56 space-y-1.5 sm:w-56">
+                    <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))] items-end">
+                        <div className="space-y-1">
                             <Label htmlFor="member_query" className="text-sm font-medium">
                                 {t('Member')} ({t('name / PNO')})
                             </Label>
@@ -161,7 +161,7 @@ export default function ExternalCoachingAssignmentsIndex({ assignments, filters,
                             </div>
                         </div>
 
-                        <div className="w-full min-w-44 max-w-56 space-y-1.5 sm:w-56">
+                        <div className="space-y-1">
                             <Label htmlFor="coach_query" className="text-sm font-medium">
                                 {t('Coach')} ({t('name / phone')})
                             </Label>
@@ -178,7 +178,7 @@ export default function ExternalCoachingAssignmentsIndex({ assignments, filters,
                             </div>
                         </div>
 
-                        <div className="w-full min-w-40 max-w-48 flex-shrink-0 space-y-1.5 sm:w-48">
+                        <div className="space-y-1">
                             <Label htmlFor="start_date_from" className="text-sm font-medium">
                                 {t('Start date from')}
                             </Label>
@@ -195,7 +195,7 @@ export default function ExternalCoachingAssignmentsIndex({ assignments, filters,
                             </div>
                         </div>
 
-                        <div className="w-full min-w-40 max-w-48 flex-shrink-0 space-y-1.5 sm:w-48">
+                        <div className="space-y-1">
                             <Label htmlFor="start_date_to" className="text-sm font-medium">
                                 {t('Start date to')}
                             </Label>
@@ -212,7 +212,7 @@ export default function ExternalCoachingAssignmentsIndex({ assignments, filters,
                             </div>
                         </div>
 
-                        <div className="w-full min-w-40 max-w-48 sm:w-48">
+                        <div className="space-y-1">
                             <Label htmlFor="status_filter" className="text-sm font-medium">
                                 {t('Status')}
                             </Label>
@@ -231,7 +231,7 @@ export default function ExternalCoachingAssignmentsIndex({ assignments, filters,
                             </Select>
                         </div>
 
-                        <div className="w-full min-w-40 max-w-48 sm:w-48">
+                        <div className="space-y-1">
                             <Label htmlFor="sport_filter" className="text-sm font-medium">
                                 {t('Sport')}
                             </Label>
@@ -246,7 +246,7 @@ export default function ExternalCoachingAssignmentsIndex({ assignments, filters,
                             />
                         </div>
 
-                        <div className="w-auto self-end">
+                        <div className="flex items-end gap-2 justify-end">
                             <div className="flex items-center gap-2">
                                 {hasFilters ? (
                                     <Button variant="outline" type="button" onClick={clearFilters} className="h-9">
