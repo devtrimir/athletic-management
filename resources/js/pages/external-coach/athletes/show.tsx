@@ -78,7 +78,11 @@ export default function ExternalCoachAthleteShow({ athlete, assignments, attenda
                                 <h1 className="mt-1 truncate text-xl font-semibold tracking-tight">{athlete.full_name}</h1>
                                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                                     {athlete.pno ? <span className="rounded-md border px-2 py-1">{athlete.pno}</span> : null}
-                                    {athlete.current_status ? <Badge variant="outline">{t(athlete.current_status)}</Badge> : null}
+                                    {athlete.current_status ? (
+                                        <Badge variant="outline" className={athleteStatusBadgeClass(athlete.current_status)}>
+                                            {t(athlete.current_status)}
+                                        </Badge>
+                                    ) : null}
                                     {athlete.player_level ? <span className="rounded-md border px-2 py-1">{t(athlete.player_level)}</span> : null}
                                     {athlete.player_category ? <span className="rounded-md border px-2 py-1">{t(athlete.player_category)}</span> : null}
                                 </div>
@@ -113,11 +117,17 @@ export default function ExternalCoachAthleteShow({ athlete, assignments, attenda
                                 <article key={attendance.id} className="grid gap-2 px-4 py-4 sm:px-5">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div className="font-medium">{formatDate(attendance.attendance_date)}</div>
-                                        <Badge variant="outline">{attendanceStatusLabel(attendance.attendance_status, t)}</Badge>
+                                        <Badge variant="outline" className={attendanceStatusBadgeClass(attendance.attendance_status)}>
+                                            {attendanceStatusLabel(attendance.attendance_status, t)}
+                                        </Badge>
                                     </div>
                                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                        <span className="rounded-md border px-2 py-1">{reviewStatusLabel(attendance.review_status, t)}</span>
-                                        <span className="rounded-md border px-2 py-1">{geoStatusLabel(attendance.geo_status, t)}</span>
+                                        <Badge variant="outline" className={reviewStatusBadgeClass(attendance.review_status)}>
+                                            {reviewStatusLabel(attendance.review_status, t)}
+                                        </Badge>
+                                        <Badge variant="outline" className={geoStatusBadgeClass(attendance.geo_status)}>
+                                            {geoStatusLabel(attendance.geo_status, t)}
+                                        </Badge>
                                     </div>
                                     {attendance.coach_remarks ? <p className="text-sm text-muted-foreground">{attendance.coach_remarks}</p> : null}
                                 </article>
@@ -136,16 +146,22 @@ export default function ExternalCoachAthleteShow({ athlete, assignments, attenda
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div className="font-medium">{formatDate(update.update_date)}</div>
                                         {update.performance_score ? (
-                                            <span className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium">
+                                            <Badge variant="outline" className={performanceScoreBadgeClass(update.performance_score)}>
                                                 <Star className="size-3.5" />
                                                 {update.performance_score}/10
-                                            </span>
+                                            </Badge>
                                         ) : null}
                                     </div>
                                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                                         <span className="rounded-md border px-2 py-1">{update.sport.name}</span>
-                                        {update.performance_level ? <span className="rounded-md border px-2 py-1">{t(update.performance_level)}</span> : null}
-                                        <span className="rounded-md border px-2 py-1">{reviewStatusLabel(update.review_status, t)}</span>
+                                        {update.performance_level ? (
+                                            <Badge variant="outline" className={performanceLevelBadgeClass(update.performance_level)}>
+                                                {t(update.performance_level)}
+                                            </Badge>
+                                        ) : null}
+                                        <Badge variant="outline" className={reviewStatusBadgeClass(update.review_status)}>
+                                            {reviewStatusLabel(update.review_status, t)}
+                                        </Badge>
                                     </div>
                                     <p className="text-sm text-muted-foreground">{update.training_summary}</p>
                                     {update.improvement_notes ? <p className="text-sm text-muted-foreground">{update.improvement_notes}</p> : null}
@@ -255,6 +271,40 @@ function attendanceStatusLabel(status: string, t: (key: string) => string): stri
     return labels[status] ?? t(status);
 }
 
+function athleteStatusBadgeClass(status: string): string {
+    switch (status) {
+        case 'active':
+        case 'approved':
+            return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+        case 'inactive':
+        case 'suspended':
+        case 'blocked':
+            return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+        case 'pending_invite':
+        case 'pending':
+            return 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200';
+        default:
+            return 'border-muted bg-muted text-muted-foreground';
+    }
+}
+
+function attendanceStatusBadgeClass(status: string): string {
+    switch (status) {
+        case 'present':
+            return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+        case 'late':
+            return 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200';
+        case 'absent':
+            return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+        case 'excused':
+            return 'border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-200';
+        case 'not_marked':
+            return 'border-slate-300 bg-slate-50 text-slate-900 dark:border-slate-700/70 dark:bg-slate-900/20 dark:text-slate-200';
+        default:
+            return 'border-muted bg-muted text-muted-foreground';
+    }
+}
+
 function reviewStatusLabel(status: string, t: (key: string) => string): string {
     const labels: Record<string, string> = {
         pending: t('Under review'),
@@ -266,6 +316,25 @@ function reviewStatusLabel(status: string, t: (key: string) => string): string {
     };
 
     return labels[status] ?? t(status);
+}
+
+function reviewStatusBadgeClass(reviewStatus: string): string {
+    switch (reviewStatus) {
+        case 'pending':
+            return 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200';
+        case 'accepted':
+            return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+        case 'rejected':
+            return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+        case 'corrected':
+            return 'border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-200';
+        case 'needs_correction':
+            return 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700/70 dark:bg-blue-900/20 dark:text-blue-200';
+        case 'locked':
+            return 'border-slate-300 bg-slate-50 text-slate-900 dark:border-slate-700/70 dark:bg-slate-900/20 dark:text-slate-200';
+        default:
+            return 'border-muted bg-muted text-muted-foreground';
+    }
 }
 
 function geoStatusLabel(status: string, t: (key: string) => string): string {
@@ -280,4 +349,58 @@ function geoStatusLabel(status: string, t: (key: string) => string): string {
     };
 
     return labels[status] ?? t(status);
+}
+
+function geoStatusBadgeClass(status: string): string {
+    switch (status) {
+        case 'valid':
+            return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+        case 'outside_radius':
+        case 'outside_training_time':
+            return 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200';
+        case 'low_accuracy':
+            return 'border-orange-300 bg-orange-50 text-orange-900 dark:border-orange-700/70 dark:bg-orange-900/20 dark:text-orange-200';
+        case 'location_permission_denied':
+        case 'location_missing':
+            return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+        case 'manual_review_required':
+            return 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700/70 dark:bg-blue-900/20 dark:text-blue-200';
+        default:
+            return 'border-muted bg-muted text-muted-foreground';
+    }
+}
+
+function performanceLevelBadgeClass(level: string): string {
+    switch (level) {
+        case 'excellent':
+            return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+        case 'improving':
+            return 'border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-200';
+        case 'stable':
+            return 'border-slate-300 bg-slate-50 text-slate-900 dark:border-slate-700/70 dark:bg-slate-900/20 dark:text-slate-200';
+        case 'needs_attention':
+            return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+        default:
+            return 'border-muted bg-muted text-muted-foreground';
+    }
+}
+
+function performanceScoreBadgeClass(score: number | null): string {
+    if (score === null) {
+        return 'border-muted bg-muted text-muted-foreground';
+    }
+
+    if (score >= 9) {
+        return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+    }
+
+    if (score >= 7) {
+        return 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700/70 dark:bg-blue-900/20 dark:text-blue-200';
+    }
+
+    if (score >= 5) {
+        return 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200';
+    }
+
+    return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
 }

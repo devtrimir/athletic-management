@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
+import ExternalCoachLayout from '@/layouts/external-coach-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -19,7 +20,7 @@ createInertiaApp({
             case name.startsWith('external-coach/auth/'):
                 return AuthLayout;
             case name.startsWith('external-coach/'):
-                return null;
+                return ExternalCoachLayout;
             case name.startsWith('settings/'):
                 return [AppLayout, SettingsLayout];
             default:

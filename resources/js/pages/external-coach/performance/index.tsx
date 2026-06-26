@@ -291,13 +291,18 @@ function SelectedAssignmentPanel({ assignment }: { assignment: Assignment | unde
 
 function UpdateRow({ update }: { update: Update }) {
     const { t } = useTranslation();
+    const reviewBadgeClass = reviewStatusBadgeClass(update.review_status);
+    const levelBadgeClass = update.performance_level ? performanceLevelBadgeClass(update.performance_level) : '';
+    const scoreBadgeClass = performanceScoreBadgeClass(update.performance_score);
 
     return (
         <article className="grid gap-3 px-4 py-4 sm:px-5 md:grid-cols-[minmax(0,1fr)_160px] md:items-center">
             <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                     <h3 className="min-w-0 truncate font-medium">{update.member.full_name}</h3>
-                    <Badge variant="outline">{t(update.review_status)}</Badge>
+                    <Badge variant="outline" className={reviewBadgeClass}>
+                        {t(update.review_status)}
+                    </Badge>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                     <span>{formatDate(update.update_date)}</span>
@@ -306,7 +311,9 @@ function UpdateRow({ update }: { update: Update }) {
                     {update.performance_level ? (
                         <>
                             <span>·</span>
-                            <span>{t(update.performance_level)}</span>
+                            <Badge variant="outline" className={levelBadgeClass}>
+                                {t(update.performance_level)}
+                            </Badge>
                         </>
                     ) : null}
                 </div>
@@ -314,16 +321,68 @@ function UpdateRow({ update }: { update: Update }) {
 
             <div className="flex items-center gap-2 md:justify-end">
                 {update.performance_score ? (
-                    <div className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-medium">
+                    <Badge variant="outline" className={scoreBadgeClass}>
                         <Star className="size-3.5" />
                         {update.performance_score}/10
-                    </div>
+                    </Badge>
                 ) : (
                     <span className="text-sm text-muted-foreground">{t('No score')}</span>
                 )}
             </div>
         </article>
     );
+}
+
+function reviewStatusBadgeClass(reviewStatus: string): string {
+    switch (reviewStatus) {
+        case 'pending':
+            return 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200';
+        case 'accepted':
+            return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+        case 'rejected':
+            return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+        case 'needs_correction':
+            return 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700/70 dark:bg-blue-900/20 dark:text-blue-200';
+        case 'locked':
+            return 'border-slate-300 bg-slate-50 text-slate-900 dark:border-slate-700/70 dark:bg-slate-900/20 dark:text-slate-200';
+        default:
+            return 'border-muted bg-muted text-muted-foreground';
+    }
+}
+
+function performanceLevelBadgeClass(level: string): string {
+    switch (level) {
+        case 'excellent':
+            return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+        case 'improving':
+            return 'border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-200';
+        case 'needs_attention':
+            return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+        case 'stable':
+            return 'border-slate-300 bg-slate-50 text-slate-900 dark:border-slate-700/70 dark:bg-slate-900/20 dark:text-slate-200';
+        default:
+            return 'border-muted bg-muted text-muted-foreground';
+    }
+}
+
+function performanceScoreBadgeClass(score: number | null): string {
+    if (score === null) {
+        return 'border-muted bg-muted text-muted-foreground';
+    }
+
+    if (score >= 9) {
+        return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+    }
+
+    if (score >= 7) {
+        return 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700/70 dark:bg-blue-900/20 dark:text-blue-200';
+    }
+
+    if (score >= 5) {
+        return 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200';
+    }
+
+    return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
 }
 
 function formatDate(value: string): string {

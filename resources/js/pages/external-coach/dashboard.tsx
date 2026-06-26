@@ -187,7 +187,9 @@ function AssignedAthlete({ assignment }: { assignment: Assignment }) {
         <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
                 <h3 className="min-w-0 truncate font-medium">{assignment.member.full_name}</h3>
-                <Badge variant="outline">{assignment.member.current_status ?? t('Unknown status')}</Badge>
+                <Badge variant="outline" className={memberStatusBadgeClass(assignment.member.current_status ?? 'unknown')}>
+                    {assignment.member.current_status ?? t('Unknown status')}
+                </Badge>
             </div>
             <div className="mt-1 text-sm text-muted-foreground">{identity}</div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -211,6 +213,23 @@ function AssignmentSchedule({ assignment }: { assignment: Assignment }) {
             </div>
         </div>
     );
+}
+
+function memberStatusBadgeClass(status: string): string {
+    switch (status) {
+        case 'active':
+        case 'approved':
+            return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+        case 'inactive':
+        case 'suspended':
+        case 'blocked':
+            return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+        case 'pending':
+        case 'pending_invite':
+            return 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200';
+        default:
+            return 'border-muted bg-muted text-muted-foreground';
+    }
 }
 
 function formatDate(value: string): string {
