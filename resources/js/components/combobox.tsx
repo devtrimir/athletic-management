@@ -36,6 +36,29 @@ type Props = {
     disabled?: boolean;
 };
 
+function searchableText(value: string): string {
+    return value
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function matchesSearch(value: string, search: string, keywords?: string[]): number {
+    const haystack = searchableText([value, ...(keywords ?? [])].join(' '));
+    const needle = searchableText(search);
+
+    if (!needle) {
+        return 1;
+    }
+
+    const tokens = needle.split(' ').filter(Boolean);
+
+    return tokens.every((token) => haystack.includes(token)) ? 1 : 0;
+}
+
 export function Combobox({
     value,
     onValueChange,
@@ -98,7 +121,7 @@ export function Combobox({
                 className={cn('w-[--radix-popover-trigger-width] p-0', popoverClassName)}
                 align="start"
             >
-                <Command>
+                <Command filter={matchesSearch}>
                     <CommandInput placeholder={searchPlaceholder ?? t('Search…')} />
                     <CommandList className="max-h-96">
                         <CommandEmpty>{emptyMessage ?? t('No results.')}</CommandEmpty>
@@ -108,7 +131,8 @@ export function Combobox({
                                     <CommandItem
                                         key={item.value}
                                         className="items-start gap-3 border-b py-2.5 last:border-b-0"
-                                        value={[item.group, item.label, item.badge, item.description].filter(Boolean).join(' ')}
+                                        value={item.value}
+                                        keywords={[item.group, item.label, item.badge, item.description].filter(Boolean) as string[]}
                                         onSelect={() => {
                                             onValueChange(item.value === value ? '' : item.value);
                                             setOpen(false);

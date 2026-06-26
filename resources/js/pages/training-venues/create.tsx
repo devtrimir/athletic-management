@@ -1,16 +1,25 @@
 import { Head } from '@inertiajs/react';
 
+import { store } from '@/actions/App/Http/Controllers/TrainingVenueController';
 import { useTranslation } from '@/hooks/use-translation';
+import { TrainingVenueForm } from './form';
 
-export default function TrainingVenuesCreate() {
+export default function TrainingVenuesCreate({
+    statuses,
+}: {
+    statuses: string[];
+}) {
     const { t } = useTranslation();
 
     return (
         <>
             <Head title={t('Create training venue')} />
-            <div className="p-4 md:p-6">
-                <h1 className="text-xl font-semibold tracking-tight">{t('Create training venue')}</h1>
-            </div>
+            <TrainingVenueForm
+                title={t('Create training venue')}
+                description={t('Register a venue that external coaches can use for verified training.')}
+                action={store()}
+                statuses={statuses}
+            />
         </>
     );
 }

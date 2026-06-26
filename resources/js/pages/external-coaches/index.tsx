@@ -24,6 +24,7 @@ type ExternalCoach = {
 type Props = {
     externalCoaches: {
         data: ExternalCoach[];
+        from: number | null;
     };
 };
 
@@ -53,6 +54,7 @@ export default function ExternalCoachesIndex({ externalCoaches }: Props) {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-20">{t('S.No.')}</TableHead>
                                 <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Email')}</TableHead>
                                 <TableHead>{t('Phone')}</TableHead>
@@ -62,8 +64,9 @@ export default function ExternalCoachesIndex({ externalCoaches }: Props) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {externalCoaches.data.map((coach) => (
+                            {externalCoaches.data.map((coach, index) => (
                                 <TableRow key={coach.id}>
+                                    <TableCell>{(externalCoaches.from ?? 1) + index}</TableCell>
                                     <TableCell className="font-medium">{coach.name}</TableCell>
                                     <TableCell>{coach.email}</TableCell>
                                     <TableCell>{coach.phone ?? '-'}</TableCell>

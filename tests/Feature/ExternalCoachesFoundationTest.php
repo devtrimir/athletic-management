@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
 
@@ -73,6 +74,14 @@ test('external coach model reports login eligibility from status', function () {
     expect(ExternalCoach::factory()->make(['status' => 'inactive'])->isActiveForLogin())->toBeFalse();
     expect(ExternalCoach::factory()->make(['status' => 'suspended'])->isActiveForLogin())->toBeFalse();
     expect(ExternalCoach::factory()->make(['status' => 'blacklisted'])->isActiveForLogin())->toBeFalse();
+});
+
+test('external coach login page is separate from admin login', function () {
+    $this->get(route('external-coach.login'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('external-coach/auth/login')
+            ->etc());
 });
 
 test('external coach admin routes require permission', function () {

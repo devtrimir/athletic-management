@@ -1,18 +1,44 @@
 import { Head } from '@inertiajs/react';
 
+import { update } from '@/actions/App/Http/Controllers/ExternalCoachingAssignmentController';
 import { useTranslation } from '@/hooks/use-translation';
+import { AssignmentForm } from './form';
+import type { Assignment } from './form';
 
-export default function ExternalCoachingAssignmentsEdit() {
+type Option = { id: number; name: string };
+type CoachOption = { id: number; name: string; email: string | null; phone: string | null };
+
+export default function ExternalCoachingAssignmentsEdit({
+    assignment,
+    externalCoaches,
+    trainingVenues,
+    sports,
+    statuses,
+    attendanceModes,
+}: {
+    assignment: Assignment;
+    externalCoaches: CoachOption[];
+    trainingVenues: Option[];
+    sports: Option[];
+    statuses: string[];
+    attendanceModes: string[];
+}) {
     const { t } = useTranslation();
 
     return (
         <>
             <Head title={t('Edit external coaching assignment')} />
-            <div className="p-4 md:p-6">
-                <h1 className="text-xl font-semibold tracking-tight">
-                    {t('Edit external coaching assignment')}
-                </h1>
-            </div>
+            <AssignmentForm
+                title={t('Edit external coaching assignment')}
+                description={t('Update the coach, venue, approval status, and training schedule.')}
+                action={update(assignment)}
+                assignment={assignment}
+                externalCoaches={externalCoaches}
+                trainingVenues={trainingVenues}
+                sports={sports}
+                statuses={statuses}
+                attendanceModes={attendanceModes}
+            />
         </>
     );
 }

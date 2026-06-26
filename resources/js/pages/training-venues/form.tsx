@@ -1,61 +1,40 @@
-import { Form, Head, Link } from '@inertiajs/react';
-import { ArrowLeft, IdCard } from 'lucide-react';
+import { Form, Link } from '@inertiajs/react';
+import { ArrowLeft, MapPin } from 'lucide-react';
 
-import type { update } from '@/actions/App/Http/Controllers/ExternalCoachController';
-import { index, store } from '@/actions/App/Http/Controllers/ExternalCoachController';
+import type { store, update } from '@/actions/App/Http/Controllers/TrainingVenueController';
+import { index } from '@/actions/App/Http/Controllers/TrainingVenueController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
-type Props = {
-    statuses: string[];
+export type TrainingVenue = {
+    id: number;
+    name: string;
+    code: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    latitude: string | number | null;
+    longitude: string | number | null;
+    allowed_radius_meters: number;
+    status: string;
+    remarks: string | null;
 };
 
-export default function ExternalCoachesCreate({ statuses }: Props) {
-    const { t } = useTranslation();
-
-    return (
-        <>
-            <Head title={t('Create external coach')} />
-            <ExternalCoachForm
-                title={t('Create external coach')}
-                description={t('Create a separate login profile for an approved external training coach.')}
-                action={store()}
-                statuses={statuses}
-            />
-        </>
-    );
-}
-
-type FormProps = {
+type Props = {
     title: string;
     description: string;
     action: ReturnType<typeof store> | ReturnType<typeof update>;
     statuses: string[];
-    coach?: {
-        id?: number;
-        name: string;
-        email: string;
-        phone: string | null;
-        status: string;
-        experience_years: number | null;
-        city: string | null;
-        remarks: string | null;
-    };
+    venue?: TrainingVenue;
 };
 
-function ExternalCoachForm({ title, description, action, statuses, coach }: FormProps) {
+export function TrainingVenueForm({ title, description, action, statuses, venue }: Props) {
     const { t } = useTranslation();
 
     return (
@@ -76,11 +55,11 @@ function ExternalCoachForm({ title, description, action, statuses, coach }: Form
                         <div className="overflow-hidden rounded-xl border bg-card">
                             <div className="flex items-center gap-3 border-b px-6 py-4">
                                 <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                    <IdCard className="size-4" />
+                                    <MapPin className="size-4" />
                                 </div>
                                 <div>
-                                    <h2 className="text-sm font-semibold">{t('Coach profile')}</h2>
-                                    <p className="text-xs text-muted-foreground">{t('Identity, login, experience, and status')}</p>
+                                    <h2 className="text-sm font-semibold">{t('Venue details')}</h2>
+                                    <p className="text-xs text-muted-foreground">{t('Location, radius, and operational status')}</p>
                                 </div>
                             </div>
 
@@ -90,44 +69,61 @@ function ExternalCoachForm({ title, description, action, statuses, coach }: Form
                                         <Label htmlFor="name">
                                             {t('Name')} <span className="text-destructive">*</span>
                                         </Label>
-                                        <Input id="name" name="name" defaultValue={coach?.name} required />
+                                        <Input id="name" name="name" defaultValue={venue?.name} required />
                                         <InputError message={errors.name} />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="email">
-                                            {t('Email')} <span className="text-destructive">*</span>
+                                        <Label htmlFor="code">{t('Code')}</Label>
+                                        <Input id="code" name="code" defaultValue={venue?.code ?? ''} />
+                                        <InputError message={errors.code} />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="address">{t('Address')}</Label>
+                                    <Textarea id="address" name="address" rows={3} defaultValue={venue?.address ?? ''} />
+                                    <InputError message={errors.address} />
+                                </div>
+
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="city">{t('City')}</Label>
+                                        <Input id="city" name="city" defaultValue={venue?.city ?? ''} />
+                                        <InputError message={errors.city} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="state">{t('State')}</Label>
+                                        <Input id="state" name="state" defaultValue={venue?.state ?? ''} />
+                                        <InputError message={errors.state} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="latitude">{t('Latitude')}</Label>
+                                        <Input id="latitude" name="latitude" type="number" step="0.000001" defaultValue={venue?.latitude ?? ''} />
+                                        <InputError message={errors.latitude} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="longitude">{t('Longitude')}</Label>
+                                        <Input id="longitude" name="longitude" type="number" step="0.000001" defaultValue={venue?.longitude ?? ''} />
+                                        <InputError message={errors.longitude} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="allowed_radius_meters">
+                                            {t('Allowed radius (meters)')} <span className="text-destructive">*</span>
                                         </Label>
-                                        <Input id="email" name="email" type="email" defaultValue={coach?.email} required />
-                                        <InputError message={errors.email} />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="phone">{t('Phone')}</Label>
-                                        <Input id="phone" name="phone" defaultValue={coach?.phone ?? ''} />
-                                        <InputError message={errors.phone} />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="password">
-                                            {t('Password')} {!coach && <span className="text-destructive">*</span>}
-                                        </Label>
-                                        <Input id="password" name="password" type="password" required={!coach} />
-                                        {coach ? <p className="text-xs text-muted-foreground">{t('Leave blank to keep the current password.')}</p> : null}
-                                        <InputError message={errors.password} />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="experience_years">{t('Experience years')}</Label>
                                         <Input
-                                            id="experience_years"
-                                            name="experience_years"
+                                            id="allowed_radius_meters"
+                                            name="allowed_radius_meters"
                                             type="number"
-                                            min="0"
-                                            max="80"
-                                            defaultValue={coach?.experience_years ?? ''}
+                                            min="1"
+                                            max="10000"
+                                            defaultValue={venue?.allowed_radius_meters ?? 100}
+                                            required
                                         />
-                                        <InputError message={errors.experience_years} />
+                                        <InputError message={errors.allowed_radius_meters} />
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="status">{t('Status')}</Label>
-                                        <Select name="status" defaultValue={coach?.status ?? 'active'} required>
+                                        <Select name="status" defaultValue={venue?.status ?? 'active'} required>
                                             <SelectTrigger id="status">
                                                 <SelectValue />
                                             </SelectTrigger>
@@ -144,21 +140,9 @@ function ExternalCoachForm({ title, description, action, statuses, coach }: Form
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="city">{t('City')}</Label>
-                                    <Input id="city" name="city" defaultValue={coach?.city ?? ''} />
-                                    <InputError message={errors.city} />
-                                </div>
-
-                                <div className="grid gap-2">
                                     <Label htmlFor="remarks">{t('Remarks')}</Label>
-                                    <Textarea id="remarks" name="remarks" rows={4} defaultValue={coach?.remarks ?? ''} />
+                                    <Textarea id="remarks" name="remarks" rows={3} defaultValue={venue?.remarks ?? ''} />
                                     <InputError message={errors.remarks} />
-                                </div>
-
-                                <div className="grid gap-2">
-                                    <Label htmlFor="status_reason">{t('Status reason')}</Label>
-                                    <Textarea id="status_reason" name="status_reason" rows={3} />
-                                    <InputError message={errors.status_reason} />
                                 </div>
                             </div>
                         </div>
@@ -177,5 +161,3 @@ function ExternalCoachForm({ title, description, action, statuses, coach }: Form
         </div>
     );
 }
-
-export { ExternalCoachForm };

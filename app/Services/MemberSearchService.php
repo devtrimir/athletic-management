@@ -88,6 +88,8 @@ class MemberSearchService
             WHERE m.organization_id = ?
               AND m.deleted_at IS NULL
               AND (
+                m.pno LIKE ?
+                OR
                 MATCH(m.full_name_normalized) AGAINST (? IN BOOLEAN MODE)
                 OR m.id IN (
                     SELECT a.member_id FROM name_aliases a
@@ -96,7 +98,7 @@ class MemberSearchService
               ){$filterSql}
             ORDER BY MATCH(m.full_name_normalized) AGAINST (? IN BOOLEAN MODE) DESC
             LIMIT 50
-        SQL, array_merge([$orgId, $boolQ, $boolQ], $filterParams, [$boolQ]));
+        SQL, array_merge([$orgId, '%'.$q.'%', $boolQ, $boolQ], $filterParams, [$boolQ]));
 
         return collect($rows);
     }
@@ -149,7 +151,8 @@ class MemberSearchService
 
         return (clone $base)
             ->where(function ($query) use ($q): void {
-                $query->where('full_name', 'LIKE', '%'.$q.'%')
+                $query->where('pno', 'LIKE', '%'.$q.'%')
+                    ->orWhere('full_name', 'LIKE', '%'.$q.'%')
                     ->orWhereHas('aliases', fn ($a) => $a->where('alias', 'LIKE', '%'.$q.'%'));
             })
             ->limit(50)

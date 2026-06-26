@@ -16,6 +16,14 @@ class StoreExternalCoachingAssignmentRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'start_date' => $this->normalizeDateInput($this->input('start_date')),
+            'end_date' => $this->normalizeDateInput($this->input('end_date')),
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -73,5 +81,52 @@ class StoreExternalCoachingAssignmentRequest extends FormRequest
             ->whereDate('start_date', '<=', $this->date('end_date'))
             ->whereDate('end_date', '>=', $this->date('start_date'))
             ->exists();
+    }
+
+    private function normalizeDateInput(mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        $normalized = trim($value);
+
+        if ($normalized === '') {
+            return $normalized;
+        }
+
+        if (\preg_match('/^(\\d{4})-(\\d{1,2})-(\\d{1,2})(?:[T\\s].+)?$/', $normalized, $matches)) {
+            $normalizedDate = $this->buildNormalizedDate($matches[1], $matches[2], $matches[3]);
+
+            if ($normalizedDate !== null) {
+                return $normalizedDate;
+            }
+        }
+
+        if (\preg_match('/^(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})$/', $normalized, $matches)) {
+            $normalizedDate = $this->buildNormalizedDate($matches[3], $matches[2], $matches[1]);
+
+            if ($normalizedDate !== null) {
+                return $normalizedDate;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function buildNormalizedDate(
+        string $year,
+        string $month,
+        string $day,
+    ): ?string {
+        $yearValue = (int) $year;
+        $monthValue = (int) $month;
+        $dayValue = (int) $day;
+
+        if (! \checkdate($monthValue, $dayValue, $yearValue)) {
+            return null;
+        }
+
+        return \sprintf('%04d-%02d-%02d', $yearValue, $monthValue, $dayValue);
     }
 }

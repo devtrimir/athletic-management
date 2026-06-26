@@ -26,6 +26,7 @@ class MemberSearchResource extends JsonResource
             'player_category' => $this->player_category,
             'player_level' => $this->player_level,
             'current_status' => $this->current_status,
+            'active_team' => data_get($this->resource, 'active_team'),
         ];
     }
 }

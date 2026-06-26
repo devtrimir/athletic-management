@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 
+import { update } from '@/actions/App/Http/Controllers/ExternalCoachController';
 import { useTranslation } from '@/hooks/use-translation';
 import { ExternalCoachForm } from './create';
 
@@ -27,8 +28,8 @@ export default function ExternalCoachesEdit({ externalCoach, statuses }: Props) 
             <Head title={t('Edit external coach')} />
             <ExternalCoachForm
                 title={t('Edit external coach')}
-                action={`/external-coaches/${externalCoach.id}`}
-                methodOverride="patch"
+                description={t('Update login, contact, experience, and availability details.')}
+                action={update(externalCoach)}
                 statuses={statuses}
                 coach={externalCoach}
             />

@@ -31,6 +31,7 @@ type Attendance = {
 type Props = {
     attendances: {
         data: Attendance[];
+        from: number | null;
     };
 };
 
@@ -55,6 +56,7 @@ export default function ExternalTrainingAttendanceIndex({ attendances }: Props) 
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-20">{t('S.No.')}</TableHead>
                                 <TableHead>{t('Date')}</TableHead>
                                 <TableHead>{t('Member')}</TableHead>
                                 <TableHead>{t('External coach')}</TableHead>
@@ -67,8 +69,9 @@ export default function ExternalTrainingAttendanceIndex({ attendances }: Props) 
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {attendances.data.map((attendance) => (
+                            {attendances.data.map((attendance, index) => (
                                 <TableRow key={attendance.id}>
+                                    <TableCell>{(attendances.from ?? 1) + index}</TableCell>
                                     <TableCell>{attendance.attendance_date}</TableCell>
                                     <TableCell>
                                         <div className="font-medium">{attendance.member.full_name}</div>

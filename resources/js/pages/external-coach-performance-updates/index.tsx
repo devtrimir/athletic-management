@@ -24,7 +24,7 @@ type Update = {
 };
 
 type Props = {
-    updates: { data: Update[] };
+    updates: { data: Update[]; from: number | null };
 };
 
 export default function ExternalCoachPerformanceUpdatesIndex({ updates }: Props) {
@@ -48,6 +48,7 @@ export default function ExternalCoachPerformanceUpdatesIndex({ updates }: Props)
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-20">{t('S.No.')}</TableHead>
                                 <TableHead>{t('Date')}</TableHead>
                                 <TableHead>{t('Member')}</TableHead>
                                 <TableHead>{t('External coach')}</TableHead>
@@ -58,8 +59,9 @@ export default function ExternalCoachPerformanceUpdatesIndex({ updates }: Props)
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {updates.data.map((update) => (
+                            {updates.data.map((update, index) => (
                                 <TableRow key={update.id}>
+                                    <TableCell>{(updates.from ?? 1) + index}</TableCell>
                                     <TableCell>{update.update_date}</TableCell>
                                     <TableCell>
                                         <div className="font-medium">{update.member.full_name}</div>

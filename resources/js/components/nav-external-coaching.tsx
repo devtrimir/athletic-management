@@ -13,7 +13,6 @@ import ExternalCoachingAssignmentController from '@/actions/App/Http/Controllers
 import ExternalCoachPerformanceUpdateController from '@/actions/App/Http/Controllers/ExternalCoachPerformanceUpdateController';
 import ExternalTrainingAttendanceController from '@/actions/App/Http/Controllers/ExternalTrainingAttendanceController';
 import TrainingVenueController from '@/actions/App/Http/Controllers/TrainingVenueController';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
     SidebarGroup,
     SidebarGroupLabel,
@@ -26,7 +25,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 export function NavExternalCoaching() {
     const { t } = useTranslation();
-    const { isCurrentUrl, isCurrentOrParentUrl } = useCurrentUrl();
+    const { isCurrentUrl } = useCurrentUrl();
 
     const items = [
         {
@@ -61,36 +60,28 @@ export function NavExternalCoaching() {
         },
     ];
 
-    const isOpen = items.some((item) => isCurrentOrParentUrl(item.href));
-
     return (
         <SidebarGroup className="px-2 py-0">
-            <Collapsible defaultOpen={isOpen}>
-                <SidebarGroupLabel asChild>
-                    <CollapsibleTrigger className="group/external-coaching flex w-full items-center gap-2">
-                        <ShieldCheck className="size-4 shrink-0" />
-                        <span>{t('External coaching')}</span>
-                    </CollapsibleTrigger>
-                </SidebarGroupLabel>
-                <CollapsibleContent>
-                    <SidebarMenu>
-                        {items.map((item) => (
-                            <SidebarMenuItem key={item.key}>
-                                <SidebarMenuButton
-                                    asChild
-                                    isActive={isCurrentUrl(item.href)}
-                                    tooltip={{ children: item.title }}
-                                >
-                                    <Link href={item.href} prefetch>
-                                        <item.icon />
-                                        <span>{item.title}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        ))}
-                    </SidebarMenu>
-                </CollapsibleContent>
-            </Collapsible>
+            <SidebarGroupLabel className="flex w-full items-center gap-2">
+                <ShieldCheck className="size-4 shrink-0" />
+                <span>{t('External coaching')}</span>
+            </SidebarGroupLabel>
+            <SidebarMenu>
+                {items.map((item) => (
+                    <SidebarMenuItem key={item.key}>
+                        <SidebarMenuButton
+                            asChild
+                            isActive={isCurrentUrl(item.href)}
+                            tooltip={{ children: item.title }}
+                        >
+                            <Link href={item.href} prefetch>
+                                <item.icon />
+                                <span>{item.title}</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                ))}
+            </SidebarMenu>
         </SidebarGroup>
     );
 }

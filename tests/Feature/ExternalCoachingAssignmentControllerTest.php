@@ -43,6 +43,33 @@ function externalAssignmentFixture(int $organizationId): array
     ];
 }
 
+function createExternalAssignmentForFilterScenario(int $organizationId, array $memberOverrides = [], array $coachOverrides = [], array $assignmentOverrides = []): ExternalCoachingAssignment
+{
+    $member = Member::factory()->create([
+        'organization_id' => $organizationId,
+        'current_status' => 'ACTIVE',
+        ...$memberOverrides,
+    ]);
+
+    $coach = ExternalCoach::factory()->create([
+        'organization_id' => $organizationId,
+        'status' => 'active',
+        ...$coachOverrides,
+    ]);
+
+    $trainingVenue = TrainingVenue::factory()->create(['organization_id' => $organizationId, 'status' => 'active']);
+    $sport = Sport::factory()->create(['organization_id' => $organizationId, 'is_active' => true]);
+
+    return ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $organizationId,
+        'member_id' => $member->id,
+        'external_coach_id' => $coach->id,
+        'training_venue_id' => $trainingVenue->id,
+        'sport_id' => $sport->id,
+        ...$assignmentOverrides,
+    ]);
+}
+
 test('external coaching assignments table exists with required columns', function (): void {
     expect(Schema::hasTable('external_coaching_assignments'))->toBeTrue();
 
@@ -114,6 +141,7 @@ test('admin can create update view and delete assignment with private permission
         ->assertInertia(fn ($page) => $page
             ->component('external-coaching-assignments/show')
             ->where('assignment.permission_document.name', 'permission.pdf')
+            ->where('assignment.permission_document.original_name', 'permission.pdf')
             ->where('assignment.permission_document.preview_url', route('external-coaching-assignments.permission-document.preview', $assignment))
             ->where('assignment.permission_document.download_url', route('external-coaching-assignments.permission-document', $assignment)));
 
@@ -179,6 +207,138 @@ test('overlapping active assignments for same member and sport are rejected', fu
         ->assertSessionHasErrors(['start_date']);
 });
 
+test('assignment update accepts post method spoofed put payload from file capable forms', function (): void {
+    $user = rcUser('external-coaching-assignments.view', 'external-coaching-assignments.update');
+    $fixture = externalAssignmentFixture((int) $user->organization_id);
+    $assignment = ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $fixture['member']->id,
+        'external_coach_id' => $fixture['externalCoach']->id,
+        'training_venue_id' => $fixture['trainingVenue']->id,
+        'sport_id' => $fixture['sport']->id,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-09-30',
+        'status' => 'draft',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('external-coaching-assignments.update', $assignment), [
+            '_method' => 'put',
+            ...externalAssignmentPayload([
+                'member_id' => $fixture['member']->id,
+                'external_coach_id' => $fixture['externalCoach']->id,
+                'training_venue_id' => $fixture['trainingVenue']->id,
+                'sport_id' => $fixture['sport']->id,
+                'start_date' => '2026-08-01',
+                'end_date' => '2026-11-30',
+                'status' => 'approved',
+            ]),
+        ])
+        ->assertRedirect(route('external-coaching-assignments.show', $assignment))
+        ->assertSessionHasNoErrors();
+
+    expect($assignment->refresh())
+        ->start_date->toDateString()->toBe('2026-08-01')
+        ->end_date->toDateString()->toBe('2026-11-30')
+        ->status->toBe('approved');
+});
+
+test('assignment requests normalize picker display dates before strict validation', function (): void {
+    $user = rcUser(
+        'external-coaching-assignments.view',
+        'external-coaching-assignments.create',
+        'external-coaching-assignments.update',
+    );
+    $fixture = externalAssignmentFixture((int) $user->organization_id);
+
+    $this->actingAs($user)
+        ->post(route('external-coaching-assignments.store'), externalAssignmentPayload([
+            'member_id' => $fixture['member']->id,
+            'external_coach_id' => $fixture['externalCoach']->id,
+            'training_venue_id' => $fixture['trainingVenue']->id,
+            'sport_id' => $fixture['sport']->id,
+            'start_date' => '02/06/2026',
+            'end_date' => '30/06/2026',
+            'status' => 'draft',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assignment = ExternalCoachingAssignment::query()->latest('id')->firstOrFail();
+
+    expect($assignment)
+        ->start_date->toDateString()->toBe('2026-06-02')
+        ->end_date->toDateString()->toBe('2026-06-30');
+
+    $this->actingAs($user)
+        ->post(route('external-coaching-assignments.update', $assignment), [
+            '_method' => 'put',
+            ...externalAssignmentPayload([
+                'member_id' => $fixture['member']->id,
+                'external_coach_id' => $fixture['externalCoach']->id,
+                'training_venue_id' => $fixture['trainingVenue']->id,
+                'sport_id' => $fixture['sport']->id,
+                'start_date' => '05/07/2026',
+                'end_date' => '31/07/2026',
+                'status' => 'draft',
+            ]),
+        ])
+        ->assertRedirect(route('external-coaching-assignments.show', $assignment))
+        ->assertSessionHasNoErrors();
+
+    expect($assignment->refresh())
+        ->start_date->toDateString()->toBe('2026-07-05')
+        ->end_date->toDateString()->toBe('2026-07-31');
+});
+
+test('assignment requests normalize single-digit date display values', function (): void {
+    $user = rcUser(
+        'external-coaching-assignments.view',
+        'external-coaching-assignments.create',
+        'external-coaching-assignments.update',
+    );
+    $fixture = externalAssignmentFixture((int) $user->organization_id);
+
+    $this->actingAs($user)
+        ->post(route('external-coaching-assignments.store'), externalAssignmentPayload([
+            'member_id' => $fixture['member']->id,
+            'external_coach_id' => $fixture['externalCoach']->id,
+            'training_venue_id' => $fixture['trainingVenue']->id,
+            'sport_id' => $fixture['sport']->id,
+            'start_date' => '2/6/2026',
+            'end_date' => '3/7/2026',
+            'status' => 'draft',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assignment = ExternalCoachingAssignment::query()->latest('id')->firstOrFail();
+
+    expect($assignment)
+        ->start_date->toDateString()->toBe('2026-06-02')
+        ->end_date->toDateString()->toBe('2026-07-03');
+});
+
+test('assignment requests reject unsupported date formats', function (): void {
+    $user = rcUser(
+        'external-coaching-assignments.view',
+        'external-coaching-assignments.create',
+    );
+    $fixture = externalAssignmentFixture((int) $user->organization_id);
+
+    $this->actingAs($user)
+        ->post(route('external-coaching-assignments.store'), externalAssignmentPayload([
+            'member_id' => $fixture['member']->id,
+            'external_coach_id' => $fixture['externalCoach']->id,
+            'training_venue_id' => $fixture['trainingVenue']->id,
+            'sport_id' => $fixture['sport']->id,
+            'start_date' => '2026/06/02',
+            'end_date' => '2026-07-03',
+            'status' => 'draft',
+        ]))
+        ->assertSessionHasErrors(['start_date']);
+});
+
 test('assignment rejects inactive coach inactive venue and inactive member', function (): void {
     $user = rcUser('external-coaching-assignments.view', 'external-coaching-assignments.create');
     $fixture = externalAssignmentFixture((int) $user->organization_id);
@@ -211,4 +371,64 @@ test('assignment route binding does not expose another organization records', fu
     $this->actingAs($user)
         ->get(route('external-coaching-assignments.show', $assignment))
         ->assertNotFound();
+});
+
+test('external coaching assignments index filters by status, member, coach, and start date range', function (): void {
+    $user = rcUser('external-coaching-assignments.view');
+
+    $assignmentA = createExternalAssignmentForFilterScenario((int) $user->organization_id, [
+        'full_name' => 'Asha Runner',
+        'pno' => 'PNO-1001',
+    ], [
+        'name' => 'Coach Alpha',
+        'phone' => '+91-111-222-333',
+    ], [
+        'status' => 'active',
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    $assignmentB = createExternalAssignmentForFilterScenario((int) $user->organization_id, [
+        'full_name' => 'Bharat Guard',
+        'pno' => 'PNO-2002',
+    ], [
+        'name' => 'Coach Beta',
+        'phone' => '+91-444-555-666',
+    ], [
+        'status' => 'paused',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-09-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('external-coaching-assignments.index', ['filter' => ['status' => 'active']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('assignments.total', 1));
+
+    $this->actingAs($user)
+        ->get(route('external-coaching-assignments.index', ['filter' => ['member_query' => 'sha']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('assignments.total', 1)
+            ->where('assignments.data.0.id', $assignmentA->id)
+            ->where('filters.member_query', 'sha'));
+
+    $this->actingAs($user)
+        ->get(route('external-coaching-assignments.index', ['filter' => ['member_query' => '100']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('assignments.total', 1)
+            ->where('assignments.data.0.id', $assignmentA->id));
+
+    $this->actingAs($user)
+        ->get(route('external-coaching-assignments.index', ['filter' => ['coach_query' => '111-222']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('assignments.total', 1)
+            ->where('assignments.data.0.id', $assignmentA->id));
+
+    $this->actingAs($user)
+        ->get(route('external-coaching-assignments.index', ['filter' => [
+            'start_date_from' => '2026-06-15',
+            'start_date_to' => '2026-08-10',
+        ]]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('assignments.total', 2));
 });

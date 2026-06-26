@@ -6,9 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TrainingVenues\StoreTrainingVenueRequest;
 use App\Http\Requests\TrainingVenues\UpdateTrainingVenueRequest;
-use App\Models\District;
 use App\Models\TrainingVenue;
-use App\Models\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -50,7 +48,7 @@ class TrainingVenueController extends Controller
     {
         Gate::authorize('create', TrainingVenue::class);
 
-        return Inertia::render('training-venues/create', $this->formOptions((int) $request->user()->organization_id));
+        return Inertia::render('training-venues/create', $this->formOptions());
     }
 
     public function store(StoreTrainingVenueRequest $request): RedirectResponse
@@ -84,7 +82,7 @@ class TrainingVenueController extends Controller
 
         return Inertia::render('training-venues/edit', [
             'trainingVenue' => $trainingVenue,
-            ...$this->formOptions((int) $request->user()->organization_id),
+            ...$this->formOptions(),
         ]);
     }
 
@@ -116,11 +114,9 @@ class TrainingVenueController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function formOptions(int $organizationId): array
+    private function formOptions(): array
     {
         return [
-            'districts' => District::query()->orderBy('name')->get(['id', 'name']),
-            'units' => Unit::query()->where('organization_id', $organizationId)->orderBy('name')->get(['id', 'name']),
             'statuses' => ['active', 'inactive', 'under_review'],
         ];
     }
