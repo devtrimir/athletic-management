@@ -46,6 +46,33 @@ return [
         ['code' => 'coaches.manageRewards', 'group' => 'coaches', 'name_hi' => 'कोच पुरस्कार प्रबंधित करें', 'name_en' => 'Manage coach rewards'],
         ['code' => 'coaches.viewAuditLog', 'group' => 'coaches', 'name_hi' => 'कोच ऑडिट लॉग देखें', 'name_en' => 'View coach audit log'],
 
+        // ── External coaches ────────────────────────────────────────────────
+        ['code' => 'external-coaches.view', 'group' => 'external_coaches', 'name_hi' => 'बाहरी कोच देखें', 'name_en' => 'View external coaches'],
+        ['code' => 'external-coaches.create', 'group' => 'external_coaches', 'name_hi' => 'बाहरी कोच जोड़ें', 'name_en' => 'Create external coaches'],
+        ['code' => 'external-coaches.update', 'group' => 'external_coaches', 'name_hi' => 'बाहरी कोच अपडेट करें', 'name_en' => 'Update external coaches'],
+        ['code' => 'external-coaches.delete', 'group' => 'external_coaches', 'name_hi' => 'बाहरी कोच हटाएं', 'name_en' => 'Delete external coaches'],
+        ['code' => 'external-coaches.manageStatus', 'group' => 'external_coaches', 'name_hi' => 'बाहरी कोच स्थिति प्रबंधित करें', 'name_en' => 'Manage external coach status'],
+
+        // ── Training venues ─────────────────────────────────────────────────
+        ['code' => 'training-venues.view', 'group' => 'training_venues', 'name_hi' => 'प्रशिक्षण स्थल देखें', 'name_en' => 'View training venues'],
+        ['code' => 'training-venues.create', 'group' => 'training_venues', 'name_hi' => 'प्रशिक्षण स्थल जोड़ें', 'name_en' => 'Create training venues'],
+        ['code' => 'training-venues.update', 'group' => 'training_venues', 'name_hi' => 'प्रशिक्षण स्थल अपडेट करें', 'name_en' => 'Update training venues'],
+        ['code' => 'training-venues.delete', 'group' => 'training_venues', 'name_hi' => 'प्रशिक्षण स्थल हटाएं', 'name_en' => 'Delete training venues'],
+
+        // ── External coaching assignments ───────────────────────────────────
+        ['code' => 'external-coaching-assignments.view', 'group' => 'external_coaching_assignments', 'name_hi' => 'बाहरी प्रशिक्षण अनुमति देखें', 'name_en' => 'View external coaching assignments'],
+        ['code' => 'external-coaching-assignments.create', 'group' => 'external_coaching_assignments', 'name_hi' => 'बाहरी प्रशिक्षण अनुमति जोड़ें', 'name_en' => 'Create external coaching assignments'],
+        ['code' => 'external-coaching-assignments.update', 'group' => 'external_coaching_assignments', 'name_hi' => 'बाहरी प्रशिक्षण अनुमति अपडेट करें', 'name_en' => 'Update external coaching assignments'],
+        ['code' => 'external-coaching-assignments.delete', 'group' => 'external_coaching_assignments', 'name_hi' => 'बाहरी प्रशिक्षण अनुमति हटाएं', 'name_en' => 'Delete external coaching assignments'],
+
+        // ── External training attendance ────────────────────────────────────
+        ['code' => 'external-training-attendances.view', 'group' => 'external_training_attendances', 'name_hi' => 'बाहरी प्रशिक्षण उपस्थिति देखें', 'name_en' => 'View external training attendance'],
+        ['code' => 'external-training-attendances.review', 'group' => 'external_training_attendances', 'name_hi' => 'बाहरी प्रशिक्षण उपस्थिति समीक्षा करें', 'name_en' => 'Review external training attendance'],
+
+        // ── External coach performance updates ─────────────────────────────
+        ['code' => 'external-coach-performance-updates.view', 'group' => 'external_coach_performance_updates', 'name_hi' => 'बाहरी कोच प्रदर्शन अपडेट देखें', 'name_en' => 'View external coach performance updates'],
+        ['code' => 'external-coach-performance-updates.review', 'group' => 'external_coach_performance_updates', 'name_hi' => 'बाहरी कोच प्रदर्शन अपडेट समीक्षा करें', 'name_en' => 'Review external coach performance updates'],
+
         // ── Incharges ────────────────────────────────────────────────────────
         ['code' => 'incharges.view',   'group' => 'incharges', 'name_hi' => 'प्रभारी देखें',    'name_en' => 'View incharges'],
         ['code' => 'incharges.create', 'group' => 'incharges', 'name_hi' => 'प्रभारी जोड़ें',    'name_en' => 'Create incharges'],

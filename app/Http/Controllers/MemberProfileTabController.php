@@ -33,6 +33,13 @@ class MemberProfileTabController extends Controller
         return Inertia::render('members/show', $profileData->performance($member));
     }
 
+    public function externalCoaching(Member $member, MemberProfileData $profileData): Response
+    {
+        Gate::authorize('view', $member);
+
+        return Inertia::render('members/show', $profileData->externalCoaching($member));
+    }
+
     public function specialAchievements(Member $member, MemberProfileData $profileData): Response
     {
         Gate::authorize('view', $member);

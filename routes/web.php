@@ -14,6 +14,15 @@ use App\Http\Controllers\CoachStatusController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventParticipantController;
+use App\Http\Controllers\ExternalCoach\AthleteController as ExternalCoachAthleteController;
+use App\Http\Controllers\ExternalCoach\Auth\ExternalCoachLoginController;
+use App\Http\Controllers\ExternalCoach\DashboardController as ExternalCoachDashboardController;
+use App\Http\Controllers\ExternalCoach\ExternalCoachPerformanceUpdateController;
+use App\Http\Controllers\ExternalCoach\ExternalTrainingAttendanceController;
+use App\Http\Controllers\ExternalCoachController;
+use App\Http\Controllers\ExternalCoachingAssignmentController;
+use App\Http\Controllers\ExternalCoachPerformanceUpdateController as AdminExternalCoachPerformanceUpdateController;
+use App\Http\Controllers\ExternalTrainingAttendanceController as AdminExternalTrainingAttendanceController;
 use App\Http\Controllers\InchargeController;
 use App\Http\Controllers\InchargeProfileTabController;
 use App\Http\Controllers\LocaleController;
@@ -41,19 +50,50 @@ use App\Http\Controllers\TeamSessionStatusController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentExportController;
 use App\Http\Controllers\TournamentProfileTabController;
+use App\Http\Controllers\TrainingVenueController;
 use Illuminate\Support\Facades\Route;
 
 Route::patch('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
 Route::inertia('/', 'welcome')->name('home');
 
+Route::prefix('external-coach')->name('external-coach.')->group(function (): void {
+    Route::middleware('guest:external_coach')->group(function (): void {
+        Route::get('login', [ExternalCoachLoginController::class, 'create'])->name('login');
+        Route::post('login', [ExternalCoachLoginController::class, 'store'])->name('login.store');
+    });
+
+    Route::middleware(['auth:external_coach', 'external.coach.active'])->group(function (): void {
+        Route::get('dashboard', ExternalCoachDashboardController::class)->name('dashboard');
+        Route::get('athletes/{member}', [ExternalCoachAthleteController::class, 'show'])->name('athletes.show');
+        Route::get('attendance', [ExternalTrainingAttendanceController::class, 'index'])->name('attendance.index');
+        Route::post('attendance', [ExternalTrainingAttendanceController::class, 'store'])->name('attendance.store');
+        Route::get('performance', [ExternalCoachPerformanceUpdateController::class, 'index'])->name('performance.index');
+        Route::post('performance', [ExternalCoachPerformanceUpdateController::class, 'store'])->name('performance.store');
+        Route::post('logout', [ExternalCoachLoginController::class, 'destroy'])->name('logout');
+    });
+});
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::resource('external-coaches', ExternalCoachController::class);
+    Route::resource('training-venues', TrainingVenueController::class);
+    Route::get('external-coaching-assignments/{external_coaching_assignment}/permission-document', [ExternalCoachingAssignmentController::class, 'permissionDocument'])->name('external-coaching-assignments.permission-document');
+    Route::get('external-coaching-assignments/{external_coaching_assignment}/permission-document/preview', [ExternalCoachingAssignmentController::class, 'previewPermissionDocument'])->name('external-coaching-assignments.permission-document.preview');
+    Route::resource('external-coaching-assignments', ExternalCoachingAssignmentController::class);
+    Route::get('external-training-attendances/{external_training_attendance}/photo', [AdminExternalTrainingAttendanceController::class, 'photo'])->name('external-training-attendances.photo');
+    Route::get('external-training-attendances/{external_training_attendance}/photo/preview', [AdminExternalTrainingAttendanceController::class, 'previewPhoto'])->name('external-training-attendances.photo.preview');
+    Route::patch('external-training-attendances/{external_training_attendance}/review', [AdminExternalTrainingAttendanceController::class, 'review'])->name('external-training-attendances.review');
+    Route::resource('external-training-attendances', AdminExternalTrainingAttendanceController::class)->only(['index', 'show']);
+    Route::get('external-coach-performance-updates', [AdminExternalCoachPerformanceUpdateController::class, 'index'])->name('external-coach-performance-updates.index');
+    Route::get('external-coach-performance-updates/{performance_update}', [AdminExternalCoachPerformanceUpdateController::class, 'show'])->name('external-coach-performance-updates.show');
+    Route::patch('external-coach-performance-updates/{performance_update}/review', [AdminExternalCoachPerformanceUpdateController::class, 'review'])->name('external-coach-performance-updates.review');
     Route::get('members/export', [MemberExportController::class, 'index'])->name('members.export');
     Route::resource('members', MemberController::class);
     Route::get('members/{member}/teams', [MemberProfileTabController::class, 'teams'])->name('members.teams');
     Route::get('members/{member}/events', [MemberProfileTabController::class, 'events'])->name('members.events');
     Route::get('members/{member}/performance', [MemberProfileTabController::class, 'performance'])->name('members.performance');
+    Route::get('members/{member}/external-coaching', [MemberProfileTabController::class, 'externalCoaching'])->name('members.external-coaching');
     Route::get('members/{member}/special-achievements', [MemberProfileTabController::class, 'specialAchievements'])->name('members.special-achievements');
     Route::get('members/{member}/promotions', [MemberProfileTabController::class, 'promotions'])->name('members.promotions');
     Route::get('members/{member}/changelog', [MemberProfileTabController::class, 'changelog'])->name('members.changelog');

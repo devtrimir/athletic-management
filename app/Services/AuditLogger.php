@@ -14,7 +14,7 @@ class AuditLogger
     public function log(string $action, Model $model, ?array $diff = null): void
     {
         AuditLog::create([
-            'user_id' => Auth::id(),
+            'user_id' => Auth::guard('web')->id(),
             'organization_id' => $model->getAttribute('organization_id'),
             'entity' => class_basename($model),
             'entity_id' => $model->getKey(),

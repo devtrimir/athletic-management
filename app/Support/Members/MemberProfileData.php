@@ -10,6 +10,9 @@ use App\Http\Resources\NameAliasResource;
 use App\Models\Achievement;
 use App\Models\Designation;
 use App\Models\District;
+use App\Models\ExternalCoachingAssignment;
+use App\Models\ExternalCoachPerformanceUpdate;
+use App\Models\ExternalTrainingAttendance;
 use App\Models\MediaFile;
 use App\Models\Member;
 use App\Models\MemberLegacyAchievement;
@@ -74,6 +77,16 @@ class MemberProfileData
             ...$this->shell($member),
             'activeTab' => 'performance',
             'performance' => $this->memberPerformance->run((int) $member->organization_id, (int) $member->id),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function externalCoaching(Member $member): array
+    {
+        return [
+            ...$this->shell($member),
+            'activeTab' => 'external-coaching',
+            'externalCoaching' => $this->externalCoachingPayload($member),
         ];
     }
 
@@ -193,6 +206,74 @@ class MemberProfileData
                 'session' => $teamMember->session ? ['id' => $teamMember->session->id, 'name' => $teamMember->session->name] : null,
             ])
             ->all();
+    }
+
+    /** @return array<string, mixed> */
+    private function externalCoachingPayload(Member $member): array
+    {
+        return [
+            'assignments' => ExternalCoachingAssignment::query()
+                ->with(['externalCoach:id,name,email,phone', 'trainingVenue:id,name', 'sport:id,name'])
+                ->where('member_id', $member->id)
+                ->latest('start_date')
+                ->get()
+                ->map(fn (ExternalCoachingAssignment $assignment): array => [
+                    'id' => $assignment->id,
+                    'start_date' => $assignment->start_date?->toDateString(),
+                    'end_date' => $assignment->end_date?->toDateString(),
+                    'status' => $assignment->status,
+                    'attendance_mode' => $assignment->attendance_mode,
+                    'external_coach' => $assignment->externalCoach ? [
+                        'id' => $assignment->externalCoach->id,
+                        'name' => $assignment->externalCoach->name,
+                    ] : null,
+                    'training_venue' => $assignment->trainingVenue ? [
+                        'id' => $assignment->trainingVenue->id,
+                        'name' => $assignment->trainingVenue->name,
+                    ] : null,
+                    'sport' => $assignment->sport ? [
+                        'id' => $assignment->sport->id,
+                        'name' => $assignment->sport->name,
+                    ] : null,
+                ])
+                ->all(),
+            'attendances' => ExternalTrainingAttendance::query()
+                ->with(['externalCoach:id,name', 'trainingVenue:id,name', 'assignment:id,sport_id', 'assignment.sport:id,name'])
+                ->where('member_id', $member->id)
+                ->latest('attendance_date')
+                ->limit(50)
+                ->get()
+                ->map(fn (ExternalTrainingAttendance $attendance): array => [
+                    'id' => $attendance->id,
+                    'attendance_date' => $attendance->attendance_date?->toDateString(),
+                    'attendance_status' => $attendance->attendance_status,
+                    'geo_status' => $attendance->geo_status,
+                    'review_status' => $attendance->review_status,
+                    'distance_from_venue_meters' => $attendance->distance_from_venue_meters,
+                    'flag_reason' => $attendance->flag_reason,
+                    'external_coach' => $attendance->externalCoach ? ['name' => $attendance->externalCoach->name] : null,
+                    'training_venue' => $attendance->trainingVenue ? ['name' => $attendance->trainingVenue->name] : null,
+                    'sport' => $attendance->assignment?->sport ? ['name' => $attendance->assignment->sport->name] : null,
+                ])
+                ->all(),
+            'performanceUpdates' => ExternalCoachPerformanceUpdate::query()
+                ->with(['externalCoach:id,name', 'sport:id,name'])
+                ->where('member_id', $member->id)
+                ->latest('update_date')
+                ->limit(50)
+                ->get()
+                ->map(fn (ExternalCoachPerformanceUpdate $update): array => [
+                    'id' => $update->id,
+                    'update_date' => $update->update_date?->toDateString(),
+                    'performance_level' => $update->performance_level,
+                    'performance_score' => $update->performance_score,
+                    'training_summary' => $update->training_summary,
+                    'review_status' => $update->review_status,
+                    'external_coach' => $update->externalCoach ? ['name' => $update->externalCoach->name] : null,
+                    'sport' => $update->sport ? ['name' => $update->sport->name] : null,
+                ])
+                ->all(),
+        ];
     }
 
     /** @return array<int, array<string, mixed>> */

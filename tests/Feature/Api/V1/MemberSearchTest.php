@@ -112,6 +112,63 @@ test('PNO exact match returns the correct member', function () {
         ->and($response->json('meta.count'))->toBe(1);
 });
 
+test('PNO partial match returns matching members', function () {
+    $user = searchUser('members.view');
+    Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => '1234567890',
+        'full_name' => 'राम कुमार',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.search.members', ['q' => '4567']))
+        ->assertOk();
+
+    expect($response->json('data.0.pno'))->toBe('1234567890');
+});
+
+test('search results include current status and active team involvement labels', function () {
+    $user = searchUser('members.view');
+    $org = Organization::find($user->organization_id);
+    $team = Team::factory()->forOrganization($org)->create(['name' => 'Boxing Team']);
+
+    $assigned = Member::factory()->create([
+        'organization_id' => $org->id,
+        'pno' => '7001',
+        'full_name' => 'राम टीम',
+        'current_status' => 'ACTIVE',
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $assigned->id,
+        'session_id' => $team->session_id,
+        'role' => 'PLAYER',
+    ]);
+
+    Member::factory()->create([
+        'organization_id' => $org->id,
+        'pno' => '7002',
+        'full_name' => 'राम खाली',
+        'current_status' => 'ACTIVE',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.search.members', ['q' => 'राम']))
+        ->assertOk()
+        ->assertJsonStructure([
+            'data' => [['current_status', 'active_team']],
+        ]);
+
+    $assignedResult = collect($response->json('data'))->firstWhere('id', $assigned->id);
+
+    expect($assignedResult['current_status'])->toBe('ACTIVE')
+        ->and($assignedResult['active_team']['name'])->toBe('Boxing Team')
+        ->and($assignedResult['active_team']['role'])->toBe('PLAYER');
+
+    $unassignedResult = collect($response->json('data'))->firstWhere('pno', '7002');
+    expect($unassignedResult['active_team'])->toBeNull();
+});
+
 test('cross-org members are not returned', function () {
     $user = searchUser('members.view');
     $otherOrg = Organization::factory()->create();

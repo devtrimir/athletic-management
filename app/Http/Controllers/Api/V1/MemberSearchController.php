@@ -8,9 +8,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\MemberSearchResource;
 use App\Models\Member;
 use App\Models\Team;
+use App\Models\TeamMember;
 use App\Services\MemberSearchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
@@ -51,9 +53,53 @@ class MemberSearchController extends Controller
         ]);
 
         $results = $service->search($orgId, (string) $validated['q'], $filters);
+        $this->attachActiveTeamLabels($results, $orgId);
 
         return MemberSearchResource::collection($results)
             ->additional(['meta' => ['q' => $validated['q'], 'count' => $results->count()]])
             ->response();
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $results
+     */
+    private function attachActiveTeamLabels($results, int $organizationId): void
+    {
+        $memberIds = $results
+            ->map(fn (mixed $member): int => (int) data_get($member, 'id'))
+            ->filter()
+            ->values();
+
+        if ($memberIds->isEmpty()) {
+            return;
+        }
+
+        $memberships = TeamMember::query()
+            ->whereIn('member_id', $memberIds)
+            ->whereNull('left_on')
+            ->whereHas('team', fn ($query) => $query->where('organization_id', $organizationId)->where('is_active', true))
+            ->with('team:id,name,is_active')
+            ->latest('id')
+            ->get(['id', 'team_id', 'member_id', 'role', 'joined_on'])
+            ->unique('member_id')
+            ->keyBy('member_id');
+
+        $results->each(function (mixed $member) use ($memberships): void {
+            $membership = $memberships->get((int) data_get($member, 'id'));
+            $activeTeam = $membership === null ? null : [
+                'id' => $membership->team?->id,
+                'name' => $membership->team?->name,
+                'role' => $membership->role,
+                'joined_on' => $membership->joined_on?->toDateString(),
+            ];
+
+            if (method_exists($member, 'setAttribute')) {
+                $member->setAttribute('active_team', $activeTeam);
+
+                return;
+            }
+
+            $member->active_team = $activeTeam;
+        });
     }
 }

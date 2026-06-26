@@ -3,6 +3,7 @@ import { Medal, Trophy, Users, UserCheck, Dumbbell, ShieldCheck } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
 import { dashboard, login } from '@/routes';
+import externalCoach from '@/routes/external-coach';
 
 export default function Welcome() {
     const { auth } = usePage().props;
@@ -60,9 +61,14 @@ export default function Welcome() {
                                     <Link href={dashboard()}>{t('Go to Dashboard')}</Link>
                                 </Button>
                             ) : (
-                                <Button asChild size="sm">
-                                    <Link href={login()}>{t('Log in')}</Link>
-                                </Button>
+                                <>
+                                    <Button asChild size="sm" variant="outline">
+                                        <Link href={externalCoach.login()}>{t('External coach login')}</Link>
+                                    </Button>
+                                    <Button asChild size="sm">
+                                        <Link href={login()}>{t('Log in')}</Link>
+                                    </Button>
+                                </>
                             )}
                         </nav>
                     </div>
@@ -93,9 +99,14 @@ export default function Welcome() {
                                     <Link href={dashboard()}>{t('Go to Dashboard')}</Link>
                                 </Button>
                             ) : (
-                                <Button asChild size="lg">
-                                    <Link href={login()}>{t('Log in to continue')}</Link>
-                                </Button>
+                                <div className="flex justify-center gap-3">
+                                    <Button asChild size="lg" variant="outline">
+                                        <Link href={externalCoach.login()}>{t('External coach login')}</Link>
+                                    </Button>
+                                    <Button asChild size="lg">
+                                        <Link href={login()}>{t('Log in to continue')}</Link>
+                                    </Button>
+                                </div>
                             )}
                         </div>
                     </section>
@@ -129,4 +140,3 @@ export default function Welcome() {
         </>
     );
 }
-

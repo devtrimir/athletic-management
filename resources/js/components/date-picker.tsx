@@ -77,6 +77,10 @@ function normalizeTypedDate(value: string): string {
     return trimmed;
 }
 
+function isCanonicalDate(value: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 function displayDateValue(value: string): string {
     const parsed = parseDateValue(value);
 
@@ -179,7 +183,10 @@ export function DatePicker({
                 aria-describedby={ariaDescribedBy}
                 placeholder={placeholder ?? 'dd/mm/yyyy'}
                 onChange={(event) => {
-                    onChange(event.target.value);
+                    const nextValue = event.target.value;
+                    const normalized = normalizeTypedDate(nextValue);
+
+                    onChange(isCanonicalDate(normalized) ? normalized : nextValue);
                 }}
                 onBlur={handleBlur}
                 className="h-9 min-w-0 flex-1"

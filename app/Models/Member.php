@@ -200,6 +200,24 @@ class Member extends Model
         return $this->hasMany(TeamMember::class);
     }
 
+    /** @return HasMany<ExternalCoachingAssignment, $this> */
+    public function externalCoachingAssignments(): HasMany
+    {
+        return $this->hasMany(ExternalCoachingAssignment::class);
+    }
+
+    /** @return HasMany<ExternalTrainingAttendance, $this> */
+    public function externalTrainingAttendances(): HasMany
+    {
+        return $this->hasMany(ExternalTrainingAttendance::class);
+    }
+
+    /** @return HasMany<ExternalCoachPerformanceUpdate, $this> */
+    public function externalCoachPerformanceUpdates(): HasMany
+    {
+        return $this->hasMany(ExternalCoachPerformanceUpdate::class);
+    }
+
     /** @param  Builder<Member>  $query */
     public function scopeRosterActive(Builder $query): void
     {

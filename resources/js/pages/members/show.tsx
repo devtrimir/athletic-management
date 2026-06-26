@@ -40,6 +40,7 @@ import {
 import {
     changelog as memberChangelog,
     events as memberEvents,
+    externalCoaching as memberExternalCoaching,
     media as memberMedia,
     performance as memberPerformance,
     promotions as memberPromotions,
@@ -362,6 +363,41 @@ type LegacyAchievement = {
     }>;
 };
 
+type ExternalCoachingData = {
+    assignments: Array<{
+        id: number;
+        start_date: string | null;
+        end_date: string | null;
+        status: string;
+        attendance_mode: string;
+        external_coach: { id: number; name: string } | null;
+        training_venue: { id: number; name: string } | null;
+        sport: { id: number; name: string } | null;
+    }>;
+    attendances: Array<{
+        id: number;
+        attendance_date: string | null;
+        attendance_status: string;
+        geo_status: string;
+        review_status: string;
+        distance_from_venue_meters: string | null;
+        flag_reason: string | null;
+        external_coach: { name: string } | null;
+        training_venue: { name: string } | null;
+        sport: { name: string } | null;
+    }>;
+    performanceUpdates: Array<{
+        id: number;
+        update_date: string | null;
+        performance_level: string | null;
+        performance_score: number | null;
+        training_summary: string;
+        review_status: string;
+        external_coach: { name: string } | null;
+        sport: { name: string } | null;
+    }>;
+};
+
 const ALL_COLUMNS: { key: string; label: string }[] = [
     // { key: 'member_code', label: 'Member code' },
     { key: 'pno', label: 'PNO' },
@@ -390,6 +426,7 @@ const MEMBER_SHOW_TABS = [
     'teams',
     'events',
     'performance',
+    'external-coaching',
     'special-achievements',
     'promotions',
     'changelog',
@@ -411,6 +448,7 @@ export default function MembersShow({
     promotions,
     specialAchievements,
     performance,
+    externalCoaching,
     auditLog,
     media,
     ranks,
@@ -428,6 +466,7 @@ export default function MembersShow({
     promotions?: PromotionRow[];
     specialAchievements?: SpecialAchievementsData;
     performance?: MemberPerformanceData;
+    externalCoaching?: ExternalCoachingData;
     auditLog?: AuditEntry[];
     media?: ComponentProps<typeof MemberMediaTab>['initialData'];
     ranks?: RankOption[];
@@ -464,6 +503,7 @@ export default function MembersShow({
         teams: memberTeamsRoute.url(member),
         events: memberEvents.url(member),
         performance: memberPerformance.url(member),
+        'external-coaching': memberExternalCoaching.url(member),
         'special-achievements': memberSpecialAchievements.url(member),
         promotions: memberPromotions.url(member),
         changelog: memberChangelog.url(member),
@@ -1543,6 +1583,11 @@ export default function MembersShow({
                                 {t('Performance')}
                             </Link>
                         </TabsTrigger>
+                        <TabsTrigger value="external-coaching" asChild>
+                            <Link href={tabLinks['external-coaching']} prefetch>
+                                {t('External coaching')}
+                            </Link>
+                        </TabsTrigger>
                         <TabsTrigger value="special-achievements" asChild>
                             <Link
                                 href={tabLinks['special-achievements']}
@@ -2521,6 +2566,127 @@ export default function MembersShow({
                                 <MemberPerformanceTab
                                     performance={performance}
                                 />
+                            </Deferred>
+                        )}
+                    </TabsContent>
+                    <TabsContent value="external-coaching">
+                        {activeTab === 'external-coaching' && (
+                            <Deferred
+                                data="externalCoaching"
+                                fallback={
+                                    <div className="space-y-2">
+                                        {[1, 2, 3].map((n) => (
+                                            <Skeleton
+                                                key={n}
+                                                className="h-12 w-full"
+                                            />
+                                        ))}
+                                    </div>
+                                }
+                            >
+                                <div className="space-y-6 rounded-xl border bg-card p-6">
+                                    <section className="space-y-3">
+                                        <h3 className="text-sm font-semibold">
+                                            {t('External coaching assignments')}
+                                        </h3>
+                                        <div className="overflow-hidden rounded-lg border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>{t('Period')}</TableHead>
+                                                        <TableHead>{t('External coach')}</TableHead>
+                                                        <TableHead>{t('Venue')}</TableHead>
+                                                        <TableHead>{t('Sport')}</TableHead>
+                                                        <TableHead>{t('Status')}</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {(externalCoaching?.assignments ?? []).map((assignment) => (
+                                                        <TableRow key={assignment.id}>
+                                                            <TableCell>
+                                                                {assignment.start_date ?? '-'} → {assignment.end_date ?? '-'}
+                                                            </TableCell>
+                                                            <TableCell>{assignment.external_coach?.name ?? '-'}</TableCell>
+                                                            <TableCell>{assignment.training_venue?.name ?? '-'}</TableCell>
+                                                            <TableCell>{assignment.sport?.name ?? '-'}</TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline">{t(assignment.status)}</Badge>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </section>
+
+                                    <section className="space-y-3">
+                                        <h3 className="text-sm font-semibold">
+                                            {t('External training attendance')}
+                                        </h3>
+                                        <div className="overflow-hidden rounded-lg border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>{t('Date')}</TableHead>
+                                                        <TableHead>{t('Status')}</TableHead>
+                                                        <TableHead>{t('Geo status')}</TableHead>
+                                                        <TableHead>{t('Review status')}</TableHead>
+                                                        <TableHead>{t('Distance')}</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {(externalCoaching?.attendances ?? []).map((attendance) => (
+                                                        <TableRow key={attendance.id}>
+                                                            <TableCell>{attendance.attendance_date ?? '-'}</TableCell>
+                                                            <TableCell>{t(attendance.attendance_status)}</TableCell>
+                                                            <TableCell>
+                                                                <Badge variant={attendance.geo_status === 'valid' ? 'secondary' : 'destructive'}>
+                                                                    {t(attendance.geo_status)}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline">{t(attendance.review_status)}</Badge>
+                                                            </TableCell>
+                                                            <TableCell>{attendance.distance_from_venue_meters ?? '-'} m</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </section>
+
+                                    <section className="space-y-3">
+                                        <h3 className="text-sm font-semibold">
+                                            {t('Performance updates')}
+                                        </h3>
+                                        <div className="overflow-hidden rounded-lg border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>{t('Date')}</TableHead>
+                                                        <TableHead>{t('Level')}</TableHead>
+                                                        <TableHead>{t('Score')}</TableHead>
+                                                        <TableHead>{t('Summary')}</TableHead>
+                                                        <TableHead>{t('Review status')}</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {(externalCoaching?.performanceUpdates ?? []).map((update) => (
+                                                        <TableRow key={update.id}>
+                                                            <TableCell>{update.update_date ?? '-'}</TableCell>
+                                                            <TableCell>{update.performance_level ? t(update.performance_level) : '-'}</TableCell>
+                                                            <TableCell>{update.performance_score ?? '-'}</TableCell>
+                                                            <TableCell>{update.training_summary}</TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline">{t(update.review_status)}</Badge>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </section>
+                                </div>
                             </Deferred>
                         )}
                     </TabsContent>

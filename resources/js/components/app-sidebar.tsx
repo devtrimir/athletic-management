@@ -1,5 +1,13 @@
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, Settings2, Shield, Trophy, UserCheck, UserRoundCheck, Users } from 'lucide-react';
+import {
+    LayoutGrid,
+    Settings2,
+    Shield,
+    Trophy,
+    UserCheck,
+    UserRoundCheck,
+    Users,
+} from 'lucide-react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import InchargeController from '@/actions/App/Http/Controllers/InchargeController';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
@@ -7,6 +15,7 @@ import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import TournamentController from '@/actions/App/Http/Controllers/TournamentController';
 import AppLogo from '@/components/app-logo';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { NavExternalCoaching } from '@/components/nav-external-coaching';
 import { NavMain } from '@/components/nav-main';
 import { NavReports } from '@/components/nav-reports';
 import { NavUser } from '@/components/nav-user';
@@ -32,12 +41,27 @@ export function AppSidebar() {
 
     const mainNavItems: NavItem[] = [
         { title: t('Dashboard'), href: dashboard(), icon: LayoutGrid },
-        { title: t('Team Prabhari'), href: InchargeController.index.url(), icon: UserRoundCheck },
+        {
+            title: t('Team Prabhari'),
+            href: InchargeController.index.url(),
+            icon: UserRoundCheck,
+        },
         { title: t('Teams'), href: TeamController.index.url(), icon: Shield },
-        { title: t('Tournaments'), href: TournamentController.index.url(), icon: Trophy },
-        { title: t('Athletes'), href: MemberController.index.url(), icon: Users },
-        { title: t('Coaches'), href: CoachController.index.url(), icon: UserCheck },
-
+        {
+            title: t('Tournaments'),
+            href: TournamentController.index.url(),
+            icon: Trophy,
+        },
+        {
+            title: t('Athletes'),
+            href: MemberController.index.url(),
+            icon: Users,
+        },
+        {
+            title: t('Coaches'),
+            href: CoachController.index.url(),
+            icon: UserCheck,
+        },
     ];
 
     const adminNavItems: NavItem[] = [
@@ -45,7 +69,7 @@ export function AppSidebar() {
     ];
 
     return (
-        <Sidebar collapsible="icon" variant="inset">
+        <Sidebar collapsible="offcanvas" variant="inset">
             <SidebarHeader className="flex-row items-center gap-2">
                 <SidebarMenu className="flex-1">
                     <SidebarMenuItem>
@@ -61,6 +85,7 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} groupLabel={t('Main')} />
+                <NavExternalCoaching />
                 <NavReports />
                 <NavMain items={adminNavItems} groupLabel={t('Admin')} />
             </SidebarContent>
@@ -72,7 +97,7 @@ export function AppSidebar() {
                 >
                     {state === 'expanded' ? (
                         <>
-                            <span className="text-xs font-medium uppercase tracking-wide text-sidebar-foreground/60">
+                            <span className="text-xs font-medium tracking-wide text-sidebar-foreground/60 uppercase">
                                 Language
                             </span>
                             <LocaleSwitcher className="border-sidebar-border bg-sidebar-accent/30" />

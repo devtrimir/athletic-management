@@ -21,6 +21,12 @@ export type MemberOption = {
     player_category: string;
     player_level: string;
     current_status: string;
+    active_team?: {
+        id: number | null;
+        name: string | null;
+        role: string | null;
+        joined_on: string | null;
+    } | null;
 };
 
 type SearchResponse = {
@@ -73,11 +79,16 @@ export function MemberPicker({ value, onChange, placeholder, disabled = false, i
 
     const displayValue = (member: MemberOption | null) => {
         if (!member) {
-return '';
-}
+            return '';
+        }
 
         return member.pno ? `${member.full_name} · ${member.pno}` : member.full_name;
     };
+
+    const statusTone = (status: string): string =>
+        status === 'ACTIVE'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/50 dark:text-emerald-300'
+            : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-300';
 
     return (
         <Combobox value={value} onChange={onChange} disabled={disabled}>
@@ -137,6 +148,26 @@ return '';
                                                         {member.pno}
                                                     </span>
                                                 )}
+                                            </div>
+                                            <div className="mt-1 flex flex-wrap gap-1.5">
+                                                <span
+                                                    className={cn(
+                                                        'rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none',
+                                                        statusTone(member.current_status),
+                                                    )}
+                                                >
+                                                    {t(member.current_status)}
+                                                </span>
+                                                <span className="rounded-full border bg-muted/40 px-2 py-0.5 text-[11px] font-medium leading-none text-muted-foreground">
+                                                    {member.active_team?.name
+                                                        ? `${t('Team')}: ${member.active_team.name}`
+                                                        : t('No active team')}
+                                                </span>
+                                                {member.active_team?.role ? (
+                                                    <span className="rounded-full border bg-muted/40 px-2 py-0.5 text-[11px] font-medium leading-none text-muted-foreground">
+                                                        {t(member.active_team.role)}
+                                                    </span>
+                                                ) : null}
                                             </div>
                                         </div>
                                     </div>
