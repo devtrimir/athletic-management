@@ -16,6 +16,10 @@ createInertiaApp({
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
+            case name.startsWith('external-coach/auth/'):
+                return AuthLayout;
+            case name.startsWith('external-coach/'):
+                return null;
             case name.startsWith('settings/'):
                 return [AppLayout, SettingsLayout];
             default:

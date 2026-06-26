@@ -7,6 +7,7 @@ import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import TournamentController from '@/actions/App/Http/Controllers/TournamentController';
 import AppLogo from '@/components/app-logo';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { NavExternalCoaching } from '@/components/nav-external-coaching';
 import { NavMain } from '@/components/nav-main';
 import { NavReports } from '@/components/nav-reports';
 import { NavUser } from '@/components/nav-user';
@@ -61,6 +62,7 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} groupLabel={t('Main')} />
+                <NavExternalCoaching />
                 <NavReports />
                 <NavMain items={adminNavItems} groupLabel={t('Admin')} />
             </SidebarContent>

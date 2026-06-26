@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureExternalCoachIsActive;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RequirePermission;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->alias([
+            'external.coach.active' => EnsureExternalCoachIsActive::class,
             'role' => RequireRole::class,
             'permission' => RequirePermission::class,
         ]);
