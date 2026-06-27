@@ -71,9 +71,12 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
     const [photoSource, setPhotoSource] = useState('');
     const [cameraOpen, setCameraOpen] = useState(false);
     const [cameraStatus, setCameraStatus] = useState<string | null>(null);
+    const [cameraReady, setCameraReady] = useState(false);
+    const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
     const cameraStreamRef = useRef<MediaStream | null>(null);
+    const cameraRequestIdRef = useRef(0);
     const videoRef = useRef<HTMLVideoElement>(null);
     const selectedAssignment = assignments.find((assignment) => String(assignment.id) === assignmentId);
     const secureLocationUrl = getSecureLocationUrl();
@@ -94,7 +97,68 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
         };
     }, []);
 
+    useEffect(() => {
+        if (!cameraOpen || !cameraStream) {
+            return;
+        }
+
+        let cancelled = false;
+        let frame = 0;
+
+        const attachStream = () => {
+            if (cancelled) {
+                return;
+            }
+
+            const video = videoRef.current;
+
+            if (!video) {
+                frame = window.requestAnimationFrame(attachStream);
+
+                return;
+            }
+
+            if (video.srcObject !== cameraStream) {
+                video.srcObject = cameraStream;
+            }
+
+            video.muted = true;
+            video.playsInline = true;
+
+            void video
+                .play()
+                .then(() => {
+                    if (!cancelled) {
+                        setCameraReady(true);
+                        setCameraStatus(null);
+                    }
+                })
+                .catch(() => {
+                    if (!cancelled) {
+                        setCameraStatus(t('Camera opened. Tap the preview to start video.'));
+                    }
+                });
+        };
+
+        attachStream();
+
+        return () => {
+            cancelled = true;
+
+            if (frame) {
+                window.cancelAnimationFrame(frame);
+            }
+        };
+    }, [cameraOpen, cameraStream, t]);
+
     function openCamera() {
+        cameraRequestIdRef.current += 1;
+        const requestId = cameraRequestIdRef.current;
+
+        stopCameraStream(cameraStreamRef.current);
+        cameraStreamRef.current = null;
+        setCameraStream(null);
+        setCameraReady(false);
         setCameraOpen(true);
         setCameraStatus(t('Starting camera...'));
 
@@ -109,22 +173,39 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                 .getUserMedia({ video: portraitCameraConstraints, audio: false })
                 .catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }))
                 .then((stream) => {
-                    cameraStreamRef.current = stream;
-                    setCameraStatus(null);
+                    if (cameraRequestIdRef.current !== requestId) {
+                        stopCameraStream(stream);
 
-                    if (videoRef.current) {
-                        videoRef.current.srcObject = stream;
+                        return;
                     }
+
+                    cameraStreamRef.current = stream;
+                    setCameraStream(stream);
+                    setCameraStatus(t('Starting camera preview...'));
                 })
                 .catch(() => {
+                    if (cameraRequestIdRef.current !== requestId) {
+                        return;
+                    }
+
+                    setCameraReady(false);
                     setCameraStatus(t('Unable to open camera. Please allow camera permission or use Upload.'));
                 });
         }, 0);
     }
 
     function closeCamera() {
+        cameraRequestIdRef.current += 1;
         stopCameraStream(cameraStreamRef.current);
         cameraStreamRef.current = null;
+        setCameraStream(null);
+        setCameraReady(false);
+        setCameraStatus(null);
+
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
+        }
+
         setCameraOpen(false);
     }
 
@@ -266,7 +347,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
     function captureCameraPhoto() {
         const video = videoRef.current;
 
-        if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+        if (!cameraReady || !video || video.videoWidth === 0 || video.videoHeight === 0) {
             setCameraStatus(t('Camera is not ready yet.'));
 
             return;
@@ -577,7 +658,37 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                     </DialogHeader>
 
                     <div className="relative flex min-h-0 max-w-full flex-1 basis-0 items-center justify-center overflow-hidden rounded-lg border bg-black sm:mx-auto sm:aspect-[3/4] sm:w-full sm:max-w-md sm:flex-none sm:basis-auto">
-                        <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="h-full w-full object-cover"
+                            onLoadedMetadata={() => {
+                                void videoRef.current
+                                    ?.play()
+                                    .catch(() => setCameraStatus(t('Camera opened. Tap the preview to start video.')));
+                            }}
+                            onCanPlay={() => {
+                                setCameraReady(true);
+                                setCameraStatus(null);
+                            }}
+                            onClick={() => {
+                                const video = videoRef.current;
+
+                                if (!video) {
+                                    return;
+                                }
+
+                                void video
+                                    .play()
+                                    .then(() => {
+                                        setCameraReady(true);
+                                        setCameraStatus(null);
+                                    })
+                                    .catch(() => setCameraStatus(t('Unable to start camera preview. Please use Upload.')));
+                            }}
+                        />
                         {cameraStatus ? (
                             <div className="absolute inset-x-3 bottom-3 rounded-md bg-background/90 px-3 py-2 text-center text-sm text-muted-foreground shadow-sm backdrop-blur sm:hidden">
                                 {cameraStatus}
@@ -595,7 +706,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                         <Button type="button" variant="outline" onClick={closeCamera} className="h-10 sm:h-9">
                             {t('Cancel')}
                         </Button>
-                        <Button type="button" onClick={captureCameraPhoto} disabled={cameraStatus !== null} className="h-10 sm:h-9">
+                        <Button type="button" onClick={captureCameraPhoto} disabled={!cameraReady} className="h-10 sm:h-9">
                             <Camera className="size-4" />
                             {t('Use photo')}
                         </Button>
