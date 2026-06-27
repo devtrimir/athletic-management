@@ -47,6 +47,12 @@ type Props = {
 
 const allowedPhotoTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const maxPhotoSizeBytes = 10 * 1024 * 1024;
+const portraitCameraConstraints: MediaTrackConstraints = {
+    facingMode: { ideal: 'environment' },
+    width: { ideal: 1080 },
+    height: { ideal: 1440 },
+    aspectRatio: { ideal: 0.75 },
+};
 
 export default function ExternalCoachAttendance({ assignments, selectedAssignmentId, attendanceStatuses }: Props) {
     const { t } = useTranslation();
@@ -100,7 +106,8 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
 
         window.setTimeout(() => {
             navigator.mediaDevices
-                .getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+                .getUserMedia({ video: portraitCameraConstraints, audio: false })
+                .catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }))
                 .then((stream) => {
                     cameraStreamRef.current = stream;
                     setCameraStatus(null);
@@ -295,9 +302,9 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
         <>
             <Head title={t('Training attendance')} />
 
-            <main className="min-h-screen overflow-x-hidden bg-muted/20">
-                <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-4 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 lg:py-8">
-                    <header className="rounded-lg border bg-card px-4 py-4 shadow-sm sm:px-5">
+            <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-muted/20">
+                <div className="mx-auto box-border flex w-full min-w-0 max-w-5xl flex-col gap-4 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 lg:py-8">
+                    <header className="min-w-0 max-w-full rounded-lg border bg-card px-4 py-4 shadow-sm sm:px-5">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-normal text-muted-foreground">
@@ -312,7 +319,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                 </p>
                             </div>
 
-                            <Button asChild variant="outline" className="w-full sm:w-auto">
+                            <Button asChild variant="outline" className="w-full max-w-full min-w-0 whitespace-normal sm:w-auto">
                                 <Link href="/external-coach/dashboard">
                                     <ArrowLeft className="size-4" />
                                     {t('Dashboard')}
@@ -327,11 +334,11 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                         encType="multipart/form-data"
                         resetOnSuccess
                         onSuccess={resetAttendanceForm}
-                        className="grid min-w-0 gap-5 overflow-hidden rounded-lg border bg-card p-4 shadow-sm sm:p-5"
+                        className="grid min-w-0 max-w-full gap-5 overflow-hidden rounded-lg border bg-card p-4 shadow-sm sm:p-5"
                     >
                         {({ errors, processing, progress }) => (
                             <>
-                                <section className="grid gap-3">
+                                <section className="grid min-w-0 max-w-full gap-3">
                                     <Label htmlFor="external_coaching_assignment_id">
                                         {t('Assigned athlete')}
                                     </Label>
@@ -345,7 +352,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                         searchPlaceholder={t('Search by athlete, PNO, venue, or sport')}
                                         emptyMessage={t('No assigned athlete found.')}
                                     />
-                                    <div className="rounded-lg border bg-muted/20 p-3">
+                                    <div className="min-w-0 max-w-full rounded-lg border bg-muted/20 p-3">
                                         <div className="flex min-w-0 items-start gap-3">
                                             <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground">
                                                 <UserRound className="size-4" />
@@ -358,9 +365,9 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                                                     {selectedAssignment ? (
                                                         <>
-                                                            {selectedAssignment.member.pno ? <span className="rounded-md border bg-background px-2 py-1">{selectedAssignment.member.pno}</span> : null}
-                                                            <span className="rounded-md border bg-background px-2 py-1">{selectedAssignment.sport.name}</span>
-                                                            <span className="rounded-md border bg-background px-2 py-1">{selectedAssignment.training_venue.name}</span>
+                                                            {selectedAssignment.member.pno ? <span className="max-w-full rounded-md border bg-background px-2 py-1 break-words">{selectedAssignment.member.pno}</span> : null}
+                                                            <span className="max-w-full rounded-md border bg-background px-2 py-1 break-words">{selectedAssignment.sport.name}</span>
+                                                            <span className="max-w-full rounded-md border bg-background px-2 py-1 break-words">{selectedAssignment.training_venue.name}</span>
                                                         </>
                                                     ) : (
                                                         <span>{t('Search and select the assigned athlete before submitting attendance.')}</span>
@@ -384,7 +391,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                                 placeholder={t('Select date')}
                                                 className="min-w-0 flex-1"
                                             />
-                                            <Button type="button" variant="outline" onClick={() => setAttendanceDate(todayIsoDate())} className="w-full">
+                                            <Button type="button" variant="outline" onClick={() => setAttendanceDate(todayIsoDate())} className="w-full min-w-0 whitespace-normal">
                                                 {t('Today')}
                                             </Button>
                                         </div>
@@ -394,14 +401,14 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                     <div className="grid min-w-0 gap-2">
                                         <Label htmlFor="attendance_status">{t('Status')}</Label>
                                         <input type="hidden" name="attendance_status" value={attendanceStatus} />
-                                        <div id="attendance_status" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                        <div id="attendance_status" className="grid min-w-0 grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:grid-cols-4">
                                             {attendanceStatuses.map((status) => (
                                                 <button
                                                     key={status}
                                                     type="button"
                                                     onClick={() => setAttendanceStatus(status)}
                                                     className={cn(
-                                                        'h-9 rounded-md border px-2 text-xs font-medium whitespace-normal transition-colors sm:px-3 sm:text-sm',
+                                                        'h-9 min-w-0 rounded-md border px-2 text-xs font-medium whitespace-normal break-words transition-colors sm:px-3 sm:text-sm',
                                                         attendanceStatus === status
                                                             ? attendanceStatusButtonClass(status)
                                                             : 'bg-background text-foreground hover:bg-muted',
@@ -416,9 +423,9 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                 </div>
 
                                 <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-                                    <div className="grid min-w-0 content-start gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4">
+                                    <div className="grid min-w-0 max-w-full content-start gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4">
                                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                            <div>
+                                            <div className="min-w-0">
                                                 <Label>{t('Training location')}</Label>
                                                 <p className="mt-1 text-xs text-muted-foreground">
                                                     {proofRequired
@@ -426,7 +433,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                                         : t('Location is optional for this attendance status.')}
                                                 </p>
                                             </div>
-                                            <Button type="button" variant="outline" onClick={fillCurrentLocation} disabled={locating || !proofRequired} className="w-full sm:w-auto">
+                                            <Button type="button" variant="outline" onClick={fillCurrentLocation} disabled={locating || !proofRequired} className="w-full max-w-full min-w-0 whitespace-normal sm:w-auto">
                                                 <LocateFixed className="size-4" />
                                                 {locating ? t('Locating...') : t('Use current location')}
                                             </Button>
@@ -434,12 +441,12 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
 
                                         {!isSecureLocationContext() ? (
                                             <div className="flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
-                                                <div className="flex gap-2 text-sm">
+                                                <div className="flex min-w-0 gap-2 text-sm">
                                                     <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                                                    <span>{t('GPS capture requires HTTPS on mobile browsers.')}</span>
+                                                    <span className="min-w-0 break-words">{t('GPS capture requires HTTPS on mobile browsers.')}</span>
                                                 </div>
                                                 {secureLocationUrl ? (
-                                                    <Button asChild type="button" variant="outline" className="w-full bg-background sm:w-auto">
+                                                    <Button asChild type="button" variant="outline" className="w-full max-w-full min-w-0 whitespace-normal bg-background sm:w-auto">
                                                         <a href={secureLocationUrl}>{t('Open HTTPS')}</a>
                                                     </Button>
                                                 ) : null}
@@ -462,15 +469,15 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                         <InputError message={errors.submitted_gps_accuracy} />
                                     </div>
 
-                                    <div className="grid min-w-0 content-start gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4">
+                                    <div className="grid min-w-0 max-w-full content-start gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4">
                                         <Label htmlFor="submitted_photo">{t('Proof photo')}</Label>
                                         <input type="hidden" name="submitted_photo_source" value={photoSource} />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Button type="button" variant="outline" onClick={openCamera}>
+                                        <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+                                            <Button type="button" variant="outline" onClick={openCamera} className="min-w-0 whitespace-normal px-2">
                                                 <Camera className="size-4" />
                                                 {t('Camera')}
                                             </Button>
-                                            <Button asChild type="button" variant="outline">
+                                            <Button asChild type="button" variant="outline" className="min-w-0 whitespace-normal px-2">
                                                 <label htmlFor="submitted_photo_upload" className="cursor-pointer">
                                                     <ImageUp className="size-4" />
                                                     {t('Upload')}
@@ -551,7 +558,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                 </div>
 
                                 <div className="sticky bottom-0 flex border-t bg-card/95 py-3 backdrop-blur sm:static sm:justify-end sm:border-t sm:bg-transparent sm:pt-4 sm:backdrop-blur-none">
-                                    <Button type="submit" disabled={processing || assignments.length === 0 || assignmentId === '' || (proofRequired && (!locationCaptured || !photoReady))} className="w-full sm:w-auto">
+                                    <Button type="submit" disabled={processing || assignments.length === 0 || assignmentId === '' || (proofRequired && (!locationCaptured || !photoReady))} className="w-full min-w-0 whitespace-normal sm:w-auto">
                                         <Save className="size-4" />
                                         {processing ? t('Submitting...') : t('Submit attendance')}
                                     </Button>
@@ -563,27 +570,32 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
             </main>
 
             <Dialog open={cameraOpen} onOpenChange={(open) => (open ? openCamera() : closeCamera())}>
-                <DialogContent className="sm:max-w-xl">
+                <DialogContent className="!top-[50%] !right-3 !bottom-auto !left-3 !h-[76dvh] !max-h-[620px] !w-auto !max-w-none !translate-x-0 !translate-y-[-50%] !gap-3 overflow-x-hidden !p-3 sm:!top-[50%] sm:!right-auto sm:!bottom-auto sm:!left-[50%] sm:!h-auto sm:!max-h-[90dvh] sm:!w-full sm:!max-w-2xl sm:!translate-x-[-50%] sm:!translate-y-[-50%] sm:!p-4">
                     <DialogHeader>
                         <DialogTitle>{t('Capture proof photo')}</DialogTitle>
                         <DialogDescription>{t('Use the connected camera to capture attendance proof.')}</DialogDescription>
                     </DialogHeader>
 
-                    <div className="overflow-hidden rounded-lg border bg-black">
-                        <video ref={videoRef} autoPlay playsInline muted className="aspect-video w-full object-contain" />
+                    <div className="relative flex min-h-0 max-w-full flex-1 basis-0 items-center justify-center overflow-hidden rounded-lg border bg-black sm:mx-auto sm:aspect-[3/4] sm:w-full sm:max-w-md sm:flex-none sm:basis-auto">
+                        <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+                        {cameraStatus ? (
+                            <div className="absolute inset-x-3 bottom-3 rounded-md bg-background/90 px-3 py-2 text-center text-sm text-muted-foreground shadow-sm backdrop-blur sm:hidden">
+                                {cameraStatus}
+                            </div>
+                        ) : null}
                     </div>
 
                     {cameraStatus ? (
-                        <div className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">
+                        <div className="hidden rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground sm:block">
                             {cameraStatus}
                         </div>
                     ) : null}
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={closeCamera}>
+                        <Button type="button" variant="outline" onClick={closeCamera} className="h-10 sm:h-9">
                             {t('Cancel')}
                         </Button>
-                        <Button type="button" onClick={captureCameraPhoto} disabled={cameraStatus !== null}>
+                        <Button type="button" onClick={captureCameraPhoto} disabled={cameraStatus !== null} className="h-10 sm:h-9">
                             <Camera className="size-4" />
                             {t('Use photo')}
                         </Button>

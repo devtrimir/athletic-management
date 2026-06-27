@@ -243,6 +243,12 @@
 }
 
 @layer components {
+    html:has([data-external-coach-layout]),
+    body:has([data-external-coach-layout]) {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
     [data-sonner-toaster] {
         max-width: calc(100vw - 1rem) !important;
     }
