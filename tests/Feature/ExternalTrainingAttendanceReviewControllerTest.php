@@ -62,6 +62,20 @@ test('external training attendance review index requires permission', function (
         ->assertForbidden();
 });
 
+test('admin can export filtered external training attendance records', function (): void {
+    Storage::fake('local');
+    $fixture = reviewAttendanceFixture(['attendance_date' => today()->subDay()]);
+    reviewAttendanceFixture(['attendance_date' => today()->subMonth()]);
+
+    $this->actingAs($fixture['user'])
+        ->get(route('external-training-attendances.export', [
+            'filter' => ['date_from' => today()->subWeek()->toDateString()],
+            'columns' => ['date', 'member', 'attendance_status'],
+        ]))
+        ->assertOk()
+        ->assertHeader('content-disposition', 'attachment; filename=external-training-attendances-'.now()->format('Y-m-d').'.xlsx');
+});
+
 test('admin can view attendance detail and private proof photo', function (): void {
     Storage::fake('local');
     $fixture = reviewAttendanceFixture();

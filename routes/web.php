@@ -66,6 +66,8 @@ Route::prefix('external-coach')->name('external-coach.')->group(function (): voi
     Route::middleware(['auth:external_coach', 'external.coach.active'])->group(function (): void {
         Route::get('dashboard', ExternalCoachDashboardController::class)->name('dashboard');
         Route::get('athletes/{member}', [ExternalCoachAthleteController::class, 'show'])->name('athletes.show');
+        Route::get('athletes/{member}/attendance', [ExternalCoachAthleteController::class, 'attendance'])->name('athletes.attendance');
+        Route::get('athletes/{member}/performance', [ExternalCoachAthleteController::class, 'performance'])->name('athletes.performance');
         Route::get('attendance', [ExternalTrainingAttendanceController::class, 'index'])->name('attendance.index');
         Route::post('attendance', [ExternalTrainingAttendanceController::class, 'store'])->name('attendance.store');
         Route::get('performance', [ExternalCoachPerformanceUpdateController::class, 'index'])->name('performance.index');
@@ -81,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('external-coaching-assignments/{external_coaching_assignment}/permission-document', [ExternalCoachingAssignmentController::class, 'permissionDocument'])->name('external-coaching-assignments.permission-document');
     Route::get('external-coaching-assignments/{external_coaching_assignment}/permission-document/preview', [ExternalCoachingAssignmentController::class, 'previewPermissionDocument'])->name('external-coaching-assignments.permission-document.preview');
     Route::resource('external-coaching-assignments', ExternalCoachingAssignmentController::class);
+    Route::get('external-training-attendances/export', [AdminExternalTrainingAttendanceController::class, 'export'])->name('external-training-attendances.export');
     Route::get('external-training-attendances/{external_training_attendance}/photo', [AdminExternalTrainingAttendanceController::class, 'photo'])->name('external-training-attendances.photo');
     Route::get('external-training-attendances/{external_training_attendance}/photo/preview', [AdminExternalTrainingAttendanceController::class, 'previewPhoto'])->name('external-training-attendances.photo.preview');
     Route::patch('external-training-attendances/{external_training_attendance}/review', [AdminExternalTrainingAttendanceController::class, 'review'])->name('external-training-attendances.review');

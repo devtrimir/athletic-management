@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { AlertCircle, ArrowLeft, Camera, CheckCircle2, ClipboardCheck, ImageUp, LocateFixed, Save } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Camera, CheckCircle2, ClipboardCheck, ImageUp, LocateFixed, Save, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { ComboboxItem } from '@/components/combobox';
@@ -17,15 +17,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { cn } from '@/lib/utils';
 
 type Assignment = {
     id: number;
@@ -68,6 +62,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
         status: t('No photo selected'),
         valid: false,
     });
+    const [photoSource, setPhotoSource] = useState('');
     const [cameraOpen, setCameraOpen] = useState(false);
     const [cameraStatus, setCameraStatus] = useState<string | null>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -194,7 +189,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
         });
     }
 
-    function handlePhotoSelected(file: File | null) {
+    function handlePhotoSelected(file: File | null, source: 'camera' | 'upload') {
         if (!file) {
             resetPhotoState();
 
@@ -208,6 +203,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                 status: t('Only JPG, PNG, or WebP images are allowed.'),
                 valid: false,
             });
+            setPhotoSource('');
 
             return;
         }
@@ -219,10 +215,12 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                 status: t('Photo must be 10 MB or smaller.'),
                 valid: false,
             });
+            setPhotoSource('');
 
             return;
         }
 
+        setPhotoSource(source);
         setPhotoState({
             name: file.name,
             sizeLabel: formatFileSize(file.size),
@@ -238,6 +236,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
             status: t('No photo selected'),
             valid: false,
         });
+        setPhotoSource('');
     }
 
     function resetAttendanceForm() {
@@ -287,7 +286,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                 galleryInputRef.current.value = '';
             }
 
-            handlePhotoSelected(file);
+            handlePhotoSelected(file, 'camera');
             closeCamera();
         }, 'image/jpeg', 0.9);
     }
@@ -296,8 +295,8 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
         <>
             <Head title={t('Training attendance')} />
 
-            <main className="min-h-screen bg-muted/20">
-                <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 lg:py-8">
+            <main className="min-h-screen overflow-x-hidden bg-muted/20">
+                <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-4 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 lg:py-8">
                     <header className="rounded-lg border bg-card px-4 py-4 shadow-sm sm:px-5">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="min-w-0">
@@ -322,42 +321,17 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                         </div>
                     </header>
 
-                    <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
-                        <div className="flex min-w-0 items-start gap-3">
-                            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                                <Camera className="size-5" />
-                            </div>
-                            <div className="min-w-0">
-                                <div className="text-xs font-medium text-muted-foreground">{t('Selected athlete')}</div>
-                                <h2 className="mt-1 truncate text-base font-semibold">
-                                    {selectedAssignment?.member.full_name ?? t('Choose an assigned athlete')}
-                                </h2>
-                                <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                    {selectedAssignment ? (
-                                        <>
-                                            {selectedAssignment.member.pno ? <span className="rounded-md border px-2 py-1">{selectedAssignment.member.pno}</span> : null}
-                                            <span className="rounded-md border px-2 py-1">{selectedAssignment.sport.name}</span>
-                                            <span className="rounded-md border px-2 py-1">{selectedAssignment.training_venue.name}</span>
-                                        </>
-                                    ) : (
-                                        <span>{t('Search and select the assigned athlete before submitting attendance.')}</span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
                     <Form
                         action="/external-coach/attendance"
                         method="post"
                         encType="multipart/form-data"
                         resetOnSuccess
                         onSuccess={resetAttendanceForm}
-                        className="grid gap-5 rounded-lg border bg-card p-4 shadow-sm sm:p-5"
+                        className="grid min-w-0 gap-5 overflow-hidden rounded-lg border bg-card p-4 shadow-sm sm:p-5"
                     >
                         {({ errors, processing, progress }) => (
                             <>
-                                <div className="grid gap-2">
+                                <section className="grid gap-3">
                                     <Label htmlFor="external_coaching_assignment_id">
                                         {t('Assigned athlete')}
                                     </Label>
@@ -371,14 +345,38 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                         searchPlaceholder={t('Search by athlete, PNO, venue, or sport')}
                                         emptyMessage={t('No assigned athlete found.')}
                                     />
+                                    <div className="rounded-lg border bg-muted/20 p-3">
+                                        <div className="flex min-w-0 items-start gap-3">
+                                            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground">
+                                                <UserRound className="size-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-xs font-medium text-muted-foreground">{t('Selected athlete')}</div>
+                                                <h2 className="mt-1 truncate text-sm font-semibold">
+                                                    {selectedAssignment?.member.full_name ?? t('Choose an assigned athlete')}
+                                                </h2>
+                                                <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                                    {selectedAssignment ? (
+                                                        <>
+                                                            {selectedAssignment.member.pno ? <span className="rounded-md border bg-background px-2 py-1">{selectedAssignment.member.pno}</span> : null}
+                                                            <span className="rounded-md border bg-background px-2 py-1">{selectedAssignment.sport.name}</span>
+                                                            <span className="rounded-md border bg-background px-2 py-1">{selectedAssignment.training_venue.name}</span>
+                                                        </>
+                                                    ) : (
+                                                        <span>{t('Search and select the assigned athlete before submitting attendance.')}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <InputError message={errors.external_coaching_assignment_id} />
-                                </div>
+                                </section>
 
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <div className="grid gap-2">
+                                <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                                    <div className="grid min-w-0 gap-2">
                                         <Label htmlFor="attendance_date">{t('Date')}</Label>
                                         <input type="hidden" name="attendance_date" value={attendanceDate} />
-                                        <div className="flex gap-2">
+                                        <div className="grid min-w-0 gap-2">
                                             <DatePicker
                                                 id="attendance_date"
                                                 value={attendanceDate}
@@ -386,80 +384,87 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                                 placeholder={t('Select date')}
                                                 className="min-w-0 flex-1"
                                             />
-                                            <Button type="button" variant="outline" onClick={() => setAttendanceDate(todayIsoDate())}>
+                                            <Button type="button" variant="outline" onClick={() => setAttendanceDate(todayIsoDate())} className="w-full">
                                                 {t('Today')}
                                             </Button>
                                         </div>
                                         <InputError message={errors.attendance_date} />
                                     </div>
 
-                                    <div className="grid gap-2">
+                                    <div className="grid min-w-0 gap-2">
                                         <Label htmlFor="attendance_status">{t('Status')}</Label>
-                                        <Select name="attendance_status" value={attendanceStatus} onValueChange={setAttendanceStatus}>
-                                            <SelectTrigger id="attendance_status">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {attendanceStatuses.map((status) => (
-                                                    <SelectItem key={status} value={status}>
-                                                        {t(status)}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <input type="hidden" name="attendance_status" value={attendanceStatus} />
+                                        <div id="attendance_status" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                            {attendanceStatuses.map((status) => (
+                                                <button
+                                                    key={status}
+                                                    type="button"
+                                                    onClick={() => setAttendanceStatus(status)}
+                                                    className={cn(
+                                                        'h-9 rounded-md border px-2 text-xs font-medium whitespace-normal transition-colors sm:px-3 sm:text-sm',
+                                                        attendanceStatus === status
+                                                            ? attendanceStatusButtonClass(status)
+                                                            : 'bg-background text-foreground hover:bg-muted',
+                                                    )}
+                                                >
+                                                    {t(status)}
+                                                </button>
+                                            ))}
+                                        </div>
                                         <InputError message={errors.attendance_status} />
                                     </div>
                                 </div>
 
-                                <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4">
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                        <div>
-                                            <Label>{t('Training location')}</Label>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {proofRequired
-                                                    ? t('Use this phone location for accurate attendance verification.')
-                                                    : t('Location is optional for this attendance status.')}
-                                            </p>
-                                        </div>
-                                        <Button type="button" variant="outline" onClick={fillCurrentLocation} disabled={locating || !proofRequired} className="w-full sm:w-auto">
-                                            <LocateFixed className="size-4" />
-                                            {locating ? t('Locating...') : t('Use current location')}
-                                        </Button>
-                                    </div>
-
-                                    {!isSecureLocationContext() ? (
-                                        <div className="flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
-                                            <div className="flex gap-2 text-sm">
-                                                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                                                <span>{t('GPS capture requires HTTPS on mobile browsers.')}</span>
+                                <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+                                    <div className="grid min-w-0 content-start gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                            <div>
+                                                <Label>{t('Training location')}</Label>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    {proofRequired
+                                                        ? t('Use this phone location for accurate attendance verification.')
+                                                        : t('Location is optional for this attendance status.')}
+                                                </p>
                                             </div>
-                                            {secureLocationUrl ? (
-                                                <Button asChild type="button" variant="outline" className="w-full bg-background sm:w-auto">
-                                                    <a href={secureLocationUrl}>{t('Open HTTPS')}</a>
-                                                </Button>
-                                            ) : null}
+                                            <Button type="button" variant="outline" onClick={fillCurrentLocation} disabled={locating || !proofRequired} className="w-full sm:w-auto">
+                                                <LocateFixed className="size-4" />
+                                                {locating ? t('Locating...') : t('Use current location')}
+                                            </Button>
                                         </div>
-                                    ) : null}
 
-                                    <input type="hidden" name="submitted_latitude" value={location.latitude} />
-                                    <input type="hidden" name="submitted_longitude" value={location.longitude} />
-                                    <input type="hidden" name="submitted_gps_accuracy" value={location.accuracy} />
+                                        {!isSecureLocationContext() ? (
+                                            <div className="flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
+                                                <div className="flex gap-2 text-sm">
+                                                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                                                    <span>{t('GPS capture requires HTTPS on mobile browsers.')}</span>
+                                                </div>
+                                                {secureLocationUrl ? (
+                                                    <Button asChild type="button" variant="outline" className="w-full bg-background sm:w-auto">
+                                                        <a href={secureLocationUrl}>{t('Open HTTPS')}</a>
+                                                    </Button>
+                                                ) : null}
+                                            </div>
+                                        ) : null}
 
-                                    <div className="grid gap-3 sm:grid-cols-3">
-                                        <ReadOnlyLocationValue label={t('Latitude')} value={location.latitude} emptyLabel={t('Not captured')} />
-                                        <ReadOnlyLocationValue label={t('Longitude')} value={location.longitude} emptyLabel={t('Not captured')} />
-                                        <ReadOnlyLocationValue label={t('Accuracy')} value={location.accuracy ? `${location.accuracy} ${t('m')}` : ''} emptyLabel={t('Not captured')} />
+                                        <input type="hidden" name="submitted_latitude" value={location.latitude} />
+                                        <input type="hidden" name="submitted_longitude" value={location.longitude} />
+                                        <input type="hidden" name="submitted_gps_accuracy" value={location.accuracy} />
+
+                                        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                                            <ReadOnlyLocationValue label={t('Latitude')} value={location.latitude} emptyLabel={t('Not captured')} />
+                                            <ReadOnlyLocationValue label={t('Longitude')} value={location.longitude} emptyLabel={t('Not captured')} />
+                                            <ReadOnlyLocationValue label={t('Accuracy')} value={location.accuracy ? `${location.accuracy} ${t('m')}` : ''} emptyLabel={t('Not captured')} />
+                                        </div>
+
+                                        {locationStatus ? <p className="text-xs text-muted-foreground">{locationStatus}</p> : null}
+                                        <InputError message={errors.submitted_latitude} />
+                                        <InputError message={errors.submitted_longitude} />
+                                        <InputError message={errors.submitted_gps_accuracy} />
                                     </div>
 
-                                    {locationStatus ? <p className="text-xs text-muted-foreground">{locationStatus}</p> : null}
-                                    <InputError message={errors.submitted_latitude} />
-                                    <InputError message={errors.submitted_longitude} />
-                                    <InputError message={errors.submitted_gps_accuracy} />
-                                </div>
-
-                                <div className="grid gap-2">
-                                    <Label htmlFor="submitted_photo">{t('Proof photo')}</Label>
-                                    <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4">
+                                    <div className="grid min-w-0 content-start gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4">
+                                        <Label htmlFor="submitted_photo">{t('Proof photo')}</Label>
+                                        <input type="hidden" name="submitted_photo_source" value={photoSource} />
                                         <div className="grid grid-cols-2 gap-2">
                                             <Button type="button" variant="outline" onClick={openCamera}>
                                                 <Camera className="size-4" />
@@ -487,7 +492,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                                     galleryInputRef.current.value = '';
                                                 }
 
-                                                handlePhotoSelected(event.target.files?.[0] ?? null);
+                                                handlePhotoSelected(event.target.files?.[0] ?? null, 'camera');
                                             }}
                                         />
                                         <Input
@@ -505,7 +510,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                                     cameraInputRef.current.files = transfer.files;
                                                 }
 
-                                                handlePhotoSelected(file);
+                                                handlePhotoSelected(file, 'upload');
                                             }}
                                         />
 
@@ -515,6 +520,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                                     <div className="text-[11px] font-medium text-muted-foreground">{t('Selected photo')}</div>
                                                     <div className="mt-1 truncate font-medium">{photoState.name || t('No photo selected')}</div>
                                                     {photoState.sizeLabel ? <div className="mt-0.5 text-xs text-muted-foreground">{photoState.sizeLabel}</div> : null}
+                                                    {photoSource ? <div className="mt-0.5 text-xs text-muted-foreground">{photoSourceLabel(photoSource, t)}</div> : null}
                                                 </div>
                                                 {photoState.valid ? <CheckCircle2 className="mt-1 size-4 shrink-0 text-emerald-600" /> : null}
                                             </div>
@@ -540,11 +546,11 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
 
                                 <div className="grid gap-2">
                                     <Label htmlFor="coach_remarks">{t('Remarks')}</Label>
-                                    <Textarea id="coach_remarks" name="coach_remarks" rows={4} />
+                                    <Textarea id="coach_remarks" name="coach_remarks" rows={3} />
                                     <InputError message={errors.coach_remarks} />
                                 </div>
 
-                                <div className="sticky bottom-0 -mx-4 flex border-t bg-card/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:justify-end sm:border-t sm:bg-transparent sm:px-0 sm:pt-4 sm:backdrop-blur-none">
+                                <div className="sticky bottom-0 flex border-t bg-card/95 py-3 backdrop-blur sm:static sm:justify-end sm:border-t sm:bg-transparent sm:pt-4 sm:backdrop-blur-none">
                                     <Button type="submit" disabled={processing || assignments.length === 0 || assignmentId === '' || (proofRequired && (!locationCaptured || !photoReady))} className="w-full sm:w-auto">
                                         <Save className="size-4" />
                                         {processing ? t('Submitting...') : t('Submit attendance')}
@@ -603,6 +609,33 @@ function formatFileSize(bytes: number): string {
     }
 
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function photoSourceLabel(source: string, t: (key: string) => string): string {
+    if (source === 'camera') {
+        return t('Captured from camera');
+    }
+
+    if (source === 'upload') {
+        return t('Uploaded from device');
+    }
+
+    return t(source);
+}
+
+function attendanceStatusButtonClass(status: string): string {
+    switch (status) {
+        case 'present':
+            return 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-200';
+        case 'late':
+            return 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200';
+        case 'absent':
+            return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+        case 'excused':
+            return 'border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-200';
+        default:
+            return 'border-primary/40 bg-primary/10 text-primary';
+    }
 }
 
 function stopCameraStream(stream: MediaStream | null): void {

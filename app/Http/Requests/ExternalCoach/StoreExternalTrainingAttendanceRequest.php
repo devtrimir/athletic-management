@@ -54,6 +54,12 @@ class StoreExternalTrainingAttendanceRequest extends FormRequest
             'submitted_gps_accuracy' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'device_info' => ['nullable', 'array'],
             'browser_timezone' => ['nullable', 'string', 'max:100'],
+            'submitted_photo_source' => [
+                Rule::requiredIf(fn (): bool => $this->hasFile('submitted_photo')),
+                'nullable',
+                'string',
+                Rule::in(['camera', 'upload']),
+            ],
             'submitted_photo' => [
                 Rule::requiredIf(fn (): bool => in_array($this->string('attendance_status')->toString(), ['present', 'late'], true)),
                 'nullable',

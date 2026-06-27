@@ -294,9 +294,7 @@ export default function ExternalCoachPerformanceUpdatesIndex({ updates, filters,
                                     <TableCell>{formatDisplayDate(update.update_date, locale)}</TableCell>
                                     <TableCell>
                                         <div className="font-medium">{update.member.full_name}</div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {update.member.member_code ?? update.member.pno}
-                                        </div>
+                                        {update.member.pno ? <div className="text-xs text-muted-foreground">{update.member.pno}</div> : null}
                                     </TableCell>
                                     <TableCell>{update.external_coach.name}</TableCell>
                                     <TableCell>{update.sport.name}</TableCell>

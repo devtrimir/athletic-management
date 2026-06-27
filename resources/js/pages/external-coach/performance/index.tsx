@@ -64,9 +64,9 @@ export default function ExternalCoachPerformanceIndex({
         <>
             <Head title={t('Performance updates')} />
 
-            <main className="min-h-screen bg-muted/20">
-                <div className="mx-auto grid w-full max-w-6xl gap-4 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:py-8">
-                    <section className="space-y-4 sm:space-y-5">
+            <main className="min-h-screen overflow-x-hidden bg-muted/20">
+                <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-4 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:py-8">
+                    <section className="min-w-0 space-y-4 sm:space-y-5">
                         <header className="rounded-lg border bg-card px-4 py-4 shadow-sm sm:px-5">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="min-w-0">
@@ -125,7 +125,7 @@ export default function ExternalCoachPerformanceIndex({
                     <Form
                         action="/external-coach/performance"
                         method="post"
-                        className="h-fit space-y-5 rounded-lg border bg-card p-4 shadow-sm sm:p-5"
+                        className="h-fit min-w-0 space-y-5 overflow-hidden rounded-lg border bg-card p-4 shadow-sm sm:p-5"
                     >
                         {({ errors, processing }) => (
                             <>
@@ -151,11 +151,11 @@ export default function ExternalCoachPerformanceIndex({
                                     <InputError message={errors.external_coaching_assignment_id} />
                                 </div>
 
-                                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                                <div className="grid gap-4">
                                     <div className="grid gap-2">
                                         <Label htmlFor="update_date">{t('Date')}</Label>
                                         <input type="hidden" name="update_date" value={updateDate} />
-                                        <div className="flex gap-2">
+                                        <div className="grid min-w-0 gap-2">
                                             <DatePicker
                                                 id="update_date"
                                                 value={updateDate}
@@ -163,16 +163,19 @@ export default function ExternalCoachPerformanceIndex({
                                                 placeholder={t('Select date')}
                                                 className="min-w-0 flex-1"
                                             />
-                                            <Button type="button" variant="outline" onClick={() => setUpdateDate(todayIsoDate())}>
+                                            <Button type="button" variant="outline" onClick={() => setUpdateDate(todayIsoDate())} className="w-full">
                                                 {t('Today')}
                                             </Button>
                                         </div>
                                         <InputError message={errors.update_date} />
                                     </div>
 
-                                    <div className="grid gap-2">
+                                    <div className="grid gap-2 sm:max-w-40">
                                         <Label htmlFor="performance_score">{t('Score')}</Label>
-                                        <Input id="performance_score" name="performance_score" type="number" min="1" max="10" placeholder="1-10" />
+                                        <div className="relative">
+                                            <Input id="performance_score" name="performance_score" type="number" min="1" max="10" placeholder="1-10" className="pr-10" />
+                                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">/10</span>
+                                        </div>
                                         <InputError message={errors.performance_score} />
                                     </div>
                                 </div>
@@ -206,7 +209,7 @@ export default function ExternalCoachPerformanceIndex({
                                     <InputError message={errors.improvement_notes} />
                                 </div>
 
-                                <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t bg-card/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:flex-row sm:justify-end sm:bg-transparent sm:px-0 sm:pt-4 sm:backdrop-blur-none">
+                                <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t bg-card/95 py-3 backdrop-blur sm:static sm:flex-row sm:justify-end sm:bg-transparent sm:pt-4 sm:backdrop-blur-none">
                                     <Button asChild variant="outline" className="w-full sm:w-auto">
                                         <Link href="/external-coach/dashboard">{t('Cancel')}</Link>
                                     </Button>

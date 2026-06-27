@@ -242,6 +242,26 @@
     }
 }
 
+@layer components {
+    [data-sonner-toaster] {
+        max-width: calc(100vw - 1rem) !important;
+    }
+
+    [data-sonner-toast] {
+        max-width: 100% !important;
+    }
+
+    @media (max-width: 600px) {
+        [data-sonner-toaster] {
+            width: auto !important;
+        }
+
+        [data-sonner-toaster] [data-sonner-toast] {
+            width: 100% !important;
+        }
+    }
+}
+
 /* ── Print styles ────────────────────────────────────────────────────────── */
 @media print {
     /* Hide everything except the quick-view print target */

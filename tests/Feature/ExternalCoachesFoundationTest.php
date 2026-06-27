@@ -233,7 +233,21 @@ test('external coach can view assigned athlete profile and history only', functi
         'member_id' => $member->id,
         'external_coach_id' => $externalCoach->id,
         'training_venue_id' => $venue->id,
+        'attendance_date' => now()->toDateString(),
         'attendance_status' => 'present',
+        'review_status' => 'corrected',
+        'review_remarks' => 'Corrected after admin verification.',
+        'reviewed_at' => now(),
+    ]);
+    ExternalTrainingAttendance::factory()->create([
+        'organization_id' => $organization->id,
+        'external_coaching_assignment_id' => $assignment->id,
+        'member_id' => $member->id,
+        'external_coach_id' => $externalCoach->id,
+        'training_venue_id' => $venue->id,
+        'attendance_date' => now()->subMonthNoOverflow()->toDateString(),
+        'attendance_status' => 'absent',
+        'review_status' => 'accepted',
     ]);
     ExternalCoachPerformanceUpdate::factory()->create([
         'organization_id' => $organization->id,
@@ -241,25 +255,93 @@ test('external coach can view assigned athlete profile and history only', functi
         'member_id' => $member->id,
         'external_coach_id' => $externalCoach->id,
         'sport_id' => $sport->id,
+        'update_date' => now()->toDateString(),
         'training_summary' => 'Footwork improved.',
+    ]);
+    ExternalCoachPerformanceUpdate::factory()->create([
+        'organization_id' => $organization->id,
+        'external_coaching_assignment_id' => $assignment->id,
+        'member_id' => $member->id,
+        'external_coach_id' => $externalCoach->id,
+        'sport_id' => $sport->id,
+        'update_date' => now()->subMonthNoOverflow()->toDateString(),
+        'training_summary' => 'Strength improved.',
     ]);
 
     $this->actingAs($externalCoach, 'external_coach')
         ->get(route('external-coach.athletes.show', $member))
+        ->assertRedirect(route('external-coach.athletes.attendance', $member));
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.athletes.attendance', $member))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('external-coach/athletes/show')
+            ->where('activeTab', 'attendance')
             ->where('athlete.full_name', 'Assigned Athlete')
             ->missing('athlete.member_code')
             ->has('assignments', 1)
             ->where('assignments.0.training_venue.name', 'Training Hall')
+            ->where('tabCounts.attendance', 2)
+            ->where('tabCounts.performance', 2)
+            ->where('attendanceFilters.month', now()->format('Y-m'))
             ->has('attendances', 1)
+            ->where('attendances.0.attendance_status', 'present')
+            ->where('attendances.0.review_status', 'corrected')
+            ->where('attendances.0.review_remarks', 'Corrected after admin verification.')
+            ->missing('performanceUpdates')
+            ->etc());
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.athletes.performance', $member))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('external-coach/athletes/show')
+            ->where('activeTab', 'performance')
+            ->where('athlete.full_name', 'Assigned Athlete')
+            ->has('assignments', 1)
+            ->where('tabCounts.attendance', 2)
+            ->where('tabCounts.performance', 2)
+            ->where('performanceFilters.month', now()->format('Y-m'))
+            ->missing('attendances')
             ->has('performanceUpdates', 1)
             ->where('performanceUpdates.0.training_summary', 'Footwork improved.')
             ->etc());
 
     $this->actingAs($externalCoach, 'external_coach')
-        ->get(route('external-coach.athletes.show', $otherAssignment->member_id))
+        ->get(route('external-coach.athletes.performance', [
+            'member' => $member,
+            'month' => now()->subMonthNoOverflow()->format('Y-m'),
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('external-coach/athletes/show')
+            ->where('activeTab', 'performance')
+            ->where('performanceFilters.month', now()->subMonthNoOverflow()->format('Y-m'))
+            ->has('performanceUpdates', 1)
+            ->where('performanceUpdates.0.training_summary', 'Strength improved.')
+            ->etc());
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.athletes.attendance', [
+            'member' => $member,
+            'month' => now()->subMonthNoOverflow()->format('Y-m'),
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('external-coach/athletes/show')
+            ->where('activeTab', 'attendance')
+            ->where('attendanceFilters.month', now()->subMonthNoOverflow()->format('Y-m'))
+            ->has('attendances', 1)
+            ->where('attendances.0.attendance_status', 'absent')
+            ->etc());
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.athletes.attendance', $otherAssignment->member_id))
+        ->assertNotFound();
+
+    $this->actingAs($externalCoach, 'external_coach')
+        ->get(route('external-coach.athletes.performance', $otherAssignment->member_id))
         ->assertNotFound();
 });
 

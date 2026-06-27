@@ -9,7 +9,7 @@ export default function AppSidebarLayout({
     return (
         <AppShell variant="sidebar">
             <AppSidebar />
-            <AppContent variant="sidebar" className="overflow-x-clip px-4 py-6 md:px-6">
+            <AppContent variant="sidebar" className="min-w-0 px-4 py-6 md:px-6">
                 {children}
             </AppContent>
         </AppShell>
