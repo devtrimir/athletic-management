@@ -149,7 +149,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                 setLocating(false);
             },
             () => {
-                setLocationStatus(t('Trying saved phone location...'));
+                setLocationStatus(t('Current GPS fix is still warming up. Trying again with lower power mode...'));
 
                 requestCurrentLocation(
                     (position) => {
@@ -158,7 +158,13 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                         setLocating(false);
                     },
                     (error) => {
-                        setLocationStatus(t('Waiting for a fresh GPS fix...'));
+                        if (isLocationFixUnavailable(error)) {
+                            setLocationStatus(
+                                t('Waiting for a fresh GPS fix (kCLErrorLocationUnknown). Keep the app open and move to an open area.'),
+                            );
+                        } else {
+                            setLocationStatus(t('Waiting for a fresh GPS fix...'));
+                        }
 
                         watchCurrentLocation(
                             (position) => {
@@ -170,6 +176,7 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
                                 setLocationStatus(locationErrorMessage(watchError ?? error, t));
                                 setLocating(false);
                             },
+                            true,
                         );
                     },
                     false,
@@ -617,6 +624,7 @@ function requestCurrentLocation(
 function watchCurrentLocation(
     onSuccess: PositionCallback,
     onError: (error: GeolocationPositionError | null) => void,
+    enableHighAccuracy = false,
 ): void {
     let settled = false;
     let lastError: GeolocationPositionError | null = null;
@@ -634,7 +642,7 @@ function watchCurrentLocation(
             lastError = error;
         },
         {
-            enableHighAccuracy: false,
+            enableHighAccuracy,
             maximumAge: 300_000,
             timeout: 45_000,
         },
@@ -652,6 +660,13 @@ function watchCurrentLocation(
 }
 
 function locationErrorMessage(error: GeolocationPositionError, t: (key: string) => string): string {
+    if (isLocationFixUnavailable(error)) {
+        return [
+            t('Unable to get current location. iOS could not get a GPS fix yet.'),
+            t('Please open in an outdoor area, keep location services on, and try again.'),
+        ].join(' ');
+    }
+
     if (error.code === 1) {
         return t('Location permission was denied. Please allow location access and try again.');
     }
@@ -667,6 +682,10 @@ function locationErrorMessage(error: GeolocationPositionError, t: (key: string) 
     }
 
     return t('Unable to get current location. Please try again.');
+}
+
+function isLocationFixUnavailable(error: { message: string }): boolean {
+    return error.message.toLowerCase().includes('kclerrorlocationunknown');
 }
 
 function isSecureLocationContext(): boolean {
