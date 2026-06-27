@@ -21,7 +21,18 @@ class ReportsMedalsController extends Controller
 {
     public function __invoke(Request $request): Response
     {
+        return $this->render($request, 'tally');
+    }
+
+    public function detail(Request $request): Response
+    {
+        return $this->render($request, 'detail');
+    }
+
+    private function render(Request $request, string $initialTab): Response
+    {
         abort_unless($request->user()->can('reports.view'), 403);
+        abort_if(! in_array($initialTab, ['tally', 'detail'], true), 400, 'Invalid medal tab.');
 
         $orgId = (int) $request->user()->organization_id;
 
@@ -70,6 +81,7 @@ class ReportsMedalsController extends Controller
             ->whereNull('t.deleted_at');
 
         return Inertia::render('reports/medals', [
+            'initialTab' => $initialTab,
             'defaultYearFrom' => (int) now()->year,
             'defaultYearTo' => (int) now()->year,
             'defaultSessionId' => $currentSessionId,
