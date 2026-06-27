@@ -141,6 +141,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('tournaments', TournamentController::class);
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/medals', ReportsMedalsController::class)->name('reports.medals');
+    Route::get('reports/medals/detail', [ReportsMedalsController::class, 'detail'])->name('reports.medals.detail');
     Route::get('reports/medals/export', MedalsExportController::class)->name('reports.medals.export');
     Route::get('reports/{key}/members/{member}/performance', [ReportController::class, 'memberPerformanceDetail'])->name('reports.member-performance-detail');
     Route::get('reports/{key}/drilldown', [ReportController::class, 'playerPerformanceDrilldown'])->name('reports.player-performance-drilldown');
