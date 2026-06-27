@@ -6,7 +6,6 @@ namespace App\Http\Requests\ExternalCoaches;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class StoreExternalCoachRequest extends FormRequest
 {
@@ -24,7 +23,7 @@ class StoreExternalCoachRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20', Rule::unique('external_coaches', 'phone')],
             'email' => ['required', 'email', 'max:255', Rule::unique('external_coaches', 'email')],
-            'password' => ['required', 'string', Password::defaults()],
+            'password' => ['required', 'string', 'min:8'],
             'gender' => ['nullable', Rule::in(['M', 'F', 'O'])],
             'date_of_birth' => ['nullable', 'date'],
             'address' => ['nullable', 'string', 'max:4000'],

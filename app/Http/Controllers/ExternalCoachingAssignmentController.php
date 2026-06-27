@@ -272,10 +272,12 @@ class ExternalCoachingAssignmentController extends Controller
             return $fallback;
         }
 
-        $ordered = array_values(array_intersect($fallback, $normalized));
-        $additional = array_values(array_filter($normalized, static fn (string $status): bool => ! in_array($status, $fallback, true)));
+        $normalized = array_values(array_unique($normalized));
 
-        return array_values(array_unique(array_merge($ordered, $additional)));
+        return array_values(array_unique(array_merge(
+            $fallback,
+            array_filter($normalized, static fn (string $status): bool => ! in_array($status, $fallback, true)),
+        )));
     }
 
     private function filterString(mixed $value): ?string
