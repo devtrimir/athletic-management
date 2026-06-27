@@ -47,12 +47,16 @@ type Props = {
 
 const allowedPhotoTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const maxPhotoSizeBytes = 10 * 1024 * 1024;
-const portraitCameraConstraints: MediaTrackConstraints = {
-    facingMode: { ideal: 'environment' },
-    width: { ideal: 1080 },
-    height: { ideal: 1440 },
-    aspectRatio: { ideal: 0.75 },
-};
+const cameraConstraintOptions: Array<MediaTrackConstraints | boolean> = [
+    { facingMode: { ideal: 'environment' } },
+    {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1080 },
+        height: { ideal: 1440 },
+        aspectRatio: { ideal: 0.75 },
+    },
+    true,
+];
 
 export default function ExternalCoachAttendance({ assignments, selectedAssignmentId, attendanceStatuses }: Props) {
     const { t } = useTranslation();
@@ -162,36 +166,38 @@ export default function ExternalCoachAttendance({ assignments, selectedAssignmen
         setCameraOpen(true);
         setCameraStatus(t('Starting camera...'));
 
+        if (!isSecureLocationContext()) {
+            setCameraStatus(t('Camera access requires HTTPS on iPhone browsers. Open the secure link and try again.'));
+
+            return;
+        }
+
         if (!navigator.mediaDevices?.getUserMedia) {
             setCameraStatus(t('Camera is not supported by this browser.'));
 
             return;
         }
 
-        window.setTimeout(() => {
-            navigator.mediaDevices
-                .getUserMedia({ video: portraitCameraConstraints, audio: false })
-                .catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }))
-                .then((stream) => {
-                    if (cameraRequestIdRef.current !== requestId) {
-                        stopCameraStream(stream);
+        void requestCameraStream()
+            .then((stream) => {
+                if (cameraRequestIdRef.current !== requestId) {
+                    stopCameraStream(stream);
 
-                        return;
-                    }
+                    return;
+                }
 
-                    cameraStreamRef.current = stream;
-                    setCameraStream(stream);
-                    setCameraStatus(t('Starting camera preview...'));
-                })
-                .catch(() => {
-                    if (cameraRequestIdRef.current !== requestId) {
-                        return;
-                    }
+                cameraStreamRef.current = stream;
+                setCameraStream(stream);
+                setCameraStatus(t('Starting camera preview...'));
+            })
+            .catch((error) => {
+                if (cameraRequestIdRef.current !== requestId) {
+                    return;
+                }
 
-                    setCameraReady(false);
-                    setCameraStatus(t('Unable to open camera. Please allow camera permission or use Upload.'));
-                });
-        }, 0);
+                setCameraReady(false);
+                setCameraStatus(cameraErrorMessage(error, t));
+            });
     }
 
     function closeCamera() {
@@ -763,6 +769,38 @@ function attendanceStatusButtonClass(status: string): string {
 
 function stopCameraStream(stream: MediaStream | null): void {
     stream?.getTracks().forEach((track) => track.stop());
+}
+
+async function requestCameraStream(): Promise<MediaStream> {
+    let lastError: unknown = null;
+
+    for (const video of cameraConstraintOptions) {
+        try {
+            return await navigator.mediaDevices.getUserMedia({ video, audio: false });
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    throw lastError;
+}
+
+function cameraErrorMessage(error: unknown, t: (key: string) => string): string {
+    if (error instanceof DOMException) {
+        if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+            return t('Camera permission was blocked. On iPhone, enable Camera for Chrome in Settings, then reopen this page.');
+        }
+
+        if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            return t('No camera was found on this device. Please use Upload.');
+        }
+
+        if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+            return t('Camera is already in use by another app. Close other camera apps and try again.');
+        }
+    }
+
+    return t('Unable to open camera. Please allow camera permission or use Upload.');
 }
 
 function requestCurrentLocation(
