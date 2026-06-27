@@ -46,6 +46,7 @@ class ExternalTrainingAttendanceFactory extends Factory
             'submitted_photo_uploaded_at' => now(),
             'submitted_photo_width' => 800,
             'submitted_photo_height' => 600,
+            'submitted_photo_source' => 'upload',
         ];
     }
 }

@@ -12,21 +12,21 @@ export default function ExternalCoachLayout({
     const { t } = useTranslation();
 
     return (
-        <div className="min-h-screen bg-muted/20">
+        <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-muted/20">
             <header className="border-b bg-background/95">
-                <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:px-6">
+                <div className="mx-auto flex w-full min-w-0 max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:px-6">
                     <Link
                         href="/external-coach/dashboard"
-                        className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                        className="min-w-0 truncate text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
                         {t('External coach portal')}
                     </Link>
 
-                    <AppearanceToggleTab className="bg-transparent p-0 text-xs" />
+                    <AppearanceToggleTab className="shrink-0 bg-transparent p-0 text-xs" />
                 </div>
             </header>
 
-            {children}
+            <div className="w-full max-w-[100vw] overflow-x-hidden">{children}</div>
         </div>
     );
 }

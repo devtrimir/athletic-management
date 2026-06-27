@@ -55,6 +55,7 @@ function externalAttendancePayload(ExternalCoachingAssignment $assignment, array
         'submitted_gps_accuracy' => 15,
         'coach_remarks' => 'Completed sprint drills.',
         'submitted_photo' => UploadedFile::fake()->image('proof.jpg', 800, 600),
+        'submitted_photo_source' => 'upload',
         ...$overrides,
     ];
 }
@@ -84,6 +85,7 @@ test('external training attendances table exists with proof and review columns',
         'submitted_photo_uploaded_at',
         'submitted_photo_width',
         'submitted_photo_height',
+        'submitted_photo_source',
         'venue_latitude_snapshot',
         'venue_longitude_snapshot',
         'allowed_radius_meters_snapshot',
@@ -103,6 +105,7 @@ test('external coach can submit attendance for assigned active athlete with priv
     $this->actingAs($fixture['coach'], 'external_coach')
         ->post(route('external-coach.attendance.store'), externalAttendancePayload($fixture['assignment'], [
             'submitted_photo' => $photo,
+            'submitted_photo_source' => 'camera',
         ]))
         ->assertRedirect(route('external-coach.attendance.index'));
 
@@ -119,7 +122,8 @@ test('external coach can submit attendance for assigned active athlete with priv
         ->and($attendance->submitted_photo_size_bytes)->toBe($photo->getSize())
         ->and($attendance->submitted_photo_uploaded_at)->not->toBeNull()
         ->and($attendance->submitted_photo_width)->toBe(800)
-        ->and($attendance->submitted_photo_height)->toBe(600);
+        ->and($attendance->submitted_photo_height)->toBe(600)
+        ->and($attendance->submitted_photo_source)->toBe('camera');
 
     Storage::disk('local')->assertExists($attendance->submitted_photo_path);
 });

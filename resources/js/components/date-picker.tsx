@@ -215,7 +215,7 @@ export function DatePicker({
                         <CalendarIcon className="size-4 opacity-70" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[296px] p-0" align="end">
+                <PopoverContent className="w-[296px] max-w-[calc(100vw-1rem)] p-0" align="end">
                     <div className="flex items-center gap-2 border-b p-2">
                         <Button
                             type="button"

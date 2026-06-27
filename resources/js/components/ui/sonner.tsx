@@ -14,6 +14,7 @@ function Toaster({ ...props }: ToasterProps) {
             position="bottom-right"
             style={
                 {
+                    '--width': 'min(356px, calc(100vw - 2rem))',
                     '--normal-bg': 'var(--popover)',
                     '--normal-text': 'var(--popover-foreground)',
                     '--normal-border': 'var(--border)',

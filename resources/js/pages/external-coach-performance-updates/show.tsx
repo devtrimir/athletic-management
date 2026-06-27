@@ -1,4 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
+import { ArrowLeft } from 'lucide-react';
 
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +46,7 @@ export default function ExternalCoachPerformanceUpdatesShow({ update, reviewActi
 
             <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[1fr_340px]">
                 <section className="space-y-4 rounded-lg border p-4">
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h1 className="text-xl font-semibold tracking-tight">
                                 {t('Review performance update')}
@@ -54,7 +55,15 @@ export default function ExternalCoachPerformanceUpdatesShow({ update, reviewActi
                                 {update.member.full_name} · {update.sport.name}
                             </p>
                         </div>
-                        <Badge variant="outline">{t(update.review_status)}</Badge>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">{t(update.review_status)}</Badge>
+                            <Button asChild variant="outline" size="sm">
+                                <Link href="/external-coach-performance-updates">
+                                    <ArrowLeft className="size-4" />
+                                    {t('Back')}
+                                </Link>
+                            </Button>
+                        </div>
                     </div>
 
                     <dl className="grid gap-3 text-sm sm:grid-cols-2">

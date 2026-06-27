@@ -63,6 +63,7 @@ use Illuminate\Support\Carbon;
     'submitted_photo_uploaded_at',
     'submitted_photo_width',
     'submitted_photo_height',
+    'submitted_photo_source',
     'check_in_at',
     'check_in_latitude',
     'check_in_longitude',
