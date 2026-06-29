@@ -1111,16 +1111,16 @@ export function PromotionDialog({
     const isRewardAction = mode === 'reward';
     const rewardActionLabel = t('Add cash reward');
     const [pendingPayload, setPendingPayload] = useState<{
-        promotion_date: string;
+        promotion_date: string | null;
         cash_reward_only: boolean;
-        from_rank: string;
-        to_rank: string;
+        from_rank: string | null;
+        to_rank: string | null;
         cash_reward_amount: string | null;
         cash_reward_date: string | null;
         cash_reward_reference: string | null;
         cash_reward_remarks: string | null;
-        reason: string;
-        remarks: string;
+        reason: string | null;
+        remarks: string | null;
         evidences: PromotionEvidenceRef[];
     } | null>(null);
     const selectedDefaults = useMemo(
@@ -1855,17 +1855,19 @@ export function PromotionDialog({
         return '';
     }
     function buildPayload() {
+        const rewardRank = form.data.from_rank || memberRank || null;
+
         return {
-            promotion_date: form.data.promotion_date,
+            promotion_date: isRewardAction ? null : form.data.promotion_date,
             cash_reward_only: isRewardAction,
-            from_rank: form.data.from_rank,
-            to_rank: form.data.to_rank,
+            from_rank: isRewardAction ? rewardRank : form.data.from_rank,
+            to_rank: isRewardAction ? rewardRank : form.data.to_rank,
             cash_reward_amount: form.data.cash_reward_amount || null,
             cash_reward_date: form.data.cash_reward_date || null,
             cash_reward_reference: form.data.cash_reward_reference || null,
             cash_reward_remarks: form.data.cash_reward_remarks || null,
-            reason: form.data.reason,
-            remarks: form.data.remarks,
+            reason: isRewardAction ? null : form.data.reason,
+            remarks: isRewardAction ? null : form.data.remarks,
             evidences: selected.flatMap(
                 (key) =>
                     options.find((item) => item.key === key)?.evidences ?? [],
@@ -1904,7 +1906,10 @@ export function PromotionDialog({
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
-        if (isBeforeDate(form.data.promotion_date, currentSessionMinDate)) {
+        if (
+            !isRewardAction &&
+            isBeforeDate(form.data.promotion_date, currentSessionMinDate)
+        ) {
             form.setError(
                 'promotion_date',
                 t(
@@ -1958,9 +1963,11 @@ export function PromotionDialog({
                 <DialogHeader>
                     <DialogTitle>
                         {subjectName
-                            ? `${promotion ? t('Edit promotion') : isRewardAction ? rewardActionLabel : t('Add promotion')} - ${subjectName}`
+                            ? `${promotion ? (isRewardAction ? t('Edit cash reward') : t('Edit promotion')) : isRewardAction ? rewardActionLabel : t('Add promotion')} - ${subjectName}`
                             : promotion
-                              ? t('Edit promotion')
+                              ? isRewardAction
+                                  ? t('Edit cash reward')
+                                  : t('Edit promotion')
                               : isRewardAction
                                 ? rewardActionLabel
                                 : t('Add promotion')}
@@ -2202,9 +2209,13 @@ export function PromotionDialog({
                             {t('Cancel')}
                         </Button>
                         <Button type="submit" disabled={selected.length === 0}>
-                            {promotion
-                                ? t('Save changes')
-                                : t('Save promotion')}
+                            {isRewardAction
+                                ? promotion
+                                    ? t('Save cash reward')
+                                    : t('Add cash reward')
+                                : promotion
+                                  ? t('Save changes')
+                                  : t('Save promotion')}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -2437,9 +2448,13 @@ export function PromotionDialog({
                             {t('Back')}
                         </Button>
                         <Button type="button" onClick={handleConfirmSave}>
-                            {promotion
-                                ? t('Confirm update')
-                                : t('Confirm save')}
+                            {isRewardAction
+                                ? promotion
+                                    ? t('Confirm reward update')
+                                    : t('Confirm reward')
+                                : promotion
+                                  ? t('Confirm update')
+                                  : t('Confirm save')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

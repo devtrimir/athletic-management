@@ -22,9 +22,7 @@ class MemberPromotionController extends Controller
     {
         Gate::authorize('manageBenefits', $member);
 
-        $data = array_merge($request->validated(), [
-            'from_rank' => $request->input('from_rank') ?: $member->rank,
-        ]);
+        $data = $this->promotionData($request->validated(), $request->boolean('cash_reward_only'), $member->rank);
 
         $promotion = MemberPromotion::create(array_merge(
             $data,
@@ -49,9 +47,11 @@ class MemberPromotionController extends Controller
 
         abort_if($promotion->member_id !== $member->id, 404);
 
-        $data = array_merge($request->validated(), [
-            'from_rank' => $request->input('from_rank') ?: $promotion->from_rank ?: $member->rank,
-        ]);
+        $data = $this->promotionData(
+            $request->validated(),
+            $request->boolean('cash_reward_only'),
+            $promotion->from_rank ?: $member->rank,
+        );
 
         $promotion->update($data);
 
@@ -93,6 +93,33 @@ class MemberPromotionController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function promotionData(array $data, bool $cashRewardOnly, ?string $fallbackRank): array
+    {
+        unset($data['cash_reward_only']);
+
+        $fromRank = filled($data['from_rank'] ?? null) ? (string) $data['from_rank'] : $fallbackRank;
+
+        if ($cashRewardOnly) {
+            $rewardRank = $fromRank ?: '';
+
+            return array_merge($data, [
+                'promotion_date' => null,
+                'from_rank' => $rewardRank ?: null,
+                'to_rank' => filled($data['to_rank'] ?? null) ? (string) $data['to_rank'] : $rewardRank,
+                'reason' => null,
+                'remarks' => null,
+            ]);
+        }
+
+        return array_merge($data, [
+            'from_rank' => $fromRank,
+        ]);
+    }
+
+    /**
      * @param  array<int, array{type: string, id: int}>  $evidences
      */
     private function syncEvidences(MemberPromotion $promotion, Member $member, array $evidences): void
@@ -130,6 +157,7 @@ class MemberPromotionController extends Controller
 
         $latestPromotionForRank = MemberPromotion::query()
             ->where('member_id', $member->id)
+            ->whereColumn('from_rank', '!=', 'to_rank')
             ->orderByRaw('promotion_date IS NULL')
             ->orderByDesc('promotion_date')
             ->orderByDesc('id')

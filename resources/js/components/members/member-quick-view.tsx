@@ -7,9 +7,21 @@ import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 type StatusHistoryItem = {
@@ -74,7 +86,10 @@ type MemberPreview = {
     achievements: AchievementItem[];
 };
 
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const STATUS_VARIANT: Record<
+    string,
+    'default' | 'secondary' | 'destructive' | 'outline'
+> = {
     ACTIVE: 'default',
     RESIGNED: 'outline',
     DISMISSED: 'destructive',
@@ -88,16 +103,30 @@ const MEDAL_COLOR: Record<string, string> = {
     BRONZE: 'text-orange-600',
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+    title,
+    children,
+}: {
+    title: string;
+    children: React.ReactNode;
+}) {
     return (
         <div className="border-b py-4 last:border-0">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+            <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                {title}
+            </h3>
             {children}
         </div>
     );
 }
 
-function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+function InfoRow({
+    label,
+    value,
+}: {
+    label: string;
+    value: string | null | undefined;
+}) {
     if (!value) {
         return null;
     }
@@ -123,7 +152,10 @@ function parseDateValue(value: string): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatDisplayDate(value: string | null | undefined, locale: string): string | null {
+function formatDisplayDate(
+    value: string | null | undefined,
+    locale: string,
+): string | null {
     if (!value) {
         return null;
     }
@@ -145,22 +177,30 @@ function postingLocation(data: MemberPreview): string | null {
 
 function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     const row = (label: string, value: string | null | undefined) =>
-        value ? `<div class="row"><span class="label">${label}</span><span class="val">${value}</span></div>` : '';
+        value
+            ? `<div class="row"><span class="label">${label}</span><span class="val">${value}</span></div>`
+            : '';
 
-    const statusRows = data.status_history.map(
-        (h) =>
-            `<tr><td>${formatDisplayDate(h.effective_on, 'hi') ?? '—'}</td><td>${t(h.status)}</td><td>${h.reason ?? '—'}</td></tr>`,
-    ).join('');
+    const statusRows = data.status_history
+        .map(
+            (h) =>
+                `<tr><td>${formatDisplayDate(h.effective_on, 'hi') ?? '—'}</td><td>${t(h.status)}</td><td>${h.reason ?? '—'}</td></tr>`,
+        )
+        .join('');
 
-    const teamRows = data.team_history.map(
-        (th) =>
-            `<tr><td>${th.team_name ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${formatDisplayDate(th.joined_on, 'hi') ?? '—'}</td><td>${formatDisplayDate(th.left_on, 'hi') ?? t('Present')}</td></tr>`,
-    ).join('');
+    const teamRows = data.team_history
+        .map(
+            (th) =>
+                `<tr><td>${th.team_name ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${formatDisplayDate(th.joined_on, 'hi') ?? '—'}</td><td>${formatDisplayDate(th.left_on, 'hi') ?? t('Present')}</td></tr>`,
+        )
+        .join('');
 
-    const achievementRows = data.achievements.map(
-        (a) =>
-            `<tr><td>${t(a.level)}</td><td>${a.competition_details}</td><td>${a.event ?? '—'}</td><td>${a.medal_type ? t(a.medal_type) : '—'}</td><td>${formatDisplayDate(a.event_date, 'hi') ?? '—'}</td></tr>`,
-    ).join('');
+    const achievementRows = data.achievements
+        .map(
+            (a) =>
+                `<tr><td>${t(a.level)}</td><td>${a.competition_details}</td><td>${a.event ?? '—'}</td><td>${a.medal_type ? t(a.medal_type) : '—'}</td><td>${formatDisplayDate(a.event_date, 'hi') ?? '—'}</td></tr>`,
+        )
+        .join('');
 
     return `<!DOCTYPE html><html><head>
     <meta charset="utf-8"><title>${data.full_name}</title>
@@ -193,8 +233,7 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     <h2>${t('Service')}</h2>
     ${row(t('Rank'), data.rank ? t(data.rank) : null)}
     ${row(t('Designation'), data.designation ? t(data.designation) : null)}
-    ${row(t('Current unit'), data.current_unit?.name)}
-    ${row(t('Posting unit / district'), postingLocation(data))}
+    ${row(t('Posting'), postingLocation(data))}
     ${row(t('Joining date'), formatDisplayDate(data.joining_date, 'hi'))}
     ${row(t('Promotion date'), formatDisplayDate(data.promotion_date, 'hi'))}
     ${row(t('Appointment'), data.appointment)}
@@ -205,23 +244,45 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     ${row(t('Player level'), data.player_level ? t(data.player_level) : null)}
     ${row(t('Player category'), data.player_category ? t(data.player_category) : null)}
     ${row(t('Team since'), data.team_since)}
-    ${data.status_history.length ? `<h2>${t('Status history')}</h2>
+    ${
+        data.status_history.length
+            ? `<h2>${t('Status history')}</h2>
     <table><thead><tr><th>${t('Date')}</th><th>${t('Status')}</th><th>${t('Reason')}</th></tr></thead>
-    <tbody>${statusRows}</tbody></table>` : ''}
-    ${data.team_history.length ? `<h2>${t('Team history')}</h2>
+    <tbody>${statusRows}</tbody></table>`
+            : ''
+    }
+    ${
+        data.team_history.length
+            ? `<h2>${t('Team history')}</h2>
     <table><thead><tr><th>${t('Team')}</th><th>${t('Session')}</th><th>${t('Role')}</th><th>${t('Joined')}</th><th>${t('Left')}</th></tr></thead>
-    <tbody>${teamRows}</tbody></table>` : ''}
-    ${data.achievements.length ? `<h2>${t('Achievements')}</h2>
+    <tbody>${teamRows}</tbody></table>`
+            : ''
+    }
+    ${
+        data.achievements.length
+            ? `<h2>${t('Achievements')}</h2>
     <table><thead><tr><th>${t('Level')}</th><th>${t('Competition')}</th><th>${t('Event')}</th><th>${t('Medal')}</th><th>${t('Date')}</th></tr></thead>
-    <tbody>${achievementRows}</tbody></table>` : ''}
+    <tbody>${achievementRows}</tbody></table>`
+            : ''
+    }
     </body></html>`;
 }
 
-export function MemberQuickView({ memberId, open, onClose }: { memberId: number | null; open: boolean; onClose: () => void }) {
+export function MemberQuickView({
+    memberId,
+    open,
+    onClose,
+}: {
+    memberId: number | null;
+    open: boolean;
+    onClose: () => void;
+}) {
     const { t } = useTranslation();
     const [data, setData] = useState<MemberPreview | null>(null);
     const [error, setError] = useState(false);
-    const { get, processing } = useHttp<Record<string, never>, MemberPreview>({});
+    const { get, processing } = useHttp<Record<string, never>, MemberPreview>(
+        {},
+    );
     const printRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -237,7 +298,7 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
             onSuccess: (res) => setData(res as unknown as MemberPreview),
             onError: () => setError(true),
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, memberId]);
 
     const handlePrint = () => {
@@ -254,33 +315,60 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
         win.document.write(buildPrintHtml(data, t));
         win.document.close();
         setTimeout(() => {
- win.focus(); win.print();
-}, 300);
+            win.focus();
+            win.print();
+        }, 300);
     };
 
-    const exportUrl = memberId !== null ? exportMembersUrl.url() + '?ids[]=' + memberId : '#';
+    const exportUrl =
+        memberId !== null ? exportMembersUrl.url() + '?ids[]=' + memberId : '#';
 
     return (
-        <Sheet open={open} onOpenChange={(v) => {
- if (!v) {
- onClose();
-}
-}}>
-            <SheetContent side="right" className="flex w-full flex-col sm:max-w-2xl" ref={printRef}>
+        <Sheet
+            open={open}
+            onOpenChange={(v) => {
+                if (!v) {
+                    onClose();
+                }
+            }}
+        >
+            <SheetContent
+                side="right"
+                className="flex w-full flex-col sm:max-w-2xl"
+                ref={printRef}
+            >
                 <SheetHeader className="border-b pb-4">
                     {processing || !data ? (
                         <div className="space-y-2">
-                            <SheetTitle className="sr-only">{t('Loading…')}</SheetTitle>
+                            <SheetTitle className="sr-only">
+                                {t('Loading…')}
+                            </SheetTitle>
                             <Skeleton className="h-6 w-48" />
                             <Skeleton className="h-4 w-32" />
                         </div>
                     ) : (
                         <>
-                            <SheetTitle className="text-lg">{data.full_name}</SheetTitle>
+                            <SheetTitle className="text-lg">
+                                {data.full_name}
+                            </SheetTitle>
                             <div className="flex flex-wrap items-center gap-2 pt-1">
-                                {data.pno && <span className="font-mono text-xs text-muted-foreground">{data.pno}</span>}
-                                {data.rank && <span className="text-xs font-medium">{t(data.rank)}</span>}
-                                <Badge variant={STATUS_VARIANT[data.current_status] ?? 'outline'} className="ml-auto">
+                                {data.pno && (
+                                    <span className="font-mono text-xs text-muted-foreground">
+                                        {data.pno}
+                                    </span>
+                                )}
+                                {data.rank && (
+                                    <span className="text-xs font-medium">
+                                        {t(data.rank)}
+                                    </span>
+                                )}
+                                <Badge
+                                    variant={
+                                        STATUS_VARIANT[data.current_status] ??
+                                        'outline'
+                                    }
+                                    className="ml-auto"
+                                >
                                     {t(data.current_status)}
                                 </Badge>
                             </div>
@@ -291,48 +379,136 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                 <div className="flex-1 overflow-y-auto px-1">
                     {processing && (
                         <div className="space-y-3 py-4">
-                            {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-4 w-full" />)}
+                            {[1, 2, 3, 4, 5, 6].map((i) => (
+                                <Skeleton key={i} className="h-4 w-full" />
+                            ))}
                         </div>
                     )}
 
                     {error && (
-                        <p className="py-8 text-center text-sm text-destructive">{t('Could not load details.')}</p>
+                        <p className="py-8 text-center text-sm text-destructive">
+                            {t('Could not load details.')}
+                        </p>
                     )}
 
                     {data && (
                         <div className="py-2">
                             <Section title={t('Personal')}>
-                                <InfoRow label={t("Father's name")} value={data.father_name} />
-                                <InfoRow label={t('Date of birth')} value={formatDisplayDate(data.dob, 'hi')} />
-                                <InfoRow label={t('Gender')} value={data.gender ? t(data.gender) : null} />
-                                <InfoRow label={t('Blood group')} value={data.blood_group} />
-                                <InfoRow label={t('Caste')} value={data.caste} />
-                                <InfoRow label={t('Mobile')} value={data.mobile} />
-                                <InfoRow label={t('Home district')} value={data.home_district?.name} />
+                                <InfoRow
+                                    label={t("Father's name")}
+                                    value={data.father_name}
+                                />
+                                <InfoRow
+                                    label={t('Date of birth')}
+                                    value={formatDisplayDate(data.dob, 'hi')}
+                                />
+                                <InfoRow
+                                    label={t('Gender')}
+                                    value={data.gender ? t(data.gender) : null}
+                                />
+                                <InfoRow
+                                    label={t('Blood group')}
+                                    value={data.blood_group}
+                                />
+                                <InfoRow
+                                    label={t('Caste')}
+                                    value={data.caste}
+                                />
+                                <InfoRow
+                                    label={t('Mobile')}
+                                    value={data.mobile}
+                                />
+                                <InfoRow
+                                    label={t('Home district')}
+                                    value={data.home_district?.name}
+                                />
                             </Section>
 
                             <Section title={t('Service')}>
-                                <InfoRow label={t('Current unit')} value={data.current_unit?.name} />
-                                <InfoRow label={t('Posting unit / district')} value={postingLocation(data)} />
-                                <InfoRow label={t('Joining date')} value={formatDisplayDate(data.joining_date, 'hi')} />
-                                <InfoRow label={t('Promotion date')} value={formatDisplayDate(data.promotion_date, 'hi')} />
-                                <InfoRow label={t('Appointment')} value={data.appointment} />
-                                <InfoRow label={t('Designation')} value={data.designation ? t(data.designation) : null} />
-                                <InfoRow label={t('Sport')} value={data.sport?.name} />
-                                <InfoRow label={t('Home address')} value={data.home_address} />
-                                <InfoRow label={t('Other notes')} value={data.other_notes} />
-                                <InfoRow label={t('Player level')} value={data.player_level ? t(data.player_level) : null} />
-                                <InfoRow label={t('Player category')} value={data.player_category ? t(data.player_category) : null} />
-                                <InfoRow label={t('Team since')} value={data.team_since} />
+                                <InfoRow
+                                    label={t('Posting')}
+                                    value={postingLocation(data)}
+                                />
+                                <InfoRow
+                                    label={t('Joining date')}
+                                    value={formatDisplayDate(
+                                        data.joining_date,
+                                        'hi',
+                                    )}
+                                />
+                                <InfoRow
+                                    label={t('Promotion date')}
+                                    value={formatDisplayDate(
+                                        data.promotion_date,
+                                        'hi',
+                                    )}
+                                />
+                                <InfoRow
+                                    label={t('Appointment')}
+                                    value={data.appointment}
+                                />
+                                <InfoRow
+                                    label={t('Designation')}
+                                    value={
+                                        data.designation
+                                            ? t(data.designation)
+                                            : null
+                                    }
+                                />
+                                <InfoRow
+                                    label={t('Sport')}
+                                    value={data.sport?.name}
+                                />
+                                <InfoRow
+                                    label={t('Home address')}
+                                    value={data.home_address}
+                                />
+                                <InfoRow
+                                    label={t('Other notes')}
+                                    value={data.other_notes}
+                                />
+                                <InfoRow
+                                    label={t('Player level')}
+                                    value={
+                                        data.player_level
+                                            ? t(data.player_level)
+                                            : null
+                                    }
+                                />
+                                <InfoRow
+                                    label={t('Player category')}
+                                    value={
+                                        data.player_category
+                                            ? t(data.player_category)
+                                            : null
+                                    }
+                                />
+                                <InfoRow
+                                    label={t('Team since')}
+                                    value={data.team_since}
+                                />
 
                                 {data.playable_sports.length > 0 && (
                                     <div className="mt-2 space-y-2">
-                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('Playable sports')}</p>
+                                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                            {t('Playable sports')}
+                                        </p>
                                         {data.playable_sports.map((sport) => (
-                                            <div key={sport.id} className="rounded-md border p-2 text-sm">
-                                                <p className="font-medium">{sport.name}</p>
+                                            <div
+                                                key={sport.id}
+                                                className="rounded-md border p-2 text-sm"
+                                            >
+                                                <p className="font-medium">
+                                                    {sport.name}
+                                                </p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {[sport.role, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}
+                                                    {[
+                                                        sport.role,
+                                                        sport.position,
+                                                        sport.notes,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' · ') || '—'}
                                                 </p>
                                             </div>
                                         ))}
@@ -344,17 +520,34 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                 <Section title={t('Status history')}>
                                     <div className="space-y-3">
                                         {data.status_history.map((h, i) => (
-                                            <div key={i} className="flex gap-3 text-sm">
+                                            <div
+                                                key={i}
+                                                className="flex gap-3 text-sm"
+                                            >
                                                 <div className="mt-0.5 flex flex-col items-center">
                                                     <span className="h-2.5 w-2.5 rounded-full border-2 border-primary bg-background" />
-                                                    {i < data.status_history.length - 1 && (
+                                                    {i <
+                                                        data.status_history
+                                                            .length -
+                                                            1 && (
                                                         <span className="mt-1 w-px flex-1 bg-border" />
                                                     )}
                                                 </div>
                                                 <div className="pb-3">
-                                                    <span className="font-mono text-xs text-muted-foreground">{formatDisplayDate(h.effective_on, 'hi')}</span>
-                                                    <p className="font-semibold">{t(h.status)}</p>
-                                                    {h.reason && <p className="text-muted-foreground">{h.reason}</p>}
+                                                    <span className="font-mono text-xs text-muted-foreground">
+                                                        {formatDisplayDate(
+                                                            h.effective_on,
+                                                            'hi',
+                                                        )}
+                                                    </span>
+                                                    <p className="font-semibold">
+                                                        {t(h.status)}
+                                                    </p>
+                                                    {h.reason && (
+                                                        <p className="text-muted-foreground">
+                                                            {h.reason}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -367,21 +560,47 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t('Team')}</TableHead>
-                                                <TableHead>{t('Session')}</TableHead>
-                                                <TableHead>{t('Role')}</TableHead>
-                                                <TableHead>{t('Joined')}</TableHead>
-                                                <TableHead>{t('Left')}</TableHead>
+                                                <TableHead>
+                                                    {t('Team')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Session')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Role')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Joined')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Left')}
+                                                </TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {data.team_history.map((th, i) => (
                                                 <TableRow key={i}>
-                                                    <TableCell className="font-medium">{th.team_name ?? '—'}</TableCell>
-                                                    <TableCell>{th.session_name ?? '—'}</TableCell>
-                                                    <TableCell>{t(th.role)}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{formatDisplayDate(th.joined_on, 'hi') ?? '—'}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{formatDisplayDate(th.left_on, 'hi') ?? t('Present')}</TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {th.team_name ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {th.session_name ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {t(th.role)}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-xs">
+                                                        {formatDisplayDate(
+                                                            th.joined_on,
+                                                            'hi',
+                                                        ) ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-xs">
+                                                        {formatDisplayDate(
+                                                            th.left_on,
+                                                            'hi',
+                                                        ) ?? t('Present')}
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -394,23 +613,48 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t('Level')}</TableHead>
-                                                <TableHead>{t('Competition')}</TableHead>
-                                                <TableHead>{t('Event')}</TableHead>
-                                                <TableHead>{t('Medal')}</TableHead>
-                                                <TableHead>{t('Date')}</TableHead>
+                                                <TableHead>
+                                                    {t('Level')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Competition')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Event')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Medal')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Date')}
+                                                </TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {data.achievements.map((a, i) => (
                                                 <TableRow key={i}>
-                                                    <TableCell className="whitespace-nowrap text-xs font-medium">{t(a.level)}</TableCell>
-                                                    <TableCell className="text-xs">{a.competition_details}</TableCell>
-                                                    <TableCell className="text-xs">{a.event ?? '—'}</TableCell>
-                                                    <TableCell className={`text-xs font-semibold ${MEDAL_COLOR[a.medal_type ?? ''] ?? ''}`}>
-                                                        {a.medal_type ? t(a.medal_type) : '—'}
+                                                    <TableCell className="text-xs font-medium whitespace-nowrap">
+                                                        {t(a.level)}
                                                     </TableCell>
-                                                    <TableCell className="font-mono text-xs">{formatDisplayDate(a.event_date, 'hi') ?? '—'}</TableCell>
+                                                    <TableCell className="text-xs">
+                                                        {a.competition_details}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">
+                                                        {a.event ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell
+                                                        className={`text-xs font-semibold ${MEDAL_COLOR[a.medal_type ?? ''] ?? ''}`}
+                                                    >
+                                                        {a.medal_type
+                                                            ? t(a.medal_type)
+                                                            : '—'}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-xs">
+                                                        {formatDisplayDate(
+                                                            a.event_date,
+                                                            'hi',
+                                                        ) ?? '—'}
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -422,12 +666,21 @@ export function MemberQuickView({ memberId, open, onClose }: { memberId: number 
                 </div>
 
                 <div className="flex items-center gap-2 border-t pt-4">
-                    <Button variant="outline" size="sm" onClick={() => {
- window.open(exportUrl, '_blank');
-}}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            window.open(exportUrl, '_blank');
+                        }}
+                    >
                         {t('Export')}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handlePrint} disabled={!data}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrint}
+                        disabled={!data}
+                    >
                         <Printer className="mr-1.5 h-4 w-4" />
                         {t('Print')}
                     </Button>

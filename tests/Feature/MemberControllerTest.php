@@ -6,7 +6,11 @@ use App\Models\Achievement;
 use App\Models\AuditLog;
 use App\Models\District;
 use App\Models\Event;
+use App\Models\ExternalCoachingAssignment;
+use App\Models\ExternalCoachPerformanceUpdate;
+use App\Models\ExternalTrainingAttendance;
 use App\Models\Member;
+use App\Models\MemberSpecialAchievement;
 use App\Models\Organization;
 use App\Models\Participation;
 use App\Models\Permission;
@@ -573,7 +577,7 @@ test('preview returns member print preview page', function () {
             ->has('member')
             ->where('member.photo_path', 'members/test-photo.jpg')
             ->has('achievements')
-            ->missing('auditLog')
+            ->has('auditLog')
         );
 });
 
@@ -610,6 +614,69 @@ test('preview includes achievement data for the member record', function () {
         );
 });
 
+test('preview includes special achievement and external coaching tab data', function () {
+    $user = memberUser('members.view');
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+
+    MemberSpecialAchievement::factory()->forMember($member)->create([
+        'achievement_type' => 'COMMENDATION_DISC',
+        'title' => 'Commendation Disc',
+        'awarded_on' => '2026-02-01',
+        'issuing_authority' => 'DGP UP',
+        'order_reference' => 'DISC-100',
+        'place' => 'Lucknow',
+        'remarks' => 'Special departmental recognition.',
+    ]);
+
+    $assignment = ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'sport_id' => $sport->id,
+        'start_date' => '2026-01-10',
+        'end_date' => '2026-03-10',
+        'status' => 'active',
+        'attendance_mode' => 'single_mark',
+    ]);
+
+    ExternalTrainingAttendance::factory()->create([
+        'organization_id' => $user->organization_id,
+        'external_coaching_assignment_id' => $assignment->id,
+        'member_id' => $member->id,
+        'external_coach_id' => $assignment->external_coach_id,
+        'training_venue_id' => $assignment->training_venue_id,
+        'attendance_date' => '2026-01-11',
+        'attendance_status' => 'present',
+        'geo_status' => 'valid',
+        'review_status' => 'approved',
+    ]);
+
+    ExternalCoachPerformanceUpdate::factory()->create([
+        'organization_id' => $user->organization_id,
+        'external_coaching_assignment_id' => $assignment->id,
+        'member_id' => $member->id,
+        'external_coach_id' => $assignment->external_coach_id,
+        'sport_id' => $sport->id,
+        'update_date' => '2026-01-20',
+        'performance_level' => 'excellent',
+        'performance_score' => 9,
+        'review_status' => 'approved',
+        'training_summary' => 'Sprint drills improved.',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.preview', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/print-preview')
+            ->where('specialAchievements.summary.total', 1)
+            ->where('specialAchievements.records.0.title', 'Commendation Disc')
+            ->where('externalCoaching.assignments.0.start_date', '2026-01-10')
+            ->where('externalCoaching.attendances.0.attendance_status', 'present')
+            ->where('externalCoaching.performanceUpdates.0.performance_score', 9)
+        );
+});
+
 test('preview keeps timeline entries without user attribution in the preview payload', function () {
     $user = memberUser('members.view');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
@@ -619,7 +686,7 @@ test('preview keeps timeline entries without user attribution in the preview pay
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('members/print-preview')
-            ->missing('auditLog.0.by')
+            ->where('auditLog.0.by', null)
         );
 });
 

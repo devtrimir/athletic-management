@@ -17,12 +17,8 @@ import {
     Trophy,
     Printer,
 } from 'lucide-react';
-import {
-    useCallback,
-    useMemo,
-    useState
-} from 'react';
-import type {ReactElement} from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 import type { ComponentProps } from 'react';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
 import {
@@ -410,7 +406,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'current_status', label: 'Status' },
     { key: 'player_category', label: 'Category' },
     { key: 'player_level', label: 'Level' },
-    { key: 'unit', label: 'Posting / District' },
+    { key: 'unit', label: 'Posting' },
     { key: 'home_district', label: 'Home district' },
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
@@ -625,11 +621,11 @@ export default function MembersShow({
                     return aSort - bSort;
                 }
 
-                    return (b.event_date ?? '').localeCompare(a.event_date ?? '');
-                });
+                return (b.event_date ?? '').localeCompare(a.event_date ?? '');
+            });
     }, [legacyAchievements]);
 
-        const legacyAchievementParticipationGroups = useMemo(() => {
+    const legacyAchievementParticipationGroups = useMemo(() => {
         const sessionById = new Map<
             number,
             {
@@ -655,7 +651,8 @@ export default function MembersShow({
         const buildSyntheticParticipation = (
             achievement: LegacyAchievement,
         ): ParticipationEntry => {
-            const fallbackSessionName = achievement.session?.name || t('Other session');
+            const fallbackSessionName =
+                achievement.session?.name || t('Other session');
             const tournamentName =
                 achievement.competition_details?.trim() || fallbackSessionName;
             const eventName =
@@ -688,7 +685,9 @@ export default function MembersShow({
                     name: eventName,
                     gender_class: achievement.gender_class ?? '',
                     discipline:
-                        achievement.discipline ?? achievement.sport_discipline ?? null,
+                        achievement.discipline ??
+                        achievement.sport_discipline ??
+                        null,
                     weight_category: achievement.weight_category ?? null,
                     sport: achievement.sport
                         ? {
@@ -736,7 +735,8 @@ export default function MembersShow({
             groups.set(groupSessionId, {
                 session: {
                     id: groupSessionId,
-                    name: sessionById.get(session?.id ?? -1)?.name ??
+                    name:
+                        sessionById.get(session?.id ?? -1)?.name ??
                         fallbackSessionName,
                     is_current: sessionCurrent,
                 },
@@ -793,7 +793,9 @@ export default function MembersShow({
                     amounts.push(
                         [
                             `₹${promotion.cash_reward_amount}`,
-                            formatReadableDate(promotion.cash_reward_date ?? null),
+                            formatReadableDate(
+                                promotion.cash_reward_date ?? null,
+                            ),
                         ]
                             .filter(Boolean)
                             .join(' · '),
@@ -985,9 +987,9 @@ export default function MembersShow({
                     .map((promotion) => promotionSummary(promotion))
                     .join(' ') ?? '',
                 item.achievement?.id
-                    ? promotionRowsForItem
+                    ? (promotionRowsForItem
                           .map((promotion) => promotionSummary(promotion))
-                          .join(' ') ?? ''
+                          .join(' ') ?? '')
                     : '',
             ]
                 .join(' ')
@@ -1189,9 +1191,7 @@ export default function MembersShow({
         }
 
         if (classFilter !== 'all') {
-            chips.push(
-                `${t('Class')}: ${eventClassLabel(classFilter, t)}`,
-            );
+            chips.push(`${t('Class')}: ${eventClassLabel(classFilter, t)}`);
         }
 
         if (benefitFilter !== 'all') {
@@ -1258,22 +1258,18 @@ export default function MembersShow({
             return;
         }
 
-        router.delete(destroyLegacyAchievement.url({
-            member: {
-                id: member.id,
-            },
-            legacyAchievement: achievement,
-        }));
+        router.delete(
+            destroyLegacyAchievement.url({
+                member: {
+                    id: member.id,
+                },
+                legacyAchievement: achievement,
+            }),
+        );
     }
 
     function eventBadgeClass(
-        kind:
-            | 'session'
-            | 'tier'
-            | 'class'
-            | 'medal'
-            | 'promotion'
-            | 'benefit',
+        kind: 'session' | 'tier' | 'class' | 'medal' | 'promotion' | 'benefit',
     ): string {
         const base =
             'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium';
@@ -1694,7 +1690,7 @@ export default function MembersShow({
                                             member.home_district?.name,
                                         )}
                                         {detail(
-                                            t('Posting / District'),
+                                            t('Posting'),
                                             displayPostingLocation(member),
                                         )}
                                         {detail(
@@ -1988,9 +1984,7 @@ export default function MembersShow({
                                                                 clearAchievementFilters
                                                             }
                                                         >
-                                                            {t(
-                                                                'Clear filters',
-                                                            )}
+                                                            {t('Clear filters')}
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -2005,32 +1999,29 @@ export default function MembersShow({
                                                 </div>
                                             ) : (
                                                 <div className="space-y-4">
-                                                        {achievementTierGroups.map(
-                                                            ({
-                                                                tier,
-                                                                rows,
-                                                            }) => {
-                                                                const medalCounts =
-                                                                    rows.reduce(
-                                                                        (
-                                                                            acc,
-                                                                            {
-                                                                                participation,
-                                                                            },
-                                                                        ) => {
-                                                                            if (
-                                                                                participation
-                                                                                    .tournament
-                                                                                    .tier_code ===
-                                                                                'OTHER'
-                                                                            ) {
-                                                                                return acc;
-                                                                            }
+                                                    {achievementTierGroups.map(
+                                                        ({ tier, rows }) => {
+                                                            const medalCounts =
+                                                                rows.reduce(
+                                                                    (
+                                                                        acc,
+                                                                        {
+                                                                            participation,
+                                                                        },
+                                                                    ) => {
+                                                                        if (
+                                                                            participation
+                                                                                .tournament
+                                                                                .tier_code ===
+                                                                            'OTHER'
+                                                                        ) {
+                                                                            return acc;
+                                                                        }
 
-                                                                            const medal =
-                                                                                participation
-                                                                                    .achievement
-                                                                                    ?.medal_type;
+                                                                        const medal =
+                                                                            participation
+                                                                                .achievement
+                                                                                ?.medal_type;
 
                                                                         if (
                                                                             medal &&
@@ -2052,8 +2043,7 @@ export default function MembersShow({
                                                                         MERIT: 0,
                                                                     },
                                                                 );
-                                                            let tierAchievementSerial =
-                                                                0;
+                                                            let tierAchievementSerial = 0;
 
                                                             return (
                                                                 <div
@@ -2067,10 +2057,14 @@ export default function MembersShow({
                                                                                     'tier',
                                                                                 )}
                                                                             >
-                                                                                {tier}
+                                                                                {
+                                                                                    tier
+                                                                                }
                                                                             </span>
                                                                             <span className="text-xs text-muted-foreground">
-                                                                                {rows.length}{' '}
+                                                                                {
+                                                                                    rows.length
+                                                                                }{' '}
                                                                                 {t(
                                                                                     'records',
                                                                                 )}
@@ -2115,7 +2109,7 @@ export default function MembersShow({
                                                                             )}
                                                                         </span>
                                                                     </div>
-                                                                    <Table className="text-xs [&_th]:py-1.5 [&_td]:py-1.5 [&_th]:px-2 [&_td]:px-2">
+                                                                    <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
                                                                         <TableHeader>
                                                                             <TableRow>
                                                                                 <TableHead>
@@ -2190,7 +2184,7 @@ export default function MembersShow({
                                                                                 </TableHead>
                                                                             </TableRow>
                                                                         </TableHeader>
-                                                                            <TableBody>
+                                                                        <TableBody>
                                                                             {rows.map(
                                                                                 ({
                                                                                     group,
@@ -2257,7 +2251,7 @@ export default function MembersShow({
                                                                                             }
                                                                                             className={
                                                                                                 isHighlightedAchievement
-                                                                                                    ? 'scroll-mt-28 bg-amber-50/80 ring-1 ring-inset ring-amber-300 dark:bg-amber-950/20 dark:ring-amber-700'
+                                                                                                    ? 'scroll-mt-28 bg-amber-50/80 ring-1 ring-amber-300 ring-inset dark:bg-amber-950/20 dark:ring-amber-700'
                                                                                                     : undefined
                                                                                             }
                                                                                         >
@@ -2272,12 +2266,10 @@ export default function MembersShow({
                                                                                                         'tier',
                                                                                                     )}
                                                                                                 >
-                                                                                                    {
-                                                                                                        participation
-                                                                                                            .tournament
-                                                                                                            .tier_code ??
-                                                                                                        tier
-                                                                                                    }
+                                                                                                    {participation
+                                                                                                        .tournament
+                                                                                                        .tier_code ??
+                                                                                                        tier}
                                                                                                 </span>
                                                                                             </TableCell>
                                                                                             <TableCell>
@@ -2405,8 +2397,7 @@ export default function MembersShow({
                                                                                                                 className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
                                                                                                             >
                                                                                                                 {
-                                                                                                                    medal
-                                                                                                                        .icon
+                                                                                                                    medal.icon
                                                                                                                 }
                                                                                                                 {
                                                                                                                     medal.label
@@ -2427,13 +2418,12 @@ export default function MembersShow({
                                                                                                 )}
                                                                                             </TableCell>
                                                                                             <TableCell>
-                                                                                                #{
-                                                                                                    participation
-                                                                                                        .achievement
-                                                                                                        ?.position ??
+                                                                                                #
+                                                                                                {participation
+                                                                                                    .achievement
+                                                                                                    ?.position ??
                                                                                                     participation.position ??
-                                                                                                    '—'
-                                                                                                }
+                                                                                                    '—'}
                                                                                             </TableCell>
                                                                                             <TableCell>
                                                                                                 <div className="flex flex-wrap gap-1.5">
@@ -2510,22 +2500,27 @@ export default function MembersShow({
                                                                                                             member={{
                                                                                                                 id: member.id,
                                                                                                             }}
-                                                                                                            sessions={sessions ?? []}
-                                                                                                            sports={sportOptions}
+                                                                                                            sessions={
+                                                                                                                sessions ??
+                                                                                                                []
+                                                                                                            }
+                                                                                                            sports={
+                                                                                                                sportOptions
+                                                                                                            }
                                                                                                         />
                                                                                                         {!legacyAchievementIsLinked ? (
-                                                                                                        <Button
-                                                                                                            variant="ghost"
-                                                                                                            size="icon"
-                                                                                                            className="size-7 text-destructive hover:text-destructive"
-                                                                                                            onClick={() => {
-                                                                                                                setPendingLegacyAchievementDelete(
-                                                                                                                    legacyAchievement,
-                                                                                                                );
-                                                                                                            }}
-                                                                                                        >
-                                                                                                            <Trash2 className="size-4" />
-                                                                                                        </Button>
+                                                                                                            <Button
+                                                                                                                variant="ghost"
+                                                                                                                size="icon"
+                                                                                                                className="size-7 text-destructive hover:text-destructive"
+                                                                                                                onClick={() => {
+                                                                                                                    setPendingLegacyAchievementDelete(
+                                                                                                                        legacyAchievement,
+                                                                                                                    );
+                                                                                                                }}
+                                                                                                            >
+                                                                                                                <Trash2 className="size-4" />
+                                                                                                            </Button>
                                                                                                         ) : null}
                                                                                                     </div>
                                                                                                 ) : null}
@@ -2593,24 +2588,64 @@ export default function MembersShow({
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead>{t('Period')}</TableHead>
-                                                        <TableHead>{t('External coach')}</TableHead>
-                                                        <TableHead>{t('Venue')}</TableHead>
-                                                        <TableHead>{t('Sport')}</TableHead>
-                                                        <TableHead>{t('Status')}</TableHead>
+                                                        <TableHead>
+                                                            {t('Period')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t(
+                                                                'External coach',
+                                                            )}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Venue')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Sport')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Status')}
+                                                        </TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {(externalCoaching?.assignments ?? []).map((assignment) => (
-                                                        <TableRow key={assignment.id}>
+                                                    {(
+                                                        externalCoaching?.assignments ??
+                                                        []
+                                                    ).map((assignment) => (
+                                                        <TableRow
+                                                            key={assignment.id}
+                                                        >
                                                             <TableCell>
-                                                                {assignment.start_date ?? '-'} → {assignment.end_date ?? '-'}
+                                                                {assignment.start_date ??
+                                                                    '-'}{' '}
+                                                                →{' '}
+                                                                {assignment.end_date ??
+                                                                    '-'}
                                                             </TableCell>
-                                                            <TableCell>{assignment.external_coach?.name ?? '-'}</TableCell>
-                                                            <TableCell>{assignment.training_venue?.name ?? '-'}</TableCell>
-                                                            <TableCell>{assignment.sport?.name ?? '-'}</TableCell>
                                                             <TableCell>
-                                                                <Badge variant="outline">{t(assignment.status)}</Badge>
+                                                                {assignment
+                                                                    .external_coach
+                                                                    ?.name ??
+                                                                    '-'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {assignment
+                                                                    .training_venue
+                                                                    ?.name ??
+                                                                    '-'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {assignment
+                                                                    .sport
+                                                                    ?.name ??
+                                                                    '-'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline">
+                                                                    {t(
+                                                                        assignment.status,
+                                                                    )}
+                                                                </Badge>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
@@ -2627,27 +2662,66 @@ export default function MembersShow({
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead>{t('Date')}</TableHead>
-                                                        <TableHead>{t('Status')}</TableHead>
-                                                        <TableHead>{t('Geo status')}</TableHead>
-                                                        <TableHead>{t('Review status')}</TableHead>
-                                                        <TableHead>{t('Distance')}</TableHead>
+                                                        <TableHead>
+                                                            {t('Date')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Status')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Geo status')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Review status')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Distance')}
+                                                        </TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {(externalCoaching?.attendances ?? []).map((attendance) => (
-                                                        <TableRow key={attendance.id}>
-                                                            <TableCell>{attendance.attendance_date ?? '-'}</TableCell>
-                                                            <TableCell>{t(attendance.attendance_status)}</TableCell>
+                                                    {(
+                                                        externalCoaching?.attendances ??
+                                                        []
+                                                    ).map((attendance) => (
+                                                        <TableRow
+                                                            key={attendance.id}
+                                                        >
                                                             <TableCell>
-                                                                <Badge variant={attendance.geo_status === 'valid' ? 'secondary' : 'destructive'}>
-                                                                    {t(attendance.geo_status)}
+                                                                {attendance.attendance_date ??
+                                                                    '-'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {t(
+                                                                    attendance.attendance_status,
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge
+                                                                    variant={
+                                                                        attendance.geo_status ===
+                                                                        'valid'
+                                                                            ? 'secondary'
+                                                                            : 'destructive'
+                                                                    }
+                                                                >
+                                                                    {t(
+                                                                        attendance.geo_status,
+                                                                    )}
                                                                 </Badge>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Badge variant="outline">{t(attendance.review_status)}</Badge>
+                                                                <Badge variant="outline">
+                                                                    {t(
+                                                                        attendance.review_status,
+                                                                    )}
+                                                                </Badge>
                                                             </TableCell>
-                                                            <TableCell>{attendance.distance_from_venue_meters ?? '-'} m</TableCell>
+                                                            <TableCell>
+                                                                {attendance.distance_from_venue_meters ??
+                                                                    '-'}{' '}
+                                                                m
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -2663,22 +2737,57 @@ export default function MembersShow({
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead>{t('Date')}</TableHead>
-                                                        <TableHead>{t('Level')}</TableHead>
-                                                        <TableHead>{t('Score')}</TableHead>
-                                                        <TableHead>{t('Summary')}</TableHead>
-                                                        <TableHead>{t('Review status')}</TableHead>
+                                                        <TableHead>
+                                                            {t('Date')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Level')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Score')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Summary')}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t('Review status')}
+                                                        </TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {(externalCoaching?.performanceUpdates ?? []).map((update) => (
-                                                        <TableRow key={update.id}>
-                                                            <TableCell>{update.update_date ?? '-'}</TableCell>
-                                                            <TableCell>{update.performance_level ? t(update.performance_level) : '-'}</TableCell>
-                                                            <TableCell>{update.performance_score ?? '-'}</TableCell>
-                                                            <TableCell>{update.training_summary}</TableCell>
+                                                    {(
+                                                        externalCoaching?.performanceUpdates ??
+                                                        []
+                                                    ).map((update) => (
+                                                        <TableRow
+                                                            key={update.id}
+                                                        >
                                                             <TableCell>
-                                                                <Badge variant="outline">{t(update.review_status)}</Badge>
+                                                                {update.update_date ??
+                                                                    '-'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {update.performance_level
+                                                                    ? t(
+                                                                          update.performance_level,
+                                                                      )
+                                                                    : '-'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {update.performance_score ??
+                                                                    '-'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {
+                                                                    update.training_summary
+                                                                }
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline">
+                                                                    {t(
+                                                                        update.review_status,
+                                                                    )}
+                                                                </Badge>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
@@ -2963,7 +3072,10 @@ export default function MembersShow({
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+                <DialogContent
+                    className="sm:max-w-lg"
+                    aria-describedby={undefined}
+                >
                     <DialogHeader>
                         <DialogTitle>
                             {achievementPreview?.kind === 'tournament'
@@ -2986,8 +3098,8 @@ export default function MembersShow({
                                         {t('Tier / Level')}
                                     </p>
                                     <p>
-                                        {achievementPreview.tournament.tier_code ??
-                                            t('Unknown')}
+                                        {achievementPreview.tournament
+                                            .tier_code ?? t('Unknown')}
                                     </p>
                                 </div>
                                 <div className="space-y-1 sm:col-span-2">
@@ -3032,7 +3144,9 @@ export default function MembersShow({
                                             <p className="text-xs font-medium text-muted-foreground">
                                                 {t('Event')}
                                             </p>
-                                            <p>{achievementPreview.event.name}</p>
+                                            <p>
+                                                {achievementPreview.event.name}
+                                            </p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-xs font-medium text-muted-foreground">
@@ -3103,14 +3217,19 @@ export default function MembersShow({
                     }
                 }}
             >
-                <DialogContent className="overflow-hidden p-0 sm:max-w-3xl" aria-describedby={undefined}>
+                <DialogContent
+                    className="overflow-hidden p-0 sm:max-w-3xl"
+                    aria-describedby={undefined}
+                >
                     <DialogHeader>
                         <div className="border-b bg-muted/30 px-6 py-5">
                             <DialogTitle className="text-base font-semibold">
                                 {t('Filters')}
                             </DialogTitle>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                {t('Refine post-recruitment achievements without leaving the table.')}
+                                {t(
+                                    'Refine post-recruitment achievements without leaving the table.',
+                                )}
                             </p>
                         </div>
                     </DialogHeader>
@@ -3122,7 +3241,9 @@ export default function MembersShow({
                                     {t('Search & scope')}
                                 </h4>
                                 <p className="text-xs text-muted-foreground">
-                                    {t('Narrow the list by text, session, medal, and event dates.')}
+                                    {t(
+                                        'Narrow the list by text, session, medal, and event dates.',
+                                    )}
                                 </p>
                             </div>
                             <div className="grid gap-4 sm:grid-cols-2">
@@ -3137,12 +3258,16 @@ export default function MembersShow({
                                         id="achievement-filter-search"
                                         value={draftAchievementFilters.search}
                                         onChange={(e) =>
-                                            setDraftAchievementFilters((current) => ({
-                                                ...current,
-                                                search: e.target.value,
-                                            }))
+                                            setDraftAchievementFilters(
+                                                (current) => ({
+                                                    ...current,
+                                                    search: e.target.value,
+                                                }),
+                                            )
                                         }
-                                        placeholder={t('Search events, medals, benefits…')}
+                                        placeholder={t(
+                                            'Search events, medals, benefits…',
+                                        )}
                                         className="h-10 bg-white"
                                     />
                                 </div>
@@ -3153,14 +3278,21 @@ export default function MembersShow({
                                     <Select
                                         value={draftAchievementFilters.session}
                                         onValueChange={(value) =>
-                                            setDraftAchievementFilters((current) => ({
-                                                ...current,
-                                                session: value as 'all' | 'current' | string,
-                                            }))
+                                            setDraftAchievementFilters(
+                                                (current) => ({
+                                                    ...current,
+                                                    session: value as
+                                                        | 'all'
+                                                        | 'current'
+                                                        | string,
+                                                }),
+                                            )
                                         }
                                     >
                                         <SelectTrigger className="h-10 bg-white">
-                                            <SelectValue placeholder={t('All sessions')} />
+                                            <SelectValue
+                                                placeholder={t('All sessions')}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="current">
@@ -3169,14 +3301,18 @@ export default function MembersShow({
                                             <SelectItem value="all">
                                                 {t('All sessions')}
                                             </SelectItem>
-                                            {legacyAchievementParticipationGroups.map((group) => (
-                                                <SelectItem
-                                                    key={group.session.id}
-                                                    value={String(group.session.id)}
-                                                >
-                                                    {group.session.name}
-                                                </SelectItem>
-                                            ))}
+                                            {legacyAchievementParticipationGroups.map(
+                                                (group) => (
+                                                    <SelectItem
+                                                        key={group.session.id}
+                                                        value={String(
+                                                            group.session.id,
+                                                        )}
+                                                    >
+                                                        {group.session.name}
+                                                    </SelectItem>
+                                                ),
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -3187,22 +3323,38 @@ export default function MembersShow({
                                     <Select
                                         value={draftAchievementFilters.medal}
                                         onValueChange={(value) =>
-                                            setDraftAchievementFilters((current) => ({
-                                                ...current,
-                                                medal: value as AchievementFiltersState['medal'],
-                                            }))
+                                            setDraftAchievementFilters(
+                                                (current) => ({
+                                                    ...current,
+                                                    medal: value as AchievementFiltersState['medal'],
+                                                }),
+                                            )
                                         }
                                     >
                                         <SelectTrigger className="h-10 bg-white">
-                                            <SelectValue placeholder={t('All medals')} />
+                                            <SelectValue
+                                                placeholder={t('All medals')}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">{t('All medals')}</SelectItem>
-                                            <SelectItem value="GOLD">{t('Gold')}</SelectItem>
-                                            <SelectItem value="SILVER">{t('Silver')}</SelectItem>
-                                            <SelectItem value="BRONZE">{t('Bronze')}</SelectItem>
-                                            <SelectItem value="MERIT">{t('MERIT')}</SelectItem>
-                                            <SelectItem value="none">{t('No medal')}</SelectItem>
+                                            <SelectItem value="all">
+                                                {t('All medals')}
+                                            </SelectItem>
+                                            <SelectItem value="GOLD">
+                                                {t('Gold')}
+                                            </SelectItem>
+                                            <SelectItem value="SILVER">
+                                                {t('Silver')}
+                                            </SelectItem>
+                                            <SelectItem value="BRONZE">
+                                                {t('Bronze')}
+                                            </SelectItem>
+                                            <SelectItem value="MERIT">
+                                                {t('MERIT')}
+                                            </SelectItem>
+                                            <SelectItem value="none">
+                                                {t('No medal')}
+                                            </SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -3217,10 +3369,12 @@ export default function MembersShow({
                                         id="achievement-filter-date-from"
                                         value={draftAchievementFilters.dateFrom}
                                         onChange={(value) =>
-                                            setDraftAchievementFilters((current) => ({
-                                                ...current,
-                                                dateFrom: value,
-                                            }))
+                                            setDraftAchievementFilters(
+                                                (current) => ({
+                                                    ...current,
+                                                    dateFrom: value,
+                                                }),
+                                            )
                                         }
                                         className="gap-2"
                                     />
@@ -3236,10 +3390,12 @@ export default function MembersShow({
                                         id="achievement-filter-date-to"
                                         value={draftAchievementFilters.dateTo}
                                         onChange={(value) =>
-                                            setDraftAchievementFilters((current) => ({
-                                                ...current,
-                                                dateTo: value,
-                                            }))
+                                            setDraftAchievementFilters(
+                                                (current) => ({
+                                                    ...current,
+                                                    dateTo: value,
+                                                }),
+                                            )
                                         }
                                         className="gap-2"
                                     />
@@ -3253,7 +3409,9 @@ export default function MembersShow({
                                     {t('Classification')}
                                 </h4>
                                 <p className="text-xs text-muted-foreground">
-                                    {t('Filter by competition level, event class, and recorded benefits.')}
+                                    {t(
+                                        'Filter by competition level, event class, and recorded benefits.',
+                                    )}
                                 </p>
                             </div>
                             <div className="grid gap-4 sm:grid-cols-2">
@@ -3264,28 +3422,46 @@ export default function MembersShow({
                                     <Select
                                         value={draftAchievementFilters.tier}
                                         onValueChange={(value) =>
-                                            setDraftAchievementFilters((current) => ({
-                                                ...current,
-                                                tier: value,
-                                            }))
+                                            setDraftAchievementFilters(
+                                                (current) => ({
+                                                    ...current,
+                                                    tier: value,
+                                                }),
+                                            )
                                         }
                                     >
                                         <SelectTrigger className="h-10 bg-white">
-                                            <SelectValue placeholder={t('All tiers')} />
+                                            <SelectValue
+                                                placeholder={t('All tiers')}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">{t('All tiers')}</SelectItem>
+                                            <SelectItem value="all">
+                                                {t('All tiers')}
+                                            </SelectItem>
                                             {Array.from(
                                                 new Set(
                                                     legacyAchievementParticipationGroups.flatMap(
                                                         (group) =>
                                                             group.participations
-                                                                .map((participation) => participation.tournament.tier_code)
-                                                                .filter(Boolean) as string[],
+                                                                .map(
+                                                                    (
+                                                                        participation,
+                                                                    ) =>
+                                                                        participation
+                                                                            .tournament
+                                                                            .tier_code,
+                                                                )
+                                                                .filter(
+                                                                    Boolean,
+                                                                ) as string[],
                                                     ),
                                                 ),
                                             ).map((tier) => (
-                                                <SelectItem key={tier} value={tier}>
+                                                <SelectItem
+                                                    key={tier}
+                                                    value={tier}
+                                                >
                                                     {tier}
                                                 </SelectItem>
                                             ))}
@@ -3297,29 +3473,46 @@ export default function MembersShow({
                                         {t('Class')}
                                     </Label>
                                     <Select
-                                        value={draftAchievementFilters.eventClass}
+                                        value={
+                                            draftAchievementFilters.eventClass
+                                        }
                                         onValueChange={(value) =>
-                                            setDraftAchievementFilters((current) => ({
-                                                ...current,
-                                                eventClass: value,
-                                            }))
+                                            setDraftAchievementFilters(
+                                                (current) => ({
+                                                    ...current,
+                                                    eventClass: value,
+                                                }),
+                                            )
                                         }
                                     >
                                         <SelectTrigger className="h-10 bg-white">
-                                            <SelectValue placeholder={t('All types')} />
+                                            <SelectValue
+                                                placeholder={t('All types')}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">{t('All types')}</SelectItem>
+                                            <SelectItem value="all">
+                                                {t('All types')}
+                                            </SelectItem>
                                             {Array.from(
                                                 new Set(
-                                                    legacyAchievementParticipationGroups.flatMap((group) =>
-                                                        group.participations.map(
-                                                            (participation) => participation.event.gender_class,
-                                                        ),
+                                                    legacyAchievementParticipationGroups.flatMap(
+                                                        (group) =>
+                                                            group.participations.map(
+                                                                (
+                                                                    participation,
+                                                                ) =>
+                                                                    participation
+                                                                        .event
+                                                                        .gender_class,
+                                                            ),
                                                     ),
                                                 ),
                                             ).map((item) => (
-                                                <SelectItem key={item} value={item}>
+                                                <SelectItem
+                                                    key={item}
+                                                    value={item}
+                                                >
                                                     {eventClassLabel(item, t)}
                                                 </SelectItem>
                                             ))}
@@ -3333,17 +3526,24 @@ export default function MembersShow({
                                     <Select
                                         value={draftAchievementFilters.benefit}
                                         onValueChange={(value) =>
-                                            setDraftAchievementFilters((current) => ({
-                                                ...current,
-                                                benefit: value as AchievementFiltersState['benefit'],
-                                            }))
+                                            setDraftAchievementFilters(
+                                                (current) => ({
+                                                    ...current,
+                                                    benefit:
+                                                        value as AchievementFiltersState['benefit'],
+                                                }),
+                                            )
                                         }
                                     >
                                         <SelectTrigger className="h-10 bg-white sm:max-w-80">
-                                            <SelectValue placeholder={t('All types')} />
+                                            <SelectValue
+                                                placeholder={t('All types')}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">{t('All types')}</SelectItem>
+                                            <SelectItem value="all">
+                                                {t('All types')}
+                                            </SelectItem>
                                             <SelectItem value="benefit">
                                                 {t('Benefit recorded')}
                                             </SelectItem>
@@ -3416,7 +3616,11 @@ export default function MembersShow({
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setPendingLegacyAchievementDelete(null)}>
+                        <AlertDialogCancel
+                            onClick={() =>
+                                setPendingLegacyAchievementDelete(null)
+                            }
+                        >
                             {t('Cancel')}
                         </AlertDialogCancel>
                         <AlertDialogAction

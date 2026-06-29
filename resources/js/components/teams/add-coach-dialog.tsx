@@ -1,9 +1,9 @@
 import { useForm } from '@inertiajs/react';
-import { CalendarDays } from 'lucide-react';
 import { useState } from 'react';
 import { store as storeTeamCoach } from '@/actions/App/Http/Controllers/TeamCoachController';
 import { CoachPicker } from '@/components/coach-picker';
 import type { CoachOption } from '@/components/coach-picker';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +38,8 @@ const COACH_ROLES = ['HEAD', 'ASSISTANT'] as const;
 export function AddCoachDialog({ open, onOpenChange, team }: Props) {
     const { t } = useTranslation();
     const [pickedCoach, setPickedCoach] = useState<CoachOption | null>(null);
+    const today = new Date();
+    const maxAssignmentDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     const { data, setData, post, errors, processing, reset } = useForm({
         coach_id: '',
@@ -123,21 +125,14 @@ export function AddCoachDialog({ open, onOpenChange, team }: Props) {
                             <Label htmlFor="dlg-add-coach-assigned-at">
                                 {t('Assigned on')}
                             </Label>
-                            <div className="relative">
-                                <CalendarDays className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <input
-                                    id="dlg-add-coach-assigned-at"
-                                    type="date"
-                                    value={data.assigned_at}
-                                    onChange={(event) =>
-                                        setData(
-                                            'assigned_at',
-                                            event.target.value,
-                                        )
-                                    }
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                                />
-                            </div>
+                            <DatePicker
+                                id="dlg-add-coach-assigned-at"
+                                value={data.assigned_at}
+                                onChange={(value) =>
+                                    setData('assigned_at', value)
+                                }
+                                maxDate={maxAssignmentDate}
+                            />
                             <InputError message={errors.assigned_at} />
                         </div>
                     </div>
