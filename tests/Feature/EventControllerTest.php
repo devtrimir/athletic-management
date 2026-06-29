@@ -79,41 +79,41 @@ function makeEventPayload(User $user): array
     ];
 }
 
-function makeSportEventVariantForUser(User $user): SportEventVariant
+function makeSportEventVariantForUser(User $user, string $suffix = ''): SportEventVariant
 {
     $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
     $event = SportEvent::create([
         'sport_id' => $sport->id,
-        'name' => '100 मीटर',
-        'code' => '100M',
+        'name' => $suffix === '' ? '100 मीटर' : "100 मीटर {$suffix}",
+        'code' => $suffix === '' ? '100M' : "100M_{$suffix}",
         'discipline_type' => 'Track',
         'is_active' => true,
         'sort_order' => 10,
     ]);
-    $gender = GenderCategory::create([
-        'name' => 'Women',
-        'code' => 'WOMEN',
-        'is_active' => true,
-        'sort_order' => 20,
-    ]);
-    $format = ParticipationFormat::create([
-        'name' => 'Individual',
-        'code' => 'INDIVIDUAL',
-        'min_players' => 1,
-        'max_players' => 1,
-        'is_team_based' => false,
-        'is_mixed' => false,
-        'is_active' => true,
-        'sort_order' => 10,
-    ]);
+    $gender = GenderCategory::firstOrCreate(
+        ['code' => 'WOMEN'],
+        ['name' => 'Women', 'is_active' => true, 'sort_order' => 20],
+    );
+    $format = ParticipationFormat::firstOrCreate(
+        ['code' => 'INDIVIDUAL'],
+        [
+            'name' => 'Individual',
+            'min_players' => 1,
+            'max_players' => 1,
+            'is_team_based' => false,
+            'is_mixed' => false,
+            'is_active' => true,
+            'sort_order' => 10,
+        ],
+    );
 
     return SportEventVariant::create([
         'sport_id' => $sport->id,
         'sport_event_id' => $event->id,
         'participation_format_id' => $format->id,
         'gender_category_id' => $gender->id,
-        'name' => '100 मीटर - Women',
-        'code' => 'ATH_100M_WOMEN',
+        'name' => $suffix === '' ? '100 मीटर - Women' : "100 मीटर {$suffix} - Women",
+        'code' => $suffix === '' ? 'ATH_100M_WOMEN' : "ATH_100M_{$suffix}_WOMEN",
         'is_team_based' => false,
         'is_medal_event' => true,
         'is_active' => true,
@@ -202,6 +202,58 @@ test('store creates official event from sport master variant', function () {
         'event_source' => 'official',
         'provisional_reason' => null,
     ]);
+});
+
+test('store creates multiple official events from sport master variants', function () {
+    $user = eventUser('tournaments.update');
+    $tournament = makeTournamentForUser($user);
+    $firstVariant = makeSportEventVariantForUser($user, 'A');
+    $secondVariant = makeSportEventVariantForUser($user, 'B');
+
+    $this->actingAs($user)
+        ->post(route('tournaments.events.store', $tournament), [
+            'event_mode' => 'official',
+            'sport_event_variant_ids' => [
+                $firstVariant->id,
+                $secondVariant->id,
+            ],
+        ])
+        ->assertRedirect(route('tournaments.events', $tournament));
+
+    $this->assertDatabaseHas('events', [
+        'tournament_id' => $tournament->id,
+        'sport_event_variant_id' => $firstVariant->id,
+        'event_source' => 'official',
+    ]);
+    $this->assertDatabaseHas('events', [
+        'tournament_id' => $tournament->id,
+        'sport_event_variant_id' => $secondVariant->id,
+        'event_source' => 'official',
+    ]);
+});
+
+test('store rejects official event variant already added to tournament', function () {
+    $user = eventUser('tournaments.update');
+    $tournament = makeTournamentForUser($user);
+    $variant = makeSportEventVariantForUser($user);
+
+    Event::factory()->forTournament($tournament)->create([
+        'sport_id' => $variant->sport_id,
+        'sport_event_variant_id' => $variant->id,
+        'event_source' => 'official',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('tournaments.events.store', $tournament), [
+            'event_mode' => 'official',
+            'sport_event_variant_ids' => [$variant->id],
+        ])
+        ->assertSessionHasErrors('sport_event_variant_ids');
+
+    expect(Event::query()
+        ->where('tournament_id', $tournament->id)
+        ->where('sport_event_variant_id', $variant->id)
+        ->count())->toBe(1);
 });
 
 test('store requires name', function () {
@@ -468,6 +520,19 @@ test('show deferred participant candidates returns active event roster only', fu
     $tournament = makeTournamentForUser($user);
     $event = Event::factory()->forTournament($tournament)->create(['gender_class' => 'OPEN']);
     [$eligibleMember, $eligibleTeam] = makeEventRosterMember($tournament, $event);
+    $eligibleMember->playableSports()->attach($event->sport_id, [
+        'sport_event' => 'Long jump',
+    ]);
+    $fallbackOnlyMember = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_event' => 'Default sprint',
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $eligibleTeam->id,
+        'member_id' => $fallbackOnlyMember->id,
+        'session_id' => $tournament->session_id,
+        'left_on' => null,
+    ]);
     makeEventRosterMember($tournament, $event, ['full_name' => 'Inactive Team Player'], ['is_active' => false]);
     makeEventRosterMember($tournament, $event, ['full_name' => 'Other Sport Player'], [
         'sport_id' => Sport::factory()->create(['organization_id' => $user->organization_id])->id,
@@ -486,10 +551,13 @@ test('show deferred participant candidates returns active event roster only', fu
         ])
         ->assertOk();
 
+    $membersById = collect($response->json('props.participantCandidates.0.members'))->keyBy('id');
+
     expect($response->json('props.participantCandidates'))->toHaveCount(1)
         ->and($response->json('props.participantCandidates.0.id'))->toBe($eligibleTeam->id)
-        ->and($response->json('props.participantCandidates.0.members'))->toHaveCount(1)
-        ->and($response->json('props.participantCandidates.0.members.0.id'))->toBe($eligibleMember->id);
+        ->and($response->json('props.participantCandidates.0.members'))->toHaveCount(2)
+        ->and($membersById->get($eligibleMember->id)['sport_event'])->toBe('Long jump')
+        ->and($membersById->get($fallbackOnlyMember->id)['sport_event'])->toBeNull();
 });
 
 test('show deferred participant candidates exclude existing participants', function () {

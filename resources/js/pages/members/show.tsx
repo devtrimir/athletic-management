@@ -1594,7 +1594,7 @@ export default function MembersShow({
                         </TabsTrigger>
                         <TabsTrigger value="promotions" asChild>
                             <Link href={tabLinks.promotions} prefetch>
-                                {t('Promotions')}
+                                {t('Promotions and Reward')}
                             </Link>
                         </TabsTrigger>
                         <TabsTrigger value="changelog" asChild>
@@ -2139,12 +2139,7 @@ export default function MembersShow({
                                                                                 </TableHead>
                                                                                 <TableHead>
                                                                                     {t(
-                                                                                        'Event',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Discipline',
+                                                                                        'Event / discipline',
                                                                                     )}
                                                                                 </TableHead>
                                                                                 <TableHead>
@@ -2318,7 +2313,7 @@ export default function MembersShow({
                                                                                                     '—'}
                                                                                             </TableCell>
                                                                                             <TableCell>
-                                                                                                <div className="space-y-1">
+                                                                                                <div className="space-y-1.5">
                                                                                                     <button
                                                                                                         type="button"
                                                                                                         className="text-left font-medium hover:underline"
@@ -2341,16 +2336,17 @@ export default function MembersShow({
                                                                                                                 .name
                                                                                                         }
                                                                                                     </button>
-                                                                                                </div>
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                <div className="space-y-1">
-                                                                                                    <span>
-                                                                                                        {participation
-                                                                                                            .event
-                                                                                                            .discipline ??
-                                                                                                            '—'}
-                                                                                                    </span>
+                                                                                                    {participation
+                                                                                                        .event
+                                                                                                        .discipline ? (
+                                                                                                        <p className="text-xs text-muted-foreground">
+                                                                                                            {
+                                                                                                                participation
+                                                                                                                    .event
+                                                                                                                    .discipline
+                                                                                                            }
+                                                                                                        </p>
+                                                                                                    ) : null}
                                                                                                     {participation
                                                                                                         .event
                                                                                                         .weight_category ? (

@@ -26,7 +26,28 @@ class EventController extends Controller
     {
         Gate::authorize('update', $tournament);
 
-        $data = $payload->forStoreOrUpdate($tournament, $request->validated());
+        $validated = $request->validated();
+
+        if (($validated['event_mode'] ?? null) === 'official' && ! empty($validated['sport_event_variant_ids'])) {
+            $created = 0;
+
+            foreach ($validated['sport_event_variant_ids'] as $variantId) {
+                $data = $payload->forStoreOrUpdate($tournament, [
+                    'event_mode' => 'official',
+                    'sport_event_variant_id' => $variantId,
+                ]);
+                $data['tournament_id'] = $tournament->id;
+
+                Event::create($data);
+                $created++;
+            }
+
+            Inertia::flash('toast', ['type' => 'success', 'message' => trans_choice('{1} Event created.|[2,*] :count events created.', $created, ['count' => $created])]);
+
+            return to_route('tournaments.events', $tournament);
+        }
+
+        $data = $payload->forStoreOrUpdate($tournament, $validated);
         $data['tournament_id'] = $tournament->id;
 
         $event = Event::create($data);
@@ -134,7 +155,12 @@ class EventController extends Controller
                     'member',
                     fn ($query) => $query->where('gender', $gender),
                 ))
-                ->with(['member:id,full_name,pno,gender,player_category,player_level,current_status'])
+                ->with(['member' => fn ($query) => $query
+                    ->select(['id', 'full_name', 'pno', 'gender', 'player_category', 'player_level', 'current_status'])
+                    ->with(['playableSports' => fn ($query) => $query
+                        ->select(['sports.id', 'sports.name'])
+                        ->where('sports.id', $event->sport_id)
+                        ->withPivot(['sport_event'])])])
                 ->orderByRaw("CASE role WHEN 'CAPTAIN' THEN 0 WHEN 'PLAYER' THEN 1 WHEN 'RESERVE' THEN 2 ELSE 3 END")
                 ->orderBy('id')])
             ->orderBy('name')
@@ -155,6 +181,7 @@ class EventController extends Controller
                         'player_category' => $teamMember->member->player_category,
                         'player_level' => $teamMember->member->player_level,
                         'current_status' => $teamMember->member->current_status,
+                        'sport_event' => $teamMember->member->playableSports->first()?->pivot?->sport_event,
                     ])
                     ->values(),
             ]);

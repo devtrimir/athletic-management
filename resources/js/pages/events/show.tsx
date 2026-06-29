@@ -1,5 +1,26 @@
-import { Deferred, Head, Link, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Camera, Check, Images, Info, List, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react';
+import {
+    Deferred,
+    Head,
+    Link,
+    router,
+    setLayoutProps,
+    useForm,
+    usePage,
+} from '@inertiajs/react';
+import {
+    ArrowLeft,
+    Camera,
+    Check,
+    Images,
+    Info,
+    List,
+    Pencil,
+    Plus,
+    Search,
+    Trash2,
+    Users,
+    X,
+} from 'lucide-react';
 import { useState } from 'react';
 import {
     destroy as destroyEvent,
@@ -10,7 +31,10 @@ import {
     store as storeParticipants,
     update as updateParticipant,
 } from '@/actions/App/Http/Controllers/EventParticipantController';
-import { index as tournamentsIndex, show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import {
+    index as tournamentsIndex,
+    show as showTournament,
+} from '@/actions/App/Http/Controllers/TournamentController';
 import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -28,9 +52,22 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
@@ -103,6 +140,7 @@ type ParticipantCandidate = {
     player_category: string;
     player_level: string;
     current_status: string;
+    sport_event: string | null;
 };
 
 type ParticipantCandidateTeam = {
@@ -168,32 +206,66 @@ function participantRange(min: number | null, max: number | null): string {
 }
 
 function eventVariantOption(variant: EventVariant, t: (key: string) => string) {
-    const participantText = participantRange(variant.min_participants, variant.max_participants);
+    const participantText = participantRange(
+        variant.min_participants,
+        variant.max_participants,
+    );
     const details = [
         variant.gender_label ?? t(variant.gender_class),
         variant.result_type,
         variant.measurement_symbol ?? variant.measurement_unit,
-        participantText !== '—' ? `${t('Participants')}: ${participantText}` : null,
-        variant.substitute_allowed ? `${t('Substitutes')}: ${variant.substitute_limit ?? t('Allowed')}` : null,
+        participantText !== '—'
+            ? `${t('Participants')}: ${participantText}`
+            : null,
+        variant.substitute_allowed
+            ? `${t('Substitutes')}: ${variant.substitute_limit ?? t('Allowed')}`
+            : null,
     ].filter(Boolean);
 
     return {
         value: String(variant.id),
         label: variant.label,
         badge: variant.is_team_based ? t('Team') : t('Individual'),
-        badgeTone: variant.is_team_based ? ('team' as const) : ('individual' as const),
-        group: [variant.sport_name, variant.format ?? t('Events')].filter(Boolean).join(' / '),
+        badgeTone: variant.is_team_based
+            ? ('team' as const)
+            : ('individual' as const),
+        group: [variant.sport_name, variant.format ?? t('Events')]
+            .filter(Boolean)
+            .join(' / '),
         description: details.join(' · '),
     };
 }
 
-function countBy<T>(items: T[], keyFor: (item: T) => string): Record<string, number> {
+function countBy<T>(
+    items: T[],
+    keyFor: (item: T) => string,
+): Record<string, number> {
     return items.reduce<Record<string, number>>((counts, item) => {
         const key = keyFor(item);
         counts[key] = (counts[key] ?? 0) + 1;
 
         return counts;
     }, {});
+}
+
+function genderLabel(
+    value: string | null | undefined,
+    t: (key: string) => string,
+): string {
+    switch (value) {
+        case 'M':
+            return t('Male');
+        case 'F':
+            return t('Female');
+        case 'O':
+            return t('Other gender');
+        case 'MIXED':
+            return t('Mixed');
+        case 'OPEN':
+            return t('Open');
+        default:
+            return value ? t(value) : '';
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -216,8 +288,13 @@ function EventFormFields({
     idPrefix: string;
 }) {
     const { t } = useTranslation();
-    const selectedVariant = eventVariants.find((variant) => String(variant.id) === data.sport_event_variant_id);
-    const filteredVariants = eventVariants.filter((variant) => !data.sport_id || String(variant.sport_id) === data.sport_id);
+    const selectedVariant = eventVariants.find(
+        (variant) => String(variant.id) === data.sport_event_variant_id,
+    );
+    const filteredVariants = eventVariants.filter(
+        (variant) =>
+            !data.sport_id || String(variant.sport_id) === data.sport_id,
+    );
 
     function selectSport(value: string) {
         setData('sport_id', value);
@@ -225,7 +302,9 @@ function EventFormFields({
         if (
             data.sport_event_variant_id &&
             !eventVariants.some(
-                (variant) => String(variant.id) === data.sport_event_variant_id && String(variant.sport_id) === value,
+                (variant) =>
+                    String(variant.id) === data.sport_event_variant_id &&
+                    String(variant.sport_id) === value,
             )
         ) {
             setData('sport_event_variant_id', '');
@@ -254,7 +333,10 @@ function EventFormFields({
         setData('event_mode', 'provisional');
 
         if (!data.provisional_reason) {
-            setData('provisional_reason', t('Reference event not available in master data'));
+            setData(
+                'provisional_reason',
+                t('Reference event not available in master data'),
+            );
         }
 
         if (selectedVariant) {
@@ -271,7 +353,9 @@ function EventFormFields({
             <div className="flex rounded-lg border bg-muted/20 p-1 sm:col-span-2">
                 <Button
                     type="button"
-                    variant={data.event_mode === 'official' ? 'default' : 'ghost'}
+                    variant={
+                        data.event_mode === 'official' ? 'default' : 'ghost'
+                    }
                     className="flex-1"
                     disabled={eventVariants.length === 0}
                     onClick={useOfficialMode}
@@ -280,7 +364,9 @@ function EventFormFields({
                 </Button>
                 <Button
                     type="button"
-                    variant={data.event_mode === 'provisional' ? 'default' : 'ghost'}
+                    variant={
+                        data.event_mode === 'provisional' ? 'default' : 'ghost'
+                    }
                     className="flex-1"
                     onClick={useProvisionalMode}
                 >
@@ -296,7 +382,10 @@ function EventFormFields({
                     id={`${idPrefix}_sport_id`}
                     value={data.sport_id}
                     onValueChange={selectSport}
-                    items={sports.map((sp) => ({ value: String(sp.id), label: sp.name }))}
+                    items={sports.map((sp) => ({
+                        value: String(sp.id),
+                        label: sp.name,
+                    }))}
                     placeholder={t('Select sport')}
                     searchPlaceholder={t('Search sports…')}
                 />
@@ -306,13 +395,16 @@ function EventFormFields({
             {data.event_mode === 'official' ? (
                 <div className="grid gap-2 sm:col-span-2">
                     <Label htmlFor={`${idPrefix}_sport_event_variant_id`}>
-                        {t('Official event')} <span className="text-destructive">*</span>
+                        {t('Official event')}{' '}
+                        <span className="text-destructive">*</span>
                     </Label>
                     <Combobox
                         id={`${idPrefix}_sport_event_variant_id`}
                         value={data.sport_event_variant_id}
                         onValueChange={selectVariant}
-                        items={filteredVariants.map((variant) => eventVariantOption(variant, t))}
+                        items={filteredVariants.map((variant) =>
+                            eventVariantOption(variant, t),
+                        )}
                         placeholder={t('Select official event')}
                         searchPlaceholder={t('Search official events…')}
                         emptyMessage={t('No official events found.')}
@@ -329,12 +421,38 @@ function EventFormFields({
                         {t('Official event details')}
                     </div>
                     <div className="grid gap-2 text-sm sm:grid-cols-3">
-                        <span>{t('Gender')}: {selectedVariant.gender_label ?? t(selectedVariant.gender_class)}</span>
-                        <span>{t('Format')}: {selectedVariant.format ?? '—'}</span>
-                        <span>{t('Result type')}: {selectedVariant.result_type ?? '—'}</span>
-                        <span>{t('Participants')}: {participantRange(selectedVariant.min_participants, selectedVariant.max_participants)}</span>
-                        <span>{t('Unit')}: {selectedVariant.measurement_symbol ?? selectedVariant.measurement_unit ?? '—'}</span>
-                        <span>{t('Substitutes')}: {selectedVariant.substitute_allowed ? selectedVariant.substitute_limit ?? t('Allowed') : t('No')}</span>
+                        <span>
+                            {t('Gender')}:{' '}
+                            {selectedVariant.gender_label ??
+                                t(selectedVariant.gender_class)}
+                        </span>
+                        <span>
+                            {t('Format')}: {selectedVariant.format ?? '—'}
+                        </span>
+                        <span>
+                            {t('Result type')}:{' '}
+                            {selectedVariant.result_type ?? '—'}
+                        </span>
+                        <span>
+                            {t('Participants')}:{' '}
+                            {participantRange(
+                                selectedVariant.min_participants,
+                                selectedVariant.max_participants,
+                            )}
+                        </span>
+                        <span>
+                            {t('Unit')}:{' '}
+                            {selectedVariant.measurement_symbol ??
+                                selectedVariant.measurement_unit ??
+                                '—'}
+                        </span>
+                        <span>
+                            {t('Substitutes')}:{' '}
+                            {selectedVariant.substitute_allowed
+                                ? (selectedVariant.substitute_limit ??
+                                  t('Allowed'))
+                                : t('No')}
+                        </span>
                     </div>
                 </div>
             ) : null}
@@ -342,77 +460,97 @@ function EventFormFields({
             {data.event_mode === 'provisional' ? (
                 <>
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-                        {t('Use provisional entry only when the official event is not available in sport master data.')}
+                        {t(
+                            'Use provisional entry only when the official event is not available in sport master data.',
+                        )}
                     </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor={`${idPrefix}_gender_class`}>
-                    {t('Gender class')} <span className="text-destructive">*</span>
-                </Label>
-                <Select value={data.gender_class} onValueChange={(v) => setData('gender_class', v)}>
-                    <SelectTrigger id={`${idPrefix}_gender_class`}>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {GENDER_CLASSES.map((g) => (
-                            <SelectItem key={g} value={g}>
-                                {t(g)}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <InputError message={errors.gender_class} />
-            </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor={`${idPrefix}_gender_class`}>
+                            {t('Gender class')}{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Select
+                            value={data.gender_class}
+                            onValueChange={(v) => setData('gender_class', v)}
+                        >
+                            <SelectTrigger id={`${idPrefix}_gender_class`}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {GENDER_CLASSES.map((g) => (
+                                    <SelectItem key={g} value={g}>
+                                        {t(g)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.gender_class} />
+                    </div>
 
-            <div className="grid gap-2 sm:col-span-2">
-                <Label htmlFor={`${idPrefix}_name`}>
-                    {t('Event name')} <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                    id={`${idPrefix}_name`}
-                    value={data.name}
-                    onChange={(e) => setData('name', e.target.value)}
-                    maxLength={255}
-                    required
-                />
-                <InputError message={errors.name} />
-            </div>
+                    <div className="grid gap-2 sm:col-span-2">
+                        <Label htmlFor={`${idPrefix}_name`}>
+                            {t('Event name')}{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id={`${idPrefix}_name`}
+                            value={data.name}
+                            onChange={(e) => setData('name', e.target.value)}
+                            maxLength={255}
+                            required
+                        />
+                        <InputError message={errors.name} />
+                    </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor={`${idPrefix}_discipline`}>{t('Discipline')}</Label>
-                <Input
-                    id={`${idPrefix}_discipline`}
-                    value={data.discipline}
-                    onChange={(e) => setData('discipline', e.target.value)}
-                    maxLength={255}
-                />
-                <InputError message={errors.discipline} />
-            </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor={`${idPrefix}_discipline`}>
+                            {t('Discipline')}
+                        </Label>
+                        <Input
+                            id={`${idPrefix}_discipline`}
+                            value={data.discipline}
+                            onChange={(e) =>
+                                setData('discipline', e.target.value)
+                            }
+                            maxLength={255}
+                        />
+                        <InputError message={errors.discipline} />
+                    </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor={`${idPrefix}_weight_category`}>{t('Weight category')}</Label>
-                <Input
-                    id={`${idPrefix}_weight_category`}
-                    value={data.weight_category}
-                    onChange={(e) => setData('weight_category', e.target.value)}
-                    maxLength={100}
-                />
-                <InputError message={errors.weight_category} />
-            </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor={`${idPrefix}_weight_category`}>
+                            {t('Weight category')}
+                        </Label>
+                        <Input
+                            id={`${idPrefix}_weight_category`}
+                            value={data.weight_category}
+                            onChange={(e) =>
+                                setData('weight_category', e.target.value)
+                            }
+                            maxLength={100}
+                        />
+                        <InputError message={errors.weight_category} />
+                    </div>
 
-                <div className="grid gap-2 sm:col-span-2">
-                    <Label htmlFor={`${idPrefix}_provisional_reason`}>
-                        {t('Reason')} <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                        id={`${idPrefix}_provisional_reason`}
-                        value={data.provisional_reason}
-                        onChange={(e) => setData('provisional_reason', e.target.value)}
-                        maxLength={1000}
-                        placeholder={t('Reference event not available in master data')}
-                    />
-                    <InputError message={errors.provisional_reason} />
-                </div>
+                    <div className="grid gap-2 sm:col-span-2">
+                        <Label htmlFor={`${idPrefix}_provisional_reason`}>
+                            {t('Reason')}{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id={`${idPrefix}_provisional_reason`}
+                            value={data.provisional_reason}
+                            onChange={(e) =>
+                                setData('provisional_reason', e.target.value)
+                            }
+                            maxLength={1000}
+                            placeholder={t(
+                                'Reference event not available in master data',
+                            )}
+                        />
+                        <InputError message={errors.provisional_reason} />
+                    </div>
                 </>
             ) : null}
         </div>
@@ -439,16 +577,22 @@ function EditEventDialog({
     eventVariants: EventVariant[];
 }) {
     const { t } = useTranslation();
-    const { data, setData, patch, errors, processing, reset } = useForm<EventForm>({
-        event_mode: event.event_source === 'official' ? 'official' : 'provisional',
-        sport_event_variant_id: event.sport_event_variant_id ? String(event.sport_event_variant_id) : '',
-        sport_id: event.sport_id ? String(event.sport_id) : '',
-        name: event.name,
-        discipline: event.discipline ?? '',
-        weight_category: event.weight_category ?? '',
-        gender_class: event.gender_class,
-        provisional_reason: event.provisional_reason ?? 'Reference event not available in master data',
-    });
+    const { data, setData, patch, errors, processing, reset } =
+        useForm<EventForm>({
+            event_mode:
+                event.event_source === 'official' ? 'official' : 'provisional',
+            sport_event_variant_id: event.sport_event_variant_id
+                ? String(event.sport_event_variant_id)
+                : '',
+            sport_id: event.sport_id ? String(event.sport_id) : '',
+            name: event.name,
+            discipline: event.discipline ?? '',
+            weight_category: event.weight_category ?? '',
+            gender_class: event.gender_class,
+            provisional_reason:
+                event.provisional_reason ??
+                'Reference event not available in master data',
+        });
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -478,10 +622,18 @@ function EditEventDialog({
                     />
                 </form>
                 <DialogFooter>
-                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => onOpenChange(false)}
+                    >
                         {t('Cancel')}
                     </Button>
-                    <Button type="submit" form="edit-event-form" disabled={processing}>
+                    <Button
+                        type="submit"
+                        form="edit-event-form"
+                        disabled={processing}
+                    >
                         {processing ? t('Saving…') : t('Save changes')}
                     </Button>
                 </DialogFooter>
@@ -521,10 +673,19 @@ function ConfirmDeleteDialog({
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => onOpenChange(false)}
+                    >
                         {t('Cancel')}
                     </Button>
-                    <Button variant="destructive" type="button" onClick={onConfirm} disabled={processing}>
+                    <Button
+                        variant="destructive"
+                        type="button"
+                        onClick={onConfirm}
+                        disabled={processing}
+                    >
                         {processing ? t('Deleting…') : confirmLabel}
                     </Button>
                 </DialogFooter>
@@ -570,9 +731,14 @@ function ParticipantFormFields({
                 <Label htmlFor={`${idPrefix}_medal_type`}>{t('Medal')}</Label>
                 <Select
                     value={data.medal_type || 'none'}
-                    onValueChange={(v) => setData('medal_type', v === 'none' ? '' : v)}
+                    onValueChange={(v) =>
+                        setData('medal_type', v === 'none' ? '' : v)
+                    }
                 >
-                    <SelectTrigger id={`${idPrefix}_medal_type`} className="h-9">
+                    <SelectTrigger
+                        id={`${idPrefix}_medal_type`}
+                        className="h-9"
+                    >
                         <SelectValue placeholder={t('No medal')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -619,7 +785,10 @@ function FilterDropdown({
     const selected = options.find((option) => option.value === value);
 
     return (
-        <Select value={value || '__all__'} onValueChange={(next) => onChange(next === '__all__' ? '' : next)}>
+        <Select
+            value={value || '__all__'}
+            onValueChange={(next) => onChange(next === '__all__' ? '' : next)}
+        >
             <SelectTrigger
                 className={cn(
                     'h-10 min-w-40 gap-2 rounded-md border px-3 text-sm',
@@ -628,12 +797,16 @@ function FilterDropdown({
                         : 'bg-background text-muted-foreground',
                 )}
             >
-                <SelectValue placeholder={label}>{selected ? selected.label : label}</SelectValue>
+                <SelectValue placeholder={label}>
+                    {selected ? selected.label : label}
+                </SelectValue>
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="__all__">
                     <div className="flex min-w-40 items-center justify-between gap-3">
-                        <span>{t('All')} {label}</span>
+                        <span>
+                            {t('All')} {label}
+                        </span>
                     </div>
                 </SelectItem>
                 {options.map((option) => {
@@ -643,7 +816,11 @@ function FilterDropdown({
                         <SelectItem key={option.value} value={option.value}>
                             <div className="flex min-w-40 items-center justify-between gap-3">
                                 <span>{option.label}</span>
-                                {count > 0 && <span className="text-muted-foreground text-xs">{count}</span>}
+                                {count > 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                        {count}
+                                    </span>
+                                )}
                             </div>
                         </SelectItem>
                     );
@@ -684,29 +861,65 @@ function AddParticipantDialog({
     const candidatesLoading = participantCandidates === undefined;
     const selectedIdSet = new Set(selectedIds);
     const normalizedQuery = query.trim().toLowerCase();
-    const totalCandidates = candidates.reduce((total, team) => total + team.members.length, 0);
+    const totalCandidates = candidates.reduce(
+        (total, team) => total + team.members.length,
+        0,
+    );
     const visibleCandidateTeams = candidates
         .map((team) => ({
             ...team,
             members: team.members.filter((member) => {
-                const matchesCategory = !filterCategory || member.player_category === filterCategory;
-                const matchesLevel = !filterLevel || member.player_level === filterLevel;
-                const searchable = [member.full_name, member.pno, member.role, member.player_category, member.player_level]
+                const matchesCategory =
+                    !filterCategory ||
+                    member.player_category === filterCategory;
+                const matchesLevel =
+                    !filterLevel || member.player_level === filterLevel;
+                const searchable = [
+                    member.full_name,
+                    member.pno,
+                    member.role,
+                    member.player_category,
+                    member.player_level,
+                    member.sport_event,
+                ]
                     .filter(Boolean)
                     .join(' ')
                     .toLowerCase();
 
-                return matchesCategory && matchesLevel && (!normalizedQuery || searchable.includes(normalizedQuery));
+                return (
+                    matchesCategory &&
+                    matchesLevel &&
+                    (!normalizedQuery || searchable.includes(normalizedQuery))
+                );
             }),
         }))
         .filter((team) => team.members.length > 0);
-    const visibleCandidates = visibleCandidateTeams.flatMap((team) => team.members);
-    const selectedCandidates = candidates.flatMap((team) => team.members).filter((member) => selectedIdSet.has(member.id));
-    const hasActiveFilters = Boolean(filterCategory || filterLevel || normalizedQuery);
-    const allVisibleSelected = visibleCandidates.length > 0 && visibleCandidates.every((member) => selectedIdSet.has(member.id));
-    const levelLabelByCode = new Map(participantFilterOptions.levels.map((option) => [option.value, option.label]));
-    const categoryCounts = countBy(candidates.flatMap((team) => team.members), (member) => member.player_category);
-    const levelCounts = countBy(candidates.flatMap((team) => team.members), (member) => member.player_level);
+    const visibleCandidates = visibleCandidateTeams.flatMap(
+        (team) => team.members,
+    );
+    const selectedCandidates = candidates
+        .flatMap((team) => team.members)
+        .filter((member) => selectedIdSet.has(member.id));
+    const hasActiveFilters = Boolean(
+        filterCategory || filterLevel || normalizedQuery,
+    );
+    const allVisibleSelected =
+        visibleCandidates.length > 0 &&
+        visibleCandidates.every((member) => selectedIdSet.has(member.id));
+    const levelLabelByCode = new Map(
+        participantFilterOptions.levels.map((option) => [
+            option.value,
+            option.label,
+        ]),
+    );
+    const categoryCounts = countBy(
+        candidates.flatMap((team) => team.members),
+        (member) => member.player_category,
+    );
+    const levelCounts = countBy(
+        candidates.flatMap((team) => team.members),
+        (member) => member.player_level,
+    );
 
     function handleClose() {
         reset();
@@ -719,18 +932,31 @@ function AddParticipantDialog({
 
     function toggleCandidate(memberId: number) {
         setSelectedIds((current) =>
-            current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId],
+            current.includes(memberId)
+                ? current.filter((id) => id !== memberId)
+                : [...current, memberId],
         );
     }
 
     function selectVisibleCandidates() {
-        setSelectedIds((current) => Array.from(new Set([...current, ...visibleCandidates.map((member) => member.id)])));
+        setSelectedIds((current) =>
+            Array.from(
+                new Set([
+                    ...current,
+                    ...visibleCandidates.map((member) => member.id),
+                ]),
+            ),
+        );
     }
 
     function clearVisibleCandidates() {
-        const visibleIds = new Set(visibleCandidates.map((member) => member.id));
+        const visibleIds = new Set(
+            visibleCandidates.map((member) => member.id),
+        );
 
-        setSelectedIds((current) => current.filter((id) => !visibleIds.has(id)));
+        setSelectedIds((current) =>
+            current.filter((id) => !visibleIds.has(id)),
+        );
     }
 
     function removeSelectedCandidate(memberId: number) {
@@ -746,7 +972,10 @@ function AddParticipantDialog({
 
         setSubmitting(true);
         router.post(
-            storeParticipants.url({ tournament: tournament.id, event: event.id }),
+            storeParticipants.url({
+                tournament: tournament.id,
+                event: event.id,
+            }),
             {
                 participants: selectedCandidates.map((member) => ({
                     member_id: member.id,
@@ -774,46 +1003,76 @@ function AddParticipantDialog({
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                             <DialogTitle>{t('Add participants')}</DialogTitle>
-                            <DialogDescription className="truncate">{event.name}</DialogDescription>
+                            <DialogDescription className="truncate">
+                                {event.name}
+                            </DialogDescription>
                         </div>
                         <div className="mr-1 flex shrink-0 flex-wrap justify-end gap-1.5">
-                            {event.sport && <Badge variant="secondary">{event.sport.name}</Badge>}
-                            <Badge variant="outline">{t(event.gender_class)}</Badge>
+                            {event.sport && (
+                                <Badge variant="secondary">
+                                    {event.sport.name}
+                                </Badge>
+                            )}
+                            <Badge variant="outline">
+                                {genderLabel(event.gender_class, t)}
+                            </Badge>
                         </div>
                     </div>
                 </DialogHeader>
 
-                <form id="add-participant-form" onSubmit={handleSubmit} className="flex max-h-[72vh] flex-col">
+                <form
+                    id="add-participant-form"
+                    onSubmit={handleSubmit}
+                    className="flex max-h-[72vh] flex-col"
+                >
                     <div className="space-y-3 border-b bg-muted/20 px-5 py-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="space-y-0.5">
                                 <Label>{t('Eligible roster')}</Label>
-                                <p className="text-muted-foreground text-xs">
-                                    {visibleCandidates.length} {t('shown')} · {totalCandidates}{' '}
-                                    {t(totalCandidates === 1 ? 'eligible athlete' : 'eligible athletes')}
+                                <p className="text-xs text-muted-foreground">
+                                    {visibleCandidates.length} {t('shown')} ·{' '}
+                                    {totalCandidates}{' '}
+                                    {t(
+                                        totalCandidates === 1
+                                            ? 'eligible athlete'
+                                            : 'eligible athletes',
+                                    )}
                                 </p>
                             </div>
                             <div className="rounded-md border bg-background px-2.5 py-1.5 text-sm">
-                                <span className="font-semibold">{selectedCandidates.length}</span>{' '}
-                                <span className="text-muted-foreground">{t('selected')}</span>
+                                <span className="font-semibold">
+                                    {selectedCandidates.length}
+                                </span>{' '}
+                                <span className="text-muted-foreground">
+                                    {t('selected')}
+                                </span>
                             </div>
                         </div>
 
                         <div className="grid gap-3 lg:grid-cols-[minmax(14rem,1fr)_auto_auto]">
                             <div className="relative">
-                                <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
+                                <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     value={query}
-                                    onChange={(event) => setQuery(event.target.value)}
+                                    onChange={(event) =>
+                                        setQuery(event.target.value)
+                                    }
                                     className="pl-8"
-                                    placeholder={t('Search name, P.No, role, category…')}
+                                    placeholder={t(
+                                        'Search name, P.No, role, category…',
+                                    )}
                                 />
                             </div>
                             <div>
                                 <FilterDropdown
                                     label={t('Category')}
                                     value={filterCategory}
-                                    options={PLAYER_CATEGORY_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
+                                    options={PLAYER_CATEGORY_OPTIONS.map(
+                                        (option) => ({
+                                            ...option,
+                                            label: t(option.label),
+                                        }),
+                                    )}
                                     counts={categoryCounts}
                                     onChange={setFilterCategory}
                                 />
@@ -828,13 +1087,22 @@ function AddParticipantDialog({
                                 />
                             </div>
                         </div>
-                        <InputError message={errors.participants ?? (errors as Record<string, string>)['participants.0.member_id']} />
+                        <InputError
+                            message={
+                                errors.participants ??
+                                (errors as Record<string, string>)[
+                                    'participants.0.member_id'
+                                ]
+                            }
+                        />
                     </div>
 
                     <div className="flex min-h-0 flex-1 flex-col">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-2.5">
-                            <div className="text-muted-foreground text-xs">
-                                {hasActiveFilters ? t('Filtered roster') : t('All matching active teams')}
+                            <div className="text-xs text-muted-foreground">
+                                {hasActiveFilters
+                                    ? t('Filtered roster')
+                                    : t('All matching active teams')}
                             </div>
                             {visibleCandidates.length > 0 && (
                                 <div className="flex gap-2">
@@ -842,10 +1110,16 @@ function AddParticipantDialog({
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={allVisibleSelected ? clearVisibleCandidates : selectVisibleCandidates}
+                                        onClick={
+                                            allVisibleSelected
+                                                ? clearVisibleCandidates
+                                                : selectVisibleCandidates
+                                        }
                                     >
                                         <Check className="mr-1.5 h-4 w-4" />
-                                        {allVisibleSelected ? t('Clear shown') : t('Select shown')}
+                                        {allVisibleSelected
+                                            ? t('Clear shown')
+                                            : t('Select shown')}
                                     </Button>
                                     {hasActiveFilters && (
                                         <Button
@@ -868,23 +1142,37 @@ function AddParticipantDialog({
                         {selectedCandidates.length > 0 && (
                             <div className="border-b bg-background px-5 py-3">
                                 <div className="flex flex-wrap gap-2">
-                                    {selectedCandidates.slice(0, 6).map((member) => (
-                                        <span
-                                            key={member.id}
-                                            className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-xs"
-                                        >
-                                            <span className="truncate font-medium">{member.full_name}</span>
-                                            {member.pno && <span className="text-muted-foreground font-mono">{member.pno}</span>}
-                                            <button
-                                                type="button"
-                                                className="text-muted-foreground hover:text-foreground"
-                                                onClick={() => removeSelectedCandidate(member.id)}
+                                    {selectedCandidates
+                                        .slice(0, 6)
+                                        .map((member) => (
+                                            <span
+                                                key={member.id}
+                                                className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-xs"
                                             >
-                                                <X className="h-3.5 w-3.5" />
-                                                <span className="sr-only">{t('Remove')}</span>
-                                            </button>
-                                        </span>
-                                    ))}
+                                                <span className="truncate font-medium">
+                                                    {member.full_name}
+                                                </span>
+                                                {member.pno && (
+                                                    <span className="font-mono text-muted-foreground">
+                                                        {member.pno}
+                                                    </span>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    className="text-muted-foreground hover:text-foreground"
+                                                    onClick={() =>
+                                                        removeSelectedCandidate(
+                                                            member.id,
+                                                        )
+                                                    }
+                                                >
+                                                    <X className="h-3.5 w-3.5" />
+                                                    <span className="sr-only">
+                                                        {t('Remove')}
+                                                    </span>
+                                                </button>
+                                            </span>
+                                        ))}
                                     {selectedCandidates.length > 6 && (
                                         <span className="inline-flex items-center rounded-md border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
                                             +{selectedCandidates.length - 6}
@@ -905,58 +1193,95 @@ function AddParticipantDialog({
 
                             {!candidatesLoading && candidates.length === 0 && (
                                 <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-                                    <Users className="text-muted-foreground h-8 w-8" />
-                                    <p className="text-sm font-medium">{t('No active teams found for this event.')}</p>
+                                    <Users className="h-8 w-8 text-muted-foreground" />
+                                    <p className="text-sm font-medium">
+                                        {t(
+                                            'No active teams found for this event.',
+                                        )}
+                                    </p>
                                     <p className="max-w-md text-sm text-muted-foreground">
                                         {event.sport
-                                            ? t('Create or activate a :sport team for this session first.').replace(':sport', event.sport.name)
-                                            : t('Set the event sport before adding participants.')}
+                                            ? t(
+                                                  'Create or activate a :sport team for this session first.',
+                                              ).replace(
+                                                  ':sport',
+                                                  event.sport.name,
+                                              )
+                                            : t(
+                                                  'Set the event sport before adding participants.',
+                                              )}
                                     </p>
                                 </div>
                             )}
 
-                            {!candidatesLoading && candidates.length > 0 && totalCandidates === 0 && (
-                                <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-                                    <Users className="text-muted-foreground h-8 w-8" />
-                                    <p className="text-sm font-medium">{t('No eligible athletes left to add.')}</p>
-                                    <p className="max-w-md text-sm text-muted-foreground">
-                                        {t('Everyone on the matching active roster is already added or filtered out by the event gender.')}
-                                    </p>
-                                </div>
-                            )}
+                            {!candidatesLoading &&
+                                candidates.length > 0 &&
+                                totalCandidates === 0 && (
+                                    <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                                        <Users className="h-8 w-8 text-muted-foreground" />
+                                        <p className="text-sm font-medium">
+                                            {t(
+                                                'No eligible athletes left to add.',
+                                            )}
+                                        </p>
+                                        <p className="max-w-md text-sm text-muted-foreground">
+                                            {t(
+                                                'Everyone on the matching active roster is already added or filtered out by the event gender.',
+                                            )}
+                                        </p>
+                                    </div>
+                                )}
 
-                            {!candidatesLoading && totalCandidates > 0 && visibleCandidateTeams.length === 0 && (
-                                <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-                                    <Search className="text-muted-foreground h-8 w-8" />
-                                    <p className="text-sm font-medium">{t('No roster members match the filters.')}</p>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            setQuery('');
-                                            setFilterCategory('');
-                                            setFilterLevel('');
-                                        }}
-                                    >
-                                        {t('Reset filters')}
-                                    </Button>
-                                </div>
-                            )}
+                            {!candidatesLoading &&
+                                totalCandidates > 0 &&
+                                visibleCandidateTeams.length === 0 && (
+                                    <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                                        <Search className="h-8 w-8 text-muted-foreground" />
+                                        <p className="text-sm font-medium">
+                                            {t(
+                                                'No roster members match the filters.',
+                                            )}
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                setQuery('');
+                                                setFilterCategory('');
+                                                setFilterLevel('');
+                                            }}
+                                        >
+                                            {t('Reset filters')}
+                                        </Button>
+                                    </div>
+                                )}
 
                             {visibleCandidateTeams.map((team) => (
-                                <div key={team.id} className="border-b last:border-b-0">
+                                <div
+                                    key={team.id}
+                                    className="border-b last:border-b-0"
+                                >
                                     <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-sky-50 px-5 py-2.5 backdrop-blur dark:bg-sky-950/30">
                                         <div className="min-w-0">
-                                            <p className="truncate text-sm font-semibold text-sky-950 dark:text-sky-100">{team.name}</p>
+                                            <p className="truncate text-sm font-semibold text-sky-950 dark:text-sky-100">
+                                                {team.name}
+                                            </p>
                                             <p className="text-xs text-sky-700 dark:text-sky-300">
-                                                {team.members.length} {t(team.members.length === 1 ? 'athlete' : 'athletes')}
+                                                {team.members.length}{' '}
+                                                {t(
+                                                    team.members.length === 1
+                                                        ? 'athlete'
+                                                        : 'athletes',
+                                                )}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="grid gap-2 p-3 sm:grid-cols-2">
                                         {team.members.map((member) => {
-                                            const selected = selectedIdSet.has(member.id);
+                                            const selected = selectedIdSet.has(
+                                                member.id,
+                                            );
 
                                             return (
                                                 <label
@@ -971,36 +1296,81 @@ function AddParticipantDialog({
                                                     <Checkbox
                                                         className="mt-0.5"
                                                         checked={selected}
-                                                        onCheckedChange={() => toggleCandidate(member.id)}
+                                                        onCheckedChange={() =>
+                                                            toggleCandidate(
+                                                                member.id,
+                                                            )
+                                                        }
                                                     />
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex flex-wrap items-center gap-2">
-                                                            <span className="truncate text-base font-semibold leading-5">{member.full_name}</span>
+                                                            <span className="truncate text-base leading-5 font-semibold">
+                                                                {
+                                                                    member.full_name
+                                                                }
+                                                            </span>
                                                             {member.pno && (
                                                                 <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                                                                     {member.pno}
                                                                 </span>
                                                             )}
                                                             <Badge
-                                                                variant={selected ? 'secondary' : 'outline'}
+                                                                variant={
+                                                                    selected
+                                                                        ? 'secondary'
+                                                                        : 'outline'
+                                                                }
                                                                 className={cn(
                                                                     'text-[11px]',
-                                                                    selected ? 'border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-100' : '',
+                                                                    selected
+                                                                        ? 'border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-100'
+                                                                        : '',
                                                                 )}
                                                             >
                                                                 {t(member.role)}
                                                             </Badge>
                                                         </div>
-                                                        <p className="mt-1 truncate text-sm text-muted-foreground">
-                                                            {[
-                                                                t(member.gender),
-                                                                t(member.player_category),
-                                                                levelLabelByCode.get(member.player_level) ?? t(member.player_level),
-                                                                t(member.current_status),
-                                                            ]
-                                                                .filter(Boolean)
-                                                                .join(' · ')}
-                                                        </p>
+                                                        <div className="mt-1 space-y-1 text-sm text-muted-foreground">
+                                                            <p className="truncate">
+                                                                {[
+                                                                    genderLabel(
+                                                                        member.gender,
+                                                                        t,
+                                                                    ),
+                                                                    t(
+                                                                        member.player_category,
+                                                                    ),
+                                                                    levelLabelByCode.get(
+                                                                        member.player_level,
+                                                                    ) ??
+                                                                        t(
+                                                                            member.player_level,
+                                                                        ),
+                                                                    t(
+                                                                        member.current_status,
+                                                                    ),
+                                                                ]
+                                                                    .filter(
+                                                                        Boolean,
+                                                                    )
+                                                                    .join(
+                                                                        ' · ',
+                                                                    )}
+                                                            </p>
+                                                            {member.sport_event ? (
+                                                                <p className="truncate">
+                                                                    <span className="font-medium text-foreground">
+                                                                        {t(
+                                                                            'Event / discipline',
+                                                                        )}
+                                                                        :
+                                                                    </span>{' '}
+                                                                    {
+                                                                        member.sport_event
+                                                                    }
+                                                                </p>
+                                                            ) : null}
+                                                        </div>
                                                     </div>
                                                 </label>
                                             );
@@ -1013,14 +1383,25 @@ function AddParticipantDialog({
                 </form>
 
                 <DialogFooter className="border-t bg-muted/20 px-5 py-4">
-                    <Button variant="outline" type="button" onClick={handleClose}>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        onClick={handleClose}
+                    >
                         {t('Cancel')}
                     </Button>
-                    <Button type="submit" form="add-participant-form" disabled={submitting || selectedCandidates.length === 0}>
+                    <Button
+                        type="submit"
+                        form="add-participant-form"
+                        disabled={submitting || selectedCandidates.length === 0}
+                    >
                         <Plus className="mr-1.5 h-4 w-4" />
                         {submitting
                             ? t('Saving…')
-                            : t('Add :count participants').replace(':count', String(selectedCandidates.length))}
+                            : t('Add :count participants').replace(
+                                  ':count',
+                                  String(selectedCandidates.length),
+                              )}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -1044,18 +1425,22 @@ function EditParticipantDialog({
     onClose: () => void;
 }) {
     const { t } = useTranslation();
-    const { data, setData, patch, errors, processing, reset } = useForm<ParticipantForm>({
-        position: participation?.position != null ? String(participation.position) : '',
-        medal_type: participation?.achievement?.medal_type ?? '',
-        remarks: participation?.achievement?.remarks ?? '',
-    });
+    const { data, setData, patch, errors, processing, reset } =
+        useForm<ParticipantForm>({
+            position:
+                participation?.position != null
+                    ? String(participation.position)
+                    : '',
+            medal_type: participation?.achievement?.medal_type ?? '',
+            remarks: participation?.achievement?.remarks ?? '',
+        });
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
         if (!participation) {
-return;
-}
+            return;
+        }
 
         patch(
             updateParticipant.url({
@@ -1073,15 +1458,20 @@ return;
     }
 
     return (
-        <Dialog open={participation !== null} onOpenChange={(o) => {
- if (!o) {
-onClose();
-}
-}}>
+        <Dialog
+            open={participation !== null}
+            onOpenChange={(o) => {
+                if (!o) {
+                    onClose();
+                }
+            }}
+        >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{t('Edit participant')}</DialogTitle>
-                    <DialogDescription>{participation?.member?.full_name}</DialogDescription>
+                    <DialogDescription>
+                        {participation?.member?.full_name}
+                    </DialogDescription>
                 </DialogHeader>
                 <form id="edit-participant-form" onSubmit={handleSubmit}>
                     <ParticipantFormFields
@@ -1095,7 +1485,11 @@ onClose();
                     <Button variant="outline" type="button" onClick={onClose}>
                         {t('Cancel')}
                     </Button>
-                    <Button type="submit" form="edit-participant-form" disabled={processing}>
+                    <Button
+                        type="submit"
+                        form="edit-participant-form"
+                        disabled={processing}
+                    >
                         {processing ? t('Saving…') : t('Save changes')}
                     </Button>
                 </DialogFooter>
@@ -1112,8 +1506,8 @@ function MedalBadge({ medal }: { medal: string | null }) {
     const { t } = useTranslation();
 
     if (!medal) {
-return <span className="text-muted-foreground text-xs">—</span>;
-}
+        return <span className="text-xs text-muted-foreground">—</span>;
+    }
 
     return (
         <span
@@ -1142,15 +1536,19 @@ function ParticipantsList({
     canDelete: boolean;
 }) {
     const { t } = useTranslation();
-    const [editingParticipation, setEditingParticipation] = useState<ParticipationRow | null>(null);
-    const [deletingParticipation, setDeletingParticipation] = useState<ParticipationRow | null>(null);
-    const [mediaParticipation, setMediaParticipation] = useState<ParticipationRow | null>(null);
-    const { delete: deleteParticipant, processing: deletingProcessing } = useForm({});
+    const [editingParticipation, setEditingParticipation] =
+        useState<ParticipationRow | null>(null);
+    const [deletingParticipation, setDeletingParticipation] =
+        useState<ParticipationRow | null>(null);
+    const [mediaParticipation, setMediaParticipation] =
+        useState<ParticipationRow | null>(null);
+    const { delete: deleteParticipant, processing: deletingProcessing } =
+        useForm({});
 
     function handleDelete() {
         if (!deletingParticipation) {
-return;
-}
+            return;
+        }
 
         deleteParticipant(
             destroyParticipant.url({
@@ -1164,7 +1562,9 @@ return;
 
     if (participations.length === 0) {
         return (
-            <p className="text-muted-foreground py-8 text-center text-sm">{t('No participants yet.')}</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+                {t('No participants yet.')}
+            </p>
         );
     }
 
@@ -1174,25 +1574,25 @@ return;
                 <Table>
                     <TableHeader>
                         <TableRow className="border-b border-slate-300 bg-slate-100 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
-                            <TableHead className="w-12 border-r border-slate-300 text-center text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            <TableHead className="w-12 border-r border-slate-300 text-center text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
                                 {t('S.No.')}
                             </TableHead>
-                            <TableHead className="min-w-56 border-r border-slate-300 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            <TableHead className="min-w-56 border-r border-slate-300 text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
                                 {t('Member name')}
                             </TableHead>
-                            <TableHead className="w-36 border-r border-slate-300 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            <TableHead className="w-36 border-r border-slate-300 text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
                                 {t('PNO')}
                             </TableHead>
-                            <TableHead className="w-24 border-r border-slate-300 text-center text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            <TableHead className="w-24 border-r border-slate-300 text-center text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
                                 {t('Position')}
                             </TableHead>
-                            <TableHead className="w-32 border-r border-slate-300 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            <TableHead className="w-32 border-r border-slate-300 text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
                                 {t('Medal')}
                             </TableHead>
-                            <TableHead className="min-w-48 border-r border-slate-300 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            <TableHead className="min-w-48 border-r border-slate-300 text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
                                 {t('Remarks')}
                             </TableHead>
-                            <TableHead className="w-28 text-right text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">
+                            <TableHead className="w-28 text-right text-xs font-semibold tracking-wide text-slate-700 uppercase dark:text-slate-200">
                                 {t('Actions')}
                             </TableHead>
                         </TableRow>
@@ -1203,7 +1603,7 @@ return;
                                 key={p.id}
                                 className="border-b border-slate-200 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-900/60"
                             >
-                                <TableCell className="border-r border-slate-200 text-center text-xs tabular-nums text-muted-foreground dark:border-slate-800">
+                                <TableCell className="border-r border-slate-200 text-center text-xs text-muted-foreground tabular-nums dark:border-slate-800">
                                     {idx + 1}
                                 </TableCell>
                                 <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
@@ -1219,56 +1619,78 @@ return;
                                     )}
                                 </TableCell>
                                 <TableCell className="border-r border-slate-200 py-2 text-center tabular-nums dark:border-slate-800">
-                                    {p.position ?? <span className="text-muted-foreground">—</span>}
+                                    {p.position ?? (
+                                        <span className="text-muted-foreground">
+                                            —
+                                        </span>
+                                    )}
                                 </TableCell>
                                 <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
-                                    <MedalBadge medal={p.achievement?.medal_type ?? null} />
+                                    <MedalBadge
+                                        medal={
+                                            p.achievement?.medal_type ?? null
+                                        }
+                                    />
                                 </TableCell>
                                 <TableCell className="max-w-[260px] border-r border-slate-200 py-2 text-sm text-muted-foreground dark:border-slate-800">
                                     <span className="line-clamp-2">
-                                    {p.achievement?.remarks || '—'}
+                                        {p.achievement?.remarks || '—'}
                                     </span>
                                 </TableCell>
                                 <TableCell className="py-2 text-right">
                                     <div className="flex items-center justify-end gap-1">
                                         <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                title={t('Photos')}
-                                                onClick={() => setMediaParticipation(p)}
-                                            >
-                                                {(canUpload || canDelete) ? (
-                                                    <Camera className="h-4 w-4" />
-                                                ) : (
-                                                    <Images className="h-4 w-4" />
-                                                )}
-                                                {p.media_files_count > 0 && (
-                                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
-                                                        {p.media_files_count > 9 ? '9+' : p.media_files_count}
-                                                    </span>
-                                                )}
-                                                <span className="sr-only">{t('Photos')}</span>
-                                            </Button>
+                                            variant="ghost"
+                                            size="icon"
+                                            className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
+                                            title={t('Photos')}
+                                            onClick={() =>
+                                                setMediaParticipation(p)
+                                            }
+                                        >
+                                            {canUpload || canDelete ? (
+                                                <Camera className="h-4 w-4" />
+                                            ) : (
+                                                <Images className="h-4 w-4" />
+                                            )}
+                                            {p.media_files_count > 0 && (
+                                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
+                                                    {p.media_files_count > 9
+                                                        ? '9+'
+                                                        : p.media_files_count}
+                                                </span>
+                                            )}
+                                            <span className="sr-only">
+                                                {t('Photos')}
+                                            </span>
+                                        </Button>
                                         <Button
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8"
                                             title={t('Edit participant')}
-                                            onClick={() => setEditingParticipation(p)}
+                                            onClick={() =>
+                                                setEditingParticipation(p)
+                                            }
                                         >
                                             <Pencil className="h-4 w-4" />
-                                            <span className="sr-only">{t('Edit participant')}</span>
+                                            <span className="sr-only">
+                                                {t('Edit participant')}
+                                            </span>
                                         </Button>
                                         <Button
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8 text-destructive hover:text-destructive"
                                             title={t('Remove participant')}
-                                            onClick={() => setDeletingParticipation(p)}
+                                            onClick={() =>
+                                                setDeletingParticipation(p)
+                                            }
                                         >
                                             <Trash2 className="h-4 w-4" />
-                                            <span className="sr-only">{t('Remove participant')}</span>
+                                            <span className="sr-only">
+                                                {t('Remove participant')}
+                                            </span>
                                         </Button>
                                     </div>
                                 </TableCell>
@@ -1288,12 +1710,14 @@ return;
             <ConfirmDeleteDialog
                 open={deletingParticipation !== null}
                 onOpenChange={(o) => {
- if (!o) {
-setDeletingParticipation(null);
-}
-}}
+                    if (!o) {
+                        setDeletingParticipation(null);
+                    }
+                }}
                 title={t('Remove participant')}
-                description={t('This will permanently delete the participation and any medal record. This action cannot be undone.')}
+                description={t(
+                    'This will permanently delete the participation and any medal record. This action cannot be undone.',
+                )}
                 confirmLabel={t('Remove')}
                 onConfirm={handleDelete}
                 processing={deletingProcessing}
@@ -1304,10 +1728,10 @@ setDeletingParticipation(null);
                     memberName={mediaParticipation.member?.full_name ?? ''}
                     open={mediaParticipation !== null}
                     onOpenChange={(o) => {
- if (!o) {
-setMediaParticipation(null);
-}
-}}
+                        if (!o) {
+                            setMediaParticipation(null);
+                        }
+                    }}
                     canUpload={canUpload}
                     canDelete={canDelete}
                 />
@@ -1344,12 +1768,16 @@ export default function EventsShow({
     const [editEventOpen, setEditEventOpen] = useState(false);
     const [deleteEventOpen, setDeleteEventOpen] = useState(false);
     const [addParticipantOpen, setAddParticipantOpen] = useState(false);
-    const { delete: deleteEventForm, processing: deletingEventProcessing } = useForm({});
+    const { delete: deleteEventForm, processing: deletingEventProcessing } =
+        useForm({});
 
     function handleDeleteEvent() {
-        deleteEventForm(destroyEvent.url({ tournament: tournament.id, event: event.id }), {
-            onSuccess: () => setDeleteEventOpen(false),
-        });
+        deleteEventForm(
+            destroyEvent.url({ tournament: tournament.id, event: event.id }),
+            {
+                onSuccess: () => setDeleteEventOpen(false),
+            },
+        );
     }
 
     setLayoutProps({
@@ -1386,13 +1814,29 @@ export default function EventsShow({
 
                     <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="space-y-2">
-                            <p className="text-sm font-medium text-muted-foreground">{tournament.name}</p>
+                            <p className="text-sm font-medium text-muted-foreground">
+                                {tournament.name}
+                            </p>
                             <Heading variant="small" title={event.name} />
                             <div className="flex flex-wrap gap-2">
-                                {event.sport && <Badge variant="secondary">{event.sport.name}</Badge>}
-                                <Badge variant="outline">{t(event.gender_class)}</Badge>
-                                {event.discipline && <Badge variant="outline">{event.discipline}</Badge>}
-                                {event.weight_category && <Badge variant="outline">{event.weight_category}</Badge>}
+                                {event.sport && (
+                                    <Badge variant="secondary">
+                                        {event.sport.name}
+                                    </Badge>
+                                )}
+                                <Badge variant="outline">
+                                    {genderLabel(event.gender_class, t)}
+                                </Badge>
+                                {event.discipline && (
+                                    <Badge variant="outline">
+                                        {event.discipline}
+                                    </Badge>
+                                )}
+                                {event.weight_category && (
+                                    <Badge variant="outline">
+                                        {event.weight_category}
+                                    </Badge>
+                                )}
                             </div>
                         </div>
                         <div className="flex shrink-0 gap-2">
@@ -1403,14 +1847,20 @@ export default function EventsShow({
                                 title={
                                     event.can_update_structure
                                         ? t('Edit')
-                                        : t('Event cannot be edited after participants are added')
+                                        : t(
+                                              'Event cannot be edited after participants are added',
+                                          )
                                 }
                                 onClick={() => setEditEventOpen(true)}
                             >
                                 <Pencil className="mr-1.5 h-4 w-4" />
                                 {t('Edit')}
                             </Button>
-                            <Button variant="destructive" size="sm" onClick={() => setDeleteEventOpen(true)}>
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => setDeleteEventOpen(true)}
+                            >
                                 <Trash2 className="mr-1.5 h-4 w-4" />
                                 {t('Delete')}
                             </Button>
@@ -1422,21 +1872,35 @@ export default function EventsShow({
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-base font-semibold">{t('Participants')}</h2>
+                            <h2 className="text-base font-semibold">
+                                {t('Participants')}
+                            </h2>
                             {participations !== undefined && (
-                                <p className="text-muted-foreground text-sm">
+                                <p className="text-sm text-muted-foreground">
                                     {participantCount}{' '}
-                                    {t(participantCount === 1 ? 'participant' : 'participants')}
+                                    {t(
+                                        participantCount === 1
+                                            ? 'participant'
+                                            : 'participants',
+                                    )}
                                 </p>
                             )}
                         </div>
-                        <Button size="sm" onClick={() => setAddParticipantOpen(true)}>
+                        <Button
+                            size="sm"
+                            onClick={() => setAddParticipantOpen(true)}
+                        >
                             <Plus className="mr-1.5 h-4 w-4" />
                             {t('Add participant')}
                         </Button>
                     </div>
 
-                    <Deferred data="participations" fallback={<Skeleton className="h-40 w-full rounded-xl" />}>
+                    <Deferred
+                        data="participations"
+                        fallback={
+                            <Skeleton className="h-40 w-full rounded-xl" />
+                        }
+                    >
                         <ParticipantsList
                             participations={participations ?? []}
                             tournament={tournament}
@@ -1461,7 +1925,9 @@ export default function EventsShow({
                 open={deleteEventOpen}
                 onOpenChange={setDeleteEventOpen}
                 title={t('Delete event')}
-                description={t('This will permanently delete the event and all its participations. This action cannot be undone.')}
+                description={t(
+                    'This will permanently delete the event and all its participations. This action cannot be undone.',
+                )}
                 confirmLabel={t('Delete event')}
                 onConfirm={handleDeleteEvent}
                 processing={deletingEventProcessing}
