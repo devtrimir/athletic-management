@@ -66,7 +66,7 @@ const ALL_COLUMNS = [
     { key: 'blood_group', label: 'Blood group' },
     { key: 'gender', label: 'Gender' },
     { key: 'sports', label: 'Playable sport' },
-    { key: 'unit_district', label: 'Unit / District' },
+    { key: 'unit_district', label: 'Posting' },
     { key: 'mobile', label: 'Mobile number' },
     { key: 'nis_certified', label: 'NIS Certified' },
 ] as const;
@@ -562,7 +562,11 @@ export default function CoachesIndex({
         return coach.unit?.name ?? coach.district?.name ?? null;
     }
 
-    function exportValue(coach: Coach, key: string, serialNumber: number): string {
+    function exportValue(
+        coach: Coach,
+        key: string,
+        serialNumber: number,
+    ): string {
         if (key === 'serial_number') {
             return String(serialNumber);
         }
@@ -846,8 +850,8 @@ export default function CoachesIndex({
         <>
             <Head title={t('Coaches')} />
 
-            <div className="min-w-0 max-w-full space-y-5 overflow-x-hidden">
-                <div className="sticky top-0 z-40 min-w-0 max-w-full space-y-5 overflow-x-hidden bg-card/95 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/85">
+            <div className="max-w-full min-w-0 space-y-5 overflow-x-hidden">
+                <div className="sticky top-0 z-40 max-w-full min-w-0 space-y-5 overflow-x-hidden bg-card/95 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/85">
                     <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <Heading
                             variant="small"
@@ -911,7 +915,7 @@ export default function CoachesIndex({
                         </TabsList>
                     </Tabs>
 
-                    <div className="min-w-0 max-w-full space-y-3 rounded-xl border bg-card p-4">
+                    <div className="max-w-full min-w-0 space-y-3 rounded-xl border bg-card p-4">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div className="relative w-full lg:max-w-md">
                                 <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1178,8 +1182,12 @@ export default function CoachesIndex({
                         </div>
                     </div>
 
-                    <ListingPagination paginator={coaches} itemLabel={t('coaches')} className="sticky top-0 z-40 min-w-0 max-w-full shadow-sm" />
-                    <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden rounded-xl border bg-card">
+                    <ListingPagination
+                        paginator={coaches}
+                        itemLabel={t('coaches')}
+                        className="sticky top-0 z-40 max-w-full min-w-0 shadow-sm"
+                    />
+                    <div className="max-w-full min-w-0 overflow-x-auto overflow-y-hidden rounded-xl border bg-card">
                         <Table className="min-w-[980px] table-fixed border-separate border border-border/60 [&_td]:border-r [&_td]:border-b [&_td]:border-border/45 [&_th]:border-r [&_th]:border-b [&_th]:border-border/45">
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -1218,11 +1226,9 @@ export default function CoachesIndex({
                                     <TableHead className="hidden lg:table-cell">
                                         {t('Gender')}
                                     </TableHead>
-                                    <TableHead>
-                                        {t('Playable sport')}
-                                    </TableHead>
+                                    <TableHead>{t('Playable sport')}</TableHead>
                                     <TableHead className="w-[150px]">
-                                        {t('Unit / District')}
+                                        {t('Posting')}
                                     </TableHead>
                                     <TableHead className="hidden lg:table-cell">
                                         {t('Mobile number')}
@@ -1410,7 +1416,6 @@ export default function CoachesIndex({
                             </TableBody>
                         </Table>
                     </div>
-
                 </div>
             </div>
 

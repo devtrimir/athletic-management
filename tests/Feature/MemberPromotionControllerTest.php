@@ -229,6 +229,41 @@ test('member promotion records evidence and appears in database', function () {
     expect($promotion?->evidences()->count())->toBe(3);
 });
 
+test('cash reward only record does not change member rank or promotion date', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    [$fromRank] = promotionRanks($member->organization);
+    $member->update(['rank' => $fromRank->code, 'promotion_date' => null]);
+    [, $participation, $achievement] = promotionFixtures($member);
+
+    $response = $this->actingAs($user)->post(route('members.promotions.store', $member), [
+        'cash_reward_only' => true,
+        'from_rank' => $fromRank->code,
+        'to_rank' => $fromRank->code,
+        'cash_reward_amount' => '5000.00',
+        'cash_reward_date' => now()->toDateString(),
+        'cash_reward_reference' => 'REWARD-42',
+        'cash_reward_remarks' => 'Cash reward only.',
+        'evidences' => [
+            ['type' => 'participation', 'id' => $participation->id],
+            ['type' => 'achievement', 'id' => $achievement->id],
+        ],
+    ]);
+
+    $response->assertRedirect(route('members.promotions', $member));
+
+    $promotion = MemberPromotion::query()->where('member_id', $member->id)->first();
+
+    expect($promotion?->promotion_date)->toBeNull();
+    expect($promotion?->from_rank)->toBe($fromRank->code);
+    expect($promotion?->to_rank)->toBe($fromRank->code);
+    expect($promotion?->cash_reward_amount)->toBe('5000.00');
+    expect($promotion?->cash_reward_reference)->toBe('REWARD-42');
+    expect($member->refresh()->rank)->toBe($fromRank->code);
+    expect($member->promotion_date)->toBeNull();
+    expect($promotion?->evidences()->count())->toBe(2);
+});
+
 test('member promotion created from coach page redirects back to coach', function () {
     $user = promotionUser();
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);

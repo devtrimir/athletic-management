@@ -1,6 +1,7 @@
 import { Deferred, Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +37,13 @@ type Member = {
     home_address: string | null;
     recruitment_type: string | null;
     sport: { id: number; name: string } | null;
-    playable_sports: { id: number; name: string; role?: string | null; position?: string | null; notes?: string | null }[];
+    playable_sports: {
+        id: number;
+        name: string;
+        role?: string | null;
+        position?: string | null;
+        notes?: string | null;
+    }[];
     other_notes: string | null;
     team_since: string | null;
 };
@@ -70,14 +77,21 @@ type AchievementBenefitRow = {
 type LegacyAchievement = {
     id: number;
     period: string;
+    session: { id: number; name: string } | null;
     level: string;
     competition_details: string;
     event_date: string | null;
     venue: string | null;
+    sport: { id: number; name: string } | null;
     sport_discipline: string | null;
     event: string | null;
+    discipline: string | null;
+    weight_category: string | null;
+    gender_class: string | null;
     medal_type: string | null;
+    position: string | number | null;
     sort_order: number | null;
+    remarks: string | null;
     benefits: AchievementBenefitRow[];
 };
 type AchievementRow = {
@@ -96,14 +110,8 @@ type AchievementRow = {
         date_to: string | null;
         venue: string | null;
     };
-    event: { id: number; name: string };
+    event: { id: number; name: string; gender_class?: string | null };
     benefits: AchievementBenefitRow[];
-};
-type AchievementTierGroup = {
-    key: string;
-    label: string;
-    weight: number;
-    rows: AchievementRow[];
 };
 type PromotionRow = {
     id: number;
@@ -153,6 +161,35 @@ type PromotionEvidenceRow = {
         benefits: AchievementBenefitRow[];
     } | null;
 };
+type SpecialAchievementRow = {
+    id: number;
+    achievement_type: string;
+    title: string;
+    awarded_on: string | null;
+    issuing_authority: string | null;
+    order_reference: string | null;
+    order_document: { original_name: string | null } | null;
+    place: string | null;
+    remarks: string | null;
+};
+type SpecialAchievementsData = {
+    records: SpecialAchievementRow[];
+    summary: {
+        total: number;
+        commendation_discs: number;
+    };
+};
+type PromotionEvidenceTableRow = {
+    key: string;
+    session: ReactNode;
+    tournament: ReactNode;
+    event: ReactNode;
+    level: ReactNode;
+    date: ReactNode;
+    gender: ReactNode;
+    result: ReactNode;
+    venue: ReactNode;
+};
 type AuditChange = { field: string; old: string | null; new: string | null };
 type AuditEntry = {
     id: number;
@@ -170,9 +207,12 @@ type SectionKey =
     | 'sports'
     | 'status'
     | 'teams'
-    | 'legacy'
+    | 'achievements'
+    | 'specialAchievements'
     | 'promotions'
     | 'timeline';
+
+const PRE_RECRUITMENT_PERIOD = 'PRE_RECRUITMENT';
 
 type Props = {
     member: Member;
@@ -180,9 +220,12 @@ type Props = {
     memberTeams?: MemberTeamRow[];
     legacyAchievements?: LegacyAchievement[];
     achievements?: AchievementRow[];
+    specialAchievements?: SpecialAchievementsData;
     promotions?: PromotionRow[];
     auditLog?: AuditEntry[];
 };
+
+const LETTERHEAD_LOGO_SRC = '/logo.jpg';
 
 const UI_LABELS: Record<
     string,
@@ -196,9 +239,25 @@ const UI_LABELS: Record<
     Print: { en: 'Print', hi: 'प्रिंट' },
     'Print preview': { en: 'Print preview', hi: 'प्रिंट पूर्वावलोकन' },
     'Print options': { en: 'Print options', hi: 'प्रिंट विकल्प' },
+    'UP Police Sports Unit': {
+        en: 'UP Police Sports Unit',
+        hi: 'उत्तर प्रदेश पुलिस खेल इकाई',
+    },
+    'Member profile record': {
+        en: 'Member profile record',
+        hi: 'सदस्य प्रोफाइल रिकॉर्ड',
+    },
+    'Official print preview': {
+        en: 'Official print preview',
+        hi: 'आधिकारिक प्रिंट पूर्वावलोकन',
+    },
     'Story timeline': { en: 'Story timeline', hi: 'कथा समयरेखा' },
     'Compact timeline': { en: 'Compact timeline', hi: 'संक्षिप्त समयरेखा' },
     'Identity and personal details': {
+        en: 'Identity and personal details',
+        hi: 'पहचान और व्यक्तिगत विवरण',
+    },
+    identity: {
         en: 'Identity and personal details',
         hi: 'पहचान और व्यक्तिगत विवरण',
     },
@@ -206,23 +265,48 @@ const UI_LABELS: Record<
         en: 'Contact and address',
         hi: 'संपर्क और पता',
     },
+    contact: { en: 'Contact and address', hi: 'संपर्क और पता' },
     'Service and posting': { en: 'Service and posting', hi: 'सेवा और तैनाती' },
+    service: { en: 'Service and posting', hi: 'सेवा और तैनाती' },
     'Sports and eligibility': {
         en: 'Sports and eligibility',
         hi: 'खेल और पात्रता',
     },
+    sports: { en: 'Sports and eligibility', hi: 'खेल और पात्रता' },
     'Status history': { en: 'Status history', hi: 'स्थिति इतिहास' },
+    status: { en: 'Status history', hi: 'स्थिति इतिहास' },
     'Team memberships': { en: 'Team memberships', hi: 'टीम सदस्यता' },
+    teams: { en: 'Team memberships', hi: 'टीम सदस्यता' },
     'Legacy achievements': {
         en: 'Legacy achievements',
         hi: 'पूर्व उपलब्धियां',
     },
+    legacy: { en: 'Legacy achievements', hi: 'पूर्व उपलब्धियां' },
     Achievements: { en: 'Achievements', hi: 'उपलब्धियां' },
-    'Promotions and rewards': {
-        en: 'Promotions and rewards',
-        hi: 'पदोन्नति और पुरस्कार',
+    achievements: { en: 'Achievements', hi: 'उपलब्धियां' },
+    'Event / discipline': {
+        en: 'Event / discipline',
+        hi: 'इवेंट / डिसिप्लिन',
     },
+    Details: { en: 'Details', hi: 'विवरण' },
+    Result: { en: 'Result', hi: 'परिणाम' },
+    'Special achievements': {
+        en: 'Special achievements',
+        hi: 'विशेष उपलब्धियां',
+    },
+    specialAchievements: {
+        en: 'Special achievements',
+        hi: 'विशेष उपलब्धियां',
+    },
+    'Promotions / rewards': {
+        en: 'Promotions / rewards',
+        hi: 'पदोन्नति / पुरस्कार',
+    },
+    Promotions: { en: 'Promotions', hi: 'पदोन्नति' },
+    Rewards: { en: 'Rewards', hi: 'पुरस्कार' },
+    promotions: { en: 'Promotions / rewards', hi: 'पदोन्नति / पुरस्कार' },
     'Record timeline': { en: 'Record timeline', hi: 'रिकॉर्ड समयरेखा' },
+    timeline: { en: 'Record timeline', hi: 'रिकॉर्ड समयरेखा' },
     PNO: { en: 'PNO', hi: 'पीएनओ' },
     'Current status': { en: 'Current status', hi: 'वर्तमान स्थिति' },
     Name: { en: 'Name', hi: 'नाम' },
@@ -241,7 +325,11 @@ const UI_LABELS: Record<
     Designation: { en: 'Designation', hi: 'पदनाम' },
     'Current unit': { en: 'Current unit', hi: 'वर्तमान इकाई' },
     'Home district': { en: 'Home district', hi: 'गृह जनपद' },
-    'Posting unit / district': { en: 'Posting unit / district', hi: 'तैनाती इकाई / जनपद' },
+    Posting: { en: 'Posting', hi: 'तैनाती' },
+    'Posting unit / district': {
+        en: 'Posting unit / district',
+        hi: 'तैनाती इकाई / जनपद',
+    },
     'Team since': { en: 'Team since', hi: 'टीम से जुड़ने की तिथि' },
     Appointment: { en: 'Appointment', hi: 'नियुक्ति' },
     Category: { en: 'Category', hi: 'श्रेणी' },
@@ -277,8 +365,44 @@ const UI_LABELS: Record<
     Tier: { en: 'Tier', hi: 'स्तर' },
     Tournament: { en: 'Tournament', hi: 'प्रतियोगिता' },
     Position: { en: 'Position', hi: 'स्थान' },
+    Reason: { en: 'Reason', hi: 'कारण' },
+    Remarks: { en: 'Remarks', hi: 'टिप्पणी' },
+    'From rank': { en: 'From rank', hi: 'पूर्व रैंक' },
+    'To rank': { en: 'To rank', hi: 'नई रैंक' },
     Evidence: { en: 'Evidence', hi: 'प्रमाण' },
     Benefits: { en: 'Benefits', hi: 'लाभ' },
+    'No rewards yet.': { en: 'No rewards yet.', hi: 'अभी कोई पुरस्कार नहीं।' },
+    'Achievement type': { en: 'Achievement type', hi: 'उपलब्धि प्रकार' },
+    Title: { en: 'Title', hi: 'शीर्षक' },
+    'Awarded on': { en: 'Awarded on', hi: 'सम्मान तिथि' },
+    'Issuing authority': { en: 'Issuing authority', hi: 'जारीकर्ता प्राधिकरण' },
+    'Order reference': { en: 'Order reference', hi: 'आदेश संदर्भ' },
+    Place: { en: 'Place', hi: 'स्थान' },
+    Document: { en: 'Document', hi: 'दस्तावेज' },
+    Coach: { en: 'Coach', hi: 'कोच' },
+    'Training venue': { en: 'Training venue', hi: 'प्रशिक्षण स्थल' },
+    'Start date': { en: 'Start date', hi: 'प्रारंभ तिथि' },
+    'End date': { en: 'End date', hi: 'समाप्ति तिथि' },
+    Status: { en: 'Status', hi: 'स्थिति' },
+    Subject: { en: 'Subject', hi: 'विषय' },
+    Action: { en: 'Action', hi: 'कार्रवाई' },
+    Date: { en: 'Date', hi: 'तिथि' },
+    Field: { en: 'Field', hi: 'फील्ड' },
+    'Old value': { en: 'Old value', hi: 'पुराना मान' },
+    'New value': { en: 'New value', hi: 'नया मान' },
+    'Effective on': { en: 'Effective on', hi: 'प्रभावी तिथि' },
+    'Recorded by': { en: 'Recorded by', hi: 'दर्जकर्ता' },
+    Mode: { en: 'Mode', hi: 'मोड' },
+    'Attendance date': { en: 'Attendance date', hi: 'उपस्थिति तिथि' },
+    'Attendance status': { en: 'Attendance status', hi: 'उपस्थिति स्थिति' },
+    'Geo status': { en: 'Geo status', hi: 'जियो स्थिति' },
+    'Review status': { en: 'Review status', hi: 'समीक्षा स्थिति' },
+    Distance: { en: 'Distance', hi: 'दूरी' },
+    'Flag reason': { en: 'Flag reason', hi: 'फ्लैग कारण' },
+    'Update date': { en: 'Update date', hi: 'अपडेट तिथि' },
+    'Performance level': { en: 'Performance level', hi: 'प्रदर्शन स्तर' },
+    'Performance score': { en: 'Performance score', hi: 'प्रदर्शन स्कोर' },
+    'Training summary': { en: 'Training summary', hi: 'प्रशिक्षण सारांश' },
 };
 
 const DATE_FIELD_LABELS = new Set([
@@ -291,6 +415,11 @@ const DATE_FIELD_LABELS = new Set([
     'Left on',
     'Event date',
     'Cash reward date',
+    'Awarded on',
+    'Start date',
+    'End date',
+    'Attendance date',
+    'Update date',
 ]);
 
 function Section({
@@ -310,15 +439,32 @@ function Section({
     );
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function DetailsTable({
+    rows,
+}: {
+    rows: { label: string; value: React.ReactNode }[];
+}) {
+    const visibleRows = rows.filter((row) => hasPrintableValue(row.value));
+
     return (
-        <div className="grid gap-1">
-            <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase print:text-[9px] print:text-neutral-600">
-                {label}
-            </div>
-            <div className="text-sm text-foreground print:text-[11px] print:leading-4">
-                {value ?? <span className="text-muted-foreground">—</span>}
-            </div>
+        <div className="overflow-hidden rounded-md border print:rounded-sm">
+            <table className="w-full text-sm">
+                <tbody className="print:text-[10px]">
+                    {visibleRows.map((row) => (
+                        <tr
+                            key={row.label}
+                            className="border-t first:border-t-0"
+                        >
+                            <th className="w-1/3 bg-muted/30 p-2 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase print:py-1 print:text-[9px]">
+                                {row.label}
+                            </th>
+                            <td className="p-2 text-foreground print:py-1">
+                                {row.value}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
         </div>
     );
 }
@@ -349,7 +495,7 @@ function parseDateValue(value: string): Date | null {
 function formatDateValue(
     value: string | null | undefined,
     locale: string,
-    dateStyle: Intl.DateTimeFormatOptions['dateStyle'] = 'medium',
+    dateStyle: Intl.DateTimeFormatOptions['dateStyle'] = 'long',
 ): string | null {
     if (!value) {
         return null;
@@ -376,13 +522,9 @@ function formatTimelineTime(value: string, locale: string): string {
     const hasTime = !/^\d{4}-\d{2}-\d{2}$/.test(value);
 
     return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        dateStyle: 'medium',
+        dateStyle: 'long',
         ...(hasTime ? { timeStyle: 'short' as const } : {}),
     }).format(date);
-}
-
-function formatTimelineDate(value: string, locale: string): string {
-    return formatDateValue(value, locale, 'long') ?? value;
 }
 
 const STORY_SUBJECTS: Record<
@@ -437,12 +579,12 @@ const STORY_SUBJECTS: Record<
             'यह भाग सिस्टम में जोड़ी गई पुरानी उपलब्धियों की जानकारी संभालता है।',
     },
     Promotion: {
-        en: 'promotion and reward',
-        hi: 'पदोन्नति और पुरस्कार',
+        en: 'promotion',
+        hi: 'पदोन्नति',
         introEn:
-            'This part follows promotions, rewards, references, and related remarks.',
+            'This part follows promotion records, references, and related remarks.',
         introHi:
-            'यह भाग पदोन्नति, पुरस्कार, संदर्भ और संबंधित टिप्पणियों को दिखाता है।',
+            'यह भाग पदोन्नति रिकॉर्ड, संदर्भ और संबंधित टिप्पणियों को दिखाता है।',
     },
     'Promotion evidence': {
         en: 'promotion evidence',
@@ -478,7 +620,10 @@ const STORY_FIELDS: Record<string, { en: string; hi: string }> = {
     'Sport event': { en: 'the sport event', hi: 'खेल इवेंट' },
     Unit: { en: 'the unit', hi: 'यूनिट' },
     'Home district': { en: 'the home district', hi: 'गृह जनपद' },
-    'Posting unit / district': { en: 'the posting unit / district', hi: 'तैनाती इकाई / जनपद' },
+    'Posting unit / district': {
+        en: 'the posting unit / district',
+        hi: 'तैनाती इकाई / जनपद',
+    },
     'Joining date': { en: 'the joining date', hi: 'जॉइनिंग तिथि' },
     'Blood group': { en: 'the blood group', hi: 'ब्लड ग्रुप' },
     Caste: { en: 'the caste', hi: 'जाति' },
@@ -563,139 +708,262 @@ function storyField(
     return locale === 'en' ? translated.toLowerCase() : translated;
 }
 
+function humanizeCode(value: string): string {
+    return value
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function printValue(
+    value: string | number | null | undefined,
+    t: (key: string) => string,
+): string | number | null {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+
+    if (typeof value === 'number') {
+        return value;
+    }
+
+    const translated = t(value);
+
+    return translated === value ? humanizeCode(value) : translated;
+}
+
+function genderClassLabel(
+    value: string | null | undefined,
+    t: (key: string) => string,
+): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const labels: Record<string, string> = {
+        F: 'F',
+        M: 'M',
+        MIXED: 'Mixed',
+        OPEN: 'Open',
+        O: 'O',
+    };
+
+    return t(labels[value.toUpperCase()] ?? humanizeCode(value));
+}
+
+function genderLabel(value: string | null | undefined): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const code = value.toUpperCase();
+
+    if (code === 'MALE') {
+        return 'M';
+    }
+
+    if (code === 'FEMALE') {
+        return 'F';
+    }
+
+    return code;
+}
+
 function postingLocation(member: Member): string | null {
     return member.posting_district?.name ?? member.current_unit?.name ?? null;
 }
 
-function groupAchievementsByTier(
-    rows: AchievementRow[],
-    locale: string,
-): AchievementTierGroup[] {
-    const groups = new Map<
-        string,
-        { label: string; weight: number; rows: AchievementRow[] }
-    >();
+function hasPromotionFields(row: PromotionRow): boolean {
+    const hasRankChange = !!(
+        row.from_rank &&
+        row.to_rank &&
+        row.from_rank !== row.to_rank
+    );
 
-    for (const row of rows) {
-        const tierKey = row.tournament.tier_code ?? 'UNTIERED';
-        const label = row.tournament.tier_code ?? '—';
-        const weight = row.tournament.tier_weight ?? 0;
-        const current = groups.get(tierKey) ?? {
-            label,
-            weight,
-            rows: [],
-        };
-
-        current.rows.push(row);
-        groups.set(tierKey, current);
-    }
-
-    return Array.from(groups.entries())
-        .map(([key, group]) => ({
-            key,
-            label: group.label,
-            weight: group.weight,
-            rows: group.rows.sort((a, b) => {
-                const aDate = a.tournament.date_from ?? '';
-                const bDate = b.tournament.date_from ?? '';
-
-                return bDate.localeCompare(aDate);
-            }),
-        }))
-        .sort((a, b) => b.weight - a.weight || a.label.localeCompare(b.label, locale === 'en' ? 'en' : 'hi'));
+    return !!(row.promotion_date || hasRankChange || row.reason || row.remarks);
 }
 
-function benefitSummary(
-    benefits: AchievementBenefitRow[] | undefined,
+function hasRewardFields(row: PromotionRow): boolean {
+    return !!(
+        row.cash_reward_amount ||
+        row.cash_reward_date ||
+        row.cash_reward_reference ||
+        row.cash_reward_remarks
+    );
+}
+
+function promotionEvidenceKey(evidence: PromotionEvidenceRow): string {
+    if (evidence.legacy_achievement) {
+        return `legacy:${evidence.legacy_achievement.id}`;
+    }
+
+    if (evidence.tournament?.id && evidence.event?.id) {
+        return `event:${evidence.tournament.id}:${evidence.event.id}`;
+    }
+
+    return `${evidence.type}:${evidence.evidence_id}`;
+}
+
+function promotionEvidenceTableRows(
+    row: PromotionRow,
     locale: string,
     t: (key: string) => string,
-): string | null {
-    if (!benefits || benefits.length === 0) {
+): PromotionEvidenceTableRow[] {
+    const rows = new Map<string, PromotionEvidenceTableRow>();
+
+    for (const evidence of row.evidences) {
+        if (evidence.legacy_achievement) {
+            const legacy = evidence.legacy_achievement;
+
+            if (legacy.period === PRE_RECRUITMENT_PERIOD) {
+                continue;
+            }
+
+            rows.set(promotionEvidenceKey(evidence), {
+                key: promotionEvidenceKey(evidence),
+                session: printValue(legacy.period, t),
+                tournament: legacy.competition_details,
+                event: legacy.event ?? legacy.sport_discipline,
+                level: printValue(legacy.level, t),
+                date: formatDateValue(legacy.event_date, locale),
+                gender: null,
+                result: [
+                    legacy.medal_type ? printValue(legacy.medal_type, t) : null,
+                ]
+                    .filter(Boolean)
+                    .join(' · '),
+                venue: legacy.venue,
+            });
+
+            continue;
+        }
+
+        const result = [
+            evidence.achievement?.medal_type
+                ? printValue(evidence.achievement.medal_type, t)
+                : null,
+            evidence.achievement?.position != null
+                ? `${uiText('Position', locale)}: ${evidence.achievement.position}`
+                : null,
+        ]
+            .filter(Boolean)
+            .join(' · ');
+
+        rows.set(promotionEvidenceKey(evidence), {
+            key: promotionEvidenceKey(evidence),
+            session: evidence.session?.name,
+            tournament: evidence.tournament?.name ?? evidence.summary,
+            event: evidence.event?.name,
+            level: evidence.tournament?.tier_code,
+            date: formatDateValue(evidence.tournament?.date_from, locale),
+            gender: genderClassLabel(evidence.event?.gender_class, t),
+            result,
+            venue: evidence.tournament?.venue,
+        });
+    }
+
+    return Array.from(rows.values());
+}
+
+function PromotionEvidenceTable({
+    rows,
+    locale,
+}: {
+    rows: PromotionEvidenceTableRow[];
+    locale: string;
+}) {
+    if (rows.length === 0) {
         return null;
     }
 
-    return benefits
-        .map((benefit) =>
-            [
-                t(benefit.benefit_type),
-                benefit.cash_amount ? `₹${benefit.cash_amount}` : null,
-                benefit.benefit_date ? formatDateValue(benefit.benefit_date, locale) : null,
-                benefit.order_reference,
-            ]
-                .filter(Boolean)
-                .join(' · '),
-        )
-        .join('; ');
-}
-
-function promotionEvidenceLines(
-    evidence: PromotionEvidenceRow,
-    locale: string,
-    t: (key: string) => string,
-): string[] {
-    const lines: string[] = [];
-
-    if (evidence.legacy_achievement) {
-        const legacy = evidence.legacy_achievement;
-        lines.push(
-            [
-                t(legacy.period),
-                t(legacy.level),
-                legacy.competition_details,
-                legacy.event,
-                legacy.event_date ? formatDateValue(legacy.event_date, locale) : null,
-                legacy.venue,
-                legacy.medal_type ? t(legacy.medal_type) : null,
-            ]
-                .filter(Boolean)
-                .join(' · '),
-        );
-
-        const benefits = benefitSummary(legacy.benefits, locale, t);
-
-        if (benefits) {
-            lines.push(`${uiText('Benefits', locale)}: ${benefits}`);
-        }
-
-        return lines;
-    }
-
-    lines.push(
-        [
-            evidence.session?.name,
-            evidence.tournament?.name,
-            evidence.event?.name,
-            evidence.tournament?.tier_code,
-            evidence.tournament?.date_from ? formatDateValue(evidence.tournament.date_from, locale) : null,
-            evidence.event?.gender_class ? t(evidence.event.gender_class) : null,
-        ]
-            .filter(Boolean)
-            .join(' · ') ||
-            evidence.summary ||
-            `${uiText('Evidence', locale)} #${evidence.evidence_id}`,
+    return (
+        <table className="w-full border-collapse text-xs print:text-[9px]">
+            <thead className="bg-muted/40 text-left text-[10px] tracking-wide text-muted-foreground uppercase print:text-[8px]">
+                <tr>
+                    <th className="w-8 border p-1.5">#</th>
+                    <th className="border p-1.5">
+                        {uiText('Session', locale)}
+                    </th>
+                    <th className="border p-1.5">
+                        {uiText('Tournament', locale)}
+                    </th>
+                    <th className="border p-1.5">{uiText('Event', locale)}</th>
+                    <th className="border p-1.5">{uiText('Level', locale)}</th>
+                    <th className="border p-1.5">
+                        {uiText('Event date', locale)}
+                    </th>
+                    <th className="border p-1.5">{uiText('Gender', locale)}</th>
+                    <th className="border p-1.5">{uiText('Result', locale)}</th>
+                    <th className="border p-1.5">{uiText('Venue', locale)}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map((row, index) => (
+                    <tr key={row.key}>
+                        <td className="border p-1.5 text-center text-muted-foreground">
+                            {index + 1}
+                        </td>
+                        <td className="border p-1.5 align-top">
+                            {row.session}
+                        </td>
+                        <td className="border p-1.5 align-top">
+                            {row.tournament}
+                        </td>
+                        <td className="border p-1.5 align-top">{row.event}</td>
+                        <td className="border p-1.5 align-top">{row.level}</td>
+                        <td className="border p-1.5 align-top">{row.date}</td>
+                        <td className="border p-1.5 align-top">{row.gender}</td>
+                        <td className="border p-1.5 align-top font-medium">
+                            {row.result}
+                        </td>
+                        <td className="border p-1.5 align-top">{row.venue}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
     );
-
-    if (evidence.achievement) {
-        lines.push(
-            [
-                evidence.achievement.medal_type ? t(evidence.achievement.medal_type) : null,
-                evidence.achievement.position != null ? `${uiText('Position', locale)}: ${evidence.achievement.position}` : null,
-            ]
-                .filter(Boolean)
-                .join(' · '),
-        );
-
-        const benefits = benefitSummary(evidence.achievement.benefits, locale, t);
-
-        if (benefits) {
-            lines.push(`${uiText('Benefits', locale)}: ${benefits}`);
-        }
-    }
-
-    return lines.filter(Boolean);
 }
 
-function countMedals(rows: AchievementRow[]): Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'NONE', number> {
+function DetailStack({
+    items,
+}: {
+    items: { label: string; value: ReactNode; muted?: boolean }[];
+}) {
+    const visibleItems = items.filter((item) => hasPrintableValue(item.value));
+
+    if (visibleItems.length === 0) {
+        return null;
+    }
+
+    return (
+        <table className="w-full border-collapse overflow-hidden rounded-sm border border-border/70 bg-background text-xs leading-4 print:text-[9px]">
+            <tbody>
+                {visibleItems.map((item) => (
+                    <tr key={item.label} className="border-b last:border-b-0">
+                        <th className="w-36 border-r bg-muted/30 px-2 py-1.5 text-left align-top font-medium text-muted-foreground print:w-28 print:px-1.5 print:py-1">
+                            {item.label}
+                        </th>
+                        <td
+                            className={
+                                item.muted
+                                    ? 'px-2 py-1.5 align-top break-words text-muted-foreground print:px-1.5 print:py-1'
+                                    : 'px-2 py-1.5 align-top break-words text-foreground print:px-1.5 print:py-1'
+                            }
+                        >
+                            {item.value}
+                        </td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
+function countMedals(
+    rows: Array<{ medal_type?: string | null }>,
+): Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'NONE', number> {
     return rows.reduce(
         (counts, row) => {
             if (!row.medal_type) {
@@ -704,7 +972,8 @@ function countMedals(rows: AchievementRow[]): Record<'GOLD' | 'SILVER' | 'BRONZE
                 return counts;
             }
 
-            counts[row.medal_type as 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT'] += 1;
+            counts[row.medal_type as 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT'] +=
+                1;
 
             return counts;
         },
@@ -718,37 +987,34 @@ function countMedals(rows: AchievementRow[]): Record<'GOLD' | 'SILVER' | 'BRONZE
     );
 }
 
-function storyValue(
-    field: string,
-    value: string | null,
-    locale: string,
-): string {
-    if (!value) {
-        return locale === 'en' ? 'not recorded' : 'दर्ज नहीं';
-    }
+function isOtherTier(value: unknown): boolean {
+    return (
+        String(value ?? '')
+            .trim()
+            .replace(/[\s-]+/g, '_')
+            .toUpperCase() === 'OTHER'
+    );
+}
 
-    if (field.toLowerCase().includes('amount') && !value.includes('₹')) {
-        return `₹${value}`;
-    }
+function hasPrintableValue(value: unknown): boolean {
+    return value !== null && value !== undefined && value !== '';
+}
 
-    if (DATE_FIELD_LABELS.has(field)) {
-        return formatDateValue(value, locale, 'long') ?? value;
-    }
-
-    if (field === 'Photo' && value === '✓') {
-        return locale === 'en' ? 'attached' : 'संलग्न';
-    }
-
-    return value;
+function hasAnyPrintableValue<T>(
+    rows: T[],
+    getter: (row: T) => unknown,
+): boolean {
+    return rows.some((row) => hasPrintableValue(getter(row)));
 }
 
 function timelineChangeValue(
     field: string,
     value: string | null,
     locale: string,
+    t: (key: string) => string,
 ): string {
     if (!value) {
-        return '—';
+        return '';
     }
 
     if (DATE_FIELD_LABELS.has(field)) {
@@ -759,251 +1025,7 @@ function timelineChangeValue(
         return `₹${value}`;
     }
 
-    return value;
-}
-
-function storyChangeSentence(
-    change: AuditChange,
-    locale: string,
-    t: (key: string) => string,
-): string | null {
-    if (change.field === 'Evidence type') {
-        return null;
-    }
-
-    if (change.field === 'Evidence') {
-        if (change.old && change.new) {
-            return locale === 'en'
-                ? `Supporting evidence changed from ${change.old} to ${change.new}.`
-                : `सहायक प्रमाण ${change.old} से ${change.new} में बदला।`;
-        }
-
-        if (change.new) {
-            return locale === 'en'
-                ? `Supporting evidence was attached: ${change.new}.`
-                : `सहायक प्रमाण संलग्न किया गया: ${change.new}।`;
-        }
-
-        if (change.old) {
-            return locale === 'en'
-                ? `Supporting evidence was removed: ${change.old}.`
-                : `सहायक प्रमाण हटाया गया: ${change.old}।`;
-        }
-
-        return null;
-    }
-
-    const label = storyField(change.field, locale, t);
-    const oldValue = storyValue(change.field, change.old, locale);
-    const newValue = storyValue(change.field, change.new, locale);
-
-    if (change.old && change.new) {
-        return locale === 'en'
-            ? `${label} changed from ${oldValue} to ${newValue}.`
-            : `${label} ${oldValue} से ${newValue} में बदला।`;
-    }
-
-    if (change.new) {
-        if (change.field === 'Photo') {
-            return locale === 'en'
-                ? 'A member photo was attached to the record.'
-                : 'रिकॉर्ड में सदस्य फोटो संलग्न किया गया।';
-        }
-
-        return locale === 'en'
-            ? `${label} was recorded as ${newValue}.`
-            : `${label} ${newValue} दर्ज किया गया।`;
-    }
-
-    if (change.old) {
-        return locale === 'en'
-            ? `${label} was cleared from the record; earlier it was ${oldValue}.`
-            : `${label} रिकॉर्ड से हटाया गया; पहले ${oldValue} दर्ज था।`;
-    }
-
-    return locale === 'en'
-        ? `${label} was reviewed without a visible value change.`
-        : `${label} की समीक्षा हुई, लेकिन कोई दिखने वाला मान परिवर्तन नहीं था।`;
-}
-
-function storyOpening(
-    entry: AuditEntry,
-    subject: string,
-    locale: string,
-    t: (key: string) => string,
-): string {
-    const when = formatTimelineDate(entry.at, locale);
-    const label = storySubject(subject, locale).label;
-
-    if (entry.action === 'created') {
-        return locale === 'en'
-            ? `On ${when}, a ${label} entry was added to the member record.`
-            : `${when} को सदस्य रिकॉर्ड में ${label} प्रविष्टि जोड़ी गई।`;
-    }
-
-    if (entry.action === 'updated') {
-        return locale === 'en'
-            ? `On ${when}, the ${label} details were updated.`
-            : `${when} को ${label} विवरण अद्यतन किए गए।`;
-    }
-
-    if (entry.action === 'deleted') {
-        return locale === 'en'
-            ? `On ${when}, a ${label} entry was removed from the member record.`
-            : `${when} को सदस्य रिकॉर्ड से ${label} प्रविष्टि हटाई गई।`;
-    }
-
-    return locale === 'en'
-        ? `On ${when}, ${t(entry.action)} was recorded for ${label}.`
-        : `${when} को ${label} के लिए ${t(entry.action)} दर्ज किया गया।`;
-}
-
-function formatStoryList(items: string[], locale: string): string {
-    try {
-        return new Intl.ListFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-            style: 'long',
-            type: 'conjunction',
-        }).format(items);
-    } catch {
-        return items.join(', ');
-    }
-}
-
-function buildPromotionEvidenceParagraphs(
-    entries: AuditEntry[],
-    locale: string,
-    t: (key: string) => string,
-): string[] {
-    const grouped = new Map<
-        string,
-        { action: string; when: string; labels: string[] }
-    >();
-    const fallback: string[] = [];
-
-    for (const entry of entries) {
-        const evidenceChange = entry.changes.find(
-            (change) => change.field === 'Evidence',
-        );
-        const evidenceLabel =
-            entry.action === 'deleted'
-                ? evidenceChange?.old
-                : evidenceChange?.new;
-
-        if (!evidenceLabel) {
-            const opening = storyOpening(
-                entry,
-                'Promotion evidence',
-                locale,
-                t,
-            );
-            const sentences = entry.changes
-                .map((change) => storyChangeSentence(change, locale, t))
-                .filter((sentence): sentence is string => Boolean(sentence));
-
-            fallback.push(
-                `${opening} ${
-                    sentences.length > 0
-                        ? sentences.join(' ')
-                        : locale === 'en'
-                          ? 'No detailed field values were changed in this entry.'
-                          : 'इस प्रविष्टि में कोई विस्तृत फील्ड मान नहीं बदला।'
-                }`,
-            );
-
-            continue;
-        }
-
-        const when = formatTimelineDate(entry.at, locale);
-        const key = `${entry.action}-${when}`;
-        const current = grouped.get(key) ?? {
-            action: entry.action,
-            when,
-            labels: [],
-        };
-
-        if (!current.labels.includes(evidenceLabel)) {
-            current.labels.push(evidenceLabel);
-        }
-
-        grouped.set(key, current);
-    }
-
-    const paragraphs = Array.from(grouped.values()).map((group) => {
-        const labels = formatStoryList(group.labels, locale);
-
-        if (group.action === 'deleted') {
-            return locale === 'en'
-                ? `On ${group.when}, supporting evidence was removed from the promotion record: ${labels}.`
-                : `${group.when} को पदोन्नति रिकॉर्ड से सहायक प्रमाण हटाया गया: ${labels}।`;
-        }
-
-        if (group.action === 'updated') {
-            return locale === 'en'
-                ? `On ${group.when}, supporting evidence for the promotion record was revised: ${labels}.`
-                : `${group.when} को पदोन्नति रिकॉर्ड के सहायक प्रमाण में बदलाव किया गया: ${labels}।`;
-        }
-
-        return locale === 'en'
-            ? `On ${group.when}, supporting evidence was attached to the promotion record: ${labels}.`
-            : `${group.when} को पदोन्नति रिकॉर्ड में सहायक प्रमाण संलग्न किया गया: ${labels}।`;
-    });
-
-    return [...paragraphs, ...fallback];
-}
-
-function buildTimelineParagraphs(
-    entries: AuditEntry[],
-    locale: string,
-    t: (key: string) => string,
-): { subject: string; intro: string; paragraphs: string[] }[] {
-    const grouped = entries.reduce<Record<string, AuditEntry[]>>(
-        (acc, entry) => {
-            const key = entry.subject || 'Other';
-            acc[key] = acc[key] ?? [];
-            acc[key].push(entry);
-
-            return acc;
-        },
-        {},
-    );
-
-    return Object.entries(grouped).map(([subject, subjectEntries]) => {
-        const sortedEntries = [...subjectEntries].sort(
-            (first, second) =>
-                new Date(first.at).getTime() - new Date(second.at).getTime(),
-        );
-
-        return {
-            subject: t(subject),
-            intro: storySubject(subject, locale).intro,
-            paragraphs:
-                subject === 'Promotion evidence'
-                    ? buildPromotionEvidenceParagraphs(sortedEntries, locale, t)
-                    : sortedEntries.map((entry) => {
-                          const opening = storyOpening(
-                              entry,
-                              subject,
-                              locale,
-                              t,
-                          );
-                          const sentences = entry.changes
-                              .map((change) =>
-                                  storyChangeSentence(change, locale, t),
-                              )
-                              .filter((sentence): sentence is string =>
-                                  Boolean(sentence),
-                              );
-                          const details =
-                              sentences.length > 0
-                                  ? sentences.join(' ')
-                                  : locale === 'en'
-                                    ? 'No detailed field values were changed in this entry.'
-                                    : 'इस प्रविष्टि में कोई विस्तृत फील्ड मान नहीं बदला।';
-
-                          return `${opening} ${details}`;
-                      }),
-        };
-    });
+    return String(printValue(value, t) ?? value);
 }
 
 function Timeline({
@@ -1017,7 +1039,19 @@ function Timeline({
     t: (key: string) => string;
     mode: TimelineMode;
 }) {
-    const visibleEntries = entries.filter((entry) => entry.subject !== 'Alias');
+    const visibleEntries = entries.filter(
+        (entry) =>
+            entry.subject !== 'Alias' &&
+            !(
+                entry.subject === 'Legacy achievement' &&
+                entry.changes.some(
+                    (change) =>
+                        change.old === PRE_RECRUITMENT_PERIOD ||
+                        change.new === PRE_RECRUITMENT_PERIOD,
+                )
+            ),
+    );
+    void mode;
 
     if (visibleEntries.length === 0) {
         return (
@@ -1029,110 +1063,59 @@ function Timeline({
         );
     }
 
-    const sections = entries.reduce<Record<string, AuditEntry[]>>(
-        (acc, entry) => {
-            if (entry.subject === 'Alias') {
-                return acc;
-            }
+    const rows = visibleEntries.flatMap((entry) => {
+        if (entry.changes.length === 0) {
+            return [
+                {
+                    id: `${entry.id}-entry`,
+                    subject: storySubject(entry.subject || 'Other', locale)
+                        .label,
+                    action: printValue(entry.action, t),
+                    at: formatTimelineTime(entry.at, locale),
+                    field: '',
+                    old: '',
+                    next: '',
+                },
+            ];
+        }
 
-            const group = entry.subject || 'Other';
-            acc[group] = acc[group] ?? [];
-            acc[group].push(entry);
-
-            return acc;
-        },
-        {},
-    );
-
-    if (mode === 'story') {
-        const storySections = buildTimelineParagraphs(
-            visibleEntries,
-            locale,
-            t,
-        );
-
-        return (
-            <div className="space-y-5">
-                {storySections.map((section) => (
-                    <div key={section.subject} className="space-y-2">
-                        <h3 className="text-sm font-semibold text-foreground">
-                            {section.subject}
-                        </h3>
-                        <p className="text-sm leading-6 text-muted-foreground">
-                            {section.intro}
-                        </p>
-                        <div className="space-y-3 border-l border-muted-foreground/20 pl-4">
-                            {section.paragraphs.map((paragraph, index) => (
-                                <p
-                                    key={`${section.subject}-${index}`}
-                                    className="relative text-sm leading-7 text-foreground"
-                                >
-                                    <span className="absolute top-2 -left-[21px] size-2 rounded-full bg-primary" />
-                                    {paragraph}
-                                </p>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        );
-    }
+        return entry.changes.map((change) => ({
+            id: `${entry.id}-${change.field}`,
+            subject: storySubject(entry.subject || 'Other', locale).label,
+            action: printValue(entry.action, t),
+            at: formatTimelineTime(entry.at, locale),
+            field: storyField(change.field, locale, t),
+            old: timelineChangeValue(change.field, change.old, locale, t),
+            next: timelineChangeValue(change.field, change.new, locale, t),
+        }));
+    });
 
     return (
-        <div className="space-y-4">
-            {Object.entries(sections).map(([subject, subjectEntries]) => (
-                <div key={subject} className="space-y-2">
-                    <h3 className="text-sm font-semibold text-foreground">
-                        {t(subject)}
-                    </h3>
-                    <div className="space-y-2 border-l border-muted-foreground/20 pl-4">
-                        {subjectEntries.map((entry) => (
-                            <div key={entry.id} className="relative">
-                                <div className="absolute top-2 -left-[21px] size-2 rounded-full bg-primary" />
-                                <div className="rounded-md border p-3">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <div className="text-sm font-medium">
-                                            {t(entry.action)}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {formatTimelineTime(
-                                                entry.at,
-                                                locale,
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="mt-2 space-y-2">
-                                        {entry.changes.map((change) => (
-                                            <div
-                                                key={`${entry.id}-${change.field}`}
-                                                className="grid gap-1 text-sm sm:grid-cols-3"
-                                            >
-                                                <div className="font-medium">
-                                                    {change.field}
-                                                </div>
-                                                <div className="text-muted-foreground">
-                                                    {timelineChangeValue(
-                                                        change.field,
-                                                        change.old,
-                                                        locale,
-                                                    )}
-                                                </div>
-                                                <div className="text-foreground">
-                                                    {timelineChangeValue(
-                                                        change.field,
-                                                        change.new,
-                                                        locale,
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ))}
+        <div className="overflow-hidden rounded-md border print:rounded-sm">
+            <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                    <tr>
+                        <th className="p-2">{uiText('Subject', locale)}</th>
+                        <th className="p-2">{uiText('Action', locale)}</th>
+                        <th className="p-2">{uiText('Date', locale)}</th>
+                        <th className="p-2">{uiText('Field', locale)}</th>
+                        <th className="p-2">{uiText('Old value', locale)}</th>
+                        <th className="p-2">{uiText('New value', locale)}</th>
+                    </tr>
+                </thead>
+                <tbody className="print:text-[10px]">
+                    {rows.map((row) => (
+                        <tr key={row.id} className="border-t print:align-top">
+                            <td className="p-2 print:py-1">{row.subject}</td>
+                            <td className="p-2 print:py-1">{row.action}</td>
+                            <td className="p-2 print:py-1">{row.at}</td>
+                            <td className="p-2 print:py-1">{row.field}</td>
+                            <td className="p-2 print:py-1">{row.old}</td>
+                            <td className="p-2 print:py-1">{row.next}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
         </div>
     );
 }
@@ -1143,7 +1126,8 @@ const AVAILABLE_SECTIONS: SectionKey[] = [
     'service',
     'sports',
     'teams',
-    'legacy',
+    'achievements',
+    'specialAchievements',
     'promotions',
     'status',
     'timeline',
@@ -1155,7 +1139,8 @@ const DEFAULT_SECTIONS: SectionKey[] = [
     'service',
     'sports',
     'teams',
-    'legacy',
+    'achievements',
+    'specialAchievements',
     'promotions',
     'status',
 ];
@@ -1166,6 +1151,7 @@ export default function PrintPreview({
     memberTeams,
     legacyAchievements,
     achievements,
+    specialAchievements,
     promotions,
     auditLog,
 }: Props) {
@@ -1192,8 +1178,142 @@ export default function PrintPreview({
         selectedSections.includes(section);
 
     const preferredName = member.full_name;
-    const achievementGroups = groupAchievementsByTier(achievements ?? [], locale);
-    const achievementSummary = countMedals(achievements ?? []);
+    const teamRows = memberTeams ?? [];
+    const achievementRows = [
+        ...(legacyAchievements ?? [])
+            .filter((row) => row.period !== PRE_RECRUITMENT_PERIOD)
+            .map((row) => ({
+                id: `legacy-${row.id}`,
+                session: row.session?.name ?? row.period,
+                tier: printValue(row.level, t),
+                tournament: row.competition_details,
+                event: row.event,
+                eventDate: row.event_date,
+                venue: row.venue,
+                sport: [
+                    row.sport?.name,
+                    row.sport_discipline,
+                    row.discipline,
+                    row.weight_category,
+                ]
+                    .filter(Boolean)
+                    .join(' · '),
+                genderClass: genderClassLabel(row.gender_class, t),
+                position: row.position,
+                medal_type: row.medal_type,
+                remarks: row.remarks,
+            })),
+        ...(achievements ?? []).map((row) => ({
+            id: `normal-${row.id}`,
+            session: row.session.name,
+            tier: row.tournament.tier_code,
+            tournament: row.tournament.name,
+            event: row.event.name,
+            eventDate: row.tournament.date_from,
+            venue: row.tournament.venue,
+            sport: null,
+            genderClass: genderClassLabel(row.event.gender_class, t),
+            position: row.position ?? row.participation_position,
+            medal_type: row.medal_type,
+            remarks: row.remarks,
+        })),
+    ].sort((first, second) =>
+        (second.eventDate ?? '').localeCompare(first.eventDate ?? ''),
+    );
+    const countableAchievementRows = achievementRows.filter(
+        (row) => !isOtherTier(row.tier),
+    );
+    const achievementSummary = countMedals(countableAchievementRows);
+    const specialAchievementRows = specialAchievements?.records ?? [];
+    const promotionRows = (promotions ?? []).filter(hasPromotionFields);
+    const rewardRows = (promotions ?? []).filter(hasRewardFields);
+    const showPromotionFromRank = hasAnyPrintableValue(
+        promotionRows,
+        (row) => row.from_rank,
+    );
+    const showPromotionDate = hasAnyPrintableValue(
+        promotionRows,
+        (row) => row.promotion_date,
+    );
+    const showPromotionReason = hasAnyPrintableValue(
+        promotionRows,
+        (row) => row.reason,
+    );
+    const showPromotionRemarks = hasAnyPrintableValue(
+        promotionRows,
+        (row) => row.remarks,
+    );
+    const showPromotionEvidence = hasAnyPrintableValue(
+        promotionRows,
+        (row) => row.evidences.length,
+    );
+    const showRewardAmount = hasAnyPrintableValue(
+        rewardRows,
+        (row) => row.cash_reward_amount,
+    );
+    const showRewardDate = hasAnyPrintableValue(
+        rewardRows,
+        (row) => row.cash_reward_date,
+    );
+    const showRewardReference = hasAnyPrintableValue(
+        rewardRows,
+        (row) => row.cash_reward_reference,
+    );
+    const showRewardRemarks = hasAnyPrintableValue(
+        rewardRows,
+        (row) => row.cash_reward_remarks,
+    );
+    const showRewardEvidence = hasAnyPrintableValue(
+        rewardRows,
+        (row) => row.evidences.length,
+    );
+    const statusRows = statusHistory ?? [];
+    const showStatusReason = hasAnyPrintableValue(
+        statusRows,
+        (row) => row.reason,
+    );
+    const showStatusRecordedBy = hasAnyPrintableValue(
+        statusRows,
+        (row) => row.recorded_by_name,
+    );
+    const showTeamSport = hasAnyPrintableValue(
+        teamRows,
+        (row) => row.sport?.name,
+    );
+    const showTeamSession = hasAnyPrintableValue(
+        teamRows,
+        (row) => row.session?.name,
+    );
+    const showTeamRole = hasAnyPrintableValue(teamRows, (row) => row.role);
+    const showTeamJoinedOn = hasAnyPrintableValue(
+        teamRows,
+        (row) => row.joined_on,
+    );
+    const showTeamLeftOn = hasAnyPrintableValue(teamRows, (row) => row.left_on);
+    const showAchievementRemarks = hasAnyPrintableValue(
+        achievementRows,
+        (row) => row.remarks,
+    );
+    const showSpecialAwardedOn = hasAnyPrintableValue(
+        specialAchievementRows,
+        (row) => row.awarded_on,
+    );
+    const showSpecialIssuingAuthority = hasAnyPrintableValue(
+        specialAchievementRows,
+        (row) => row.issuing_authority,
+    );
+    const showSpecialOrderReference = hasAnyPrintableValue(
+        specialAchievementRows,
+        (row) => row.order_reference,
+    );
+    const showSpecialPlace = hasAnyPrintableValue(
+        specialAchievementRows,
+        (row) => row.place,
+    );
+    const showSpecialRemarks = hasAnyPrintableValue(
+        specialAchievementRows,
+        (row) => row.remarks,
+    );
 
     useEffect(() => {
         const style = document.createElement('style');
@@ -1246,6 +1366,7 @@ export default function PrintPreview({
                     <style>
                         @page { margin: 0.6cm; }
                         body { margin: 0; background: white; }
+                        img { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
                     </style>
                 </head>
                 <body>
@@ -1274,6 +1395,12 @@ export default function PrintPreview({
                     <div className="absolute inset-0 border border-neutral-300/70" />
                     <div className="absolute inset-3 border border-dashed border-neutral-300/60" />
                 </div>
+                <img
+                    src={LETTERHEAD_LOGO_SRC}
+                    alt=""
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-1/2 left-1/2 z-0 hidden size-[520px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.045] print:block"
+                />
 
                 <div className="flex items-start justify-between gap-4 print:hidden">
                     <div className="flex items-start gap-4">
@@ -1316,6 +1443,29 @@ export default function PrintPreview({
                             {uiText('Print', locale)}
                         </Button>
                     </div>
+                </div>
+
+                <div className="relative z-10 flex items-center gap-4 border-b-2 border-neutral-900 pb-3 print:gap-3 print:pb-2">
+                    <img
+                        src={LETTERHEAD_LOGO_SRC}
+                        alt={uiText('UP Police Sports Unit', locale)}
+                        className="size-20 shrink-0 object-contain print:size-16"
+                    />
+                    <div className="min-w-0 flex-1 text-center">
+                        <div className="text-lg font-bold tracking-wide uppercase print:text-[16px]">
+                            {uiText('UP Police Sports Unit', locale)}
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase print:text-[11px] print:text-black">
+                            {uiText('Member profile record', locale)}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground print:text-[9px] print:text-neutral-700">
+                            {uiText('Official print preview', locale)}
+                        </div>
+                    </div>
+                    <div
+                        className="hidden w-20 print:block"
+                        aria-hidden="true"
+                    />
                 </div>
 
                 <div className="grid gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 print:hidden">
@@ -1364,7 +1514,7 @@ export default function PrintPreview({
                     </div>
                 </div>
 
-                <div className="grid gap-3 print:gap-2">
+                <div className="relative z-10 grid gap-3 print:gap-2">
                     {sectionEnabled('identity') && (
                         <Section
                             title={uiText(
@@ -1372,135 +1522,138 @@ export default function PrintPreview({
                                 locale,
                             )}
                         >
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:gap-2">
-                                <Field
-                                    label={uiText('PNO', locale)}
-                                    value={
-                                        member.pno ? (
+                            <DetailsTable
+                                rows={[
+                                    {
+                                        label: uiText('PNO', locale),
+                                        value: member.pno ? (
                                             <span className="font-mono">
                                                 {member.pno}
                                             </span>
-                                        ) : null
-                                    }
-                                />
-                                <Field
-                                    label={uiText('Current status', locale)}
-                                    value={
-                                        <Badge variant="outline">
-                                            {t(member.current_status)}
-                                        </Badge>
-                                    }
-                                />
-                                <Field
-                                    label={uiText('Name', locale)}
-                                    value={preferredName}
-                                />
-                                <Field
-                                    label={uiText("Father's name", locale)}
-                                    value={member.father_name}
-                                />
-                                <Field
-                                    label={uiText('Gender', locale)}
-                                    value={t(
-                                        member.gender === 'M'
-                                            ? 'Male'
-                                            : member.gender === 'F'
-                                              ? 'Female'
-                                              : 'Other gender',
-                                    )}
-                                />
-                                <Field
-                                    label={uiText('Date of birth', locale)}
-                                    value={formatDateValue(
-                                        member.dob,
-                                        locale,
-                                        'long',
-                                    )}
-                                />
-                            </div>
+                                        ) : null,
+                                    },
+                                    {
+                                        label: uiText('Current status', locale),
+                                        value: (
+                                            <Badge variant="outline">
+                                                {printValue(
+                                                    member.current_status,
+                                                    t,
+                                                )}
+                                            </Badge>
+                                        ),
+                                    },
+                                    {
+                                        label: uiText('Name', locale),
+                                        value: preferredName,
+                                    },
+                                    {
+                                        label: uiText("Father's name", locale),
+                                        value: member.father_name,
+                                    },
+                                    {
+                                        label: uiText('Gender', locale),
+                                        value: genderLabel(member.gender),
+                                    },
+                                    {
+                                        label: uiText('Date of birth', locale),
+                                        value: formatDateValue(
+                                            member.dob,
+                                            locale,
+                                            'long',
+                                        ),
+                                    },
+                                ]}
+                            />
                         </Section>
                     )}
 
                     {sectionEnabled('contact') && (
                         <Section title={uiText('Contact and address', locale)}>
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:gap-2">
-                                <Field
-                                    label={uiText('Mobile', locale)}
-                                    value={member.mobile}
-                                />
-                                <Field
-                                    label={uiText('Home address', locale)}
-                                    value={member.home_address}
-                                />
-                                <Field
-                                    label={uiText('Blood group', locale)}
-                                    value={member.blood_group}
-                                />
-                                <Field
-                                    label={uiText('Caste', locale)}
-                                    value={member.caste}
-                                />
-                                <Field
-                                    label={uiText('Recruitment type', locale)}
-                                    value={member.recruitment_type}
-                                />
-                                <Field
-                                    label={uiText('Other notes', locale)}
-                                    value={member.other_notes}
-                                />
-                            </div>
+                            <DetailsTable
+                                rows={[
+                                    {
+                                        label: uiText('Mobile', locale),
+                                        value: member.mobile,
+                                    },
+                                    {
+                                        label: uiText('Home address', locale),
+                                        value: member.home_address,
+                                    },
+                                    {
+                                        label: uiText('Blood group', locale),
+                                        value: member.blood_group,
+                                    },
+                                    {
+                                        label: uiText('Caste', locale),
+                                        value: member.caste,
+                                    },
+                                    {
+                                        label: uiText(
+                                            'Recruitment type',
+                                            locale,
+                                        ),
+                                        value: printValue(
+                                            member.recruitment_type,
+                                            t,
+                                        ),
+                                    },
+                                    {
+                                        label: uiText('Other notes', locale),
+                                        value: member.other_notes,
+                                    },
+                                ]}
+                            />
                         </Section>
                     )}
 
                     {sectionEnabled('service') && (
                         <Section title={uiText('Service and posting', locale)}>
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:gap-2">
-                                <Field
-                                    label={uiText('Joining date', locale)}
-                                    value={formatDateValue(
-                                        member.joining_date,
-                                        locale,
-                                    )}
-                                />
-                                <Field
-                                    label={uiText('Promotion date', locale)}
-                                    value={formatDateValue(
-                                        member.promotion_date,
-                                        locale,
-                                    )}
-                                />
-                                <Field
-                                    label={uiText('Rank', locale)}
-                                    value={member.rank}
-                                />
-                                <Field
-                                    label={uiText('Designation', locale)}
-                                    value={member.designation}
-                                />
-                                <Field
-                                    label={uiText('Current unit', locale)}
-                                    value={member.current_unit?.name}
-                                />
-                                <Field
-                                    label={uiText('Home district', locale)}
-                                    value={member.home_district?.name}
-                                />
-                                <Field
-                                    label={uiText('Posting unit / district', locale)}
-                                    value={postingLocation(member)}
-                                />
-                                <Field
-                                    label={uiText('Team since', locale)}
-                                    value={formatDateValue(
-                                        member.team_since,
-                                        locale,
-                                    )}
-                                />
-                                <Field
-                                    label={uiText('Appointment', locale)}
-                                    value={member.appointment}
-                                />
-                            </div>
+                            <DetailsTable
+                                rows={[
+                                    {
+                                        label: uiText('Joining date', locale),
+                                        value: formatDateValue(
+                                            member.joining_date,
+                                            locale,
+                                        ),
+                                    },
+                                    {
+                                        label: uiText('Promotion date', locale),
+                                        value: formatDateValue(
+                                            member.promotion_date,
+                                            locale,
+                                        ),
+                                    },
+                                    {
+                                        label: uiText('Rank', locale),
+                                        value: member.rank,
+                                    },
+                                    {
+                                        label: uiText('Designation', locale),
+                                        value: member.designation,
+                                    },
+                                    {
+                                        label: uiText('Home district', locale),
+                                        value: member.home_district?.name,
+                                    },
+                                    {
+                                        label: uiText('Posting', locale),
+                                        value: postingLocation(member),
+                                    },
+                                    {
+                                        label: uiText('Team since', locale),
+                                        value: formatDateValue(
+                                            member.team_since,
+                                            locale,
+                                        ),
+                                    },
+                                    {
+                                        label: uiText('Appointment', locale),
+                                        value: member.appointment,
+                                    },
+                                ]}
+                            />
                         </Section>
                     )}
 
@@ -1508,60 +1661,127 @@ export default function PrintPreview({
                         <Section
                             title={uiText('Sports and eligibility', locale)}
                         >
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:gap-2">
-                                <Field
-                                    label={uiText('Category', locale)}
-                                    value={member.player_category}
+                            <div className="space-y-3">
+                                <DetailsTable
+                                    rows={[
+                                        {
+                                            label: uiText('Category', locale),
+                                            value: printValue(
+                                                member.player_category,
+                                                t,
+                                            ),
+                                        },
+                                        {
+                                            label: uiText('Level', locale),
+                                            value: printValue(
+                                                member.player_level,
+                                                t,
+                                            ),
+                                        },
+                                    ]}
                                 />
-                                <Field
-                                    label={uiText('Level', locale)}
-                                    value={member.player_level}
-                                />
-                                <div className="sm:col-span-2 lg:col-span-3">
-                                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                        {uiText('Playable sports', locale)}
+                                {member.playable_sports.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        —
+                                    </p>
+                                ) : (
+                                    <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                <tr>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Sport',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                    {hasAnyPrintableValue(
+                                                        member.playable_sports,
+                                                        (sport) => sport.role,
+                                                    ) && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Role / position',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {hasAnyPrintableValue(
+                                                        member.playable_sports,
+                                                        (sport) =>
+                                                            sport.position,
+                                                    ) && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Position',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {hasAnyPrintableValue(
+                                                        member.playable_sports,
+                                                        (sport) => sport.notes,
+                                                    ) && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Notes',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="print:text-[10px]">
+                                                {member.playable_sports.map(
+                                                    (sport) => (
+                                                        <tr
+                                                            key={sport.id}
+                                                            className="border-t print:align-top"
+                                                        >
+                                                            <td className="p-2 print:py-1">
+                                                                {sport.name}
+                                                            </td>
+                                                            {hasAnyPrintableValue(
+                                                                member.playable_sports,
+                                                                (item) =>
+                                                                    item.role,
+                                                            ) && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {printValue(
+                                                                        sport.role,
+                                                                        t,
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                            {hasAnyPrintableValue(
+                                                                member.playable_sports,
+                                                                (item) =>
+                                                                    item.position,
+                                                            ) && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {
+                                                                        sport.position
+                                                                    }
+                                                                </td>
+                                                            )}
+                                                            {hasAnyPrintableValue(
+                                                                member.playable_sports,
+                                                                (item) =>
+                                                                    item.notes,
+                                                            ) && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {
+                                                                        sport.notes
+                                                                    }
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    ),
+                                                )}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                    <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2 print:gap-1.5">
-                                        {member.playable_sports.length > 0 ? (
-                                            member.playable_sports.map((sport) => {
-                                                const name = locale === 'en'
-                                                    ? sport.name
-                                                    : sport.name;
-
-                                                return (
-                                                    <div key={sport.id} className="rounded-md border p-2 print:rounded-sm print:p-1.5">
-                                                        <div className="text-sm font-medium print:text-[11px]">{name}</div>
-                                                        <div className="mt-1 space-y-1 text-xs print:mt-0.5 print:space-y-0.5">
-                                                            {sport.role && (
-                                                                <div>
-                                                                    <span className="font-medium text-muted-foreground">{uiText('Role / position', locale)}:</span>{' '}
-                                                                    <span>{sport.role}</span>
-                                                                </div>
-                                                            )}
-                                                            {sport.position && (
-                                                                <div>
-                                                                    <span className="font-medium text-muted-foreground">{uiText('Position', locale)}:</span>{' '}
-                                                                    <span>{sport.position}</span>
-                                                                </div>
-                                                            )}
-                                                            {sport.notes && (
-                                                                <div>
-                                                                    <span className="font-medium text-muted-foreground">{uiText('Notes', locale)}:</span>{' '}
-                                                                    <span>{sport.notes}</span>
-                                                                </div>
-                                                            )}
-                                                            {!sport.role && !sport.position && !sport.notes && (
-                                                                <div>—</div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
-                                        ) : (
-                                            <div className="text-sm text-muted-foreground">—</div>
-                                        )}
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </Section>
                     )}
@@ -1572,7 +1792,7 @@ export default function PrintPreview({
                                 data="memberTeams"
                                 fallback={<Skeleton className="h-10 w-full" />}
                             >
-                                {(memberTeams ?? []).length === 0 ? (
+                                {teamRows.length === 0 ? (
                                     <p className="text-sm text-muted-foreground">
                                         {uiText('No team memberships.', locale)}
                                     </p>
@@ -1584,73 +1804,421 @@ export default function PrintPreview({
                                                     <th className="p-2">
                                                         {uiText('Team', locale)}
                                                     </th>
-                                                    <th className="p-2">
-                                                        {uiText(
-                                                            'Sport',
-                                                            locale,
-                                                        )}
-                                                    </th>
-                                                    <th className="p-2">
-                                                        {uiText(
-                                                            'Session',
-                                                            locale,
-                                                        )}
-                                                    </th>
-                                                    <th className="p-2">
-                                                        {uiText('Role', locale)}
-                                                    </th>
-                                                    <th className="p-2">
-                                                        {uiText(
-                                                            'Joined on',
-                                                            locale,
-                                                        )}
-                                                    </th>
-                                                    <th className="p-2">
-                                                        {uiText(
-                                                            'Left on',
-                                                            locale,
-                                                        )}
-                                                    </th>
+                                                    {showTeamSport && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Sport',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {showTeamSession && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Session',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {showTeamRole && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Role',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {showTeamJoinedOn && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Joined on',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {showTeamLeftOn && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Left on',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
                                                 </tr>
                                             </thead>
                                             <tbody className="print:text-[10px]">
-                                                {(memberTeams ?? []).map(
+                                                {teamRows.map((row) => (
+                                                    <tr
+                                                        key={row.id}
+                                                        className="border-t print:align-top"
+                                                    >
+                                                        <td className="p-2 print:py-1">
+                                                            {row.team?.name}
+                                                        </td>
+                                                        {showTeamSport && (
+                                                            <td className="p-2 print:py-1">
+                                                                {
+                                                                    row.sport
+                                                                        ?.name
+                                                                }
+                                                            </td>
+                                                        )}
+                                                        {showTeamSession && (
+                                                            <td className="p-2">
+                                                                {
+                                                                    row.session
+                                                                        ?.name
+                                                                }
+                                                            </td>
+                                                        )}
+                                                        {showTeamRole && (
+                                                            <td className="p-2">
+                                                                {printValue(
+                                                                    row.role,
+                                                                    t,
+                                                                )}
+                                                            </td>
+                                                        )}
+                                                        {showTeamJoinedOn && (
+                                                            <td className="p-2">
+                                                                {formatDateValue(
+                                                                    row.joined_on,
+                                                                    locale,
+                                                                )}
+                                                            </td>
+                                                        )}
+                                                        {showTeamLeftOn && (
+                                                            <td className="p-2">
+                                                                {formatDateValue(
+                                                                    row.left_on,
+                                                                    locale,
+                                                                )}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </Deferred>
+                        </Section>
+                    )}
+
+                    {sectionEnabled('achievements') && (
+                        <Section title={uiText('Achievements', locale)}>
+                            <Deferred
+                                data={['achievements', 'legacyAchievements']}
+                                fallback={<Skeleton className="h-10 w-full" />}
+                            >
+                                {achievementRows.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        {uiText('No achievements yet.', locale)}
+                                    </p>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="grid gap-2 rounded-md border bg-muted/20 p-3 text-sm sm:grid-cols-5">
+                                            <div className="font-medium">
+                                                {uiText('Achievements', locale)}
+                                                :{' '}
+                                                {
+                                                    countableAchievementRows.length
+                                                }
+                                            </div>
+                                            <div>
+                                                {printValue('GOLD', t)}:{' '}
+                                                {achievementSummary.GOLD}
+                                            </div>
+                                            <div>
+                                                {printValue('SILVER', t)}:{' '}
+                                                {achievementSummary.SILVER}
+                                            </div>
+                                            <div>
+                                                {printValue('BRONZE', t)}:{' '}
+                                                {achievementSummary.BRONZE}
+                                            </div>
+                                            <div>
+                                                {printValue('MERIT', t)}:{' '}
+                                                {achievementSummary.MERIT}
+                                            </div>
+                                        </div>
+                                        <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                    <tr>
+                                                        <th className="w-10 p-2 align-top">
+                                                            #
+                                                        </th>
+                                                        <th className="p-2 align-top">
+                                                            {uiText(
+                                                                'Competition',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                        <th className="w-[18%] p-2 align-top">
+                                                            {uiText(
+                                                                'Session',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                        <th className="w-[22%] p-2 align-top">
+                                                            {uiText(
+                                                                'Event date',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                        <th className="w-[22%] p-2 align-top">
+                                                            {uiText(
+                                                                'Result',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y print:text-[10px]">
+                                                    {achievementRows.map(
+                                                        (row, index) => {
+                                                            const eventLine = [
+                                                                row.event,
+                                                                row.sport,
+                                                                row.genderClass,
+                                                            ]
+                                                                .filter(
+                                                                    hasPrintableValue,
+                                                                )
+                                                                .join(' · ');
+
+                                                            const sessionLine =
+                                                                [
+                                                                    row.session,
+                                                                    printValue(
+                                                                        row.tier,
+                                                                        t,
+                                                                    ),
+                                                                ]
+                                                                    .filter(
+                                                                        hasPrintableValue,
+                                                                    )
+                                                                    .join(
+                                                                        ' · ',
+                                                                    );
+
+                                                            const placeLine = [
+                                                                formatDateValue(
+                                                                    row.eventDate,
+                                                                    locale,
+                                                                ),
+                                                                row.venue,
+                                                            ]
+                                                                .filter(
+                                                                    hasPrintableValue,
+                                                                )
+                                                                .join(' · ');
+
+                                                            const resultLine = [
+                                                                printValue(
+                                                                    row.medal_type,
+                                                                    t,
+                                                                ),
+                                                                row.position
+                                                                    ? `${uiText('Position', locale)}: ${row.position}`
+                                                                    : null,
+                                                            ]
+                                                                .filter(
+                                                                    hasPrintableValue,
+                                                                )
+                                                                .join(' · ');
+
+                                                            return (
+                                                                <tr
+                                                                    key={row.id}
+                                                                    className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                                >
+                                                                    <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                        {index +
+                                                                            1}
+                                                                    </td>
+                                                                    <td className="p-3 align-top print:p-2">
+                                                                        <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                            {
+                                                                                row.tournament
+                                                                            }
+                                                                        </div>
+                                                                        {eventLine && (
+                                                                            <div className="mt-1 text-xs leading-4 break-words text-muted-foreground print:text-[9px]">
+                                                                                {
+                                                                                    eventLine
+                                                                                }
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                        {
+                                                                            sessionLine
+                                                                        }
+                                                                    </td>
+                                                                    <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                        {
+                                                                            placeLine
+                                                                        }
+                                                                    </td>
+                                                                    <td className="p-3 align-top print:p-2">
+                                                                        {resultLine && (
+                                                                            <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
+                                                                                {
+                                                                                    resultLine
+                                                                                }
+                                                                            </div>
+                                                                        )}
+                                                                        {showAchievementRemarks &&
+                                                                            hasPrintableValue(
+                                                                                row.remarks,
+                                                                            ) && (
+                                                                                <div className="mt-1 text-xs leading-4 break-words text-muted-foreground print:text-[9px]">
+                                                                                    {uiText(
+                                                                                        'Remarks',
+                                                                                        locale,
+                                                                                    )}
+
+                                                                                    :{' '}
+                                                                                    {
+                                                                                        row.remarks
+                                                                                    }
+                                                                                </div>
+                                                                            )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        },
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </Deferred>
+                        </Section>
+                    )}
+
+                    {sectionEnabled('specialAchievements') && (
+                        <Section title={uiText('Special achievements', locale)}>
+                            <Deferred
+                                data="specialAchievements"
+                                fallback={<Skeleton className="h-10 w-full" />}
+                            >
+                                {specialAchievementRows.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        —
+                                    </p>
+                                ) : (
+                                    <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                <tr>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Achievement type',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Title',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                    {showSpecialAwardedOn && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Awarded on',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {showSpecialIssuingAuthority && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Issuing authority',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {showSpecialOrderReference && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Order reference',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {showSpecialPlace && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Place',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {showSpecialRemarks && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Remarks',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="print:text-[10px]">
+                                                {specialAchievementRows.map(
                                                     (row) => (
                                                         <tr
                                                             key={row.id}
                                                             className="border-t print:align-top"
                                                         >
                                                             <td className="p-2 print:py-1">
-                                                                {row.team
-                                                                    ?.name ??
-                                                                    '—'}
+                                                                {printValue(
+                                                                    row.achievement_type,
+                                                                    t,
+                                                                )}
                                                             </td>
                                                             <td className="p-2 print:py-1">
-                                                                {row.sport
-                                                                    ?.name ??
-                                                                    '—'}
+                                                                {row.title}
                                                             </td>
-                                                            <td className="p-2">
-                                                                {row.session
-                                                                    ?.name ??
-                                                                    '—'}
-                                                            </td>
-                                                            <td className="p-2">
-                                                                {row.role ??
-                                                                    '—'}
-                                                            </td>
-                                                            <td className="p-2">
-                                                                {formatDateValue(
-                                                                    row.joined_on,
-                                                                    locale,
-                                                                ) ?? '—'}
-                                                            </td>
-                                                            <td className="p-2">
-                                                                {formatDateValue(
-                                                                    row.left_on,
-                                                                    locale,
-                                                                ) ?? '—'}
-                                                            </td>
+                                                            {showSpecialAwardedOn && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {formatDateValue(
+                                                                        row.awarded_on,
+                                                                        locale,
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                            {showSpecialIssuingAuthority && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {
+                                                                        row.issuing_authority
+                                                                    }
+                                                                </td>
+                                                            )}
+                                                            {showSpecialOrderReference && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {
+                                                                        row.order_reference
+                                                                    }
+                                                                </td>
+                                                            )}
+                                                            {showSpecialPlace && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {row.place}
+                                                                </td>
+                                                            )}
+                                                            {showSpecialRemarks && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {
+                                                                        row.remarks
+                                                                    }
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     ),
                                                 )}
@@ -1662,243 +2230,8 @@ export default function PrintPreview({
                         </Section>
                     )}
 
-                    {sectionEnabled('legacy') && (
-                        <Section title={uiText('Legacy achievements', locale)}>
-                            <Deferred
-                                data="legacyAchievements"
-                                fallback={<Skeleton className="h-10 w-full" />}
-                            >
-                                {(legacyAchievements ?? []).length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">
-                                        {uiText(
-                                            'No legacy achievements.',
-                                            locale,
-                                        )}
-                                    </p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {(legacyAchievements ?? []).map(
-                                            (row) => (
-                                                <div
-                                                    key={row.id}
-                                                    className="rounded-md border border-neutral-300 bg-white p-3 print:rounded-none print:border-y-0 print:border-r-0 print:border-l-4 print:border-l-neutral-400 print:p-2"
-                                                >
-                                                    <div className="flex flex-wrap items-center gap-2 text-sm font-medium print:text-[11px]">
-                                                        <span>
-                                                            {row.period}
-                                                        </span>
-                                                        {row.level && (
-                                                            <Badge
-                                                                variant="secondary"
-                                                                className="text-[10px] tracking-wide text-slate-800 uppercase print:border print:border-slate-400 print:bg-slate-100"
-                                                            >
-                                                                {row.level}
-                                                            </Badge>
-                                                        )}
-                                                        {row.medal_type &&
-                                                            (() => {
-                                                                const medalClass =
-                                                                    row.medal_type ===
-                                                                    'GOLD'
-                                                                        ? 'border-amber-300 bg-gradient-to-r from-amber-100 via-amber-50 to-yellow-50 text-amber-900 print:border-slate-400 print:bg-slate-100'
-                                                                        : row.medal_type ===
-                                                                            'SILVER'
-                                                                          ? 'border-slate-300 bg-slate-100 text-slate-800 print:border-slate-400 print:bg-slate-100'
-                                                                          : row.medal_type ===
-                                                                              'BRONZE'
-                                                                            ? 'border-orange-300 bg-orange-100 text-orange-900 print:border-slate-400 print:bg-slate-100'
-                                                                            : 'border-emerald-300 bg-emerald-100 text-emerald-900 print:border-slate-400 print:bg-slate-100';
-
-                                                                return (
-                                                                    <Badge
-                                                                        variant="secondary"
-                                                                        className={`text-[10px] ${medalClass}`}
-                                                                    >
-                                                                        {t(
-                                                                            row.medal_type,
-                                                                        )}
-                                                                    </Badge>
-                                                                );
-                                                            })()}
-                                                    </div>
-                                                    <div className="mt-1 text-sm text-muted-foreground print:text-[10px]">
-                                                        {
-                                                            row.competition_details
-                                                        }
-                                                    </div>
-                                                    <div className="mt-1 text-xs text-muted-foreground print:text-[9px]">
-                                                        {[
-                                                            formatDateValue(
-                                                                row.event_date,
-                                                                locale,
-                                                            ),
-                                                            row.venue,
-                                                            row.event,
-                                                            row.medal_type
-                                                                ? t(
-                                                                      row.medal_type,
-                                                                  )
-                                                                : null,
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' · ')}
-                                                    </div>
-                                                </div>
-                                            ),
-                                        )}
-                                    </div>
-                                )}
-                            </Deferred>
-                        </Section>
-                    )}
-
-                    <Section title={uiText('Achievements', locale)}>
-                        <Deferred
-                            data="achievements"
-                            fallback={<Skeleton className="h-10 w-full" />}
-                        >
-                            {(achievements ?? []).length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
-                                    {uiText('No achievements yet.', locale)}
-                                </p>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="grid gap-2 rounded-md border bg-muted/20 p-3 text-sm sm:grid-cols-5">
-                                        <div className="font-medium">
-                                            {uiText('Achievements', locale)}: {achievements?.length ?? 0}
-                                        </div>
-                                        <div>
-                                            {t('GOLD')}: {achievementSummary.GOLD}
-                                        </div>
-                                        <div>
-                                            {t('SILVER')}: {achievementSummary.SILVER}
-                                        </div>
-                                        <div>
-                                            {t('BRONZE')}: {achievementSummary.BRONZE}
-                                        </div>
-                                        <div>
-                                            {t('MERIT')}: {achievementSummary.MERIT}
-                                        </div>
-                                    </div>
-                                    {achievementGroups.map((group) => (
-                                        <div key={group.key} className="overflow-hidden rounded-md border print:rounded-sm">
-                                            <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                                <span>{uiText('Tier', locale)}: {group.label}</span>
-                                                <span>{group.rows.length}</span>
-                                            </div>
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
-                                                    <tr>
-                                                        <th className="p-2">
-                                                            {uiText('Medal', locale)}
-                                                        </th>
-                                                        <th className="p-2">
-                                                            {uiText('Session', locale)}
-                                                        </th>
-                                                        <th className="p-2">
-                                                            {uiText(
-                                                                'Tournament',
-                                                                locale,
-                                                            )}
-                                                        </th>
-                                                        <th className="p-2">
-                                                            {uiText('Event', locale)}
-                                                        </th>
-                                                        <th className="p-2">
-                                                            {uiText(
-                                                                'Position',
-                                                                locale,
-                                                            )}
-                                                        </th>
-                                                        <th className="p-2">
-                                                            {uiText('Remarks', locale)}
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="print:text-[10px]">
-                                                    {group.rows.map((row) => (
-                                                        <tr
-                                                            key={row.id}
-                                                            className="border-t print:align-top"
-                                                        >
-                                                            <td className="p-2 print:py-1">
-                                                                {row.medal_type ? (
-                                                                    <Badge
-                                                                        variant="secondary"
-                                                                        className={`text-[10px] ${
-                                                                            row.medal_type ===
-                                                                            'GOLD'
-                                                                                ? 'border-amber-300 bg-gradient-to-r from-amber-100 via-amber-50 to-yellow-50 text-amber-900 print:border-slate-400 print:bg-slate-100'
-                                                                                : row.medal_type ===
-                                                                                    'SILVER'
-                                                                                  ? 'border-slate-300 bg-slate-100 text-slate-800 print:border-slate-400 print:bg-slate-100'
-                                                                                  : row.medal_type ===
-                                                                                      'BRONZE'
-                                                                                    ? 'border-orange-300 bg-orange-100 text-orange-900 print:border-slate-400 print:bg-slate-100'
-                                                                                    : 'border-emerald-300 bg-emerald-100 text-emerald-900 print:border-slate-400 print:bg-slate-100'
-                                                                        }`}
-                                                                    >
-                                                                        {t(
-                                                                            row.medal_type,
-                                                                        )}
-                                                                    </Badge>
-                                                                ) : (
-                                                                    '—'
-                                                                )}
-                                                            </td>
-                                                            <td className="p-2 print:py-1">
-                                                                {row.session.name}
-                                                            </td>
-                                                            <td className="p-2 print:py-1">
-                                                                {row.tournament.name}
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    {[
-                                                                        formatDateValue(
-                                                                            row.tournament
-                                                                                .date_from,
-                                                                            locale,
-                                                                        ),
-                                                                        formatDateValue(
-                                                                            row.tournament
-                                                                                .date_to,
-                                                                            locale,
-                                                                        ),
-                                                                        row.tournament
-                                                                            .venue,
-                                                                    ]
-                                                                        .filter(Boolean)
-                                                                        .join(' · ')}
-                                                                </div>
-                                                            </td>
-                                                            <td className="whitespace-nowrap p-2 print:py-1">
-                                                                {row.event.name}
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    {row.position != null
-                                                                        ? `${uiText('Position', locale)}: ${row.position}`
-                                                                        : '—'}
-                                                                </div>
-                                                            </td>
-                                                            <td className="whitespace-nowrap p-2 font-medium print:py-1">
-                                                                {row.position ?? row.participation_position ?? '—'}
-                                                            </td>
-                                                            <td className="p-2 print:py-1">
-                                                                {row.remarks ?? '—'}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </Deferred>
-                    </Section>
-
                     {sectionEnabled('promotions') && (
-                        <Section
-                            title={uiText('Promotions and rewards', locale)}
-                        >
+                        <Section title={uiText('Promotions / rewards', locale)}>
                             <Deferred
                                 data="promotions"
                                 fallback={<Skeleton className="h-10 w-full" />}
@@ -1908,54 +2241,335 @@ export default function PrintPreview({
                                         {uiText('No promotions yet.', locale)}
                                     </p>
                                 ) : (
-                                    <div className="space-y-2">
-                                        {(promotions ?? []).map((row) => (
-                                            <div
-                                                key={row.id}
-                                                className="rounded-md border p-2"
-                                            >
-                                                <div className="text-sm font-medium print:text-[11px]">
-                                                    {row.from_rank ??
-                                                        t('Unknown')}{' '}
-                                                    → {row.to_rank}
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <h3 className="text-sm font-semibold text-foreground">
+                                                {uiText('Promotions', locale)}
+                                            </h3>
+                                            {promotionRows.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground">
+                                                    {uiText(
+                                                        'No promotions yet.',
+                                                        locale,
+                                                    )}
+                                                </p>
+                                            ) : (
+                                                <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                                    <table className="w-full text-sm">
+                                                        <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                            <tr>
+                                                                <th className="w-10 p-2 align-top">
+                                                                    #
+                                                                </th>
+                                                                <th className="p-2 align-top">
+                                                                    {uiText(
+                                                                        'Promotion',
+                                                                        locale,
+                                                                    )}
+                                                                </th>
+                                                                {showPromotionDate && (
+                                                                    <th className="w-[20%] p-2 align-top">
+                                                                        {uiText(
+                                                                            'Promotion date',
+                                                                            locale,
+                                                                        )}
+                                                                    </th>
+                                                                )}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y print:text-[10px]">
+                                                            {promotionRows.map(
+                                                                (
+                                                                    row,
+                                                                    index,
+                                                                ) => {
+                                                                    const evidenceRows =
+                                                                        promotionEvidenceTableRows(
+                                                                            row,
+                                                                            locale,
+                                                                            t,
+                                                                        );
+
+                                                                    const detailItems =
+                                                                        [
+                                                                            {
+                                                                                label: uiText(
+                                                                                    'Reason',
+                                                                                    locale,
+                                                                                ),
+                                                                                value: showPromotionReason
+                                                                                    ? row.reason
+                                                                                    : null,
+                                                                            },
+                                                                            {
+                                                                                label: uiText(
+                                                                                    'Remarks',
+                                                                                    locale,
+                                                                                ),
+                                                                                value: showPromotionRemarks
+                                                                                    ? row.remarks
+                                                                                    : null,
+                                                                                muted: true,
+                                                                            },
+                                                                            {
+                                                                                label: uiText(
+                                                                                    'Evidence',
+                                                                                    locale,
+                                                                                ),
+                                                                                value:
+                                                                                    showPromotionEvidence &&
+                                                                                    evidenceRows.length >
+                                                                                        0 ? (
+                                                                                        <PromotionEvidenceTable
+                                                                                            rows={
+                                                                                                evidenceRows
+                                                                                            }
+                                                                                            locale={
+                                                                                                locale
+                                                                                            }
+                                                                                        />
+                                                                                    ) : null,
+                                                                                muted: true,
+                                                                            },
+                                                                        ];
+                                                                    const hasDetails =
+                                                                        detailItems.some(
+                                                                            (
+                                                                                item,
+                                                                            ) =>
+                                                                                hasPrintableValue(
+                                                                                    item.value,
+                                                                                ),
+                                                                        );
+
+                                                                    return (
+                                                                        <Fragment
+                                                                            key={`promotion-${row.id}`}
+                                                                        >
+                                                                            <tr className="align-top odd:bg-muted/10">
+                                                                                <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                                    {index +
+                                                                                        1}
+                                                                                </td>
+                                                                                <td className="p-3 align-top print:p-2">
+                                                                                    <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                                        {
+                                                                                            row.to_rank
+                                                                                        }
+                                                                                    </div>
+                                                                                    {showPromotionFromRank &&
+                                                                                        hasPrintableValue(
+                                                                                            row.from_rank,
+                                                                                        ) && (
+                                                                                            <div className="mt-1 text-xs leading-4 break-words text-muted-foreground print:text-[9px]">
+                                                                                                {uiText(
+                                                                                                    'From rank',
+                                                                                                    locale,
+                                                                                                )}
+
+                                                                                                :{' '}
+                                                                                                {
+                                                                                                    row.from_rank
+                                                                                                }
+                                                                                            </div>
+                                                                                        )}
+                                                                                </td>
+                                                                                {showPromotionDate && (
+                                                                                    <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                        {formatDateValue(
+                                                                                            row.promotion_date,
+                                                                                            locale,
+                                                                                        )}
+                                                                                    </td>
+                                                                                )}
+                                                                            </tr>
+                                                                            {hasDetails && (
+                                                                                <tr className="bg-muted/5 print:break-inside-avoid">
+                                                                                    <td
+                                                                                        className="px-3 pt-0 pb-3 print:px-2 print:pb-2"
+                                                                                        colSpan={
+                                                                                            2 +
+                                                                                            (showPromotionDate
+                                                                                                ? 1
+                                                                                                : 0)
+                                                                                        }
+                                                                                    >
+                                                                                        <DetailStack
+                                                                                            items={
+                                                                                                detailItems
+                                                                                            }
+                                                                                        />
+                                                                                    </td>
+                                                                                </tr>
+                                                                            )}
+                                                                        </Fragment>
+                                                                    );
+                                                                },
+                                                            )}
+                                                        </tbody>
+                                                    </table>
                                                 </div>
-                                                <div className="text-sm text-muted-foreground print:text-[10px]">
-                                                    {[
-                                                        row.promotion_date
-                                                            ? `${t('Promotion date')}: ${formatDateValue(row.promotion_date, locale)}`
-                                                            : null,
-                                                        row.cash_reward_amount
-                                                            ? `₹${row.cash_reward_amount}`
-                                                            : null,
-                                                        row.cash_reward_date
-                                                            ? `${t('Cash reward date')}: ${formatDateValue(row.cash_reward_date, locale)}`
-                                                            : null,
-                                                        row.cash_reward_reference,
-                                                    ]
-                                                        .filter(Boolean)
-                                                        .join(' · ')}
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <h3 className="text-sm font-semibold text-foreground">
+                                                {uiText('Rewards', locale)}
+                                            </h3>
+                                            {rewardRows.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground">
+                                                    {uiText(
+                                                        'No rewards yet.',
+                                                        locale,
+                                                    )}
+                                                </p>
+                                            ) : (
+                                                <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                                    <table className="w-full text-sm">
+                                                        <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                            <tr>
+                                                                <th className="w-10 p-2 align-top">
+                                                                    #
+                                                                </th>
+                                                                {showRewardAmount && (
+                                                                    <th className="p-2 align-top">
+                                                                        {uiText(
+                                                                            'Cash reward amount',
+                                                                            locale,
+                                                                        )}
+                                                                    </th>
+                                                                )}
+                                                                {showRewardDate && (
+                                                                    <th className="w-[22%] p-2 align-top">
+                                                                        {uiText(
+                                                                            'Cash reward date',
+                                                                            locale,
+                                                                        )}
+                                                                    </th>
+                                                                )}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y print:text-[10px]">
+                                                            {rewardRows.map(
+                                                                (
+                                                                    row,
+                                                                    index,
+                                                                ) => {
+                                                                    const evidenceRows =
+                                                                        promotionEvidenceTableRows(
+                                                                            row,
+                                                                            locale,
+                                                                            t,
+                                                                        );
+
+                                                                    const detailItems =
+                                                                        [
+                                                                            {
+                                                                                label: uiText(
+                                                                                    'Cash reward reference',
+                                                                                    locale,
+                                                                                ),
+                                                                                value: showRewardReference
+                                                                                    ? row.cash_reward_reference
+                                                                                    : null,
+                                                                            },
+                                                                            {
+                                                                                label: uiText(
+                                                                                    'Remarks',
+                                                                                    locale,
+                                                                                ),
+                                                                                value: showRewardRemarks
+                                                                                    ? row.cash_reward_remarks
+                                                                                    : null,
+                                                                                muted: true,
+                                                                            },
+                                                                            {
+                                                                                label: uiText(
+                                                                                    'Evidence',
+                                                                                    locale,
+                                                                                ),
+                                                                                value:
+                                                                                    showRewardEvidence &&
+                                                                                    evidenceRows.length >
+                                                                                        0 ? (
+                                                                                        <PromotionEvidenceTable
+                                                                                            rows={
+                                                                                                evidenceRows
+                                                                                            }
+                                                                                            locale={
+                                                                                                locale
+                                                                                            }
+                                                                                        />
+                                                                                    ) : null,
+                                                                                muted: true,
+                                                                            },
+                                                                        ];
+                                                                    const hasDetails =
+                                                                        detailItems.some(
+                                                                            (
+                                                                                item,
+                                                                            ) =>
+                                                                                hasPrintableValue(
+                                                                                    item.value,
+                                                                                ),
+                                                                        );
+
+                                                                    return (
+                                                                        <Fragment
+                                                                            key={`reward-${row.id}`}
+                                                                        >
+                                                                            <tr className="align-top odd:bg-muted/10">
+                                                                                <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                                    {index +
+                                                                                        1}
+                                                                                </td>
+                                                                                {showRewardAmount && (
+                                                                                    <td className="p-3 align-top font-medium text-foreground print:p-2">
+                                                                                        {row.cash_reward_amount
+                                                                                            ? `₹${row.cash_reward_amount}`
+                                                                                            : ''}
+                                                                                    </td>
+                                                                                )}
+                                                                                {showRewardDate && (
+                                                                                    <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                        {formatDateValue(
+                                                                                            row.cash_reward_date,
+                                                                                            locale,
+                                                                                        )}
+                                                                                    </td>
+                                                                                )}
+                                                                            </tr>
+                                                                            {hasDetails && (
+                                                                                <tr className="bg-muted/5 print:break-inside-avoid">
+                                                                                    <td
+                                                                                        className="px-3 pt-0 pb-3 print:px-2 print:pb-2"
+                                                                                        colSpan={
+                                                                                            1 +
+                                                                                            (showRewardAmount
+                                                                                                ? 1
+                                                                                                : 0) +
+                                                                                            (showRewardDate
+                                                                                                ? 1
+                                                                                                : 0)
+                                                                                        }
+                                                                                    >
+                                                                                        <DetailStack
+                                                                                            items={
+                                                                                                detailItems
+                                                                                            }
+                                                                                        />
+                                                                                    </td>
+                                                                                </tr>
+                                                                            )}
+                                                                        </Fragment>
+                                                                    );
+                                                                },
+                                                            )}
+                                                        </tbody>
+                                                    </table>
                                                 </div>
-                                                {row.evidences.length > 0 && (
-                                                    <div className="mt-2 space-y-1 border-t pt-2 print:mt-1 print:pt-1">
-                                                        <p className="text-xs font-medium text-muted-foreground print:text-[9px]">
-                                                            {uiText('Evidence', locale)}
-                                                        </p>
-                                                        <ul className="space-y-1 text-xs text-muted-foreground print:text-[9px]">
-                                                            {row.evidences.map((evidence) => (
-                                                                <li key={evidence.id}>
-                                                                    {promotionEvidenceLines(evidence, locale, t).map((line, index) => (
-                                                                        <div key={index}>
-                                                                            {index === 0 ? '• ' : ''}
-                                                                            {line}
-                                                                        </div>
-                                                                    ))}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </Deferred>
@@ -1993,50 +2607,83 @@ export default function PrintPreview({
                                     </div>
                                 }
                             >
-                                <div className="space-y-1.5">
-                                    {(statusHistory ?? []).length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
-                                            {uiText(
-                                                'No status records.',
-                                                locale,
-                                            )}
-                                        </p>
-                                    ) : (
-                                        (statusHistory ?? []).map((row) => (
-                                            <div
-                                                key={row.id}
-                                                className="flex items-center justify-between border-b py-1.5 text-sm last:border-b-0 print:py-1"
-                                            >
-                                                <div>
-                                                    <div className="font-medium">
-                                                        {t(row.status)}
-                                                    </div>
-                                                    {row.reason && (
-                                                        <div className="text-xs text-muted-foreground">
-                                                            {row.reason}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="text-right text-xs text-muted-foreground">
-                                                    <div>
-                                                        {formatDateValue(
-                                                            row.effective_on,
+                                {(statusHistory ?? []).length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        {uiText('No status records.', locale)}
+                                    </p>
+                                ) : (
+                                    <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                <tr>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Status',
                                                             locale,
-                                                            'long',
                                                         )}
-                                                    </div>
-                                                    {row.recorded_by_name && (
-                                                        <div>
-                                                            {
-                                                                row.recorded_by_name
-                                                            }
-                                                        </div>
+                                                    </th>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Effective on',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                    {showStatusReason && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Reason',
+                                                                locale,
+                                                            )}
+                                                        </th>
                                                     )}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
+                                                    {showStatusRecordedBy && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Recorded by',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="print:text-[10px]">
+                                                {(statusHistory ?? []).map(
+                                                    (row) => (
+                                                        <tr
+                                                            key={row.id}
+                                                            className="border-t print:align-top"
+                                                        >
+                                                            <td className="p-2 print:py-1">
+                                                                {printValue(
+                                                                    row.status,
+                                                                    t,
+                                                                )}
+                                                            </td>
+                                                            <td className="p-2 print:py-1">
+                                                                {formatDateValue(
+                                                                    row.effective_on,
+                                                                    locale,
+                                                                )}
+                                                            </td>
+                                                            {showStatusReason && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {row.reason}
+                                                                </td>
+                                                            )}
+                                                            {showStatusRecordedBy && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {
+                                                                        row.recorded_by_name
+                                                                    }
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    ),
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </Deferred>
                         </Section>
                     )}

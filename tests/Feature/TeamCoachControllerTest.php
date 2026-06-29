@@ -48,6 +48,7 @@ test('user without teams.update gets 403 on add coach', function (): void {
             'coach_id' => $coach->id,
             'role' => 'HEAD',
             'session_id' => $team->session_id,
+            'assigned_at' => '2024-05-10',
         ])
         ->assertForbidden();
 });
@@ -67,6 +68,7 @@ test('add coach inserts assignment and redirects to teams.show', function (): vo
             'coach_id' => $coach->id,
             'role' => 'HEAD',
             'session_id' => $team->session_id,
+            'assigned_at' => '2024-05-10',
         ])
         ->assertRedirect(route('teams.show', $team));
 
@@ -75,6 +77,7 @@ test('add coach inserts assignment and redirects to teams.show', function (): vo
         'coach_id' => $coach->id,
         'role' => 'HEAD',
         'session_id' => $team->session_id,
+        'assigned_at' => '2024-05-10 00:00:00',
     ]);
 });
 
@@ -88,6 +91,7 @@ test('add coach derives session from team when session is not submitted', functi
         ->post(route('teams.coaches.store', $team), [
             'coach_id' => $coach->id,
             'role' => 'HEAD',
+            'assigned_at' => '2024-05-11',
         ])
         ->assertRedirect(route('teams.show', $team));
 
@@ -96,6 +100,7 @@ test('add coach derives session from team when session is not submitted', functi
         'coach_id' => $coach->id,
         'role' => 'HEAD',
         'session_id' => $team->session_id,
+        'assigned_at' => '2024-05-11 00:00:00',
         'is_current' => true,
     ]);
 });
@@ -110,6 +115,7 @@ test('add coach rejects coaches without the team sport specialization', function
         ->post(route('teams.coaches.store', $team), [
             'coach_id' => $coach->id,
             'role' => 'HEAD',
+            'assigned_at' => '2024-05-10',
         ])
         ->assertSessionHasErrors(['coach_id']);
 
@@ -117,6 +123,21 @@ test('add coach rejects coaches without the team sport specialization', function
         'team_id' => $team->id,
         'coach_id' => $coach->id,
     ]);
+});
+
+test('add coach requires an assignment date that is not in the future', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $coach = coachForTeam($team);
+
+    $this->actingAs($user)
+        ->post(route('teams.coaches.store', $team), [
+            'coach_id' => $coach->id,
+            'role' => 'HEAD',
+            'assigned_at' => '2099-01-01',
+        ])
+        ->assertSessionHasErrors(['assigned_at']);
 });
 
 // ---------------------------------------------------------------------------
@@ -141,6 +162,7 @@ test('adding a coach with the same role twice returns a session error', function
             'coach_id' => $coach->id,
             'role' => 'HEAD',
             'session_id' => $team->session_id,
+            'assigned_at' => '2024-05-10',
         ])
         ->assertSessionHasErrors(['coach_id']);
 });
@@ -163,6 +185,7 @@ test('duplicate-add does not create a second coach_assignments row', function ()
             'coach_id' => $coach->id,
             'role' => 'HEAD',
             'session_id' => $team->session_id,
+            'assigned_at' => '2024-05-10',
         ]);
 
     $this->assertDatabaseCount('coach_assignments', 1);
@@ -186,6 +209,7 @@ test('same coach can switch role in the same session and keeps previous row as h
             'coach_id' => $coach->id,
             'role' => 'ASSISTANT',
             'session_id' => $team->session_id,
+            'assigned_at' => '2024-05-12',
         ])
         ->assertRedirect(route('teams.show', $team));
 
@@ -203,6 +227,7 @@ test('same coach can switch role in the same session and keeps previous row as h
         'coach_id' => $coach->id,
         'role' => 'ASSISTANT',
         'session_id' => $team->session_id,
+        'assigned_at' => '2024-05-12 00:00:00',
         'is_current' => true,
     ]);
 });
@@ -261,10 +286,10 @@ test('removing the last current coach marks the team session inactive when no ac
 });
 
 // ---------------------------------------------------------------------------
-// cross-session uniqueness (new business rule)
+// same-session team scope
 // ---------------------------------------------------------------------------
 
-test('adding a coach assigned to another team for same session migrates assignment to new team', function (): void {
+test('adding a coach assigned to another team for same session keeps both assignments current', function (): void {
     $user = teamUser('teams.update');
     $org = Organization::find($user->organization_id);
     $team = teamWithOrg($org);
@@ -283,6 +308,7 @@ test('adding a coach assigned to another team for same session migrates assignme
             'coach_id' => $coach->id,
             'role' => 'ASSISTANT',
             'session_id' => $team->session_id,
+            'assigned_at' => '2024-05-13',
         ])
         ->assertRedirect(route('teams.show', $team));
 
@@ -290,11 +316,19 @@ test('adding a coach assigned to another team for same session migrates assignme
         'id' => $existing->id,
         'team_id' => $otherTeam->id,
         'coach_id' => $coach->id,
-        'is_current' => false,
+        'is_current' => true,
+    ]);
+    $this->assertDatabaseHas('coach_assignments', [
+        'team_id' => $team->id,
+        'coach_id' => $coach->id,
+        'role' => 'ASSISTANT',
+        'session_id' => $team->session_id,
+        'assigned_at' => '2024-05-13 00:00:00',
+        'is_current' => true,
     ]);
 });
 
-test('adding a coach to another team for the same session does not keep previous row active', function (): void {
+test('adding a coach to another team for the same session keeps previous row active', function (): void {
     $user = teamUser('teams.update');
     $org = Organization::find($user->organization_id);
     $team = teamWithOrg($org);
@@ -313,6 +347,7 @@ test('adding a coach to another team for the same session does not keep previous
             'coach_id' => $coach->id,
             'role' => 'ASSISTANT',
             'session_id' => $team->session_id,
+            'assigned_at' => '2024-05-14',
         ])
         ->assertRedirect(route('teams.show', $team));
 
@@ -322,13 +357,14 @@ test('adding a coach to another team for the same session does not keep previous
         'coach_id' => $coach->id,
         'role' => 'HEAD',
         'session_id' => $team->session_id,
-        'is_current' => false,
+        'is_current' => true,
     ]);
     $this->assertDatabaseHas('coach_assignments', [
         'team_id' => $team->id,
         'coach_id' => $coach->id,
         'role' => 'ASSISTANT',
         'session_id' => $team->session_id,
+        'assigned_at' => '2024-05-14 00:00:00',
         'is_current' => true,
     ]);
 });

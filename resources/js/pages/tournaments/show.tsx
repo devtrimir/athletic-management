@@ -14,7 +14,7 @@ import {
     Users,
     X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
     destroy as destroyEvent,
     store as storeEvent,
@@ -33,6 +33,7 @@ import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -126,6 +127,7 @@ type EventFilters = {
 type EventForm = {
     event_mode: 'official' | 'provisional';
     sport_event_variant_id: string;
+    sport_event_variant_ids: string[];
     sport_id: string;
     name: string;
     discipline: string;
@@ -142,13 +144,9 @@ const GENDER_CLASS_LABELS: Record<(typeof GENDER_CLASSES)[number], string> = {
     OPEN: 'Open',
 };
 
-function genderClassLabel(
-    value: string,
-    t: (key: string) => string,
-): string {
+function genderClassLabel(value: string, t: (key: string) => string): string {
     return t(
-        GENDER_CLASS_LABELS[value as keyof typeof GENDER_CLASS_LABELS] ??
-            value,
+        GENDER_CLASS_LABELS[value as keyof typeof GENDER_CLASS_LABELS] ?? value,
     );
 }
 
@@ -189,7 +187,9 @@ function eventVariantOption(variant: EventVariant, t: (key: string) => string) {
         variant.gender_label ?? genderClassLabel(variant.gender_class, t),
         variant.result_type,
         variant.measurement_symbol ?? variant.measurement_unit,
-        participantText !== '—' ? `${t('Participants')}: ${participantText}` : null,
+        participantText !== '—'
+            ? `${t('Participants')}: ${participantText}`
+            : null,
         variant.substitute_allowed
             ? `${t('Substitutes')}: ${variant.substitute_limit ?? t('Allowed')}`
             : null,
@@ -199,7 +199,9 @@ function eventVariantOption(variant: EventVariant, t: (key: string) => string) {
         value: String(variant.id),
         label: variant.label,
         badge: variant.is_team_based ? t('Team') : t('Individual'),
-        badgeTone: variant.is_team_based ? ('team' as const) : ('individual' as const),
+        badgeTone: variant.is_team_based
+            ? ('team' as const)
+            : ('individual' as const),
         group: [variant.sport_name, variant.format ?? t('Events')]
             .filter(Boolean)
             .join(' / '),
@@ -217,24 +219,55 @@ function EventFormFields({
     sports,
     eventVariants,
     idPrefix,
+    allowMultipleOfficial = false,
+    existingVariantIds = [],
 }: {
     data: EventForm;
-    setData: (field: keyof EventForm, value: string) => void;
-    errors: Partial<Record<keyof EventForm, string>>;
+    setData: (values: Partial<EventForm>) => void;
+    errors: Partial<
+        Record<keyof EventForm | 'sport_event_variant_ids.0', string>
+    >;
     sports: Sport[];
     eventVariants: EventVariant[];
     idPrefix: string;
+    allowMultipleOfficial?: boolean;
+    existingVariantIds?: number[];
 }) {
     const { t } = useTranslation();
+    const [variantSearch, setVariantSearch] = useState('');
     const selectedVariant = eventVariants.find(
         (variant) => String(variant.id) === data.sport_event_variant_id,
     );
-    const filteredVariants = eventVariants.filter(
-        (variant) => !data.sport_id || String(variant.sport_id) === data.sport_id,
+    const filteredVariants = eventVariants.filter((variant) => {
+        const sportMatches =
+            !data.sport_id || String(variant.sport_id) === data.sport_id;
+        const search = variantSearch.trim().toLowerCase();
+        const searchMatches =
+            search === '' ||
+            [
+                variant.label,
+                variant.name,
+                variant.sport_name,
+                variant.discipline,
+                variant.weight_category,
+                variant.gender_label,
+                variant.format,
+            ]
+                .filter(Boolean)
+                .some((value) => value!.toLowerCase().includes(search));
+
+        return sportMatches && searchMatches;
+    });
+    const selectedVariantIds = new Set(data.sport_event_variant_ids);
+    const existingVariantIdSet = new Set(
+        existingVariantIds.map((id) => String(id)),
+    );
+    const selectedVariants = eventVariants.filter((variant) =>
+        selectedVariantIds.has(String(variant.id)),
     );
 
     function selectSport(value: string) {
-        setData('sport_id', value);
+        const updates: Partial<EventForm> = { sport_id: value };
 
         if (
             data.sport_event_variant_id &&
@@ -244,42 +277,88 @@ function EventFormFields({
                     String(variant.sport_id) === value,
             )
         ) {
-            setData('sport_event_variant_id', '');
+            updates.sport_event_variant_id = '';
         }
+
+        if (data.sport_event_variant_ids.length > 0) {
+            updates.sport_event_variant_ids =
+                data.sport_event_variant_ids.filter((id) =>
+                    eventVariants.some(
+                        (variant) =>
+                            String(variant.id) === id &&
+                            String(variant.sport_id) === value,
+                    ),
+                );
+        }
+
+        setData(updates);
     }
 
     function selectVariant(value: string) {
         const variant = eventVariants.find((item) => String(item.id) === value);
 
-        setData('sport_event_variant_id', value);
-
         if (variant) {
-            setData('sport_id', String(variant.sport_id));
-            setData('name', variant.name);
-            setData('discipline', variant.discipline ?? '');
-            setData('weight_category', variant.weight_category ?? '');
-            setData('gender_class', variant.gender_class);
+            setData({
+                sport_event_variant_id: value,
+                sport_id: String(variant.sport_id),
+                name: variant.name,
+                discipline: variant.discipline ?? '',
+                weight_category: variant.weight_category ?? '',
+                gender_class: variant.gender_class,
+            });
+        } else {
+            setData({ sport_event_variant_id: value });
         }
+    }
+
+    function toggleVariant(value: string) {
+        if (existingVariantIdSet.has(value)) {
+            return;
+        }
+
+        const variant = eventVariants.find((item) => String(item.id) === value);
+        const next = selectedVariantIds.has(value)
+            ? data.sport_event_variant_ids.filter((id) => id !== value)
+            : [...data.sport_event_variant_ids, value];
+
+        const updates: Partial<EventForm> = {
+            sport_event_variant_ids: next,
+            sport_event_variant_id: next[0] ?? '',
+        };
+
+        if (variant && next.length === 1) {
+            updates.sport_id = String(variant.sport_id);
+            updates.name = variant.name;
+            updates.discipline = variant.discipline ?? '';
+            updates.weight_category = variant.weight_category ?? '';
+            updates.gender_class = variant.gender_class;
+        }
+
+        setData(updates);
     }
 
     function useOfficialMode() {
-        setData('event_mode', 'official');
+        setData({ event_mode: 'official' });
     }
 
     function useProvisionalMode() {
-        setData('event_mode', 'provisional');
+        const updates: Partial<EventForm> = { event_mode: 'provisional' };
 
         if (!data.provisional_reason) {
-            setData('provisional_reason', t('Reference event not available in master data'));
+            updates.provisional_reason = t(
+                'Reference event not available in master data',
+            );
         }
 
         if (selectedVariant) {
-            setData('sport_id', String(selectedVariant.sport_id));
-            setData('name', selectedVariant.name);
-            setData('discipline', selectedVariant.discipline ?? '');
-            setData('weight_category', selectedVariant.weight_category ?? '');
-            setData('gender_class', selectedVariant.gender_class);
+            updates.sport_id = String(selectedVariant.sport_id);
+            updates.name = selectedVariant.name;
+            updates.discipline = selectedVariant.discipline ?? '';
+            updates.weight_category = selectedVariant.weight_category ?? '';
+            updates.gender_class = selectedVariant.gender_class;
         }
+
+        setData(updates);
     }
 
     return (
@@ -287,7 +366,9 @@ function EventFormFields({
             <div className="flex rounded-lg border bg-muted/20 p-1 sm:col-span-2">
                 <Button
                     type="button"
-                    variant={data.event_mode === 'official' ? 'default' : 'ghost'}
+                    variant={
+                        data.event_mode === 'official' ? 'default' : 'ghost'
+                    }
                     className="flex-1"
                     disabled={eventVariants.length === 0}
                     onClick={useOfficialMode}
@@ -296,7 +377,9 @@ function EventFormFields({
                 </Button>
                 <Button
                     type="button"
-                    variant={data.event_mode === 'provisional' ? 'default' : 'ghost'}
+                    variant={
+                        data.event_mode === 'provisional' ? 'default' : 'ghost'
+                    }
                     className="flex-1"
                     onClick={useProvisionalMode}
                 >
@@ -328,35 +411,230 @@ function EventFormFields({
                         {t('Official event')}{' '}
                         <span className="text-destructive">*</span>
                     </Label>
-                    <Combobox
-                        id={`${idPrefix}_sport_event_variant_id`}
-                        value={data.sport_event_variant_id}
-                        onValueChange={selectVariant}
-                        items={filteredVariants.map((variant) =>
-                            eventVariantOption(variant, t),
-                        )}
-                        placeholder={t('Select official event')}
-                        searchPlaceholder={t('Search official events…')}
-                        emptyMessage={t('No official events found.')}
-                        popoverClassName="w-[min(760px,calc(100vw-2rem))]"
-                    />
+                    {allowMultipleOfficial ? (
+                        <div className="rounded-lg border bg-background">
+                            <div className="border-b p-3">
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        id={`${idPrefix}_sport_event_variant_id`}
+                                        value={variantSearch}
+                                        onChange={(event) =>
+                                            setVariantSearch(event.target.value)
+                                        }
+                                        placeholder={t(
+                                            'Search official events…',
+                                        )}
+                                        className="pl-8"
+                                    />
+                                </div>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto p-3">
+                                {filteredVariants.length === 0 ? (
+                                    <p className="py-6 text-center text-sm text-muted-foreground">
+                                        {t('No official events found.')}
+                                    </p>
+                                ) : (
+                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                        {filteredVariants.map((variant) => {
+                                            const value = String(variant.id);
+                                            const checked =
+                                                selectedVariantIds.has(value);
+                                            const disabled =
+                                                existingVariantIdSet.has(value);
+
+                                            return (
+                                                <label
+                                                    key={variant.id}
+                                                    className={`flex gap-3 rounded-md border p-3 text-sm transition ${
+                                                        disabled
+                                                            ? 'cursor-not-allowed border-muted bg-muted/30 opacity-60'
+                                                            : 'cursor-pointer hover:bg-muted/40'
+                                                    } ${
+                                                        checked
+                                                            ? 'border-primary bg-primary/5'
+                                                            : 'border-border'
+                                                    }`}
+                                                >
+                                                    <Checkbox
+                                                        checked={checked}
+                                                        disabled={disabled}
+                                                        onCheckedChange={() =>
+                                                            toggleVariant(value)
+                                                        }
+                                                        className="mt-0.5"
+                                                    />
+                                                    <span className="min-w-0 space-y-1">
+                                                        <span className="block font-medium">
+                                                            {variant.label}
+                                                        </span>
+                                                        {disabled ? (
+                                                            <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                                                                {t(
+                                                                    'Already added',
+                                                                )}
+                                                            </span>
+                                                        ) : null}
+                                                        <span className="block text-xs text-muted-foreground">
+                                                            {[
+                                                                variant.sport_name,
+                                                                variant.discipline,
+                                                                variant.weight_category,
+                                                            ]
+                                                                .filter(Boolean)
+                                                                .join(' / ')}
+                                                        </span>
+                                                        <span className="block text-xs text-muted-foreground">
+                                                            {[
+                                                                variant.gender_label ??
+                                                                    genderClassLabel(
+                                                                        variant.gender_class,
+                                                                        t,
+                                                                    ),
+                                                                variant.format,
+                                                                variant.result_type,
+                                                            ]
+                                                                .filter(Boolean)
+                                                                .join(' · ')}
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                                <span>
+                                    {data.sport_event_variant_ids.length}{' '}
+                                    {t('selected')}
+                                </span>
+                                {data.sport_event_variant_ids.length > 0 ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setData({
+                                                sport_event_variant_ids: [],
+                                                sport_event_variant_id: '',
+                                            });
+                                        }}
+                                    >
+                                        {t('Clear')}
+                                    </Button>
+                                ) : null}
+                            </div>
+                        </div>
+                    ) : (
+                        <Combobox
+                            id={`${idPrefix}_sport_event_variant_id`}
+                            value={data.sport_event_variant_id}
+                            onValueChange={selectVariant}
+                            items={filteredVariants.map((variant) =>
+                                eventVariantOption(variant, t),
+                            )}
+                            placeholder={t('Select official event')}
+                            searchPlaceholder={t('Search official events…')}
+                            emptyMessage={t('No official events found.')}
+                            popoverClassName="w-[min(760px,calc(100vw-2rem))]"
+                        />
+                    )}
                     <InputError message={errors.sport_event_variant_id} />
+                    <InputError message={errors.sport_event_variant_ids} />
+                    <InputError message={errors['sport_event_variant_ids.0']} />
                 </div>
             ) : null}
 
-            {selectedVariant && data.event_mode === 'official' ? (
+            {allowMultipleOfficial &&
+            data.event_mode === 'official' &&
+            selectedVariants.length > 0 ? (
+                <div className="rounded-lg border bg-muted/20 p-3 sm:col-span-2">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                        {t('Selected official events')}
+                    </div>
+                    <div className="grid gap-2 text-sm sm:grid-cols-2">
+                        {selectedVariants.map((variant) => (
+                            <div
+                                key={variant.id}
+                                className="rounded-md border bg-background p-2"
+                            >
+                                <div className="font-medium">
+                                    {variant.label}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {[
+                                        variant.gender_label ??
+                                            genderClassLabel(
+                                                variant.gender_class,
+                                                t,
+                                            ),
+                                        variant.format,
+                                        variant.result_type,
+                                        participantRange(
+                                            variant.min_participants,
+                                            variant.max_participants,
+                                        ) !== '—'
+                                            ? `${t('Participants')}: ${participantRange(
+                                                  variant.min_participants,
+                                                  variant.max_participants,
+                                              )}`
+                                            : null,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {!allowMultipleOfficial &&
+            selectedVariant &&
+            data.event_mode === 'official' ? (
                 <div className="rounded-lg border bg-muted/20 p-3 sm:col-span-2">
                     <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                         <Info className="h-4 w-4 text-muted-foreground" />
                         {t('Official event details')}
                     </div>
                     <div className="grid gap-2 text-sm sm:grid-cols-3">
-                        <span>{t('Gender')}: {selectedVariant.gender_label ?? genderClassLabel(selectedVariant.gender_class, t)}</span>
-                        <span>{t('Format')}: {selectedVariant.format ?? '—'}</span>
-                        <span>{t('Result type')}: {selectedVariant.result_type ?? '—'}</span>
-                        <span>{t('Participants')}: {participantRange(selectedVariant.min_participants, selectedVariant.max_participants)}</span>
-                        <span>{t('Unit')}: {selectedVariant.measurement_symbol ?? selectedVariant.measurement_unit ?? '—'}</span>
-                        <span>{t('Substitutes')}: {selectedVariant.substitute_allowed ? selectedVariant.substitute_limit ?? t('Allowed') : t('No')}</span>
+                        <span>
+                            {t('Gender')}:{' '}
+                            {selectedVariant.gender_label ??
+                                genderClassLabel(
+                                    selectedVariant.gender_class,
+                                    t,
+                                )}
+                        </span>
+                        <span>
+                            {t('Format')}: {selectedVariant.format ?? '—'}
+                        </span>
+                        <span>
+                            {t('Result type')}:{' '}
+                            {selectedVariant.result_type ?? '—'}
+                        </span>
+                        <span>
+                            {t('Participants')}:{' '}
+                            {participantRange(
+                                selectedVariant.min_participants,
+                                selectedVariant.max_participants,
+                            )}
+                        </span>
+                        <span>
+                            {t('Unit')}:{' '}
+                            {selectedVariant.measurement_symbol ??
+                                selectedVariant.measurement_unit ??
+                                '—'}
+                        </span>
+                        <span>
+                            {t('Substitutes')}:{' '}
+                            {selectedVariant.substitute_allowed
+                                ? (selectedVariant.substitute_limit ??
+                                  t('Allowed'))
+                                : t('No')}
+                        </span>
                     </div>
                 </div>
             ) : null}
@@ -364,72 +642,78 @@ function EventFormFields({
             {data.event_mode === 'provisional' ? (
                 <>
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-                        {t('Use provisional entry only when the official event is not available in sport master data.')}
+                        {t(
+                            'Use provisional entry only when the official event is not available in sport master data.',
+                        )}
                     </div>
 
                     <div className="grid gap-2">
-                <Label htmlFor={`${idPrefix}_gender_class`}>
-                    {t('Gender class')}{' '}
-                    <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                    value={data.gender_class}
-                    onValueChange={(v) => setData('gender_class', v)}
-                >
-                    <SelectTrigger id={`${idPrefix}_gender_class`}>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {GENDER_CLASSES.map((g) => (
-                            <SelectItem key={g} value={g}>
-                                {genderClassLabel(g, t)}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <InputError message={errors.gender_class} />
-            </div>
+                        <Label htmlFor={`${idPrefix}_gender_class`}>
+                            {t('Gender class')}{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Select
+                            value={data.gender_class}
+                            onValueChange={(v) => setData({ gender_class: v })}
+                        >
+                            <SelectTrigger id={`${idPrefix}_gender_class`}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {GENDER_CLASSES.map((g) => (
+                                    <SelectItem key={g} value={g}>
+                                        {genderClassLabel(g, t)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.gender_class} />
+                    </div>
 
-            <div className="grid gap-2 sm:col-span-2">
-                <Label htmlFor={`${idPrefix}_name`}>
-                    {t('Event name')}{' '}
-                    <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                    id={`${idPrefix}_name`}
-                    value={data.name}
-                    onChange={(e) => setData('name', e.target.value)}
-                    maxLength={255}
-                    required
-                />
-                <InputError message={errors.name} />
-            </div>
+                    <div className="grid gap-2 sm:col-span-2">
+                        <Label htmlFor={`${idPrefix}_name`}>
+                            {t('Event name')}{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id={`${idPrefix}_name`}
+                            value={data.name}
+                            onChange={(e) => setData({ name: e.target.value })}
+                            maxLength={255}
+                            required
+                        />
+                        <InputError message={errors.name} />
+                    </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor={`${idPrefix}_discipline`}>
-                    {t('Discipline')}
-                </Label>
-                <Input
-                    id={`${idPrefix}_discipline`}
-                    value={data.discipline}
-                    onChange={(e) => setData('discipline', e.target.value)}
-                    maxLength={255}
-                />
-                <InputError message={errors.discipline} />
-            </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor={`${idPrefix}_discipline`}>
+                            {t('Discipline')}
+                        </Label>
+                        <Input
+                            id={`${idPrefix}_discipline`}
+                            value={data.discipline}
+                            onChange={(e) =>
+                                setData({ discipline: e.target.value })
+                            }
+                            maxLength={255}
+                        />
+                        <InputError message={errors.discipline} />
+                    </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor={`${idPrefix}_weight_category`}>
-                    {t('Weight category')}
-                </Label>
-                <Input
-                    id={`${idPrefix}_weight_category`}
-                    value={data.weight_category}
-                    onChange={(e) => setData('weight_category', e.target.value)}
-                    maxLength={100}
-                />
-                <InputError message={errors.weight_category} />
-            </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor={`${idPrefix}_weight_category`}>
+                            {t('Weight category')}
+                        </Label>
+                        <Input
+                            id={`${idPrefix}_weight_category`}
+                            value={data.weight_category}
+                            onChange={(e) =>
+                                setData({ weight_category: e.target.value })
+                            }
+                            maxLength={100}
+                        />
+                        <InputError message={errors.weight_category} />
+                    </div>
                     <div className="grid gap-2 sm:col-span-2">
                         <Label htmlFor={`${idPrefix}_provisional_reason`}>
                             {t('Reason')}{' '}
@@ -438,9 +722,15 @@ function EventFormFields({
                         <Input
                             id={`${idPrefix}_provisional_reason`}
                             value={data.provisional_reason}
-                            onChange={(e) => setData('provisional_reason', e.target.value)}
+                            onChange={(e) =>
+                                setData({
+                                    provisional_reason: e.target.value,
+                                })
+                            }
                             maxLength={1000}
-                            placeholder={t('Reference event not available in master data')}
+                            placeholder={t(
+                                'Reference event not available in master data',
+                            )}
                         />
                         <InputError message={errors.provisional_reason} />
                     </div>
@@ -459,18 +749,24 @@ function AddEventDialog({
     tournament,
     sports,
     eventVariants = [],
+    events = [],
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     tournament: Tournament;
     sports: Sport[];
     eventVariants?: EventVariant[];
+    events?: EventRow[];
 }) {
     const { t } = useTranslation();
+    const existingVariantIds = events
+        .map((event) => event.sport_event_variant_id)
+        .filter((id): id is number => id !== null);
     const { data, setData, post, errors, processing, reset } =
         useForm<EventForm>({
             event_mode: eventVariants.length > 0 ? 'official' : 'provisional',
             sport_event_variant_id: '',
+            sport_event_variant_ids: [],
             sport_id: tournament.sport ? String(tournament.sport.id) : '',
             name: '',
             discipline: '',
@@ -489,6 +785,13 @@ function AddEventDialog({
         });
     }
 
+    function updateFields(values: Partial<EventForm>) {
+        setData({
+            ...data,
+            ...values,
+        });
+    }
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-3xl">
@@ -501,11 +804,13 @@ function AddEventDialog({
                 <form id="add-event-form" onSubmit={handleSubmit}>
                     <EventFormFields
                         data={data}
-                        setData={(field, value) => setData(field, value)}
+                        setData={updateFields}
                         errors={errors}
                         sports={sports}
                         eventVariants={eventVariants}
                         idPrefix="add_ev"
+                        allowMultipleOfficial
+                        existingVariantIds={existingVariantIds}
                     />
                 </form>
                 <DialogFooter>
@@ -549,10 +854,13 @@ function EditEventDialog({
     const { t } = useTranslation();
     const { data, setData, patch, errors, processing, reset } =
         useForm<EventForm>({
-            event_mode: event?.sport_event_variant_id ? 'official' : 'provisional',
+            event_mode: event?.sport_event_variant_id
+                ? 'official'
+                : 'provisional',
             sport_event_variant_id: event?.sport_event_variant_id
                 ? String(event.sport_event_variant_id)
                 : '',
+            sport_event_variant_ids: [],
             sport_id: event?.sport ? String(event.sport.id) : '',
             name: event?.name ?? '',
             discipline: event?.discipline ?? '',
@@ -576,6 +884,13 @@ function EditEventDialog({
         });
     }
 
+    function updateFields(values: Partial<EventForm>) {
+        setData({
+            ...data,
+            ...values,
+        });
+    }
+
     return (
         <Dialog
             open={event !== null}
@@ -593,7 +908,7 @@ function EditEventDialog({
                 <form id="edit-event-form" onSubmit={handleSubmit}>
                     <EventFormFields
                         data={data}
-                        setData={(field, value) => setData(field, value)}
+                        setData={updateFields}
                         errors={errors}
                         sports={sports}
                         eventVariants={eventVariants}
@@ -883,6 +1198,28 @@ export default function TournamentsShow({
         eventFilters.gender_class ||
         eventFilters.participation_status
     );
+    const eventGroups = Array.from(
+        (events ?? [])
+            .reduce((groups, event) => {
+                const sportKey = event.sport
+                    ? String(event.sport.id)
+                    : 'unknown';
+
+                if (!groups.has(sportKey)) {
+                    groups.set(sportKey, {
+                        sportKey,
+                        sportName: event.sport?.name ?? t('Unknown sport'),
+                        events: [],
+                    });
+                }
+
+                groups.get(sportKey)?.events.push(event);
+
+                return groups;
+            }, new Map<string, { sportKey: string; sportName: string; events: EventRow[] }>())
+            .values(),
+    );
+    let eventSerialNumber = 0;
 
     return (
         <>
@@ -891,7 +1228,7 @@ export default function TournamentsShow({
             <div className="space-y-6">
                 <section className="relative overflow-hidden rounded-2xl border bg-card shadow-sm">
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-slate-200 dark:bg-slate-700" />
-                    <div className="relative grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] md:p-6">
+                    <div className="relative grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]">
                         <div className="space-y-4">
                             <div className="space-y-2">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -931,14 +1268,18 @@ export default function TournamentsShow({
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 <Button variant="outline" size="sm" asChild>
-                                    <Link href={editTournament.url(tournament.id)}>
+                                    <Link
+                                        href={editTournament.url(tournament.id)}
+                                    >
                                         {t('Edit')}
                                     </Link>
                                 </Button>
                                 <Button
                                     variant="destructive"
                                     size="sm"
-                                    onClick={() => setDeleteTournamentOpen(true)}
+                                    onClick={() =>
+                                        setDeleteTournamentOpen(true)
+                                    }
                                 >
                                     {t('Delete')}
                                 </Button>
@@ -972,12 +1313,18 @@ export default function TournamentsShow({
                 <Tabs value={activeTab}>
                     <TabsList>
                         <TabsTrigger value="overview" asChild>
-                            <Link href={showTournament.url(tournament.id)} prefetch>
+                            <Link
+                                href={showTournament.url(tournament.id)}
+                                prefetch
+                            >
                                 {t('Overview')}
                             </Link>
                         </TabsTrigger>
                         <TabsTrigger value="events" asChild>
-                            <Link href={tournamentEvents.url(tournament.id)} prefetch>
+                            <Link
+                                href={tournamentEvents.url(tournament.id)}
+                                prefetch
+                            >
                                 {t('Events')}
                             </Link>
                         </TabsTrigger>
@@ -1067,8 +1414,12 @@ export default function TournamentsShow({
                                             <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                             <Input
                                                 name="q"
-                                                defaultValue={eventFilters.q ?? ''}
-                                                placeholder={t('Search events…')}
+                                                defaultValue={
+                                                    eventFilters.q ?? ''
+                                                }
+                                                placeholder={t(
+                                                    'Search events…',
+                                                )}
                                                 className="pl-8"
                                             />
                                         </form>
@@ -1180,9 +1531,7 @@ export default function TournamentsShow({
                                                         {t('All events')}
                                                     </SelectItem>
                                                     <SelectItem value="with">
-                                                        {t(
-                                                            'With participants',
-                                                        )}
+                                                        {t('With participants')}
                                                     </SelectItem>
                                                     <SelectItem value="without">
                                                         {t(
@@ -1212,301 +1561,271 @@ export default function TournamentsShow({
                                             : ''}
                                     </div>
                                     <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-16">
-                                                {t('S.No.')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Event details')}
-                                            </TableHead>
-                                            <TableHead>{t('Sport')}</TableHead>
-                                            <TableHead>
-                                                {t('Classification')}
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                {t('Participations')}
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                {t('Teams')}
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                {t('Medals')}
-                                            </TableHead>
-                                            <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
-                                                {t('Actions')}
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(events ?? []).length === 0 ? (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={8}
-                                                    className="py-12 text-center text-muted-foreground"
-                                                >
-                                                    {hasEventFilters
-                                                        ? t('No events match your filters.')
-                                                        : t('No events yet.')}
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            <>
-                                                <TableRow className="bg-primary/5 hover:bg-primary/5">
-                                                    <TableCell
-                                                        colSpan={8}
-                                                        className="border-l-4 border-primary py-3 font-medium"
-                                                    >
-                                                        <div className="flex flex-wrap items-center justify-between gap-3">
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                <span
-                                                                    className={eventBadgeClass(
-                                                                        'detail',
-                                                                    )}
-                                                                >
-                                                                    <Trophy className="h-3.5 w-3.5" />
-                                                                    {
-                                                                        tournament.name
-                                                                    }
-                                                                </span>
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {
-                                                                        (
-                                                                            events ??
-                                                                            []
-                                                                        ).length
-                                                                    }{' '}
-                                                                    {t(
-                                                                        'records',
-                                                                    )}
-                                                                </span>
-                                                            </div>
-                                                            {tournament.sport ? (
-                                                                <span
-                                                                    className={eventBadgeClass(
-                                                                        'sport',
-                                                                    )}
-                                                                >
-                                                                    <Dumbbell className="h-3.5 w-3.5" />
-                                                                    {
-                                                                        tournament
-                                                                            .sport
-                                                                            .name
-                                                                    }
-                                                                </span>
-                                                            ) : null}
-                                                        </div>
-                                                    </TableCell>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-16">
+                                                        {t('S.No.')}
+                                                    </TableHead>
+                                                    <TableHead>
+                                                        {t('Event details')}
+                                                    </TableHead>
+                                                    <TableHead>
+                                                        {t('Classification')}
+                                                    </TableHead>
+                                                    <TableHead className="text-right">
+                                                        {t('Participations')}
+                                                    </TableHead>
+                                                    <TableHead className="text-right">
+                                                        {t('Teams')}
+                                                    </TableHead>
+                                                    <TableHead className="text-right">
+                                                        {t('Medals')}
+                                                    </TableHead>
+                                                    <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
+                                                        {t('Actions')}
+                                                    </TableHead>
                                                 </TableRow>
-                                                {(events ?? []).map(
-                                                    (ev, index) => (
-                                                        <TableRow key={ev.id}>
-                                                            <TableCell className="w-16 text-xs text-muted-foreground tabular-nums">
-                                                                {index + 1}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className="space-y-1">
-                                                                    <Link
-                                                                        href={showEvent.url(
-                                                                            {
-                                                                                tournament:
-                                                                                    tournament.id,
-                                                                                event: ev.id,
-                                                                            },
-                                                                        )}
-                                                                        className="font-medium hover:underline"
-                                                                    >
-                                                                        {
-                                                                            ev.name
-                                                                        }
-                                                                    </Link>
-                                                                    <div className="flex flex-wrap gap-1.5">
-                                                                        <Badge
-                                                                            variant={
-                                                                                ev.event_source ===
-                                                                                'official'
-                                                                                    ? 'default'
-                                                                                    : 'secondary'
+                                            </TableHeader>
+                                            <TableBody>
+                                                {(events ?? []).length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell
+                                                            colSpan={7}
+                                                            className="py-12 text-center text-muted-foreground"
+                                                        >
+                                                            {hasEventFilters
+                                                                ? t(
+                                                                      'No events match your filters.',
+                                                                  )
+                                                                : t(
+                                                                      'No events yet.',
+                                                                  )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    <>
+                                                        {eventGroups.map(
+                                                            (group) => (
+                                                                <Fragment
+                                                                    key={
+                                                                        group.sportKey
+                                                                    }
+                                                                >
+                                                                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                                                        <TableCell
+                                                                            colSpan={
+                                                                                7
                                                                             }
+                                                                            className="py-2.5 font-medium"
                                                                         >
-                                                                            {ev.event_source ===
-                                                                            'official'
-                                                                                ? t(
-                                                                                      'Official',
-                                                                                  )
-                                                                                : t(
-                                                                                      'Provisional',
-                                                                                  )}
-                                                                        </Badge>
-                                                                        {ev.discipline ? (
-                                                                            <span
-                                                                                className={eventBadgeClass(
-                                                                                    'detail',
-                                                                                )}
-                                                                            >
-                                                                                {
-                                                                                    ev.discipline
-                                                                                }
-                                                                            </span>
-                                                                        ) : null}
-                                                                        {ev.weight_category ? (
-                                                                            <span
-                                                                                className={eventBadgeClass(
-                                                                                    'detail',
-                                                                                )}
-                                                                            >
-                                                                                {
-                                                                                    ev.weight_category
-                                                                                }
-                                                                            </span>
-                                                                        ) : null}
-                                                                        {!ev.discipline &&
-                                                                        !ev.weight_category ? (
-                                                                            <span className="text-xs text-muted-foreground">
-                                                                                —
-                                                                            </span>
-                                                                        ) : null}
-                                                                    </div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {ev.sport ? (
-                                                                    <span
-                                                                        className={eventBadgeClass(
-                                                                            'sport',
-                                                                        )}
-                                                                    >
-                                                                        <Dumbbell className="h-3.5 w-3.5" />
-                                                                        {
-                                                                            ev
-                                                                                .sport
-                                                                                .name
-                                                                        }
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-xs text-muted-foreground">
-                                                                        —
-                                                                    </span>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <span
-                                                                    className={eventBadgeClass(
-                                                                        'class',
+                                                                            <div className="flex items-center justify-between gap-3">
+                                                                                <span>
+                                                                                    {
+                                                                                        group.sportName
+                                                                                    }
+                                                                                </span>
+                                                                                <span className="text-xs font-normal text-muted-foreground">
+                                                                                    {
+                                                                                        group
+                                                                                            .events
+                                                                                            .length
+                                                                                    }{' '}
+                                                                                    {t(
+                                                                                        'events',
+                                                                                    )}
+                                                                                </span>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                    {group.events.map(
+                                                                        (
+                                                                            ev,
+                                                                        ) => {
+                                                                            eventSerialNumber += 1;
+
+                                                                            return (
+                                                                                <TableRow
+                                                                                    key={
+                                                                                        ev.id
+                                                                                    }
+                                                                                >
+                                                                                    <TableCell className="w-16 text-xs text-muted-foreground tabular-nums">
+                                                                                        {
+                                                                                            eventSerialNumber
+                                                                                        }
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1">
+                                                                                            <Link
+                                                                                                href={showEvent.url(
+                                                                                                    {
+                                                                                                        tournament:
+                                                                                                            tournament.id,
+                                                                                                        event: ev.id,
+                                                                                                    },
+                                                                                                )}
+                                                                                                className="font-medium hover:underline"
+                                                                                            >
+                                                                                                {
+                                                                                                    ev.name
+                                                                                                }
+                                                                                            </Link>
+                                                                                            <div className="flex flex-wrap gap-1.5">
+                                                                                                {ev.discipline ? (
+                                                                                                    <span
+                                                                                                        className={eventBadgeClass(
+                                                                                                            'detail',
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {
+                                                                                                            ev.discipline
+                                                                                                        }
+                                                                                                    </span>
+                                                                                                ) : null}
+                                                                                                {ev.weight_category ? (
+                                                                                                    <span
+                                                                                                        className={eventBadgeClass(
+                                                                                                            'detail',
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {
+                                                                                                            ev.weight_category
+                                                                                                        }
+                                                                                                    </span>
+                                                                                                ) : null}
+                                                                                                {!ev.discipline &&
+                                                                                                !ev.weight_category ? (
+                                                                                                    <span className="text-xs text-muted-foreground">
+                                                                                                        —
+                                                                                                    </span>
+                                                                                                ) : null}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <span
+                                                                                            className={eventBadgeClass(
+                                                                                                'class',
+                                                                                            )}
+                                                                                        >
+                                                                                            {t(
+                                                                                                genderClassLabel(
+                                                                                                    ev.gender_class,
+                                                                                                    t,
+                                                                                                ),
+                                                                                            )}
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right">
+                                                                                        <span
+                                                                                            className={eventBadgeClass(
+                                                                                                'count',
+                                                                                            )}
+                                                                                        >
+                                                                                            <Users className="h-3.5 w-3.5" />
+                                                                                            {
+                                                                                                ev.participations_count
+                                                                                            }
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right tabular-nums">
+                                                                                        {
+                                                                                            ev.teams_count
+                                                                                        }
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right tabular-nums">
+                                                                                        <span className="inline-flex items-center justify-end gap-1">
+                                                                                            <Medal className="h-3.5 w-3.5 text-amber-500" />
+                                                                                            {
+                                                                                                ev.medals_count
+                                                                                            }
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="sticky right-0 z-10 w-0 bg-card">
+                                                                                        <div className="flex items-center justify-end gap-1">
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="icon"
+                                                                                                title={t(
+                                                                                                    'View',
+                                                                                                )}
+                                                                                                asChild
+                                                                                            >
+                                                                                                <Link
+                                                                                                    href={showEvent.url(
+                                                                                                        {
+                                                                                                            tournament:
+                                                                                                                tournament.id,
+                                                                                                            event: ev.id,
+                                                                                                        },
+                                                                                                    )}
+                                                                                                >
+                                                                                                    <Eye className="h-4 w-4 text-sky-600" />
+                                                                                                    <span className="sr-only">
+                                                                                                        {t(
+                                                                                                            'View',
+                                                                                                        )}
+                                                                                                    </span>
+                                                                                                </Link>
+                                                                                            </Button>
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="icon"
+                                                                                                title={t(
+                                                                                                    ev.can_update_structure
+                                                                                                        ? 'Edit event'
+                                                                                                        : 'Event cannot be edited after participants are added',
+                                                                                                )}
+                                                                                                disabled={
+                                                                                                    !ev.can_update_structure
+                                                                                                }
+                                                                                                onClick={() =>
+                                                                                                    setEditingEvent(
+                                                                                                        ev,
+                                                                                                    )
+                                                                                                }
+                                                                                            >
+                                                                                                <Pencil className="h-4 w-4 text-amber-600" />
+                                                                                                <span className="sr-only">
+                                                                                                    {t(
+                                                                                                        'Edit event',
+                                                                                                    )}
+                                                                                                </span>
+                                                                                            </Button>
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="icon"
+                                                                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                                                title={t(
+                                                                                                    'Delete event',
+                                                                                                )}
+                                                                                                onClick={() =>
+                                                                                                    setDeletingEvent(
+                                                                                                        ev,
+                                                                                                    )
+                                                                                                }
+                                                                                            >
+                                                                                                <Trash2 className="h-4 w-4" />
+                                                                                                <span className="sr-only">
+                                                                                                    {t(
+                                                                                                        'Delete event',
+                                                                                                    )}
+                                                                                                </span>
+                                                                                            </Button>
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                </TableRow>
+                                                                            );
+                                                                        },
                                                                     )}
-                                                                >
-                                                                    {t(
-                                                                        genderClassLabel(
-                                                                            ev.gender_class,
-                                                                            t,
-                                                                        ),
-                                                                    )}
-                                                                </span>
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                <span
-                                                                    className={eventBadgeClass(
-                                                                        'count',
-                                                                    )}
-                                                                >
-                                                                    <Users className="h-3.5 w-3.5" />
-                                                                    {
-                                                                        ev.participations_count
-                                                                    }
-                                                                </span>
-                                                            </TableCell>
-                                                            <TableCell className="text-right tabular-nums">
-                                                                {ev.teams_count}
-                                                            </TableCell>
-                                                            <TableCell className="text-right tabular-nums">
-                                                                <span className="inline-flex items-center justify-end gap-1">
-                                                                    <Medal className="h-3.5 w-3.5 text-amber-500" />
-                                                                    {
-                                                                        ev.medals_count
-                                                                    }
-                                                                </span>
-                                                            </TableCell>
-                                                            <TableCell className="sticky right-0 z-10 w-0 bg-card">
-                                                                <div className="flex items-center justify-end gap-1">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        title={t(
-                                                                            'View',
-                                                                        )}
-                                                                        asChild
-                                                                    >
-                                                                        <Link
-                                                                            href={showEvent.url(
-                                                                                {
-                                                                                    tournament:
-                                                                                        tournament.id,
-                                                                                    event: ev.id,
-                                                                                },
-                                                                            )}
-                                                                        >
-                                                                            <Eye className="h-4 w-4 text-sky-600" />
-                                                                            <span className="sr-only">
-                                                                                {t(
-                                                                                    'View',
-                                                                                )}
-                                                                            </span>
-                                                                        </Link>
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        title={t(
-                                                                            ev.can_update_structure
-                                                                                ? 'Edit event'
-                                                                                : 'Event cannot be edited after participants are added',
-                                                                        )}
-                                                                        disabled={
-                                                                            !ev.can_update_structure
-                                                                        }
-                                                                        onClick={() =>
-                                                                            setEditingEvent(
-                                                                                ev,
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        <Pencil className="h-4 w-4 text-amber-600" />
-                                                                        <span className="sr-only">
-                                                                            {t(
-                                                                                'Edit event',
-                                                                            )}
-                                                                        </span>
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                        title={t(
-                                                                            'Delete event',
-                                                                        )}
-                                                                        onClick={() =>
-                                                                            setDeletingEvent(
-                                                                                ev,
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                        <span className="sr-only">
-                                                                            {t(
-                                                                                'Delete event',
-                                                                            )}
-                                                                        </span>
-                                                                    </Button>
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ),
+                                                                </Fragment>
+                                                            ),
+                                                        )}
+                                                    </>
                                                 )}
-                                            </>
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                            </TableBody>
+                                        </Table>
                                     </div>
                                 </section>
                             </>
@@ -1522,6 +1841,7 @@ export default function TournamentsShow({
                 tournament={tournament}
                 sports={sports}
                 eventVariants={eventVariants}
+                events={events}
             />
             <EditEventDialog
                 key={editingEvent?.id ?? 'new'}

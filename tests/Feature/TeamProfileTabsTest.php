@@ -107,6 +107,14 @@ test('team coaches tab returns coach assignment payload only', function (): void
         'team_id' => $team->id,
         'coach_id' => $coach->id,
         'session_id' => $session->id,
+        'assigned_at' => '2024-06-15',
+    ]);
+    CoachAssignment::factory()->create([
+        'team_id' => $team->id,
+        'coach_id' => Coach::factory()->create(['organization_id' => $organization->id])->id,
+        'session_id' => $session->id,
+        'is_current' => false,
+        'removed_at' => now(),
     ]);
 
     $this->actingAs($user)
@@ -116,6 +124,8 @@ test('team coaches tab returns coach assignment payload only', function (): void
             ->component('teams/show')
             ->where('activeTab', 'coaches')
             ->has('coaches', 1)
+            ->where('coaches.0.assigned_at', '2024-06-15')
+            ->where('counts.coaches_count', 1)
             ->missing('members')
             ->missing('memberMovements')
             ->missing('inchargeHistory')

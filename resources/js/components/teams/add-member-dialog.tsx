@@ -80,7 +80,10 @@ export function AddMemberDialog({
     });
 
     useEffect(() => {
-        setData('session_id', selectedSessionId ? String(selectedSessionId) : '');
+        setData(
+            'session_id',
+            selectedSessionId ? String(selectedSessionId) : '',
+        );
     }, [selectedSessionId, setData]);
 
     function handleMemberChange(m: MemberOption | null) {
@@ -229,9 +232,9 @@ export function AddMemberDialog({
                             placeholder={
                                 team.sport
                                     ? t(
-                                          'Search active :sport athletes…',
+                                          'Search active or inactive :sport athletes…',
                                       ).replace(':sport', team.sport.name)
-                                    : t('Search active athletes…')
+                                    : t('Search active or inactive athletes…')
                             }
                             extraFilters={extraFilters}
                         />
@@ -367,12 +370,12 @@ export function AddMemberDialog({
                                 processing || selectedMembers.length === 0
                             }
                         >
-                                {selectedMembers.length > 1
-                                    ? t('Add selected (:count)').replace(
-                                          ':count',
-                                          String(selectedMembers.length),
-                                      )
-                                    : t('Add member')}
+                            {selectedMembers.length > 1
+                                ? t('Add selected (:count)').replace(
+                                      ':count',
+                                      String(selectedMembers.length),
+                                  )
+                                : t('Add member')}
                         </Button>
                         <Button
                             type="button"

@@ -158,6 +158,8 @@ class MemberProfileData
             'memberTeams' => $this->teamsPayload($member),
             'legacyAchievements' => $this->legacyAchievementsPayload($member),
             'achievements' => $this->achievementsPayload($member)['achievements'],
+            'specialAchievements' => $this->specialAchievementsPayload($member),
+            'externalCoaching' => $this->externalCoachingPayload($member),
             'promotions' => $this->promotionsPayload($member),
             'auditLog' => $this->auditLogBuilder->forMember($member),
         ];

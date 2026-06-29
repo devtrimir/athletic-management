@@ -247,6 +247,78 @@ function evidenceKey(type: string, id: number): string {
     return `${type}:${id}`;
 }
 
+function evidenceSelectionKey(evidence: PromotionEvidence): string {
+    if (
+        evidence.type !== 'member_legacy_achievement' &&
+        evidence.tournament?.id &&
+        evidence.event?.id
+    ) {
+        return `event:${evidence.tournament.id}:${evidence.event.id}`;
+    }
+
+    return evidenceKey(evidence.type, evidence.evidence_id);
+}
+
+function groupedEvidenceRefs(
+    evidences: PromotionEvidence[] = [],
+): Map<string, PromotionEvidenceRef[]> {
+    const grouped = new Map<string, PromotionEvidenceRef[]>();
+
+    for (const evidence of evidences) {
+        const key = evidenceSelectionKey(evidence);
+        const refs = grouped.get(key) ?? [];
+
+        refs.push({ type: evidence.type, id: evidence.evidence_id });
+        grouped.set(key, refs);
+    }
+
+    return grouped;
+}
+
+function visibleEvidenceGroupCount(
+    evidences: PromotionEvidence[] = [],
+    participations: ParticipationGroup[],
+    achievements: LiveAchievement[],
+    legacyAchievements: LegacyAchievement[],
+): number {
+    return visibleEvidenceRows(
+        evidences,
+        participations,
+        achievements,
+        legacyAchievements,
+    ).length;
+}
+
+function visibleEvidenceRows(
+    evidences: PromotionEvidence[] = [],
+    participations: ParticipationGroup[],
+    achievements: LiveAchievement[],
+    legacyAchievements: LegacyAchievement[],
+): PromotionEvidence[] {
+    const visible = new Map<string, PromotionEvidence>();
+
+    for (const evidence of evidences) {
+        if (
+            isOtherTierEvidence(
+                evidence,
+                participations,
+                achievements,
+                legacyAchievements,
+            )
+        ) {
+            continue;
+        }
+
+        const key = evidenceSelectionKey(evidence);
+
+        if (!visible.has(key)) {
+            visible.set(key, evidence);
+        }
+    }
+
+    return Array.from(visible.values());
+}
+
 function currentSessionId(
     participations: ParticipationGroup[],
     legacyAchievements: LegacyAchievement[] = [],
@@ -1111,28 +1183,36 @@ export function PromotionDialog({
     const isRewardAction = mode === 'reward';
     const rewardActionLabel = t('Add cash reward');
     const [pendingPayload, setPendingPayload] = useState<{
-        promotion_date: string;
+        promotion_date: string | null;
         cash_reward_only: boolean;
-        from_rank: string;
-        to_rank: string;
+        from_rank: string | null;
+        to_rank: string | null;
         cash_reward_amount: string | null;
         cash_reward_date: string | null;
         cash_reward_reference: string | null;
         cash_reward_remarks: string | null;
-        reason: string;
-        remarks: string;
+        reason: string | null;
+        remarks: string | null;
         evidences: PromotionEvidenceRef[];
     } | null>(null);
-    const selectedDefaults = useMemo(
+    const selectedDefaultEvidenceKeys = useMemo(
         () =>
-            promotion?.evidences.map((e) =>
-                evidenceKey(e.type, e.evidence_id),
+            promotion?.evidences.map((evidence) =>
+                evidenceKey(evidence.type, evidence.evidence_id),
             ) ?? [],
         [promotion],
     );
+    const selectedDefaultRefsByKey = useMemo(
+        () => groupedEvidenceRefs(promotion?.evidences ?? []),
+        [promotion?.evidences],
+    );
+    const selectedDefaults = useMemo(
+        () => Array.from(selectedDefaultRefsByKey.keys()),
+        [selectedDefaultRefsByKey],
+    );
     const selectedDefaultSet = useMemo(
-        () => new Set(selectedDefaults),
-        [selectedDefaults],
+        () => new Set(selectedDefaultEvidenceKeys),
+        [selectedDefaultEvidenceKeys],
     );
 
     const form = useForm({
@@ -1476,14 +1556,8 @@ export function PromotionDialog({
     const selectedEvidenceLabels = useMemo(() => {
         const optionMap = new Map(options.map((opt) => [opt.key, opt.label]));
         const optionByKey = new Map(options.map((opt) => [opt.key, opt]));
-        const backendEvidenceByKey = new Map<string, PromotionEvidenceRef[]>(
-            promotion?.evidences.map((evidence) => [
-                evidenceKey(evidence.type, evidence.evidence_id),
-                [{ type: evidence.type, id: evidence.evidence_id }],
-            ]) ?? [],
-        );
         const evidencesByKey = new Map<string, PromotionEvidenceRef[]>(
-            backendEvidenceByKey,
+            selectedDefaultRefsByKey,
         );
 
         for (const [key, option] of optionByKey) {
@@ -1495,7 +1569,7 @@ export function PromotionDialog({
             label: optionMap.get(key) || key,
             evidences: evidencesByKey.get(key) ?? [],
         }));
-    }, [options, selected, promotion]);
+    }, [options, selected, selectedDefaultRefsByKey]);
 
     const promotionEvidenceByRef = useMemo(() => {
         const evidenceMap = new Map<string, PromotionEvidence>();
@@ -1855,20 +1929,24 @@ export function PromotionDialog({
         return '';
     }
     function buildPayload() {
+        const rewardRank = form.data.from_rank || memberRank || null;
+
         return {
-            promotion_date: form.data.promotion_date,
+            promotion_date: isRewardAction ? null : form.data.promotion_date,
             cash_reward_only: isRewardAction,
-            from_rank: form.data.from_rank,
-            to_rank: form.data.to_rank,
+            from_rank: isRewardAction ? rewardRank : form.data.from_rank,
+            to_rank: isRewardAction ? rewardRank : form.data.to_rank,
             cash_reward_amount: form.data.cash_reward_amount || null,
             cash_reward_date: form.data.cash_reward_date || null,
             cash_reward_reference: form.data.cash_reward_reference || null,
             cash_reward_remarks: form.data.cash_reward_remarks || null,
-            reason: form.data.reason,
-            remarks: form.data.remarks,
+            reason: isRewardAction ? null : form.data.reason,
+            remarks: isRewardAction ? null : form.data.remarks,
             evidences: selected.flatMap(
                 (key) =>
-                    options.find((item) => item.key === key)?.evidences ?? [],
+                    options.find((item) => item.key === key)?.evidences ??
+                    selectedDefaultRefsByKey.get(key) ??
+                    [],
             ),
         };
     }
@@ -1904,7 +1982,10 @@ export function PromotionDialog({
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
-        if (isBeforeDate(form.data.promotion_date, currentSessionMinDate)) {
+        if (
+            !isRewardAction &&
+            isBeforeDate(form.data.promotion_date, currentSessionMinDate)
+        ) {
             form.setError(
                 'promotion_date',
                 t(
@@ -1958,9 +2039,11 @@ export function PromotionDialog({
                 <DialogHeader>
                     <DialogTitle>
                         {subjectName
-                            ? `${promotion ? t('Edit promotion') : isRewardAction ? rewardActionLabel : t('Add promotion')} - ${subjectName}`
+                            ? `${promotion ? (isRewardAction ? t('Edit cash reward') : t('Edit promotion')) : isRewardAction ? rewardActionLabel : t('Add promotion')} - ${subjectName}`
                             : promotion
-                              ? t('Edit promotion')
+                              ? isRewardAction
+                                  ? t('Edit cash reward')
+                                  : t('Edit promotion')
                               : isRewardAction
                                 ? rewardActionLabel
                                 : t('Add promotion')}
@@ -2202,9 +2285,13 @@ export function PromotionDialog({
                             {t('Cancel')}
                         </Button>
                         <Button type="submit" disabled={selected.length === 0}>
-                            {promotion
-                                ? t('Save changes')
-                                : t('Save promotion')}
+                            {isRewardAction
+                                ? promotion
+                                    ? t('Save cash reward')
+                                    : t('Add cash reward')
+                                : promotion
+                                  ? t('Save changes')
+                                  : t('Save promotion')}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -2437,9 +2524,13 @@ export function PromotionDialog({
                             {t('Back')}
                         </Button>
                         <Button type="button" onClick={handleConfirmSave}>
-                            {promotion
-                                ? t('Confirm update')
-                                : t('Confirm save')}
+                            {isRewardAction
+                                ? promotion
+                                    ? t('Confirm reward update')
+                                    : t('Confirm reward')
+                                : promotion
+                                  ? t('Confirm update')
+                                  : t('Confirm save')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -2486,7 +2577,9 @@ export function PromotionsTab({
         );
         const hasPromotionFields = !!(
             promotion.promotion_date ||
-            promotion.from_rank !== promotion.to_rank ||
+            (promotion.from_rank &&
+                promotion.to_rank &&
+                promotion.from_rank !== promotion.to_rank) ||
             promotion.reason ||
             promotion.remarks
         );
@@ -2510,7 +2603,9 @@ export function PromotionsTab({
         );
         const hasPromotionFields = !!(
             promotion.promotion_date ||
-            promotion.from_rank !== promotion.to_rank ||
+            (promotion.from_rank &&
+                promotion.to_rank &&
+                promotion.from_rank !== promotion.to_rank) ||
             promotion.reason ||
             promotion.remarks
         );
@@ -2872,7 +2967,9 @@ export function PromotionsTab({
     function hasPromotionFields(promotion: PromotionRow): boolean {
         return !!(
             promotion.promotion_date ||
-            promotion.from_rank !== promotion.to_rank ||
+            (promotion.from_rank &&
+                promotion.to_rank &&
+                promotion.from_rank !== promotion.to_rank) ||
             promotion.reason ||
             promotion.remarks
         );
@@ -3068,19 +3165,12 @@ export function PromotionsTab({
                                                             variant="secondary"
                                                             className="px-2 py-1 text-xs"
                                                         >
-                                                            {
-                                                                promotion.evidences.filter(
-                                                                    (
-                                                                        evidence,
-                                                                    ) =>
-                                                                        !isOtherTierEvidence(
-                                                                            evidence,
-                                                                            participations,
-                                                                            achievements,
-                                                                            legacyAchievements,
-                                                                        ),
-                                                                ).length
-                                                            }{' '}
+                                                            {visibleEvidenceGroupCount(
+                                                                promotion.evidences,
+                                                                participations,
+                                                                achievements,
+                                                                legacyAchievements,
+                                                            )}{' '}
                                                             {t('items')}
                                                         </Badge>
                                                     </div>
@@ -3169,16 +3259,11 @@ export function PromotionsTab({
                                                             </p>
                                                             {(() => {
                                                                 const rows =
-                                                                    promotion.evidences.filter(
-                                                                        (
-                                                                            evidence,
-                                                                        ) =>
-                                                                            !isOtherTierEvidence(
-                                                                                evidence,
-                                                                                participations,
-                                                                                achievements,
-                                                                                legacyAchievements,
-                                                                            ),
+                                                                    visibleEvidenceRows(
+                                                                        promotion.evidences,
+                                                                        participations,
+                                                                        achievements,
+                                                                        legacyAchievements,
                                                                     );
 
                                                                 return (
@@ -3349,12 +3434,6 @@ export function PromotionsTab({
                                         {t('Type')}
                                     </th>
                                     <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
-                                        {t('From rank')}
-                                    </th>
-                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
-                                        {t('To rank')}
-                                    </th>
-                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
                                         {t('Reward date')}
                                     </th>
                                     <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
@@ -3378,129 +3457,307 @@ export function PromotionsTab({
                                 {activeRows.map((promotion, index) => {
                                     const isRewardOnly =
                                         !hasPromotionFields(promotion);
+                                    const showDetails = isPromotionExpanded(
+                                        promotion.id,
+                                    );
 
                                     return (
-                                        <tr
-                                            key={promotion.id}
-                                            className="border-b align-top hover:bg-slate-50/70 dark:hover:bg-slate-950"
-                                        >
-                                            <td className="border-r border-slate-100 px-2 py-1.5 text-sm text-slate-500 dark:border-slate-700">
-                                                {index + 1}
-                                            </td>
-                                            <td className="border-r border-slate-100 px-2 py-1.5">
-                                                <Badge
-                                                    variant="outline"
-                                                    className={`px-2 py-0.5 text-xs ${promotionCategoryClass(promotion)}`}
-                                                >
-                                                    {promotionCategory(
-                                                        promotion,
-                                                    )}
-                                                </Badge>
-                                            </td>
-                                            <td className="border-r border-slate-100 px-2 py-1.5 text-xs font-medium">
-                                                {resolveRankLabel(
-                                                    promotion.from_rank,
-                                                    ranks,
-                                                ) || t('Unknown')}
-                                            </td>
-                                            <td className="border-r border-slate-100 px-2 py-1.5 text-xs font-medium">
-                                                {resolveRankLabel(
-                                                    promotion.to_rank,
-                                                    ranks,
-                                                ) || t('Unknown')}
-                                            </td>
-                                            <td className="border-r border-slate-100 px-2 py-1.5">
-                                                {promotion.cash_reward_date ||
-                                                    promotion.promotion_date ||
-                                                    '—'}
-                                            </td>
-                                            <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
-                                                {promotion.cash_reward_amount ? (
-                                                    `₹${promotion.cash_reward_amount}`
-                                                ) : (
-                                                    <span className="text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
-                                                {promotion.cash_reward_reference ? (
-                                                    promotion.cash_reward_reference
-                                                ) : (
-                                                    <span className="text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="border-r border-slate-100 px-2 py-1.5">
-                                                <div className="flex flex-wrap gap-1.5">
+                                        <Fragment key={promotion.id}>
+                                            <tr className="border-b align-top hover:bg-slate-50/70 dark:hover:bg-slate-950">
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-sm text-slate-500 dark:border-slate-700">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5">
                                                     <Badge
-                                                        variant="secondary"
-                                                        className="px-2 py-1 text-xs"
+                                                        variant="outline"
+                                                        className={`px-2 py-0.5 text-xs ${promotionCategoryClass(promotion)}`}
                                                     >
-                                                        {
-                                                            promotion.evidences.filter(
-                                                                (evidence) =>
-                                                                    !isOtherTierEvidence(
-                                                                        evidence,
+                                                        {promotionCategory(
+                                                            promotion,
+                                                        )}
+                                                    </Badge>
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5">
+                                                    {promotion.cash_reward_date ||
+                                                        promotion.promotion_date ||
+                                                        '—'}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
+                                                    {promotion.cash_reward_amount ? (
+                                                        `₹${promotion.cash_reward_amount}`
+                                                    ) : (
+                                                        <span className="text-muted-foreground">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
+                                                    {promotion.cash_reward_reference ? (
+                                                        promotion.cash_reward_reference
+                                                    ) : (
+                                                        <span className="text-muted-foreground">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5">
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className="px-2 py-1 text-xs"
+                                                        >
+                                                            {visibleEvidenceGroupCount(
+                                                                promotion.evidences,
+                                                                participations,
+                                                                achievements,
+                                                                legacyAchievements,
+                                                            )}{' '}
+                                                            {t('items')}
+                                                        </Badge>
+                                                    </div>
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
+                                                    {promotion.recorded_by_name ? (
+                                                        promotion.recorded_by_name
+                                                    ) : (
+                                                        <span className="text-muted-foreground">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-2 py-1.5">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                togglePromotionDetails(
+                                                                    promotion.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            {showDetails ? (
+                                                                <ChevronDown className="mr-1 size-4" />
+                                                            ) : (
+                                                                <ChevronRight className="mr-1 size-4" />
+                                                            )}
+                                                            {showDetails
+                                                                ? t(
+                                                                      'Hide details',
+                                                                  )
+                                                                : t(
+                                                                      'Show details',
+                                                                  )}
+                                                        </Button>
+                                                        <PromotionDialog
+                                                            memberId={memberId}
+                                                            memberRank={
+                                                                memberRank
+                                                            }
+                                                            ranks={ranks}
+                                                            promotions={
+                                                                promotions
+                                                            }
+                                                            participations={
+                                                                participations
+                                                            }
+                                                            legacyAchievements={
+                                                                legacyAchievements
+                                                            }
+                                                            achievements={
+                                                                achievements
+                                                            }
+                                                            promotion={
+                                                                promotion
+                                                            }
+                                                            mode={
+                                                                isRewardOnly
+                                                                    ? 'reward'
+                                                                    : undefined
+                                                            }
+                                                            triggerLabel={t(
+                                                                'Edit',
+                                                            )}
+                                                            onSaved={onSaved}
+                                                        />
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() =>
+                                                                handleDelete(
+                                                                    promotion.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trash2 className="size-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {showDetails ? (
+                                                <tr className="border-b">
+                                                    <td
+                                                        className="px-2 py-1.5"
+                                                        colSpan={8}
+                                                    >
+                                                        <div className="rounded-md border border-slate-200 bg-slate-50/70 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/20">
+                                                            <p className="mb-1.5 text-xs font-medium tracking-[0.02em] text-muted-foreground uppercase">
+                                                                {t(
+                                                                    'Evidence list',
+                                                                )}
+                                                            </p>
+                                                            {(() => {
+                                                                const rows =
+                                                                    visibleEvidenceRows(
+                                                                        promotion.evidences,
                                                                         participations,
                                                                         achievements,
                                                                         legacyAchievements,
-                                                                    ),
-                                                            ).length
-                                                        }{' '}
-                                                        {t('items')}
-                                                    </Badge>
-                                                </div>
-                                            </td>
-                                            <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
-                                                {promotion.recorded_by_name ? (
-                                                    promotion.recorded_by_name
-                                                ) : (
-                                                    <span className="text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-2 py-1.5">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <PromotionDialog
-                                                        memberId={memberId}
-                                                        memberRank={memberRank}
-                                                        ranks={ranks}
-                                                        promotions={promotions}
-                                                        participations={
-                                                            participations
-                                                        }
-                                                        legacyAchievements={
-                                                            legacyAchievements
-                                                        }
-                                                        achievements={
-                                                            achievements
-                                                        }
-                                                        promotion={promotion}
-                                                        mode={
-                                                            isRewardOnly
-                                                                ? 'reward'
-                                                                : undefined
-                                                        }
-                                                        triggerLabel={t('Edit')}
-                                                        onSaved={onSaved}
-                                                    />
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() =>
-                                                            handleDelete(
-                                                                promotion.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        <Trash2 className="size-4" />
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                                    );
+
+                                                                return (
+                                                                    <div className="overflow-x-auto">
+                                                                        <table className="w-full border-collapse text-xs">
+                                                                            <thead>
+                                                                                <tr className="border-b text-left">
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
+                                                                                            'No.',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
+                                                                                            'Type',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
+                                                                                            'Session',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
+                                                                                            'Tournament',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
+                                                                                            'Event',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
+                                                                                            'Tier',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
+                                                                                            'Evidence',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
+                                                                                            'Medal',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
+                                                                                            'Details',
+                                                                                        )}
+                                                                                    </th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {rows.length ===
+                                                                                0 ? (
+                                                                                    <tr>
+                                                                                        <td
+                                                                                            colSpan={
+                                                                                                9
+                                                                                            }
+                                                                                            className="px-2 py-2 text-muted-foreground"
+                                                                                        >
+                                                                                            {t(
+                                                                                                'No evidence linked',
+                                                                                            )}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                ) : (
+                                                                                    rows.map(
+                                                                                        (
+                                                                                            evidence,
+                                                                                            evidenceIndex,
+                                                                                        ) => (
+                                                                                            <tr
+                                                                                                key={evidenceKey(
+                                                                                                    evidence.type,
+                                                                                                    evidence.evidence_id,
+                                                                                                )}
+                                                                                                className="border-b last:border-0 hover:bg-slate-100/40 dark:hover:bg-slate-800/40"
+                                                                                            >
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    {evidenceIndex +
+                                                                                                        1}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    <Badge
+                                                                                                        variant="outline"
+                                                                                                        className={`px-2 py-0.5 text-xs ${evidenceTypeClass(evidence.type)}`}
+                                                                                                    >
+                                                                                                        {evidenceTypeLabel(
+                                                                                                            evidence,
+                                                                                                        )}
+                                                                                                    </Badge>
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    {evidenceSessionLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    {evidenceTournamentLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    {evidenceEventLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    {evidenceTierLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    {evidenceValue(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    {evidenceMedalLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="px-2 py-1.5">
+                                                                                                    {evidenceDetailLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        ),
+                                                                                    )
+                                                                                )}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : null}
+                                        </Fragment>
                                     );
                                 })}
                             </tbody>

@@ -59,6 +59,32 @@ test('duplicate team_id + coach_id + session_id current assignment is rejected',
     ]))->toThrow(QueryException::class);
 });
 
+test('same coach can have current assignments in different teams for same session', function () {
+    $org = Organization::factory()->create();
+    $sport = Sport::factory()->create(['organization_id' => $org->id]);
+    $session = SportSession::factory()->create(['organization_id' => $org->id]);
+    $unit = Unit::factory()->create(['organization_id' => $org->id]);
+    $coach = Coach::factory()->create(['organization_id' => $org->id]);
+    $teams = Team::factory()->count(2)->create([
+        'organization_id' => $org->id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'unit_id' => $unit->id,
+    ]);
+
+    foreach ($teams as $team) {
+        CoachAssignment::factory()->create([
+            'team_id' => $team->id,
+            'coach_id' => $coach->id,
+            'session_id' => $session->id,
+            'role' => 'HEAD',
+            'is_current' => true,
+        ]);
+    }
+
+    expect(CoachAssignment::where('coach_id', $coach->id)->where('session_id', $session->id)->current()->count())->toBe(2);
+});
+
 test('same coach can hold different historical roles in same team when existing row is historical', function () {
     $org = Organization::factory()->create();
     $sport = Sport::factory()->create(['organization_id' => $org->id]);

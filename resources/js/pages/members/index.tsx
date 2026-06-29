@@ -1,5 +1,19 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Check, ChevronDown, Download, Eye, IdCard, Info, MapPinned, Plus, Printer, Search, ShieldCheck, UserCheck, X } from 'lucide-react';
+import {
+    Check,
+    ChevronDown,
+    Download,
+    Eye,
+    IdCard,
+    Info,
+    MapPinned,
+    Plus,
+    Printer,
+    Search,
+    ShieldCheck,
+    UserCheck,
+    X,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
@@ -10,12 +24,36 @@ import { OptionMultiSelect } from '@/components/option-multi-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -40,16 +78,18 @@ type Member = {
     home_district: { id: number; name: string } | null;
     current_unit: { id: number; name: string } | null;
     posting_district: { id: number; name: string } | null;
-    playable_sports: Array<SportOption & {
-        pivot?: {
+    playable_sports: Array<
+        SportOption & {
+            pivot?: {
+                role?: string | null;
+                position?: string | null;
+                notes?: string | null;
+            };
             role?: string | null;
             position?: string | null;
             notes?: string | null;
-        };
-        role?: string | null;
-        position?: string | null;
-        notes?: string | null;
-    }>;
+        }
+    >;
 };
 
 type UnitOption = { id: number; name: string };
@@ -97,9 +137,9 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'designation', label: 'Designation' },
     { key: 'player_category', label: 'Category' },
     { key: 'player_level', label: 'Level' },
-    { key: 'unit', label: 'Unit' },
+    { key: 'unit', label: 'Posting' },
     { key: 'home_district', label: 'Home district' },
-    { key: 'posting_district', label: 'Posting / District' },
+    { key: 'posting_district', label: 'Posting' },
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
@@ -116,7 +156,16 @@ const GENDER_OPTIONS: { value: string; label: string }[] = [
     { value: 'F', label: 'Female' },
     { value: 'O', label: 'Other gender' },
 ];
-const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
+const BLOOD_GROUP_OPTIONS = [
+    'A+',
+    'A-',
+    'B+',
+    'B-',
+    'AB+',
+    'AB-',
+    'O+',
+    'O-',
+] as const;
 const STATUS_TABS = [
     { value: 'active', label: 'Active members' },
     { value: 'inactive', label: 'Inactive members' },
@@ -124,14 +173,17 @@ const STATUS_TABS = [
 
 const CATEGORY_BADGE_CLASS: Record<string, string> = {
     GD: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
-    SPORTS_QUOTA: 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300',
+    SPORTS_QUOTA:
+        'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300',
 };
 
 const LEVEL_BADGE_CLASS: Record<string, string> = {
     ZONAL: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300',
     AIPSC: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-300',
-    NATIONAL: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300',
-    INTERNATIONAL: 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300',
+    NATIONAL:
+        'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300',
+    INTERNATIONAL:
+        'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300',
 };
 
 function displayCategory(category: string): string {
@@ -146,7 +198,10 @@ function postingLocation(member: Member): string | null {
     return member.current_unit?.name ?? member.posting_district?.name ?? null;
 }
 
-function genderLabel(value: string | null | undefined, t: (key: string) => string): string {
+function genderLabel(
+    value: string | null | undefined,
+    t: (key: string) => string,
+): string {
     switch (value) {
         case 'M':
             return t('Male');
@@ -160,7 +215,12 @@ function genderLabel(value: string | null | undefined, t: (key: string) => strin
 }
 
 function sportSummary(sport: Member['playable_sports'][number]): string {
-    return [sport.name, sport.role ?? sport.pivot?.role, sport.position ?? sport.pivot?.position, sport.notes ?? sport.pivot?.notes]
+    return [
+        sport.name,
+        sport.role ?? sport.pivot?.role,
+        sport.position ?? sport.pivot?.position,
+        sport.notes ?? sport.pivot?.notes,
+    ]
         .filter(Boolean)
         .join(' · ');
 }
@@ -178,7 +238,10 @@ function parseDateValue(value: string): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatDisplayDate(value: string | null | undefined, locale: string): string | null {
+function formatDisplayDate(
+    value: string | null | undefined,
+    locale: string,
+): string | null {
     if (!value) {
         return null;
     }
@@ -199,7 +262,7 @@ function SportCell({ member }: { member: Member }) {
     const playableSports = member.playable_sports;
 
     if (playableSports.length === 0) {
-        return <span className="select-none text-border">—</span>;
+        return <span className="text-border select-none">—</span>;
     }
 
     return (
@@ -210,18 +273,28 @@ function SportCell({ member }: { member: Member }) {
                     className="inline-flex max-w-44 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-accent"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <span className="truncate">{sportSummary(playableSports[0])}</span>
+                    <span className="truncate">
+                        {sportSummary(playableSports[0])}
+                    </span>
                     {playableSports.length > 1 && (
-                        <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[10px]">
+                        <Badge
+                            variant="outline"
+                            className="shrink-0 px-1.5 py-0 text-[10px]"
+                        >
                             +{playableSports.length - 1}
                         </Badge>
                     )}
                 </button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 p-3" onClick={(e) => e.stopPropagation()}>
+            <PopoverContent
+                className="w-56 p-3"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="space-y-2">
                     <div>
-                        <p className="text-xs font-medium text-muted-foreground">{t('Sports')}</p>
+                        <p className="text-xs font-medium text-muted-foreground">
+                            {t('Sports')}
+                        </p>
                         <ul className="mt-1 space-y-2 text-sm">
                             {playableSports.map((sport) => (
                                 <li key={sport.id} className="space-y-0.5">
@@ -229,17 +302,29 @@ function SportCell({ member }: { member: Member }) {
                                     <div className="space-y-0.5 text-xs text-muted-foreground">
                                         {(sport.role ?? sport.pivot?.role) && (
                                             <p>
-                                                <span className="font-medium text-foreground">{t('Role / position')}:</span>{' '}
-                                                {sport.role ?? sport.pivot?.role}
+                                                <span className="font-medium text-foreground">
+                                                    {t('Role / position')}:
+                                                </span>{' '}
+                                                {sport.role ??
+                                                    sport.pivot?.role}
                                             </p>
                                         )}
-                                        {(sport.notes ?? sport.pivot?.notes) && (
+                                        {(sport.notes ??
+                                            sport.pivot?.notes) && (
                                             <p>
-                                                <span className="font-medium text-foreground">{t('Notes')}:</span>{' '}
-                                                {sport.notes ?? sport.pivot?.notes}
+                                                <span className="font-medium text-foreground">
+                                                    {t('Notes')}:
+                                                </span>{' '}
+                                                {sport.notes ??
+                                                    sport.pivot?.notes}
                                             </p>
                                         )}
-                                        {!sport.role && !sport.pivot?.role && !sport.position && !sport.pivot?.position && !sport.notes && !sport.pivot?.notes && <p>—</p>}
+                                        {!sport.role &&
+                                            !sport.pivot?.role &&
+                                            !sport.position &&
+                                            !sport.pivot?.position &&
+                                            !sport.notes &&
+                                            !sport.pivot?.notes && <p>—</p>}
                                     </div>
                                 </li>
                             ))}
@@ -283,7 +368,9 @@ function FilterPill({
                     {isActive && (
                         <>
                             <span className="text-primary/50">·</span>
-                            <span className="max-w-24 truncate font-semibold">{activeLabel}</span>
+                            <span className="max-w-24 truncate font-semibold">
+                                {activeLabel}
+                            </span>
                             <span
                                 role="button"
                                 tabIndex={0}
@@ -332,9 +419,16 @@ function OptionList({
                     key={opt.value}
                     type="button"
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
-                    onClick={() => onSelect(value === opt.value ? undefined : opt.value)}
+                    onClick={() =>
+                        onSelect(value === opt.value ? undefined : opt.value)
+                    }
                 >
-                    <Check className={['size-3.5 shrink-0', value === opt.value ? 'opacity-100' : 'opacity-0'].join(' ')} />
+                    <Check
+                        className={[
+                            'size-3.5 shrink-0',
+                            value === opt.value ? 'opacity-100' : 'opacity-0',
+                        ].join(' ')}
+                    />
                     {opt.label}
                 </button>
             ))}
@@ -355,7 +449,10 @@ function SearchableOptionList({
 }) {
     return (
         <Command className="w-56">
-            <CommandInput placeholder={searchPlaceholder} className="h-8 text-sm" />
+            <CommandInput
+                placeholder={searchPlaceholder}
+                className="h-8 text-sm"
+            />
             <CommandList className="max-h-52">
                 <CommandEmpty>—</CommandEmpty>
                 <CommandGroup>
@@ -363,10 +460,21 @@ function SearchableOptionList({
                         <CommandItem
                             key={opt.value}
                             value={opt.label}
-                            onSelect={() => onSelect(value === opt.value ? undefined : opt.value)}
+                            onSelect={() =>
+                                onSelect(
+                                    value === opt.value ? undefined : opt.value,
+                                )
+                            }
                             className="gap-2"
                         >
-                            <Check className={['size-3.5 shrink-0', value === opt.value ? 'opacity-100' : 'opacity-0'].join(' ')} />
+                            <Check
+                                className={[
+                                    'size-3.5 shrink-0',
+                                    value === opt.value
+                                        ? 'opacity-100'
+                                        : 'opacity-0',
+                                ].join(' ')}
+                            />
                             {opt.label}
                         </CommandItem>
                     ))}
@@ -407,7 +515,9 @@ export default function MembersIndex({
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
-    const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+    const [selectedColumns, setSelectedColumns] = useState<string[]>(
+        ALL_COLUMNS.map((c) => c.key),
+    );
     const [quickViewId, setQuickViewId] = useState<number | null>(null);
 
     // Row selection — persists across pagination pages
@@ -416,145 +526,168 @@ export default function MembersIndex({
     // Local draft for joining year (applied on blur/enter only to avoid spamming requests)
     const [yearFrom, setYearFrom] = useState(filters.joining_year_from ?? '');
     const [yearTo, setYearTo] = useState(filters.joining_year_to ?? '');
-    const selectedSportIds = filters.sport_ids ?? (filters.sport_id ? [filters.sport_id] : []);
-    const activeStatusScope = filters.status_scope ?? (filters.current_status && filters.current_status !== 'ACTIVE' ? 'inactive' : 'active');
+    const selectedSportIds =
+        filters.sport_ids ?? (filters.sport_id ? [filters.sport_id] : []);
+    const activeStatusScope =
+        filters.status_scope ??
+        (filters.current_status && filters.current_status !== 'ACTIVE'
+            ? 'inactive'
+            : 'active');
 
-    const applyFilters = useCallback((patch: Partial<Filters>) => {
-        const merged: Filters = {
-            q: query || undefined,
-            status_scope: filters.status_scope,
-            current_status: filters.current_status,
-            player_category: filters.player_category,
-            player_level: filters.player_level,
-            rank: filters.rank,
-            designation: filters.designation,
-            current_unit_id: filters.current_unit_id,
-            home_district_id: filters.home_district_id,
-            posting_district_id: filters.posting_district_id,
-            gender: filters.gender,
-            blood_group: filters.blood_group,
-            sport_id: filters.sport_id,
-            sport_ids: filters.sport_ids,
-            joining_year_from: filters.joining_year_from,
-            joining_year_to: filters.joining_year_to,
-            ...patch,
-        };
+    const applyFilters = useCallback(
+        (patch: Partial<Filters>) => {
+            const merged: Filters = {
+                q: query || undefined,
+                status_scope: filters.status_scope,
+                current_status: filters.current_status,
+                player_category: filters.player_category,
+                player_level: filters.player_level,
+                rank: filters.rank,
+                designation: filters.designation,
+                current_unit_id: filters.current_unit_id,
+                home_district_id: filters.home_district_id,
+                posting_district_id: filters.posting_district_id,
+                gender: filters.gender,
+                blood_group: filters.blood_group,
+                sport_id: filters.sport_id,
+                sport_ids: filters.sport_ids,
+                joining_year_from: filters.joining_year_from,
+                joining_year_to: filters.joining_year_to,
+                ...patch,
+            };
 
-        const clean: Record<string, string | string[]> = {};
-        const mapping: [keyof Filters, string][] = [
-            ['q', 'filter[q]'],
-            ['status_scope', 'filter[status_scope]'],
-            ['current_status', 'filter[current_status]'],
-            ['player_category', 'filter[player_category]'],
-            ['player_level', 'filter[player_level]'],
-            ['rank', 'filter[rank]'],
-            ['designation', 'filter[designation]'],
-            ['current_unit_id', 'filter[current_unit_id]'],
-            ['home_district_id', 'filter[home_district_id]'],
-            ['posting_district_id', 'filter[posting_district_id]'],
-            ['gender', 'filter[gender]'],
-            ['blood_group', 'filter[blood_group]'],
-            ['sport_id', 'filter[sport_id]'],
-            ['sport_ids', 'filter[sport_ids]'],
-            ['joining_year_from', 'filter[joining_year_from]'],
-            ['joining_year_to', 'filter[joining_year_to]'],
-        ];
+            const clean: Record<string, string | string[]> = {};
+            const mapping: [keyof Filters, string][] = [
+                ['q', 'filter[q]'],
+                ['status_scope', 'filter[status_scope]'],
+                ['current_status', 'filter[current_status]'],
+                ['player_category', 'filter[player_category]'],
+                ['player_level', 'filter[player_level]'],
+                ['rank', 'filter[rank]'],
+                ['designation', 'filter[designation]'],
+                ['current_unit_id', 'filter[current_unit_id]'],
+                ['home_district_id', 'filter[home_district_id]'],
+                ['posting_district_id', 'filter[posting_district_id]'],
+                ['gender', 'filter[gender]'],
+                ['blood_group', 'filter[blood_group]'],
+                ['sport_id', 'filter[sport_id]'],
+                ['sport_ids', 'filter[sport_ids]'],
+                ['joining_year_from', 'filter[joining_year_from]'],
+                ['joining_year_to', 'filter[joining_year_to]'],
+            ];
 
-        for (const [k, param] of mapping) {
-            const value = merged[k];
+            for (const [k, param] of mapping) {
+                const value = merged[k];
 
-            if (Array.isArray(value)) {
-                if (value.length > 0) {
-                    clean[param] = value;
+                if (Array.isArray(value)) {
+                    if (value.length > 0) {
+                        clean[param] = value;
+                    }
+
+                    continue;
                 }
 
-                continue;
+                if (value) {
+                    clean[param] = value;
+                }
             }
 
-            if (value) {
-                clean[param] = value;
-            }
-        }
-
-        if (perPage !== 25) {
-            clean['per_page'] = String(perPage);
-        }
-
-        router.get(MemberController.index.url(), clean, { preserveState: true, replace: true });
-    }, [query, filters, perPage]);
-
-    const buildIndexUrl = useCallback((patch: Partial<Filters> = {}) => {
-        const merged: Filters = {
-            q: query || undefined,
-            status_scope: filters.status_scope,
-            current_status: filters.current_status,
-            player_category: filters.player_category,
-            player_level: filters.player_level,
-            rank: filters.rank,
-            designation: filters.designation,
-            current_unit_id: filters.current_unit_id,
-            home_district_id: filters.home_district_id,
-            posting_district_id: filters.posting_district_id,
-            gender: filters.gender,
-            blood_group: filters.blood_group,
-            sport_id: filters.sport_id,
-            sport_ids: filters.sport_ids,
-            joining_year_from: filters.joining_year_from,
-            joining_year_to: filters.joining_year_to,
-            ...patch,
-        };
-        const params = new URLSearchParams();
-        const mapping: [keyof Filters, string][] = [
-            ['q', 'filter[q]'],
-            ['status_scope', 'filter[status_scope]'],
-            ['current_status', 'filter[current_status]'],
-            ['player_category', 'filter[player_category]'],
-            ['player_level', 'filter[player_level]'],
-            ['rank', 'filter[rank]'],
-            ['designation', 'filter[designation]'],
-            ['current_unit_id', 'filter[current_unit_id]'],
-            ['home_district_id', 'filter[home_district_id]'],
-            ['posting_district_id', 'filter[posting_district_id]'],
-            ['gender', 'filter[gender]'],
-            ['blood_group', 'filter[blood_group]'],
-            ['sport_id', 'filter[sport_id]'],
-            ['sport_ids', 'filter[sport_ids]'],
-            ['joining_year_from', 'filter[joining_year_from]'],
-            ['joining_year_to', 'filter[joining_year_to]'],
-        ];
-
-        for (const [key, param] of mapping) {
-            const value = merged[key];
-
-            if (Array.isArray(value)) {
-                value.forEach((item) => params.append(`${param}[]`, item));
-                continue;
+            if (perPage !== 25) {
+                clean['per_page'] = String(perPage);
             }
 
-            if (value) {
-                params.append(param, value);
+            router.get(MemberController.index.url(), clean, {
+                preserveState: true,
+                replace: true,
+            });
+        },
+        [query, filters, perPage],
+    );
+
+    const buildIndexUrl = useCallback(
+        (patch: Partial<Filters> = {}) => {
+            const merged: Filters = {
+                q: query || undefined,
+                status_scope: filters.status_scope,
+                current_status: filters.current_status,
+                player_category: filters.player_category,
+                player_level: filters.player_level,
+                rank: filters.rank,
+                designation: filters.designation,
+                current_unit_id: filters.current_unit_id,
+                home_district_id: filters.home_district_id,
+                posting_district_id: filters.posting_district_id,
+                gender: filters.gender,
+                blood_group: filters.blood_group,
+                sport_id: filters.sport_id,
+                sport_ids: filters.sport_ids,
+                joining_year_from: filters.joining_year_from,
+                joining_year_to: filters.joining_year_to,
+                ...patch,
+            };
+            const params = new URLSearchParams();
+            const mapping: [keyof Filters, string][] = [
+                ['q', 'filter[q]'],
+                ['status_scope', 'filter[status_scope]'],
+                ['current_status', 'filter[current_status]'],
+                ['player_category', 'filter[player_category]'],
+                ['player_level', 'filter[player_level]'],
+                ['rank', 'filter[rank]'],
+                ['designation', 'filter[designation]'],
+                ['current_unit_id', 'filter[current_unit_id]'],
+                ['home_district_id', 'filter[home_district_id]'],
+                ['posting_district_id', 'filter[posting_district_id]'],
+                ['gender', 'filter[gender]'],
+                ['blood_group', 'filter[blood_group]'],
+                ['sport_id', 'filter[sport_id]'],
+                ['sport_ids', 'filter[sport_ids]'],
+                ['joining_year_from', 'filter[joining_year_from]'],
+                ['joining_year_to', 'filter[joining_year_to]'],
+            ];
+
+            for (const [key, param] of mapping) {
+                const value = merged[key];
+
+                if (Array.isArray(value)) {
+                    value.forEach((item) => params.append(`${param}[]`, item));
+                    continue;
+                }
+
+                if (value) {
+                    params.append(param, value);
+                }
             }
-        }
 
-        if (perPage !== 25) {
-            params.append('per_page', String(perPage));
-        }
+            if (perPage !== 25) {
+                params.append('per_page', String(perPage));
+            }
 
-        const queryString = params.toString();
+            const queryString = params.toString();
 
-        return queryString ? `${MemberController.index.url()}?${queryString}` : MemberController.index.url();
-    }, [filters, perPage, query]);
+            return queryString
+                ? `${MemberController.index.url()}?${queryString}`
+                : MemberController.index.url();
+        },
+        [filters, perPage, query],
+    );
 
-    const changeRowsPerPage = useCallback((value: number) => {
-        const url = buildIndexUrl();
-        const [path, queryString] = url.split('?');
-        const params = new URLSearchParams(queryString ?? '');
+    const changeRowsPerPage = useCallback(
+        (value: number) => {
+            const url = buildIndexUrl();
+            const [path, queryString] = url.split('?');
+            const params = new URLSearchParams(queryString ?? '');
 
-        params.set('per_page', String(value));
-        params.delete('page');
+            params.set('per_page', String(value));
+            params.delete('page');
 
-        router.get(`${path}?${params.toString()}`, {}, { preserveState: false, replace: true });
-    }, [buildIndexUrl]);
+            router.get(
+                `${path}?${params.toString()}`,
+                {},
+                { preserveState: false, replace: true },
+            );
+        },
+        [buildIndexUrl],
+    );
 
     // Debounce text search
     useEffect(() => {
@@ -571,22 +704,34 @@ export default function MembersIndex({
                 clearTimeout(debounceRef.current);
             }
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
     const activeFilterCount = [
-        filters.player_category, filters.player_level,
-        filters.rank, filters.designation, filters.current_unit_id, filters.home_district_id, filters.posting_district_id, filters.gender,
-        filters.blood_group, selectedSportIds.length > 0 ? 'sports' : undefined,
-        filters.joining_year_from, filters.joining_year_to,
+        filters.player_category,
+        filters.player_level,
+        filters.rank,
+        filters.designation,
+        filters.current_unit_id,
+        filters.home_district_id,
+        filters.posting_district_id,
+        filters.gender,
+        filters.blood_group,
+        selectedSportIds.length > 0 ? 'sports' : undefined,
+        filters.joining_year_from,
+        filters.joining_year_to,
     ].filter(Boolean).length;
-    const hasAnyFilter = !!(filters.q) || activeFilterCount > 0;
+    const hasAnyFilter = !!filters.q || activeFilterCount > 0;
 
     function clearAll() {
         setQuery('');
         setYearFrom('');
         setYearTo('');
-        router.get(MemberController.index.url(), {}, { preserveState: false, replace: true });
+        router.get(
+            MemberController.index.url(),
+            {},
+            { preserveState: false, replace: true },
+        );
     }
 
     function buildExportUrl(): string {
@@ -630,8 +775,8 @@ export default function MembersIndex({
                 }
 
                 if (value) {
-params.append(param, value);
-}
+                    params.append(param, value);
+                }
             }
         }
 
@@ -651,19 +796,28 @@ params.append(param, value);
                     `<tr>${cols
                         .map((c) => {
                             if (c.key === 'unit') {
-return `<td>${m.current_unit?.name ?? '\u2014'}</td>`;
-}
-
-                            if (c.key === 'home_district') {
-return `<td>${m.home_district?.name ?? '\u2014'}</td>`;
-}
-
-                            if (c.key === 'posting_district') {
-return `<td>${m.current_unit?.name ?? m.posting_district?.name ?? '\u2014'}</td>`;
+                                return `<td>${m.current_unit?.name ?? '\u2014'}</td>`;
                             }
 
-                            if (['dob', 'joining_date', 'promotion_date', 'team_since'].includes(c.key)) {
-                                const value = (m as Record<string, unknown>)[c.key];
+                            if (c.key === 'home_district') {
+                                return `<td>${m.home_district?.name ?? '\u2014'}</td>`;
+                            }
+
+                            if (c.key === 'posting_district') {
+                                return `<td>${m.current_unit?.name ?? m.posting_district?.name ?? '\u2014'}</td>`;
+                            }
+
+                            if (
+                                [
+                                    'dob',
+                                    'joining_date',
+                                    'promotion_date',
+                                    'team_since',
+                                ].includes(c.key)
+                            ) {
+                                const value = (m as Record<string, unknown>)[
+                                    c.key
+                                ];
 
                                 return `<td>${typeof value === 'string' ? (formatDisplayDate(value, locale) ?? '\u2014') : '\u2014'}</td>`;
                             }
@@ -679,15 +833,16 @@ return `<td>${m.current_unit?.name ?? m.posting_district?.name ?? '\u2014'}</td>
         const win = window.open('', '_blank', 'width=900,height=700');
 
         if (!win) {
-return;
-}
+            return;
+        }
 
         win.document.write(html);
         win.document.close();
     }
 
     const pageIds = members.data.map((m) => m.id);
-    const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+    const allPageSelected =
+        pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
     const somePageSelected = pageIds.some((id) => selectedIds.has(id));
 
     function toggleRow(id: number) {
@@ -695,10 +850,10 @@ return;
             const next = new Set(prev);
 
             if (next.has(id)) {
-next.delete(id);
-} else {
-next.add(id);
-}
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
 
             return next;
         });
@@ -729,11 +884,18 @@ next.add(id);
                         title={t('Members')}
                         description={t('Manage athlete roster')}
                     />
-                    <div className="flex gap-2 shrink-0">
-                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                    <div className="flex shrink-0 gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExportOpen(true)}
+                        >
                             <Download className="mr-1.5 h-4 w-4" />
                             {selectedIds.size > 0
-                                ? t('Export :n selected').replace(':n', String(selectedIds.size))
+                                ? t('Export :n selected').replace(
+                                      ':n',
+                                      String(selectedIds.size),
+                                  )
                                 : t('Export')}
                         </Button>
                         <Button asChild size="sm">
@@ -748,7 +910,11 @@ next.add(id);
                 <Tabs value={activeStatusScope} className="w-full">
                     <TabsList className="w-auto max-w-full">
                         {STATUS_TABS.map((tab) => (
-                            <TabsTrigger key={tab.value} value={tab.value} asChild>
+                            <TabsTrigger
+                                key={tab.value}
+                                value={tab.value}
+                                asChild
+                            >
                                 <Link
                                     href={buildIndexUrl({
                                         status_scope: tab.value,
@@ -768,7 +934,7 @@ next.add(id);
                 <div className="flex flex-wrap items-center gap-2">
                     {/* Search */}
                     <div className="relative w-56 shrink-0">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t('Search members…')}
                             value={query}
@@ -780,24 +946,44 @@ next.add(id);
                     {/* Category */}
                     <FilterPill
                         label={t('Category')}
-                        activeLabel={filters.player_category ? t(filters.player_category) : undefined}
-                        onClear={() => applyFilters({ player_category: undefined })}
+                        activeLabel={
+                            filters.player_category
+                                ? t(filters.player_category)
+                                : undefined
+                        }
+                        onClear={() =>
+                            applyFilters({ player_category: undefined })
+                        }
                     >
                         <OptionList
-                            options={CATEGORY_OPTIONS.map((c) => ({ value: c, label: t(c) }))}
+                            options={CATEGORY_OPTIONS.map((c) => ({
+                                value: c,
+                                label: t(c),
+                            }))}
                             value={filters.player_category}
-                            onSelect={(v) => applyFilters({ player_category: v })}
+                            onSelect={(v) =>
+                                applyFilters({ player_category: v })
+                            }
                         />
                     </FilterPill>
 
                     {/* Level */}
                     <FilterPill
                         label={t('Level')}
-                        activeLabel={filters.player_level ? t(filters.player_level) : undefined}
-                        onClear={() => applyFilters({ player_level: undefined })}
+                        activeLabel={
+                            filters.player_level
+                                ? t(filters.player_level)
+                                : undefined
+                        }
+                        onClear={() =>
+                            applyFilters({ player_level: undefined })
+                        }
                     >
                         <OptionList
-                            options={LEVEL_OPTIONS.map((l) => ({ value: l, label: t(l) }))}
+                            options={LEVEL_OPTIONS.map((l) => ({
+                                value: l,
+                                label: t(l),
+                            }))}
                             value={filters.player_level}
                             onSelect={(v) => applyFilters({ player_level: v })}
                         />
@@ -805,7 +991,13 @@ next.add(id);
 
                     <FilterPill
                         label={t('Rank')}
-                        activeLabel={filters.rank ? (ranks.find((rank) => rank.code === filters.rank)?.name ?? filters.rank) : undefined}
+                        activeLabel={
+                            filters.rank
+                                ? (ranks.find(
+                                      (rank) => rank.code === filters.rank,
+                                  )?.name ?? filters.rank)
+                                : undefined
+                        }
                         onClear={() => applyFilters({ rank: undefined })}
                     >
                         <SearchableOptionList
@@ -821,7 +1013,15 @@ next.add(id);
 
                     <FilterPill
                         label={t('Designation')}
-                        activeLabel={filters.designation ? (designations.find((designation) => designation.code === filters.designation)?.name ?? filters.designation) : undefined}
+                        activeLabel={
+                            filters.designation
+                                ? (designations.find(
+                                      (designation) =>
+                                          designation.code ===
+                                          filters.designation,
+                                  )?.name ?? filters.designation)
+                                : undefined
+                        }
                         onClear={() => applyFilters({ designation: undefined })}
                     >
                         <SearchableOptionList
@@ -835,30 +1035,78 @@ next.add(id);
                         />
                     </FilterPill>
 
-                    {/* Unit */}
+                    {/* Posting */}
                     <FilterPill
-                        label={t('Unit')}
-                        activeLabel={filters.current_unit_id ? (units.find((u) => String(u.id) === filters.current_unit_id) ? localeName(units.find((u) => String(u.id) === filters.current_unit_id)!, locale) : filters.current_unit_id) : undefined}
-                        onClear={() => applyFilters({ current_unit_id: undefined })}
+                        label={t('Posting')}
+                        activeLabel={
+                            filters.current_unit_id
+                                ? units.find(
+                                      (u) =>
+                                          String(u.id) ===
+                                          filters.current_unit_id,
+                                  )
+                                    ? localeName(
+                                          units.find(
+                                              (u) =>
+                                                  String(u.id) ===
+                                                  filters.current_unit_id,
+                                          )!,
+                                          locale,
+                                      )
+                                    : filters.current_unit_id
+                                : undefined
+                        }
+                        onClear={() =>
+                            applyFilters({ current_unit_id: undefined })
+                        }
                     >
                         <SearchableOptionList
-                            options={units.map((u) => ({ value: String(u.id), label: localeName(u, locale) }))}
+                            options={units.map((u) => ({
+                                value: String(u.id),
+                                label: localeName(u, locale),
+                            }))}
                             value={filters.current_unit_id}
-                            onSelect={(v) => applyFilters({ current_unit_id: v })}
-                            searchPlaceholder={t('Search units…')}
+                            onSelect={(v) =>
+                                applyFilters({ current_unit_id: v })
+                            }
+                            searchPlaceholder={t('Search postings…')}
                         />
                     </FilterPill>
 
                     {/* Home district */}
                     <FilterPill
                         label={t('Home district')}
-                        activeLabel={filters.home_district_id ? (districts.find((d) => String(d.id) === filters.home_district_id) ? localeName(districts.find((d) => String(d.id) === filters.home_district_id)!, locale) : filters.home_district_id) : undefined}
-                        onClear={() => applyFilters({ home_district_id: undefined })}
+                        activeLabel={
+                            filters.home_district_id
+                                ? districts.find(
+                                      (d) =>
+                                          String(d.id) ===
+                                          filters.home_district_id,
+                                  )
+                                    ? localeName(
+                                          districts.find(
+                                              (d) =>
+                                                  String(d.id) ===
+                                                  filters.home_district_id,
+                                          )!,
+                                          locale,
+                                      )
+                                    : filters.home_district_id
+                                : undefined
+                        }
+                        onClear={() =>
+                            applyFilters({ home_district_id: undefined })
+                        }
                     >
                         <SearchableOptionList
-                            options={districts.map((d) => ({ value: String(d.id), label: localeName(d, locale) }))}
+                            options={districts.map((d) => ({
+                                value: String(d.id),
+                                label: localeName(d, locale),
+                            }))}
                             value={filters.home_district_id}
-                            onSelect={(v) => applyFilters({ home_district_id: v })}
+                            onSelect={(v) =>
+                                applyFilters({ home_district_id: v })
+                            }
                             searchPlaceholder={t('Search districts…')}
                         />
                     </FilterPill>
@@ -866,13 +1114,37 @@ next.add(id);
                     {/* Posting district */}
                     <FilterPill
                         label={t('Posting district')}
-                        activeLabel={filters.posting_district_id ? (districts.find((d) => String(d.id) === filters.posting_district_id) ? localeName(districts.find((d) => String(d.id) === filters.posting_district_id)!, locale) : filters.posting_district_id) : undefined}
-                        onClear={() => applyFilters({ posting_district_id: undefined })}
+                        activeLabel={
+                            filters.posting_district_id
+                                ? districts.find(
+                                      (d) =>
+                                          String(d.id) ===
+                                          filters.posting_district_id,
+                                  )
+                                    ? localeName(
+                                          districts.find(
+                                              (d) =>
+                                                  String(d.id) ===
+                                                  filters.posting_district_id,
+                                          )!,
+                                          locale,
+                                      )
+                                    : filters.posting_district_id
+                                : undefined
+                        }
+                        onClear={() =>
+                            applyFilters({ posting_district_id: undefined })
+                        }
                     >
                         <SearchableOptionList
-                            options={districts.map((d) => ({ value: String(d.id), label: localeName(d, locale) }))}
+                            options={districts.map((d) => ({
+                                value: String(d.id),
+                                label: localeName(d, locale),
+                            }))}
                             value={filters.posting_district_id}
-                            onSelect={(v) => applyFilters({ posting_district_id: v })}
+                            onSelect={(v) =>
+                                applyFilters({ posting_district_id: v })
+                            }
                             searchPlaceholder={t('Search districts…')}
                         />
                     </FilterPill>
@@ -880,11 +1152,22 @@ next.add(id);
                     {/* Gender */}
                     <FilterPill
                         label={t('Gender')}
-                        activeLabel={filters.gender ? t(GENDER_OPTIONS.find((g) => g.value === filters.gender)?.label ?? filters.gender) : undefined}
+                        activeLabel={
+                            filters.gender
+                                ? t(
+                                      GENDER_OPTIONS.find(
+                                          (g) => g.value === filters.gender,
+                                      )?.label ?? filters.gender,
+                                  )
+                                : undefined
+                        }
                         onClear={() => applyFilters({ gender: undefined })}
                     >
                         <OptionList
-                            options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: t(g.label) }))}
+                            options={GENDER_OPTIONS.map((g) => ({
+                                value: g.value,
+                                label: t(g.label),
+                            }))}
                             value={filters.gender}
                             onSelect={(v) => applyFilters({ gender: v })}
                         />
@@ -897,7 +1180,10 @@ next.add(id);
                         onClear={() => applyFilters({ blood_group: undefined })}
                     >
                         <OptionList
-                            options={BLOOD_GROUP_OPTIONS.map((bg) => ({ value: bg, label: bg }))}
+                            options={BLOOD_GROUP_OPTIONS.map((bg) => ({
+                                value: bg,
+                                label: bg,
+                            }))}
                             value={filters.blood_group}
                             onSelect={(v) => applyFilters({ blood_group: v })}
                         />
@@ -906,8 +1192,16 @@ next.add(id);
                     {/* Playable sport */}
                     <OptionMultiSelect
                         value={selectedSportIds}
-                        onValueChange={(value) => applyFilters({ sport_id: undefined, sport_ids: value })}
-                        options={sports.map((s) => ({ value: String(s.id), label: s.name }))}
+                        onValueChange={(value) =>
+                            applyFilters({
+                                sport_id: undefined,
+                                sport_ids: value,
+                            })
+                        }
+                        options={sports.map((s) => ({
+                            value: String(s.id),
+                            label: s.name,
+                        }))}
                         placeholder={t('Playable sport')}
                         searchPlaceholder={t('Search sports…')}
                         className="h-8 w-48 text-xs"
@@ -918,13 +1212,19 @@ next.add(id);
                         label={t('Joining year')}
                         activeLabel={
                             filters.joining_year_from || filters.joining_year_to
-                                ? [filters.joining_year_from ?? '…', filters.joining_year_to ?? '…'].join('–')
+                                ? [
+                                      filters.joining_year_from ?? '…',
+                                      filters.joining_year_to ?? '…',
+                                  ].join('–')
                                 : undefined
                         }
                         onClear={() => {
                             setYearFrom('');
                             setYearTo('');
-                            applyFilters({ joining_year_from: undefined, joining_year_to: undefined });
+                            applyFilters({
+                                joining_year_from: undefined,
+                                joining_year_to: undefined,
+                            });
                         }}
                     >
                         <div className="flex items-center gap-2 p-3">
@@ -936,10 +1236,23 @@ next.add(id);
                                 className="h-8 w-20 text-sm"
                                 value={yearFrom}
                                 onChange={(e) => setYearFrom(e.target.value)}
-                                onBlur={() => applyFilters({ joining_year_from: yearFrom || undefined })}
-                                onKeyDown={(e) => e.key === 'Enter' && applyFilters({ joining_year_from: yearFrom || undefined })}
+                                onBlur={() =>
+                                    applyFilters({
+                                        joining_year_from:
+                                            yearFrom || undefined,
+                                    })
+                                }
+                                onKeyDown={(e) =>
+                                    e.key === 'Enter' &&
+                                    applyFilters({
+                                        joining_year_from:
+                                            yearFrom || undefined,
+                                    })
+                                }
                             />
-                            <span className="text-xs text-muted-foreground">–</span>
+                            <span className="text-xs text-muted-foreground">
+                                –
+                            </span>
                             <Input
                                 type="number"
                                 placeholder={t('To')}
@@ -948,8 +1261,17 @@ next.add(id);
                                 className="h-8 w-20 text-sm"
                                 value={yearTo}
                                 onChange={(e) => setYearTo(e.target.value)}
-                                onBlur={() => applyFilters({ joining_year_to: yearTo || undefined })}
-                                onKeyDown={(e) => e.key === 'Enter' && applyFilters({ joining_year_to: yearTo || undefined })}
+                                onBlur={() =>
+                                    applyFilters({
+                                        joining_year_to: yearTo || undefined,
+                                    })
+                                }
+                                onKeyDown={(e) =>
+                                    e.key === 'Enter' &&
+                                    applyFilters({
+                                        joining_year_to: yearTo || undefined,
+                                    })
+                                }
                             />
                         </div>
                     </FilterPill>
@@ -992,20 +1314,30 @@ next.add(id);
                                 <TableHead className="w-0 pr-0">
                                     <Checkbox
                                         checked={allPageSelected}
-                                        data-state={somePageSelected && !allPageSelected ? 'indeterminate' : undefined}
+                                        data-state={
+                                            somePageSelected && !allPageSelected
+                                                ? 'indeterminate'
+                                                : undefined
+                                        }
                                         onCheckedChange={togglePage}
                                         aria-label={t('Select all on page')}
                                     />
                                 </TableHead>
                                 <TableHead>{t('Sr no')}</TableHead>
                                 <TableHead>{t('Name')}</TableHead>
-                                <TableHead className="hidden md:table-cell">{t('PNO')}</TableHead>
-                                <TableHead className="hidden md:table-cell">{t('Blood group')}</TableHead>
-                                <TableHead className="hidden lg:table-cell">{t('Gender')}</TableHead>
+                                <TableHead className="hidden md:table-cell">
+                                    {t('PNO')}
+                                </TableHead>
+                                <TableHead className="hidden md:table-cell">
+                                    {t('Blood group')}
+                                </TableHead>
+                                <TableHead className="hidden lg:table-cell">
+                                    {t('Gender')}
+                                </TableHead>
                                 <TableHead>{t('Playable sports')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
-                                <TableHead>{t('Posting / District')}</TableHead>
+                                <TableHead>{t('Posting')}</TableHead>
                                 <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
                                     {t('Actions')}
                                 </TableHead>
@@ -1014,9 +1346,14 @@ next.add(id);
                         <TableBody>
                             {members.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={11} className="py-12 text-center text-muted-foreground">
+                                    <TableCell
+                                        colSpan={11}
+                                        className="py-12 text-center text-muted-foreground"
+                                    >
                                         {hasAnyFilter
-                                            ? t('No members match your filters.')
+                                            ? t(
+                                                  'No members match your filters.',
+                                              )
                                             : t('No members yet.')}
                                     </TableCell>
                                 </TableRow>
@@ -1025,13 +1362,29 @@ next.add(id);
                                     <TableRow
                                         key={member.id}
                                         className="group cursor-pointer transition-colors hover:bg-muted/30 data-[selected]:bg-primary/5"
-                                        data-selected={selectedIds.has(member.id) || undefined}
-                                        onClick={() => router.visit(MemberController.show.url(member.id))}
+                                        data-selected={
+                                            selectedIds.has(member.id) ||
+                                            undefined
+                                        }
+                                        onClick={() =>
+                                            router.visit(
+                                                MemberController.show.url(
+                                                    member.id,
+                                                ),
+                                            )
+                                        }
                                     >
-                                        <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
+                                        <TableCell
+                                            className="pr-0"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
                                             <Checkbox
-                                                checked={selectedIds.has(member.id)}
-                                                onCheckedChange={() => toggleRow(member.id)}
+                                                checked={selectedIds.has(
+                                                    member.id,
+                                                )}
+                                                onCheckedChange={() =>
+                                                    toggleRow(member.id)
+                                                }
                                                 aria-label={t('Select row')}
                                             />
                                         </TableCell>
@@ -1041,11 +1394,13 @@ next.add(id);
                                         <TableCell>
                                             <div className="flex min-w-56 items-center gap-2 overflow-hidden whitespace-nowrap">
                                                 {member.rank && (
-                                                    <span className="inline-flex shrink-0 items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-sky-700 dark:text-sky-300">
+                                                    <span className="inline-flex shrink-0 items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] leading-none font-medium text-sky-700 dark:text-sky-300">
                                                         {member.rank}
                                                     </span>
                                                 )}
-                                                <span className="truncate font-semibold text-foreground">{member.full_name}</span>
+                                                <span className="truncate font-semibold text-foreground">
+                                                    {member.full_name}
+                                                </span>
                                                 <div className="flex shrink-0 items-center gap-1.5">
                                                     {member.designation && (
                                                         <span className="truncate text-xs font-medium text-amber-700 dark:text-amber-300">
@@ -1055,7 +1410,7 @@ next.add(id);
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                                        <TableCell className="hidden text-muted-foreground md:table-cell">
                                             {member.pno ? (
                                                 <div className="flex items-center gap-2">
                                                     <IdCard className="h-4 w-4 text-sky-600 dark:text-sky-300" />
@@ -1063,19 +1418,26 @@ next.add(id);
                                                 </div>
                                             ) : null}
                                         </TableCell>
-                                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                                        <TableCell className="hidden text-muted-foreground md:table-cell">
                                             {member.blood_group ? (
                                                 <div className="flex items-center gap-2">
                                                     <ShieldCheck className="h-4 w-4 text-rose-600 dark:text-rose-300" />
-                                                    <span>{member.blood_group}</span>
+                                                    <span>
+                                                        {member.blood_group}
+                                                    </span>
                                                 </div>
                                             ) : null}
                                         </TableCell>
-                                        <TableCell className="hidden lg:table-cell text-muted-foreground">
+                                        <TableCell className="hidden text-muted-foreground lg:table-cell">
                                             {member.gender ? (
                                                 <div className="flex items-center gap-2">
                                                     <UserCheck className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-300" />
-                                                    <span>{genderLabel(member.gender, t)}</span>
+                                                    <span>
+                                                        {genderLabel(
+                                                            member.gender,
+                                                            t,
+                                                        )}
+                                                    </span>
                                                 </div>
                                             ) : null}
                                         </TableCell>
@@ -1083,12 +1445,32 @@ next.add(id);
                                             <SportCell member={member} />
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className={CATEGORY_BADGE_CLASS[displayCategory(member.player_category)]}>
-                                                {t(displayCategory(member.player_category))}
+                                            <Badge
+                                                variant="outline"
+                                                className={
+                                                    CATEGORY_BADGE_CLASS[
+                                                        displayCategory(
+                                                            member.player_category,
+                                                        )
+                                                    ]
+                                                }
+                                            >
+                                                {t(
+                                                    displayCategory(
+                                                        member.player_category,
+                                                    ),
+                                                )}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className={LEVEL_BADGE_CLASS[member.player_level]}>
+                                            <Badge
+                                                variant="outline"
+                                                className={
+                                                    LEVEL_BADGE_CLASS[
+                                                        member.player_level
+                                                    ]
+                                                }
+                                            >
                                                 {t(member.player_level)}
                                             </Badge>
                                         </TableCell>
@@ -1096,24 +1478,43 @@ next.add(id);
                                             {postingLocation(member) ? (
                                                 <div className="flex items-center gap-2">
                                                     <MapPinned className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                                                    <span>{postingLocation(member)}</span>
+                                                    <span>
+                                                        {postingLocation(
+                                                            member,
+                                                        )}
+                                                    </span>
                                                 </div>
                                             ) : null}
                                         </TableCell>
-                                        <TableCell className="sticky right-0 z-10 w-0 bg-card text-right" onClick={(e) => e.stopPropagation()}>
+                                        <TableCell
+                                            className="sticky right-0 z-10 w-0 bg-card text-right"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
                                             <div className="flex items-center justify-end">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     title={t('Quick info')}
                                                     onClick={(e) => {
- e.stopPropagation(); setQuickViewId(member.id);
-}}
+                                                        e.stopPropagation();
+                                                        setQuickViewId(
+                                                            member.id,
+                                                        );
+                                                    }}
                                                 >
                                                     <Info className="h-4 w-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" title={t('View')} asChild>
-                                                    <Link href={MemberController.show.url(member.id)}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('View')}
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={MemberController.show.url(
+                                                            member.id,
+                                                        )}
+                                                    >
                                                         <Eye className="h-4 w-4" />
                                                     </Link>
                                                 </Button>
@@ -1125,33 +1526,49 @@ next.add(id);
                         </TableBody>
                     </Table>
                 </div>
-
             </div>
 
             {/* Export Dialog */}
             <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-                <DialogContent className="max-w-lg" aria-describedby={undefined}>
+                <DialogContent
+                    className="max-w-lg"
+                    aria-describedby={undefined}
+                >
                     <DialogHeader>
                         <DialogTitle>{t('Export members')}</DialogTitle>
                     </DialogHeader>
 
-                    <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                         <p className="text-sm text-muted-foreground">
                             {selectedIds.size > 0
-                                ? t('Exporting :n selected members.').replace(':n', String(selectedIds.size))
+                                ? t('Exporting :n selected members.').replace(
+                                      ':n',
+                                      String(selectedIds.size),
+                                  )
                                 : hasAnyFilter
-                                    ? t('Exporting filtered results (:count total).').replace(':count', String(members.total))
-                                    : t('Exporting all :count members.').replace(':count', String(totalCount))}
+                                  ? t(
+                                        'Exporting filtered results (:count total).',
+                                    ).replace(':count', String(members.total))
+                                  : t('Exporting all :count members.').replace(
+                                        ':count',
+                                        String(totalCount),
+                                    )}
                         </p>
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <Label className="text-sm font-medium">{t('Select columns to export')}</Label>
+                                <Label className="text-sm font-medium">
+                                    {t('Select columns to export')}
+                                </Label>
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
                                         className="text-xs text-primary hover:underline"
-                                        onClick={() => setSelectedColumns(ALL_COLUMNS.map((c) => c.key))}
+                                        onClick={() =>
+                                            setSelectedColumns(
+                                                ALL_COLUMNS.map((c) => c.key),
+                                            )
+                                        }
                                     >
                                         {t('Select all')}
                                     </button>
@@ -1166,14 +1583,22 @@ next.add(id);
                             </div>
                             <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
                                 {ALL_COLUMNS.map((col) => (
-                                    <label key={col.key} className="flex cursor-pointer items-center gap-2 text-sm">
+                                    <label
+                                        key={col.key}
+                                        className="flex cursor-pointer items-center gap-2 text-sm"
+                                    >
                                         <Checkbox
-                                            checked={selectedColumns.includes(col.key)}
+                                            checked={selectedColumns.includes(
+                                                col.key,
+                                            )}
                                             onCheckedChange={(checked) => {
                                                 setSelectedColumns((prev) =>
                                                     checked
                                                         ? [...prev, col.key]
-                                                        : prev.filter((k) => k !== col.key),
+                                                        : prev.filter(
+                                                              (k) =>
+                                                                  k !== col.key,
+                                                          ),
                                                 );
                                             }}
                                         />
@@ -1185,7 +1610,10 @@ next.add(id);
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setExportOpen(false)}>
+                        <Button
+                            variant="outline"
+                            onClick={() => setExportOpen(false)}
+                        >
                             {t('Cancel')}
                         </Button>
                         <Button
@@ -1223,7 +1651,5 @@ next.add(id);
 }
 
 MembersIndex.layout = {
-    breadcrumbs: [
-        { title: 'Members', href: MemberController.index.url() },
-    ],
+    breadcrumbs: [{ title: 'Members', href: MemberController.index.url() }],
 };

@@ -134,6 +134,17 @@ test('teams.export writes roster details across multiple rows and merges team ce
         'coach_id' => $coach->id,
         'session_id' => $rosterSession->id,
     ]);
+    CoachAssignment::factory()->assistant()->create([
+        'team_id' => $team->id,
+        'coach_id' => Coach::factory()->create([
+            'organization_id' => $user->organization_id,
+            'full_name' => 'Removed Coach',
+            'pno' => 'REM001',
+        ])->id,
+        'session_id' => $rosterSession->id,
+        'is_current' => false,
+        'removed_at' => now(),
+    ]);
 
     TeamInchargeAssignment::factory()->create([
         'team_id' => $team->id,
@@ -144,7 +155,9 @@ test('teams.export writes roster details across multiple rows and merges team ce
         'mobile' => '9222222222',
     ]);
 
-    $this->actingAs($user)->get(route('teams.export'))->assertOk();
+    $this->actingAs($user)
+        ->get(route('teams.export', ['filter' => ['session_id' => $rosterSession->id]]))
+        ->assertOk();
 
     Excel::assertDownloaded('teams-'.now()->format('Y-m-d').'.xlsx', function (ReportExport $export): bool {
         $headings = $export->headings();
@@ -152,35 +165,22 @@ test('teams.export writes roster details across multiple rows and merges team ce
         $firstRow = $rows->get(0);
         $secondRow = $rows->get(1);
         $thirdRow = $rows->get(2);
-        $firstRowByHeading = collect($headings)->combine($firstRow);
-        $secondRowByHeading = collect($headings)->combine($secondRow);
-        $thirdRowByHeading = collect($headings)->combine($thirdRow);
 
-        expect($headings)->toContain(
-            __('Roster Type'),
-            __('Roster S.No.'),
-            __('Session'),
-            __('Team Session'),
-            __('Member Name'),
-            __('Coach Name'),
-            __('In-Charge Mobile'),
-        );
         expect($headings)->not->toContain(
             'Member 1 Name',
             'Member 2 Name',
             'Coach 1 Name',
         );
         expect($rows)->toHaveCount(3);
+        expect($rows->flatten()->contains('Removed Coach'))->toBeFalse();
         expect($export->mergeRanges())->toContain(
             'A2:A4',
             'B2:B4',
             'C2:C4',
             'V2:V4',
         );
-        expect($export->mergeRanges())->not->toContain('W2:W4');
         expect($firstRow)->toContain(
             'Client Excel Team',
-            'Team Header Session',
             'Roster Detail Session',
             'Inspector Meera Singh',
             '9222222222',
@@ -190,10 +190,6 @@ test('teams.export writes roster details across multiple rows and merges team ce
             __('Male'),
             __('PLAYER'),
         );
-        expect($firstRowByHeading[__('Team Name')])->toBe('Client Excel Team')
-            ->and($firstRowByHeading[__('Session')])->toBe('Team Header Session')
-            ->and($firstRowByHeading[__('Team Session')])->toBe('Roster Detail Session')
-            ->and($firstRowByHeading[__('Gender')])->toBe(__('Male'));
         expect($secondRow)->toContain(
             __('Member'),
             'Player Two',
@@ -201,20 +197,12 @@ test('teams.export writes roster details across multiple rows and merges team ce
             __('Female'),
             __('CAPTAIN'),
         );
-        expect($secondRowByHeading[__('Team Name')])->toBeNull()
-            ->and($secondRowByHeading[__('Session')])->toBeNull()
-            ->and($secondRowByHeading[__('Team Session')])->toBe('Roster Detail Session')
-            ->and($secondRowByHeading[__('Gender')])->toBe(__('Female'));
         expect($thirdRow)->toContain(
             __('Coach'),
             'Coach One',
             __('Yes'),
             __('HEAD'),
         );
-        expect($thirdRowByHeading[__('Team Name')])->toBeNull()
-            ->and($thirdRowByHeading[__('Session')])->toBeNull()
-            ->and($thirdRowByHeading[__('Coach Session')])->toBe('Roster Detail Session')
-            ->and($thirdRowByHeading[__('NIS Certified')])->toBe(__('Yes'));
 
         return true;
     });

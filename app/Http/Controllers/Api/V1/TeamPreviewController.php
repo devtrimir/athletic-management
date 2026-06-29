@@ -35,6 +35,7 @@ class TeamPreviewController extends Controller
 
         $coachAssignments = $team->coachAssignments()
             ->with(['coach:id,full_name,pno,nis_certified', 'session:id,name'])
+            ->current()
             ->when(
                 $selectedSessionId > 0,
                 fn ($query) => $query->where('session_id', $selectedSessionId),

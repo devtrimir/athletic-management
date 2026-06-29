@@ -261,7 +261,7 @@ class TeamExportController extends Controller
             'coachAssignments as coaches_count' => fn ($query) => $query->when(
                 $sessionId !== null,
                 fn ($q) => $q->where('session_id', $sessionId),
-            ),
+            )->current(),
         ];
     }
 
@@ -293,6 +293,7 @@ class TeamExportController extends Controller
                     $sessionId !== null,
                     fn ($q) => $q->where('session_id', $sessionId),
                 )
+                ->current()
                 ->with([
                     'coach:id,full_name,pno,mobile,nis_certified',
                     'session:id,name',

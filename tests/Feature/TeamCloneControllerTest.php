@@ -248,6 +248,51 @@ test('selected coaches are copied to the same team for the target session', func
     ]);
 });
 
+test('selected coach is copied even when already assigned to another team in target session', function (): void {
+    $user = cloneUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = cloneTeamWithOrg($org);
+    $targetSession = anotherSession($org);
+    $otherTeam = Team::factory()->forOrganization($org)->create([
+        'session_id' => $targetSession->id,
+        'sport_id' => $team->sport_id,
+    ]);
+
+    $coach = Coach::factory()->create(['organization_id' => $org->id]);
+    $row = CoachAssignment::factory()->create([
+        'team_id' => $team->id,
+        'coach_id' => $coach->id,
+        'session_id' => $team->session_id,
+        'role' => 'HEAD',
+    ]);
+    CoachAssignment::factory()->create([
+        'team_id' => $otherTeam->id,
+        'coach_id' => $coach->id,
+        'session_id' => $targetSession->id,
+        'role' => 'ASSISTANT',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('teams.clone', $team), [
+            'session_id' => $targetSession->id,
+            'member_ids' => [],
+            'coach_ids' => [$row->id],
+        ]);
+
+    $this->assertDatabaseHas('coach_assignments', [
+        'team_id' => $otherTeam->id,
+        'coach_id' => $coach->id,
+        'session_id' => $targetSession->id,
+        'is_current' => true,
+    ]);
+    $this->assertDatabaseHas('coach_assignments', [
+        'team_id' => $team->id,
+        'coach_id' => $coach->id,
+        'session_id' => $targetSession->id,
+        'is_current' => true,
+    ]);
+});
+
 test('conflicting members are skipped and non-conflicting are copied', function (): void {
     $user = cloneUser('teams.update');
     $org = Organization::find($user->organization_id);

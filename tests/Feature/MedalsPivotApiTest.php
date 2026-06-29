@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Achievement;
 use App\Models\Event;
 use App\Models\Member;
+use App\Models\MemberLegacyAchievement;
 use App\Models\Organization;
 use App\Models\Participation;
 use App\Models\Permission;
@@ -12,6 +13,7 @@ use App\Models\Role;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\User;
@@ -309,6 +311,98 @@ test('team medal tally counts one team medal when multiple players medal in the 
     expect($response->json('data.0.GOLD'))->toBe(1);
     expect($response->json('data.0.players'))->toBe(2);
     expect($response->json('data.0.events'))->toBe(1);
+});
+
+test('team medal tally includes legacy medals from active team members in the same session', function () {
+    $user = medalsUser('reports.view');
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'name' => 'Legacy Team',
+    ]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'left_on' => null,
+    ]);
+
+    MemberLegacyAchievement::factory()->forMember($member)->create([
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'period' => 'POST_RECRUITMENT',
+        'level' => 'INTERNATIONAL',
+        'medal_type' => 'BRONZE',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.reports.medals', ['group_by' => 'team']))
+        ->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.team.name'))->toBe('Legacy Team');
+    expect($response->json('data.0.BRONZE'))->toBe(1);
+    expect($response->json('data.0.players'))->toBe(1);
+    expect($response->json('data.0.events'))->toBe(1);
+});
+
+test('medal detail includes live and legacy medals when drilling into a session tier', function () {
+    $user = medalsUser('reports.view');
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => 'INTERNATIONAL'],
+        ['label_hi' => 'International', 'label_en' => 'International', 'weight' => 100],
+    );
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'tier_id' => $tier->id,
+        'name' => 'International Tournament',
+    ]);
+    $event = Event::factory()->create(['tournament_id' => $tournament->id, 'sport_id' => $sport->id]);
+    $participation = Participation::factory()->create([
+        'member_id' => $member->id,
+        'event_id' => $event->id,
+        'session_id' => $session->id,
+    ]);
+    Achievement::factory()->create([
+        'participation_id' => $participation->id,
+        'medal_type' => 'GOLD',
+    ]);
+
+    MemberLegacyAchievement::factory()->forMember($member)->create([
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'period' => 'POST_RECRUITMENT',
+        'level' => 'INTERNATIONAL',
+        'competition_details' => 'Manual International Event',
+        'event' => 'Relay',
+        'event_date' => '2026-06-01',
+        'medal_type' => 'GOLD',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.reports.medals.detail', [
+            'session_id' => $session->id,
+            'tier_id' => $tier->id,
+            'medal_type' => 'GOLD',
+        ]))
+        ->assertOk();
+
+    expect($response->json('total'))->toBe(2);
+    expect(collect($response->json('data'))->pluck('tournament.name')->all())
+        ->toContain('International Tournament')
+        ->toContain('Manual International Event');
+    expect($response->json('medal_counts.GOLD'))->toBe(2);
 });
 
 test('other tier medals are shown as display only and excluded from calculated medal counts', function () {

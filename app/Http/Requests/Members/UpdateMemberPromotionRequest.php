@@ -23,11 +23,13 @@ class UpdateMemberPromotionRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'cash_reward_only' => ['sometimes', 'boolean'],
             'promotion_date' => ['sometimes', 'nullable', 'date'],
             'from_rank' => ['sometimes', 'nullable', 'string', 'max:100'],
             'to_rank' => [
                 'sometimes',
-                'required',
+                Rule::requiredIf(fn (): bool => ! $this->boolean('cash_reward_only')),
+                'nullable',
                 'string',
                 'max:100',
             ],
@@ -46,6 +48,10 @@ class UpdateMemberPromotionRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($this->boolean('cash_reward_only')) {
+                return;
+            }
+
             $member = $this->route('member');
             $promotion = $this->route('promotion');
             $fromRank = $this->input('from_rank')

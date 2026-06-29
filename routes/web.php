@@ -109,9 +109,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('coaches/{coach}/assignments', [CoachProfileTabController::class, 'assignments'])->name('coaches.assignments');
     Route::get('coaches/{coach}/sports', [CoachProfileTabController::class, 'sports'])->name('coaches.sports');
     Route::get('coaches/{coach}/certifications', [CoachProfileTabController::class, 'certifications'])->name('coaches.certifications');
-    Route::get('coaches/{coach}/events', [CoachProfileTabController::class, 'events'])->name('coaches.events');
     Route::get('coaches/{coach}/achievements', [CoachProfileTabController::class, 'achievements'])->name('coaches.achievements');
-    Route::get('coaches/{coach}/performance', [CoachProfileTabController::class, 'performance'])->name('coaches.performance');
     Route::get('coaches/{coach}/promotions', [CoachProfileTabController::class, 'promotions'])->name('coaches.promotions');
     Route::get('coaches/{coach}/media', [CoachProfileTabController::class, 'media'])->name('coaches.media');
     Route::get('coaches/{coach}/aliases', [CoachProfileTabController::class, 'aliases'])->name('coaches.aliases');

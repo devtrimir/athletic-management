@@ -194,7 +194,9 @@ class TeamListingService
             'teamMemberMovements as removed_players_count' => fn (Builder $query): Builder => $query
                 ->where('session_id', $selectedSessionId)
                 ->where('action', 'REMOVED'),
-            'coachAssignments as coaches_count' => fn (Builder $query): Builder => $query->where('session_id', $selectedSessionId),
+            'coachAssignments as coaches_count' => fn (Builder $query): Builder => $query
+                ->where('session_id', $selectedSessionId)
+                ->current(),
         ];
     }
 }
