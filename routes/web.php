@@ -39,6 +39,7 @@ use App\Http\Controllers\MemberSpecialAchievementController;
 use App\Http\Controllers\MemberStatusController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportsMedalsController;
+use App\Http\Controllers\SportsCalendarController;
 use App\Http\Controllers\TeamCloneController;
 use App\Http\Controllers\TeamCoachController;
 use App\Http\Controllers\TeamController;
@@ -140,6 +141,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('tournaments/export', [TournamentExportController::class, 'index'])->name('tournaments.export');
     Route::get('tournaments/{tournament}/events', [TournamentProfileTabController::class, 'events'])->name('tournaments.events');
     Route::resource('tournaments', TournamentController::class);
+    Route::get('sports-calendars/{sports_calendar}/report', [SportsCalendarController::class, 'report'])->name('sports-calendars.report');
+    Route::get('sports-calendars/{sports_calendar}/report/preview', [SportsCalendarController::class, 'previewReport'])->name('sports-calendars.report.preview');
+    Route::resource('sports-calendars', SportsCalendarController::class)->except(['destroy', 'show']);
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/medals', ReportsMedalsController::class)->name('reports.medals');
     Route::get('reports/medals/detail', [ReportsMedalsController::class, 'detail'])->name('reports.medals.detail');
