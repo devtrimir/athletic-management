@@ -2128,11 +2128,8 @@ export default function TeamsShow({
                                                     <TableHead>
                                                         {t('Role')}
                                                     </TableHead>
-                                                    <TableHead className="hidden md:table-cell">
-                                                        {t('Designation')}
-                                                    </TableHead>
                                                     <TableHead className="hidden lg:table-cell">
-                                                        {t('Unit')}
+                                                        {t('Posting')}
                                                     </TableHead>
                                                     <TableHead className="hidden lg:table-cell">
                                                         {t('Phone')}
@@ -2258,16 +2255,6 @@ export default function TeamsShow({
                                                                                   )
                                                                                 : ''}
                                                                         </span>
-                                                                    </TableCell>
-                                                                    <TableCell className="hidden md:table-cell">
-                                                                        <div className="space-y-0.5">
-                                                                            <div className="font-medium">
-                                                                                {row
-                                                                                    .member
-                                                                                    ?.designation ??
-                                                                                    ''}
-                                                                            </div>
-                                                                        </div>
                                                                     </TableCell>
                                                                     <TableCell className="hidden lg:table-cell">
                                                                         <div className="text-sm">
@@ -2409,11 +2396,8 @@ export default function TeamsShow({
                                                     <TableHead className="hidden md:table-cell">
                                                         {t('Role')}
                                                     </TableHead>
-                                                    <TableHead className="hidden md:table-cell">
-                                                        {t('Designation')}
-                                                    </TableHead>
                                                     <TableHead className="hidden lg:table-cell">
-                                                        {t('Unit')}
+                                                        {t('Posting')}
                                                     </TableHead>
                                                     <TableHead className="hidden lg:table-cell">
                                                         {t('Phone')}
@@ -2461,14 +2445,6 @@ export default function TeamsShow({
                                                                               row.role,
                                                                           )
                                                                         : ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden md:table-cell">
-                                                                    <div className="font-medium">
-                                                                        {row
-                                                                            .member
-                                                                            ?.designation ??
-                                                                            ''}
-                                                                    </div>
                                                                 </TableCell>
                                                                 <TableCell className="hidden lg:table-cell">
                                                                     {row.member
