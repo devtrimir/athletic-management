@@ -91,6 +91,11 @@ return [
         ['code' => 'tournaments.update', 'group' => 'tournaments', 'name_hi' => 'टूर्नामेंट अपडेट करें', 'name_en' => 'Update tournaments'],
         ['code' => 'tournaments.delete', 'group' => 'tournaments', 'name_hi' => 'टूर्नामेंट हटाएं',     'name_en' => 'Delete tournaments'],
 
+        // ── Sports calendars ─────────────────────────────────────────────────
+        ['code' => 'sports-calendars.view',   'group' => 'sports_calendars', 'name_hi' => 'खेल कैलेंडर देखें',   'name_en' => 'View sports calendars'],
+        ['code' => 'sports-calendars.create', 'group' => 'sports_calendars', 'name_hi' => 'खेल कैलेंडर जोड़ें',   'name_en' => 'Create sports calendars'],
+        ['code' => 'sports-calendars.update', 'group' => 'sports_calendars', 'name_hi' => 'खेल कैलेंडर अपडेट करें', 'name_en' => 'Update sports calendars'],
+
         // ── Imports ───────────────────────────────────────────────────────────
         ['code' => 'imports.run', 'group' => 'imports', 'name_hi' => 'डेटा आयात करें', 'name_en' => 'Run imports'],
 

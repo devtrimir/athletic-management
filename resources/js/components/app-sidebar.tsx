@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import {
     LayoutGrid,
+    CalendarDays,
     Settings2,
     Shield,
     Trophy,
@@ -11,6 +12,7 @@ import {
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import InchargeController from '@/actions/App/Http/Controllers/InchargeController';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
+import { index as sportsCalendarIndex } from '@/actions/App/Http/Controllers/SportsCalendarController';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import TournamentController from '@/actions/App/Http/Controllers/TournamentController';
 import AppLogo from '@/components/app-logo';
@@ -52,6 +54,7 @@ export function AppSidebar() {
             href: TournamentController.index.url(),
             icon: Trophy,
         },
+
         {
             title: t('Athletes'),
             href: MemberController.index.url(),
@@ -61,6 +64,11 @@ export function AppSidebar() {
             title: t('Coaches'),
             href: CoachController.index.url(),
             icon: UserCheck,
+        },
+        {
+            title: t('Sports calendars'),
+            href: sportsCalendarIndex.url(),
+            icon: CalendarDays,
         },
     ];
 

@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             TournamentSeeder::class,
             ParticipationSeeder::class,
             AuditLogSeeder::class,
+            SportsCalendarSeeder::class,
         ]);
     }
 }
