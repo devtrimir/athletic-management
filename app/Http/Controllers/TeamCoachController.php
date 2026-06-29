@@ -11,6 +11,7 @@ use App\Models\Team;
 use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -31,30 +32,29 @@ class TeamCoachController extends Controller
         $sessionId = (int) $team->session_id;
         $coachId = (int) $data['coach_id'];
         $normalizedRole = CoachAssignment::normalizeRole((string) $data['role']);
+        $assignedAt = Carbon::parse((string) $data['assigned_at'])->startOfDay();
 
-        DB::transaction(function () use ($team, $sessionId, $coachId, $normalizedRole): void {
-            $currentForCoach = CoachAssignment::where('coach_id', $coachId)
+        DB::transaction(function () use ($team, $sessionId, $coachId, $normalizedRole, $assignedAt): void {
+            $currentForTeamCoach = CoachAssignment::where('team_id', $team->id)
+                ->where('coach_id', $coachId)
                 ->where('session_id', $sessionId)
                 ->where('is_current', true)
                 ->first();
 
-            if ($currentForCoach !== null) {
-                if ($currentForCoach->team_id === $team->id && $currentForCoach->role === $normalizedRole) {
-                    throw ValidationException::withMessages([
-                        'coach_id' => [__('This coach is already assigned as this role for this session.')],
-                    ]);
-                }
+            if ($currentForTeamCoach !== null && $currentForTeamCoach->role === $normalizedRole) {
+                throw ValidationException::withMessages([
+                    'coach_id' => [__('This coach is already assigned as this role for this session.')],
+                ]);
             }
 
-            // Keep assignment history for the same coach/session before creating a new row.
-            CoachAssignment::endActiveForCoachSession((int) $coachId, $sessionId);
+            CoachAssignment::endActiveForTeamCoachSession((int) $team->id, (int) $coachId, $sessionId);
 
             CoachAssignment::create([
                 'team_id' => $team->id,
                 'coach_id' => $coachId,
                 'role' => $normalizedRole,
                 'session_id' => $sessionId,
-                'assigned_at' => now(),
+                'assigned_at' => $assignedAt,
                 'is_current' => true,
             ]);
         });

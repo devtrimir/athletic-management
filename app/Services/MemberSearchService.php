@@ -19,7 +19,7 @@ class MemberSearchService
     /**
      * Search members for the given org and query string. Returns at most 50 results.
      *
-     * @param  array<string, string|int>  $filters  Optional filters.
+     * @param  array<string, string|int|list<string>>  $filters  Optional filters.
      * @return Collection<int, mixed>
      */
     public function search(int $orgId, string $q, array $filters = []): Collection
@@ -57,7 +57,7 @@ class MemberSearchService
     /**
      * MySQL path: PNO exact short-circuit, then FULLTEXT ngram BOOLEAN MODE.
      *
-     * @param  array<string, string|int>  $filters
+     * @param  array<string, string|int|list<string>>  $filters
      */
     private function searchMysql(int $orgId, string $q, array $filters = []): Collection
     {
@@ -107,7 +107,7 @@ class MemberSearchService
      * SQLite path (test environment): PNO exact + LIKE on full_name OR alias.
      * Mirrors the MySQL path which also searches name_aliases via FULLTEXT.
      *
-     * @param  array<string, string|int>  $filters
+     * @param  array<string, string|int|list<string>>  $filters
      */
     private function searchSqlite(int $orgId, string $q, array $filters = []): Collection
     {
@@ -124,6 +124,12 @@ class MemberSearchService
             }
 
             if ($column === 'available_session_id' || $column === 'available_sport_id') {
+                continue;
+            }
+
+            if ($column === 'allowed_statuses' && is_array($value)) {
+                $base->whereIn('current_status', $value);
+
                 continue;
             }
 
@@ -163,7 +169,7 @@ class MemberSearchService
      * Build filter SQL clauses for raw queries.
      * Returns [$whereSql, $params] where $whereSql starts with AND.
      *
-     * @param  array<string, string|int>  $filters
+     * @param  array<string, string|int|list<string>>  $filters
      * @return array{string, list<string|int>}
      */
     private function buildFilterSql(array $filters, string $alias = 'm'): array
@@ -178,6 +184,12 @@ class MemberSearchService
                 $sql .= " AND {$alias}.{$col} = ?";
                 $params[] = $filters[$col];
             }
+        }
+
+        if (! empty($filters['allowed_statuses']) && is_array($filters['allowed_statuses'])) {
+            $placeholders = implode(', ', array_fill(0, count($filters['allowed_statuses']), '?'));
+            $sql .= " AND {$alias}.current_status IN ({$placeholders})";
+            array_push($params, ...$filters['allowed_statuses']);
         }
 
         if (! empty($filters['sport_id'])) {

@@ -77,14 +77,13 @@ class TeamCloneController extends Controller
                 exceptTeamMemberIds: $carriedSourceTeamMemberIds,
             );
 
-            $skippedCoaches = 0;
             if (! empty($coachRowIds)) {
                 $rows = CoachAssignment::whereIn('id', $coachRowIds)
                     ->where('team_id', $team->id)
                     ->where('is_current', true)
                     ->get(['coach_id', 'role']);
-
-                $existingCoachIds = CoachAssignment::where('session_id', $targetSessionId)
+                $existingTeamCoachIds = CoachAssignment::where('team_id', $team->id)
+                    ->where('session_id', $targetSessionId)
                     ->where('is_current', true)
                     ->whereIn('coach_id', $rows->pluck('coach_id'))
                     ->pluck('coach_id')
@@ -92,9 +91,7 @@ class TeamCloneController extends Controller
 
                 $insertRows = [];
                 foreach ($rows as $row) {
-                    if ($existingCoachIds->has($row->coach_id)) {
-                        $skippedCoaches++;
-
+                    if ($existingTeamCoachIds->has($row->coach_id)) {
                         continue;
                     }
 
@@ -112,17 +109,6 @@ class TeamCloneController extends Controller
 
                 if (! empty($insertRows)) {
                     CoachAssignment::insert($insertRows);
-                }
-
-                if ($skippedCoaches > 0) {
-                    Inertia::flash('toast', [
-                        'type' => 'warning',
-                        'message' => trans_choice(
-                            ':count coach(es) skipped — already in another team for the target session.',
-                            $skippedCoaches,
-                            ['count' => $skippedCoaches]
-                        ),
-                    ]);
                 }
             }
         });

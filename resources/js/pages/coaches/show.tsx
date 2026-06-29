@@ -41,9 +41,7 @@ import {
     assignments as coachAssignments,
     certifications as coachCertifications,
     changelog as coachChangelog,
-    events as coachEvents,
     media as coachMedia,
-    performance as coachPerformance,
     promotions as coachPromotions,
     sports as coachSports,
     status as coachStatus,
@@ -164,22 +162,15 @@ type RewardEvidence = {
 type RewardEvidenceInput = {
     session_id: number;
     tournament_id: number;
-    event_id: number;
     team_id: number;
 };
 
-type RewardEvidenceOption = RewardEvidenceInput & {
-    id: string;
-    event: CoachAchievementGroup['event'];
-    medal_counts: CoachAchievementGroup['medal_counts'];
-    player_count: number;
-};
-
-type RewardEvidenceTournamentOption = {
+type RewardEvidenceTournamentOption = RewardEvidenceInput & {
     id: string;
     tournament: CoachAchievementGroup['tournament'];
     team: CoachAchievementGroup['team'];
-    events: RewardEvidenceOption[];
+    event_count: number;
+    player_count: number;
 };
 
 type RewardEvidenceSessionOption = {
@@ -213,6 +204,13 @@ type CoachAchievementPlayer = {
     benefits: AchievementBenefit[];
 };
 
+type CoachAchievementReward = {
+    id: number;
+    cash_reward_amount: string | null;
+    cash_reward_date: string | null;
+    cash_reward_reference: string | null;
+};
+
 type CoachAchievementGroup = {
     id: string;
     session: { id: number; name: string; is_current: boolean };
@@ -236,6 +234,7 @@ type CoachAchievementGroup = {
         sport: { id: number; name: string } | null;
     };
     medal_counts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
+    rewards: CoachAchievementReward[];
     players: CoachAchievementPlayer[];
 };
 
@@ -248,6 +247,9 @@ type CoachAchievementTournamentGroup = {
     medalCounts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
     playerCount: number;
     prizeMoney: number;
+    rewardCount: number;
+    rewardDates: string[];
+    rewardReferences: string[];
 };
 
 type CoachAchievementsData = {
@@ -328,9 +330,7 @@ type CoachShowTab =
     | 'assignments'
     | 'sports'
     | 'certifications'
-    | 'events'
     | 'achievements'
-    | 'performance'
     | 'promotions'
     | 'media'
     | 'changelog'
@@ -341,9 +341,7 @@ const COACH_SHOW_TABS: CoachShowTab[] = [
     'assignments',
     'sports',
     'certifications',
-    'events',
     'achievements',
-    'performance',
     'promotions',
     'media',
     'changelog',
@@ -450,10 +448,13 @@ export default function CoachesShow({
     const [achievementSearch, setAchievementSearch] = useState('');
     const [achievementSessionFilter, setAchievementSessionFilter] =
         useState('all');
+    const [achievementTierFilter, setAchievementTierFilter] = useState('all');
     const [achievementMedalFilter, setAchievementMedalFilter] = useState('all');
     const [expandedAchievementGroups, setExpandedAchievementGroups] = useState<
         string[]
     >([]);
+    const [expandedAchievementTournaments, setExpandedAchievementTournaments] =
+        useState<string[]>([]);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
@@ -680,13 +681,11 @@ export default function CoachesShow({
             String(option.session.id) === selectedRewardSessionId,
     );
     const rewardEvidenceLookup = useMemo(() => {
-        const lookup = new Map<string, RewardEvidenceOption>();
+        const lookup = new Map<string, RewardEvidenceTournamentOption>();
 
         for (const session of rewardEvidenceOptions) {
             for (const tournament of session.tournaments) {
-                for (const event of tournament.events) {
-                    lookup.set(event.id, event);
-                }
+                lookup.set(tournament.id, tournament);
             }
         }
 
@@ -697,7 +696,6 @@ export default function CoachesShow({
         return [
             evidence.session_id,
             evidence.tournament_id,
-            evidence.event_id,
             evidence.team_id,
         ].join(':');
     }
@@ -728,8 +726,8 @@ export default function CoachesShow({
         const option = rewardEvidenceLookup.get(rewardEvidenceKey(evidence));
 
         return collectText([
-            option?.event.name,
-            option?.event.gender_class,
+            option?.tournament.name,
+            option?.team.name,
             option ? `${option.player_count} ${t('players')}` : null,
         ]);
     }
@@ -804,63 +802,38 @@ export default function CoachesShow({
                     <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
                         {visibleRewardEvidenceOptions.map((session) =>
                             session.tournaments.map((tournament) => (
-                                <div
+                                <label
                                     key={`${session.session.id}-${tournament.id}`}
-                                    className="rounded-md border"
+                                    className="flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
                                 >
-                                    <div className="border-b bg-muted/40 px-3 py-2">
-                                        <div className="flex flex-wrap items-center gap-2">
+                                    <Checkbox
+                                        checked={rewardEvidenceSelected(
+                                            tournament,
+                                        )}
+                                        onCheckedChange={() =>
+                                            toggleRewardEvidence(tournament)
+                                        }
+                                    />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="flex flex-wrap items-center gap-2">
                                             <Badge variant="outline">
                                                 {tournament.tournament
                                                     .tier_code ?? t('Unknown')}
                                             </Badge>
-                                            <span className="text-sm font-medium">
+                                            <span className="font-medium">
                                                 {tournament.tournament.name}
                                             </span>
-                                        </div>
-                                        <p className="mt-1 text-xs text-muted-foreground">
+                                        </span>
+                                        <span className="mt-1 block text-xs text-muted-foreground">
                                             {session.session.name} ·{' '}
                                             {tournament.team.name} ·{' '}
-                                            {tournament.events.length}{' '}
-                                            {t('available events')}
-                                        </p>
-                                    </div>
-                                    <div className="divide-y">
-                                        {tournament.events.map((event) => (
-                                            <label
-                                                key={event.id}
-                                                className="flex cursor-pointer items-start gap-3 px-3 py-2 text-sm hover:bg-muted/30"
-                                            >
-                                                <Checkbox
-                                                    checked={rewardEvidenceSelected(
-                                                        event,
-                                                    )}
-                                                    onCheckedChange={() =>
-                                                        toggleRewardEvidence(
-                                                            event,
-                                                        )
-                                                    }
-                                                />
-                                                <span className="min-w-0 flex-1">
-                                                    <span className="block font-medium">
-                                                        {event.event.name}
-                                                    </span>
-                                                    <span className="block text-xs text-muted-foreground">
-                                                        {collectText([
-                                                            event.event
-                                                                .gender_class,
-                                                            event.event
-                                                                .discipline,
-                                                            event.event
-                                                                .weight_category,
-                                                            `${event.player_count} ${t('players')}`,
-                                                        ])}
-                                                    </span>
-                                                </span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
+                                            {tournament.event_count}{' '}
+                                            {t('events')} ·{' '}
+                                            {tournament.player_count}{' '}
+                                            {t('players')}
+                                        </span>
+                                    </span>
+                                </label>
                             )),
                         )}
                     </div>
@@ -909,6 +882,18 @@ export default function CoachesShow({
             ),
         [achievementGroups],
     );
+    const achievementTiers = useMemo(
+        () =>
+            Array.from(
+                new Map(
+                    achievementGroups.map((group) => [
+                        group.tournament.tier_code ?? 'unknown',
+                        group.tournament.tier_code ?? t('Unknown'),
+                    ]),
+                ),
+            ),
+        [achievementGroups, t],
+    );
     const filteredAchievementGroups = useMemo(() => {
         const query = achievementSearch.trim().toLowerCase();
 
@@ -916,6 +901,10 @@ export default function CoachesShow({
             const matchesSession =
                 achievementSessionFilter === 'all' ||
                 String(group.session.id) === achievementSessionFilter;
+            const matchesTier =
+                achievementTierFilter === 'all' ||
+                (group.tournament.tier_code ?? 'unknown') ===
+                    achievementTierFilter;
             const matchesMedal =
                 achievementMedalFilter === 'all' ||
                 group.players.some(
@@ -945,6 +934,7 @@ export default function CoachesShow({
 
             return (
                 matchesSession &&
+                matchesTier &&
                 matchesMedal &&
                 (query === '' || searchable.includes(query))
             );
@@ -954,6 +944,7 @@ export default function CoachesShow({
         achievementMedalFilter,
         achievementSearch,
         achievementSessionFilter,
+        achievementTierFilter,
     ]);
     const achievementTournamentGroups = useMemo(() => {
         const groups = new Map<string, CoachAchievementTournamentGroup>();
@@ -980,10 +971,20 @@ export default function CoachesShow({
                     },
                     playerCount: 0,
                     prizeMoney: 0,
+                    rewardCount: 0,
+                    rewardDates: [],
+                    rewardReferences: [],
                 };
 
             existing.rows.push(group);
+
+            if ((group.tournament.tier_code ?? 'OTHER') === 'OTHER') {
+                groups.set(key, existing);
+                continue;
+            }
+
             existing.playerCount += group.players.length;
+            existing.rewardCount += group.rewards.length;
 
             for (const medal of [
                 'GOLD',
@@ -1003,6 +1004,23 @@ export default function CoachesShow({
                         0,
                     ),
                 0,
+            );
+            existing.prizeMoney += group.rewards.reduce(
+                (total, reward) =>
+                    total + Number(reward.cash_reward_amount ?? 0),
+                0,
+            );
+            existing.rewardDates.push(
+                ...group.rewards
+                    .map((reward) => reward.cash_reward_date)
+                    .filter((date): date is string => Boolean(date)),
+            );
+            existing.rewardReferences.push(
+                ...group.rewards
+                    .map((reward) => reward.cash_reward_reference)
+                    .filter((reference): reference is string =>
+                        Boolean(reference),
+                    ),
             );
 
             groups.set(key, existing);
@@ -1024,6 +1042,24 @@ export default function CoachesShow({
             );
         });
     }, [filteredAchievementGroups]);
+
+    function highestMedalLabel(
+        medalCounts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>,
+    ): string {
+        const medal = (['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const).find(
+            (name) => medalCounts[name] > 0,
+        );
+
+        return medal ? `${t(medal)}: ${medalCounts[medal]}` : '—';
+    }
+
+    function toggleAchievementTournament(tournamentId: string): void {
+        setExpandedAchievementTournaments((current) =>
+            current.includes(tournamentId)
+                ? current.filter((id) => id !== tournamentId)
+                : [...current, tournamentId],
+        );
+    }
     function medalBadgeClass(medal: string): string {
         switch (medal) {
             case 'GOLD':
@@ -1176,14 +1212,10 @@ export default function CoachesShow({
         });
         setRewardEvidenceSelection(
             promotion.evidences
-                .filter(
-                    (evidence) =>
-                        evidence.event_id !== null && evidence.team_id !== null,
-                )
+                .filter((evidence) => evidence.team_id !== null)
                 .map((evidence) => ({
                     session_id: evidence.session_id,
                     tournament_id: evidence.tournament_id,
-                    event_id: evidence.event_id as number,
                     team_id: evidence.team_id as number,
                 })),
         );
@@ -1489,19 +1521,9 @@ export default function CoachesShow({
                                 {t('Certifications')}
                             </Link>
                         </TabsTrigger>
-                        <TabsTrigger value="events" asChild>
-                            <Link href={coachEvents.url(coach)}>
-                                {t('Coached Events')}
-                            </Link>
-                        </TabsTrigger>
                         <TabsTrigger value="achievements" asChild>
                             <Link href={coachAchievementsTab.url(coach)}>
                                 {t('Achievements')}
-                            </Link>
-                        </TabsTrigger>
-                        <TabsTrigger value="performance" asChild>
-                            <Link href={coachPerformance.url(coach)}>
-                                {t('Performance')}
                             </Link>
                         </TabsTrigger>
                         <TabsTrigger value="promotions" asChild>
@@ -1721,7 +1743,9 @@ export default function CoachesShow({
                                                 {t('Primary')}
                                             </TableHead>
                                             <TableHead>{t('Level')}</TableHead>
-                                            <TableHead>{t('Event')}</TableHead>
+                                            <TableHead>
+                                                {t('Event / Discipline')}
+                                            </TableHead>
                                             <TableHead>{t('From')}</TableHead>
                                             <TableHead>{t('To')}</TableHead>
                                             <TableHead>{t('Notes')}</TableHead>
@@ -1885,13 +1909,6 @@ export default function CoachesShow({
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="events">
-                        <EmptyCoachTab
-                            title={t('Coached Events')}
-                            message={t('No coached events recorded yet.')}
-                        />
-                    </TabsContent>
-
                     <TabsContent value="achievements">
                         <div className="space-y-4 rounded-xl border bg-card p-4">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1940,7 +1957,7 @@ export default function CoachesShow({
                                 )}
                             </div>
 
-                            <div className="grid gap-3 md:grid-cols-[1fr_12rem_12rem]">
+                            <div className="grid gap-3 md:grid-cols-[1fr_11rem_11rem_11rem]">
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
                                     <Input
@@ -1984,6 +2001,24 @@ export default function CoachesShow({
                                     </SelectContent>
                                 </Select>
                                 <Select
+                                    value={achievementTierFilter}
+                                    onValueChange={setAchievementTierFilter}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={t('Tier')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            {t('All tiers')}
+                                        </SelectItem>
+                                        {achievementTiers.map(([id, name]) => (
+                                            <SelectItem key={id} value={id}>
+                                                {name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Select
                                     value={achievementMedalFilter}
                                     onValueChange={setAchievementMedalFilter}
                                 >
@@ -2024,153 +2059,181 @@ export default function CoachesShow({
                                     {t('No results')}
                                 </div>
                             ) : (
-                                <div className="space-y-5">
-                                    {achievementTournamentGroups.map(
-                                        (tournamentGroup) => {
-                                            let rowNumber = 0;
+                                <div className="overflow-x-auto rounded-xl border">
+                                    <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>{t('S.No.')}</TableHead>
+                                                <TableHead>
+                                                    {t('Tournament')}
+                                                </TableHead>
+                                                <TableHead>{t('Tier')}</TableHead>
+                                                <TableHead>
+                                                    {t('Session')}
+                                                </TableHead>
+                                                <TableHead>{t('Team')}</TableHead>
+                                                <TableHead className="text-right">
+                                                    {t('Events')}
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    {t('Players')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Highest medal')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Prize given')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Prize type')}
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    {t('Prize money')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Prize date')}
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {achievementTournamentGroups.map(
+                                                (tournamentGroup, index) => {
+                                                    const expanded =
+                                                        expandedAchievementTournaments.includes(
+                                                            tournamentGroup.id,
+                                                        );
+                                                    let rowNumber = 0;
 
-                                            return (
-                                                <div
-                                                    key={tournamentGroup.id}
-                                                    className="overflow-hidden rounded-xl border bg-card"
-                                                >
-                                                    <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/40 px-4 py-3">
-                                                        <div className="min-w-0 space-y-1">
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                <Badge variant="outline">
-                                                                    {tournamentGroup
-                                                                        .tournament
-                                                                        .tier_code ??
-                                                                        t(
-                                                                            'Unknown',
+                                                    return (
+                                                        <Fragment
+                                                            key={
+                                                                tournamentGroup.id
+                                                            }
+                                                        >
+                                                            <TableRow
+                                                                className="cursor-pointer align-top hover:bg-muted/40"
+                                                                onClick={() =>
+                                                                    toggleAchievementTournament(
+                                                                        tournamentGroup.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <TableCell>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {expanded ? (
+                                                                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                        ) : (
+                                                                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                                                                         )}
-                                                                </Badge>
-                                                                <h4 className="text-sm font-semibold">
-                                                                    {
-                                                                        tournamentGroup
+                                                                        {index + 1}
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <div className="min-w-52 space-y-1">
+                                                                        <div className="font-medium">
+                                                                            {
+                                                                                tournamentGroup
+                                                                                    .tournament
+                                                                                    .name
+                                                                            }
+                                                                        </div>
+                                                                        <div className="text-muted-foreground">
+                                                                            {[
+                                                                                tournamentGroup
+                                                                                    .tournament
+                                                                                    .venue,
+                                                                                tournamentGroup
+                                                                                    .tournament
+                                                                                    .date_from,
+                                                                            ]
+                                                                                .filter(
+                                                                                    Boolean,
+                                                                                )
+                                                                                .join(
+                                                                                    ' · ',
+                                                                                ) ||
+                                                                                '—'}
+                                                                        </div>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Badge variant="outline">
+                                                                        {tournamentGroup
                                                                             .tournament
-                                                                            .name
-                                                                    }
-                                                                </h4>
-                                                            </div>
-                                                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                                                <span>
-                                                                    {t('Team')}
-                                                                    :{' '}
-                                                                    {
-                                                                        tournamentGroup
-                                                                            .team
-                                                                            .name
-                                                                    }
-                                                                </span>
-                                                                <span>
-                                                                    {t(
-                                                                        'Session',
-                                                                    )}
-                                                                    :{' '}
+                                                                            .tier_code ??
+                                                                            t(
+                                                                                'Unknown',
+                                                                            )}
+                                                                    </Badge>
+                                                                </TableCell>
+                                                                <TableCell>
                                                                     {
                                                                         tournamentGroup
                                                                             .session
                                                                             .name
                                                                     }
-                                                                </span>
-                                                                <span>
-                                                                    {t(
-                                                                        'Venue',
-                                                                    )}
-                                                                    :{' '}
-                                                                    {tournamentGroup
-                                                                        .tournament
-                                                                        .venue ??
-                                                                        '—'}
-                                                                </span>
-                                                                <span>
-                                                                    {t('Date')}
-                                                                    :{' '}
-                                                                    {tournamentGroup
-                                                                        .tournament
-                                                                        .date_from ??
-                                                                        t(
-                                                                            'No date',
-                                                                        )}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex flex-wrap items-center justify-end gap-2">
-                                                            <div className="rounded-md border bg-background px-3 py-1.5 text-right">
-                                                                <div className="text-[11px] uppercase text-muted-foreground">
-                                                                    {t(
-                                                                        'Events',
-                                                                    )}
-                                                                </div>
-                                                                <div className="text-sm font-semibold">
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {
+                                                                        tournamentGroup
+                                                                            .team
+                                                                            .name
+                                                                    }
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
                                                                     {
                                                                         tournamentGroup
                                                                             .rows
                                                                             .length
                                                                     }
-                                                                </div>
-                                                            </div>
-                                                            <div className="rounded-md border bg-background px-3 py-1.5 text-right">
-                                                                <div className="text-[11px] uppercase text-muted-foreground">
-                                                                    {t(
-                                                                        'Players',
-                                                                    )}
-                                                                </div>
-                                                                <div className="text-sm font-semibold">
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
                                                                     {
                                                                         tournamentGroup.playerCount
                                                                     }
-                                                                </div>
-                                                            </div>
-                                                            <div className="rounded-md border bg-background px-3 py-1.5 text-right">
-                                                                <div className="text-[11px] uppercase text-muted-foreground">
-                                                                    {t(
-                                                                        'Coach prize money',
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {highestMedalLabel(
+                                                                        tournamentGroup.medalCounts,
                                                                     )}
-                                                                </div>
-                                                                <div className="text-sm font-semibold">
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {tournamentGroup.rewardCount >
+                                                                    0
+                                                                        ? t('Yes')
+                                                                        : t('No')}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {tournamentGroup.rewardCount >
+                                                                    0
+                                                                        ? t('Cash reward')
+                                                                        : '—'}
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
                                                                     {tournamentGroup.prizeMoney >
                                                                     0
                                                                         ? `₹${tournamentGroup.prizeMoney.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                                                         : '—'}
-                                                                </div>
-                                                            </div>
-                                                            {(
-                                                                [
-                                                                    'GOLD',
-                                                                    'SILVER',
-                                                                    'BRONZE',
-                                                                    'MERIT',
-                                                                ] as const
-                                                            ).map((medal) =>
-                                                                tournamentGroup
-                                                                    .medalCounts[
-                                                                    medal
-                                                                ] > 0 ? (
-                                                                    <span
-                                                                        key={
-                                                                            medal
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {Array.from(
+                                                                        new Set(
+                                                                            tournamentGroup.rewardDates,
+                                                                        ),
+                                                                    ).join(
+                                                                        ', ',
+                                                                    ) || '—'}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                            {expanded ? (
+                                                                <TableRow>
+                                                                    <TableCell
+                                                                        colSpan={
+                                                                            12
                                                                         }
-                                                                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
+                                                                        className="bg-muted/20 p-0"
                                                                     >
-                                                                        {t(
-                                                                            medal,
-                                                                        )}
-                                                                        :{' '}
-                                                                        {
-                                                                            tournamentGroup
-                                                                                .medalCounts[
-                                                                                medal
-                                                                            ]
-                                                                        }
-                                                                    </span>
-                                                                ) : null,
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="overflow-x-auto">
-                                                        <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
+                                                                        <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
                                                             <TableHeader>
                                                                 <TableRow>
                                                                     <TableHead>
@@ -2487,21 +2550,18 @@ export default function CoachesShow({
                                                                 )}
                                                             </TableBody>
                                                         </Table>
-                                                    </div>
-                                                </div>
-                                            );
-                                        },
-                                    )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : null}
+                                        </Fragment>
+                                    );
+                                },
+                            )}
+                        </TableBody>
+                    </Table>
                                 </div>
                             )}
                         </div>
-                    </TabsContent>
-
-                    <TabsContent value="performance">
-                        <EmptyCoachTab
-                            title={t('Performance')}
-                            message={t('No performance records recorded yet.')}
-                        />
                     </TabsContent>
 
                     <TabsContent value="promotions">

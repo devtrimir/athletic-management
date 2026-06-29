@@ -489,6 +489,24 @@ test('coach assignment tab returns assignment data only on assignments route', f
         );
 });
 
+test('coach events tab route is not registered', function () {
+    $user = coachUser('coaches.view');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->get("/coaches/{$coach->id}/events")
+        ->assertNotFound();
+});
+
+test('coach performance tab route is not registered', function () {
+    $user = coachUser('coaches.view');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->get("/coaches/{$coach->id}/performance")
+        ->assertNotFound();
+});
+
 test('coach sports tab returns sport rows and form options', function () {
     $user = coachUser('coaches.view');
     $sport = Sport::factory()->create([
@@ -682,6 +700,21 @@ test('coach achievements tab returns medals from coached team members', function
         'benefit_type' => 'CASH_AWARD',
         'cash_amount' => 5000,
     ]);
+    $promotion = CoachPromotion::factory()->create([
+        'organization_id' => $organization->id,
+        'coach_id' => $coach->id,
+        'cash_reward_amount' => '7500.00',
+        'cash_reward_date' => '2026-03-05',
+        'cash_reward_reference' => 'REWARD-42',
+    ]);
+    CoachPromotionEvidence::factory()->create([
+        'organization_id' => $organization->id,
+        'coach_promotion_id' => $promotion->id,
+        'session_id' => $session->id,
+        'tournament_id' => $achievement->participation->event->tournament_id,
+        'event_id' => null,
+        'team_id' => $team->id,
+    ]);
 
     $this->actingAs($user)
         ->get(route('coaches.achievements', $coach))
@@ -694,6 +727,9 @@ test('coach achievements tab returns medals from coached team members', function
             ->where('coachAchievements.summary.medal_winning_players', 1)
             ->where('coachAchievements.groups.0.team.name', 'Athletics Team')
             ->where('coachAchievements.groups.0.event.name', 'Long Jump')
+            ->where('coachAchievements.groups.0.rewards.0.cash_reward_amount', '7500.00')
+            ->where('coachAchievements.groups.0.rewards.0.cash_reward_date', '2026-03-05')
+            ->where('coachAchievements.groups.0.rewards.0.cash_reward_reference', 'REWARD-42')
             ->where('coachAchievements.groups.0.players.0.member.full_name', 'Winning Player')
             ->where('coachAchievements.groups.0.players.0.benefits.0.cash_amount', '5000.00')
             ->etc()
@@ -958,7 +994,6 @@ test('user with coach promotions permission can add promotion and reward from pr
             'evidences' => [[
                 'session_id' => $sessionId,
                 'tournament_id' => $achievement->participation->event->tournament_id,
-                'event_id' => $achievement->participation->event_id,
                 'team_id' => $teamId,
             ]],
         ])
@@ -973,7 +1008,7 @@ test('user with coach promotions permission can add promotion and reward from pr
     $this->assertDatabaseHas('coach_promotion_evidence', [
         'coach_promotion_id' => $promotion->id,
         'session_id' => $sessionId,
-        'event_id' => $achievement->participation->event_id,
+        'event_id' => null,
         'team_id' => $teamId,
     ]);
     expect($coach->fresh()->rank_master_id)->toBe($toRank->id);
@@ -1007,7 +1042,6 @@ test('coach promotion can be reward only', function () {
             'evidences' => [[
                 'session_id' => $sessionId,
                 'tournament_id' => $achievement->participation->event->tournament_id,
-                'event_id' => $achievement->participation->event_id,
                 'team_id' => $teamId,
             ]],
         ])
@@ -1019,10 +1053,16 @@ test('coach promotion can be reward only', function () {
         'cash_reward_amount' => '7500.00',
         'cash_reward_reference' => 'REWARD-1',
     ]);
+    $this->assertDatabaseHas('coach_promotion_evidence', [
+        'session_id' => $sessionId,
+        'tournament_id' => $achievement->participation->event->tournament_id,
+        'event_id' => null,
+        'team_id' => $teamId,
+    ]);
 });
 
-test('coach reward evidence options exclude already rewarded events', function () {
-    $user = coachUser('coaches.view');
+test('coach reward evidence options exclude already rewarded tournaments', function () {
+    $user = coachUser('coaches.view', 'coaches.managePromotions');
     $organization = Organization::findOrFail($user->organization_id);
     $session = SportSession::factory()->create(['organization_id' => $organization->id]);
     $sport = Sport::factory()->create(['organization_id' => $organization->id]);
@@ -1043,6 +1083,17 @@ test('coach reward evidence options exclude already rewarded events', function (
         'sport' => $sport,
         'team' => $team,
     ]);
+    $sameTournament = Tournament::withoutGlobalScopes()->findOrFail($achievement->participation->event->tournament_id);
+    $secondEvent = Event::factory()
+        ->forTournament($sameTournament)
+        ->create(['name' => 'Second Event']);
+    $sameTournamentAchievement = coachedMedal([
+        'organization' => $organization,
+        'session' => $session,
+        'sport' => $sport,
+        'team' => $team,
+        'event' => $secondEvent,
+    ]);
     $promotion = CoachPromotion::factory()->create([
         'organization_id' => $organization->id,
         'coach_id' => $coach->id,
@@ -1054,7 +1105,7 @@ test('coach reward evidence options exclude already rewarded events', function (
         'coach_promotion_id' => $promotion->id,
         'session_id' => $session->id,
         'tournament_id' => $achievement->participation->event->tournament_id,
-        'event_id' => $achievement->participation->event_id,
+        'event_id' => null,
         'team_id' => $team->id,
         'achievement_id' => null,
     ]);
@@ -1065,8 +1116,24 @@ test('coach reward evidence options exclude already rewarded events', function (
         ->assertInertia(fn ($page) => $page
             ->component('coaches/show')
             ->where('rewardEvidenceOptions', [])
-            ->where('coach.promotions.0.evidences.0.event_id', $achievement->participation->event_id)
+            ->where('coach.promotions.0.evidences.0.event_id', null)
         );
+
+    $this->actingAs($user)
+        ->post(route('coaches.promotions.store', $coach), [
+            'cash_reward_amount' => '5000.00',
+            'evidences' => [[
+                'session_id' => $session->id,
+                'tournament_id' => $sameTournamentAchievement->participation->event->tournament_id,
+                'team_id' => $team->id,
+            ]],
+        ])
+        ->assertUnprocessable();
+
+    $this->assertDatabaseMissing('coach_promotion_evidence', [
+        'event_id' => $sameTournamentAchievement->participation->event_id,
+        'team_id' => $team->id,
+    ]);
 });
 
 test('coach promotion requires rank or reward amount', function () {

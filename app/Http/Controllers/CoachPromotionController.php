@@ -114,7 +114,7 @@ class CoachPromotionController extends Controller
     }
 
     /**
-     * @param  array<int, array{session_id: int, tournament_id: int, event_id: int, team_id: int}>  $evidences
+     * @param  array<int, array{session_id: int, tournament_id: int, team_id: int}>  $evidences
      */
     private function syncEvidences(CoachPromotion $promotion, Coach $coach, array $evidences): void
     {
@@ -124,20 +124,33 @@ class CoachPromotionController extends Controller
 
         $availableKeys = $this->availableRewardEvidenceKeys($coach, $promotion);
 
-        foreach (collect($evidences)->unique(fn (array $evidence): string => $this->rewardEvidenceKey($evidence))->values() as $evidence) {
-            $key = $this->rewardEvidenceKey($evidence);
+        foreach (collect($evidences)->unique(fn (array $evidence): string => $this->rewardTournamentEvidenceKey($evidence))->values() as $evidence) {
+            $key = $this->rewardTournamentEvidenceKey($evidence);
 
-            abort_if(! isset($availableKeys[$key]), 422, 'Invalid or already rewarded coach reward evidence.');
+            abort_if(! isset($availableKeys[$key]) || $this->tournamentEvidenceAlreadyUsed($coach, $promotion, $evidence), 422, 'Invalid or already rewarded coach reward evidence.');
 
             CoachPromotionEvidence::create([
                 'organization_id' => $coach->organization_id,
                 'coach_promotion_id' => $promotion->id,
                 'session_id' => $evidence['session_id'],
                 'tournament_id' => $evidence['tournament_id'],
-                'event_id' => $evidence['event_id'],
+                'event_id' => null,
                 'team_id' => $evidence['team_id'],
             ]);
         }
+    }
+
+    /** @param  array{session_id: int, tournament_id: int, team_id: int}  $evidence */
+    private function tournamentEvidenceAlreadyUsed(Coach $coach, CoachPromotion $currentPromotion, array $evidence): bool
+    {
+        return CoachPromotionEvidence::query()
+            ->whereHas('coachPromotion', fn ($query) => $query
+                ->where('coach_id', $coach->id)
+                ->whereKeyNot($currentPromotion->id))
+            ->where('session_id', $evidence['session_id'])
+            ->where('tournament_id', $evidence['tournament_id'])
+            ->where('team_id', $evidence['team_id'])
+            ->exists();
     }
 
     /** @return array<string, true> */
@@ -157,15 +170,14 @@ class CoachPromotionController extends Controller
             ->unique()
             ->values();
 
-        $usedKeys = CoachPromotionEvidence::query()
+        $usedTournamentKeys = CoachPromotionEvidence::query()
             ->whereHas('coachPromotion', fn ($query) => $query
                 ->where('coach_id', $coach->id)
                 ->whereKeyNot($currentPromotion->id))
-            ->get(['session_id', 'tournament_id', 'event_id', 'team_id'])
-            ->map(fn (CoachPromotionEvidence $evidence): string => $this->rewardEvidenceKey([
+            ->get(['session_id', 'tournament_id', 'team_id'])
+            ->map(fn (CoachPromotionEvidence $evidence): string => $this->rewardTournamentEvidenceKey([
                 'session_id' => $evidence->session_id,
                 'tournament_id' => $evidence->tournament_id,
-                'event_id' => $evidence->event_id,
                 'team_id' => $evidence->team_id,
             ]))
             ->flip();
@@ -186,26 +198,22 @@ class CoachPromotionController extends Controller
                         }
                     });
             })
-            ->with([
-                'participation:id,session_id,team_id,event_id',
-                'participation.event:id,tournament_id',
-            ])
+            ->with(['participation:id,session_id,team_id,event_id', 'participation.event:id,tournament_id'])
             ->get(['id', 'participation_id'])
-            ->map(fn (Achievement $achievement): string => $this->rewardEvidenceKey([
+            ->map(fn (Achievement $achievement): string => $this->rewardTournamentEvidenceKey([
                 'session_id' => $achievement->participation->session_id,
                 'tournament_id' => $achievement->participation->event->tournament_id,
-                'event_id' => $achievement->participation->event_id,
                 'team_id' => $achievement->participation->team_id,
             ]))
             ->unique()
-            ->reject(fn (string $key): bool => $usedKeys->has($key))
+            ->reject(fn (string $key): bool => $usedTournamentKeys->has($key))
             ->mapWithKeys(fn (string $key): array => [$key => true])
             ->all();
     }
 
-    /** @param  array{session_id: int, tournament_id: int, event_id: int, team_id: int}  $evidence */
-    private function rewardEvidenceKey(array $evidence): string
+    /** @param  array{session_id: int, tournament_id: int, team_id: int}  $evidence */
+    private function rewardTournamentEvidenceKey(array $evidence): string
     {
-        return $evidence['session_id'].':'.$evidence['tournament_id'].':'.$evidence['event_id'].':'.$evidence['team_id'];
+        return $evidence['session_id'].':'.$evidence['tournament_id'].':'.$evidence['team_id'];
     }
 }

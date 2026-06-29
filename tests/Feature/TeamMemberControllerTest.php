@@ -109,6 +109,40 @@ test('add members inserts rows and redirects to teams.show', function (): void {
     ]);
 });
 
+test('adding an inactive member marks them active and removing them marks them inactive', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $member = playableMember($org, $team, ['current_status' => 'INACTIVE']);
+
+    $this->actingAs($user)
+        ->post(route('teams.members.store', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $team->session_id,
+            'role' => 'PLAYER',
+            'joined_on' => '2026-01-15',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
+
+    $this->assertDatabaseHas('members', [
+        'id' => $member->id,
+        'current_status' => 'ACTIVE',
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('teams.members.destroy', [$team, $member]), [
+            'session_id' => $team->session_id,
+            'left_on' => '2026-02-01',
+            'reason' => 'Roster ended',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
+
+    $this->assertDatabaseHas('members', [
+        'id' => $member->id,
+        'current_status' => 'INACTIVE',
+    ]);
+});
+
 test('same member can be added to same team in a later session', function (): void {
     $user = teamUser('teams.update');
     $org = Organization::find($user->organization_id);
@@ -513,7 +547,7 @@ test('member without target team sport is rejected', function (): void {
     $this->assertDatabaseMissing('team_members', ['team_id' => $team->id]);
 });
 
-test('inactive member is rejected', function (): void {
+test('retired member is rejected for manual add', function (): void {
     $user = teamUser('teams.update');
     $org = Organization::find($user->organization_id);
     $team = teamWithOrg($org);

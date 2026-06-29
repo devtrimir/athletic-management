@@ -1,13 +1,25 @@
 import { useForm } from '@inertiajs/react';
+import { CalendarDays } from 'lucide-react';
 import { useState } from 'react';
 import { store as storeTeamCoach } from '@/actions/App/Http/Controllers/TeamCoachController';
 import { CoachPicker } from '@/components/coach-picker';
 import type { CoachOption } from '@/components/coach-picker';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Team = {
@@ -30,7 +42,12 @@ export function AddCoachDialog({ open, onOpenChange, team }: Props) {
     const { data, setData, post, errors, processing, reset } = useForm({
         coach_id: '',
         role: 'ASSISTANT',
+        assigned_at: '',
     });
+
+    function coachRoleLabel(role: string): string {
+        return role === 'HEAD' ? t('Head Coach') : t('Assistant Coach');
+    }
 
     function handleCoachChange(c: CoachOption | null) {
         setPickedCoach(c);
@@ -79,28 +96,68 @@ export function AddCoachDialog({ open, onOpenChange, team }: Props) {
 
                     <div className="grid gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="dlg-add-coach-role">{t('Role')}</Label>
-                            <Select value={data.role} onValueChange={(v) => setData('role', v)}>
-                                <SelectTrigger id="dlg-add-coach-role" className="w-full">
+                            <Label htmlFor="dlg-add-coach-role">
+                                {t('Role')}
+                            </Label>
+                            <Select
+                                value={data.role}
+                                onValueChange={(v) => setData('role', v)}
+                            >
+                                <SelectTrigger
+                                    id="dlg-add-coach-role"
+                                    className="w-full"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {COACH_ROLES.map((r) => (
                                         <SelectItem key={r} value={r}>
-                                            {t(r)}
+                                            {coachRoleLabel(r)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                             <InputError message={errors.role} />
                         </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="dlg-add-coach-assigned-at">
+                                {t('Assigned on')}
+                            </Label>
+                            <div className="relative">
+                                <CalendarDays className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                    id="dlg-add-coach-assigned-at"
+                                    type="date"
+                                    value={data.assigned_at}
+                                    onChange={(event) =>
+                                        setData(
+                                            'assigned_at',
+                                            event.target.value,
+                                        )
+                                    }
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                                />
+                            </div>
+                            <InputError message={errors.assigned_at} />
+                        </div>
                     </div>
 
                     <div className="flex gap-2">
-                        <Button type="submit" size="sm" disabled={processing || !pickedCoach}>
+                        <Button
+                            type="submit"
+                            size="sm"
+                            disabled={
+                                processing || !pickedCoach || !data.assigned_at
+                            }
+                        >
                             {t('Add coach')}
                         </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenChange(false)}
+                        >
                             {t('Cancel')}
                         </Button>
                     </div>

@@ -34,7 +34,7 @@ class StoreCoachPromotionRequest extends FormRequest
             'evidences' => ['nullable', 'array'],
             'evidences.*.session_id' => ['required', 'integer', 'min:1'],
             'evidences.*.tournament_id' => ['required', 'integer', 'min:1'],
-            'evidences.*.event_id' => ['required', 'integer', 'min:1'],
+            'evidences.*.event_id' => ['prohibited'],
             'evidences.*.team_id' => ['required', 'integer', 'min:1'],
         ];
     }

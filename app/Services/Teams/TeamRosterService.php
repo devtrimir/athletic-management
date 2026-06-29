@@ -45,8 +45,9 @@ class TeamRosterService
             team: $team,
             sessionId: $sessionId,
             entries: $entries,
-            allowInactive: false,
+            allowInactive: true,
             allowExistingRemoved: true,
+            allowOnlyInactiveStatus: true,
         );
 
         $errors = $this->errorsForMemberInputs($preview['rows']);
@@ -83,6 +84,9 @@ class TeamRosterService
 
                 $count++;
             }
+
+            Member::whereIn('id', collect($preview['rows'])->pluck('member_id')->filter()->all())
+                ->update(['current_status' => 'ACTIVE']);
 
             return $count;
         });
@@ -124,6 +128,16 @@ class TeamRosterService
                 );
             }
 
+            $activeMemberIds = TeamMember::query()
+                ->whereIn('member_id', $rows->pluck('member_id'))
+                ->whereNull('left_on')
+                ->pluck('member_id');
+            $inactiveMemberIds = $rows->pluck('member_id')->diff($activeMemberIds)->values();
+
+            if ($inactiveMemberIds->isNotEmpty()) {
+                Member::whereIn('id', $inactiveMemberIds)->update(['current_status' => 'INACTIVE']);
+            }
+
             return $rows->count();
         });
     }
@@ -140,6 +154,7 @@ class TeamRosterService
             entries: $this->entriesFromBackfillPayload($data),
             allowInactive: true,
             allowExistingRemoved: false,
+            allowOnlyInactiveStatus: false,
         );
     }
 
@@ -240,6 +255,7 @@ class TeamRosterService
             entries: $entries,
             allowInactive: false,
             allowExistingRemoved: false,
+            allowOnlyInactiveStatus: false,
         );
 
         return DB::transaction(function () use ($team, $targetSessionId, $userId, $preview): array {
@@ -355,12 +371,13 @@ class TeamRosterService
         array $entries,
         bool $allowInactive,
         bool $allowExistingRemoved,
+        bool $allowOnlyInactiveStatus,
     ): array {
         $rows = [];
         $seenMemberIds = [];
 
         foreach ($entries as $entry) {
-            $row = $this->evaluateEntry($team, $sessionId, $entry, $allowInactive, $allowExistingRemoved);
+            $row = $this->evaluateEntry($team, $sessionId, $entry, $allowInactive, $allowExistingRemoved, $allowOnlyInactiveStatus);
 
             if ($row['member_id'] && in_array($row['member_id'], $seenMemberIds, true)) {
                 $row['messages'][] = __('This member appears more than once in the submitted roster.');
@@ -395,6 +412,7 @@ class TeamRosterService
         array $entry,
         bool $allowInactive,
         bool $allowExistingRemoved,
+        bool $allowOnlyInactiveStatus,
     ): array {
         $messages = [];
         $status = 'ready';
@@ -416,7 +434,9 @@ class TeamRosterService
         }
 
         if ($member->current_status !== 'ACTIVE') {
-            if ($allowInactive) {
+            if ($allowInactive && $allowOnlyInactiveStatus && $member->current_status === 'INACTIVE') {
+                $status = $status === 'blocked' ? 'blocked' : 'ready';
+            } elseif ($allowInactive && ! $allowOnlyInactiveStatus) {
                 $messages[] = __('Historical backfill will record this member even though their current status is :status.', [
                     'status' => $member->current_status,
                 ]);

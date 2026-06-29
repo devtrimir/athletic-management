@@ -106,13 +106,11 @@ class CoachAssignment extends Model
         };
     }
 
-    /**
-     * @param  iterable<int>  $coachIds
-     * @return SupportCollection<int, int>
-     */
-    public static function endActiveForCoachSession(int $coachId, int $sessionId): SupportCollection
+    /** @return SupportCollection<int, int> */
+    public static function endActiveForTeamCoachSession(int $teamId, int $coachId, int $sessionId): SupportCollection
     {
         $activeAssignments = self::query()
+            ->where('team_id', $teamId)
             ->where('coach_id', $coachId)
             ->where('session_id', $sessionId)
             ->where('is_current', true)

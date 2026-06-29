@@ -154,6 +154,7 @@ class TeamProfileData
                 ->count(),
             'coaches_count' => $team->coachAssignments()
                 ->where('session_id', $selectedSessionId)
+                ->current()
                 ->count(),
         ];
     }
@@ -203,11 +204,13 @@ class TeamProfileData
         return $team->coachAssignments()
             ->with(['coach:id,full_name,pno', 'session:id,name'])
             ->where('session_id', $selectedSessionId)
+            ->current()
             ->orderBy('id')
             ->get()
             ->map(fn (CoachAssignment $coachAssignment): array => [
                 'id' => $coachAssignment->id,
                 'role' => $coachAssignment->role,
+                'assigned_at' => $coachAssignment->assigned_at?->toDateString(),
                 'coach' => $coachAssignment->coach ? [
                     'id' => $coachAssignment->coach->id,
                     'full_name' => $coachAssignment->coach->full_name,

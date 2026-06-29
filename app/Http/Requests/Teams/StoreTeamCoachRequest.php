@@ -37,6 +37,7 @@ class StoreTeamCoachRequest extends FormRequest
         return [
             'coach_id' => $coachRules,
             'role' => ['required', 'string', Rule::in(['HEAD', 'ASSISTANT'])],
+            'assigned_at' => ['required', 'date', 'before_or_equal:today'],
         ];
     }
 }

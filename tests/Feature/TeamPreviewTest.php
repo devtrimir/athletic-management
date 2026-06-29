@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Models\Coach;
+use App\Models\CoachAssignment;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -48,12 +51,35 @@ test('user without permission cannot access team preview', function () {
 
 test('authorized user can view team preview', function () {
     $user = teamPreviewUser();
-    $team = Team::factory()->create(['organization_id' => $user->organization_id]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+    ]);
+    $currentCoach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $removedCoach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+
+    CoachAssignment::factory()->create([
+        'team_id' => $team->id,
+        'coach_id' => $currentCoach->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+    CoachAssignment::factory()->create([
+        'team_id' => $team->id,
+        'coach_id' => $removedCoach->id,
+        'session_id' => $session->id,
+        'is_current' => false,
+        'removed_at' => now(),
+    ]);
 
     $this->actingAs($user)
-        ->getJson(route('v1.teams.preview', $team))
+        ->getJson(route('v1.teams.preview', ['team' => $team, 'session_id' => $session->id]))
         ->assertOk()
-        ->assertJsonStructure(['id', 'name', 'location_type', 'is_active', 'players_count', 'coaches_count']);
+        ->assertJsonStructure(['id', 'name', 'location_type', 'is_active', 'players_count', 'coaches_count'])
+        ->assertJsonPath('coaches_count', 1)
+        ->assertJsonPath('coaches.0.full_name', $currentCoach->full_name)
+        ->assertJsonMissing(['full_name' => $removedCoach->full_name]);
 });
 
 test('user cannot preview team from another organization', function () {
