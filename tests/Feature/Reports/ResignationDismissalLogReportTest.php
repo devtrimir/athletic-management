@@ -137,6 +137,52 @@ test('filters by unit_id', function (): void {
     expect($result[0]['unit']['id'])->toBe($unitA->id);
 });
 
+test('filters by member_name', function (): void {
+    $org = rdOrg();
+
+    $matchingMember = Member::factory()->create([
+        'organization_id' => $org->id,
+        'current_status' => 'RESIGNED',
+        'full_name' => 'Amit Kumar',
+    ]);
+    rdHistory($matchingMember, 'RESIGNED', '2024-01-01');
+
+    $otherMember = Member::factory()->create([
+        'organization_id' => $org->id,
+        'current_status' => 'RESIGNED',
+        'full_name' => 'Rahul Singh',
+    ]);
+    rdHistory($otherMember, 'RESIGNED', '2024-01-01');
+
+    $result = app(ResignationDismissalLogReport::class)->run($org->id, ['member_name' => 'Amit'], null, null, null);
+
+    expect($result)->toHaveCount(1);
+    expect($result[0]['full_name'])->toBe('Amit Kumar');
+});
+
+test('filters by pno', function (): void {
+    $org = rdOrg();
+
+    $matchingMember = Member::factory()->create([
+        'organization_id' => $org->id,
+        'current_status' => 'RESIGNED',
+        'pno' => 'PNO-1001',
+    ]);
+    rdHistory($matchingMember, 'RESIGNED', '2024-01-01');
+
+    $otherMember = Member::factory()->create([
+        'organization_id' => $org->id,
+        'current_status' => 'RESIGNED',
+        'pno' => 'PNO-2002',
+    ]);
+    rdHistory($otherMember, 'RESIGNED', '2024-01-01');
+
+    $result = app(ResignationDismissalLogReport::class)->run($org->id, ['pno' => '1001'], null, null, null);
+
+    expect($result)->toHaveCount(1);
+    expect($result[0]['pno'])->toBe('PNO-1001');
+});
+
 test('does not leak across organisations', function (): void {
     $orgA = rdOrg();
     $orgB = rdOrg();

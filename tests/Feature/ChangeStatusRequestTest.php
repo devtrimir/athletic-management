@@ -5,60 +5,77 @@ declare(strict_types=1);
 use App\Http\Requests\Members\ChangeStatusRequest;
 use Illuminate\Support\Facades\Validator;
 
-function changeStatusRules(): array
+function changeStatusValidator(array $data)
 {
-    return (new ChangeStatusRequest)->rules();
+    $request = new ChangeStatusRequest;
+    $request->merge($data);
+
+    return Validator::make($data, $request->rules(), $request->messages());
 }
 
 test('valid payload passes ChangeStatusRequest', function () {
-    $result = Validator::make([
-        'status' => 'RESIGNED',
+    $result = changeStatusValidator([
+        'status' => 'ACTIVE',
         'effective_on' => '2026-01-15',
-    ], changeStatusRules());
+    ]);
 
     expect($result->passes())->toBeTrue();
 });
 
 test('status is required', function () {
-    $result = Validator::make(['effective_on' => '2026-01-15'], changeStatusRules());
+    $result = changeStatusValidator(['effective_on' => '2026-01-15']);
 
     expect($result->fails())->toBeTrue()
         ->and($result->errors()->has('status'))->toBeTrue();
 });
 
 test('status must be in enum', function () {
-    $result = Validator::make(['status' => 'SUSPENDED', 'effective_on' => '2026-01-15'], changeStatusRules());
+    $result = changeStatusValidator(['status' => 'SUSPENDED', 'effective_on' => '2026-01-15']);
 
     expect($result->fails())->toBeTrue()
         ->and($result->errors()->has('status'))->toBeTrue();
 });
 
 test('effective_on is required', function () {
-    $result = Validator::make(['status' => 'ACTIVE'], changeStatusRules());
+    $result = changeStatusValidator(['status' => 'ACTIVE']);
 
     expect($result->fails())->toBeTrue()
         ->and($result->errors()->has('effective_on'))->toBeTrue();
 });
 
 test('effective_on must be a date', function () {
-    $result = Validator::make(['status' => 'ACTIVE', 'effective_on' => 'not-a-date'], changeStatusRules());
+    $result = changeStatusValidator(['status' => 'ACTIVE', 'effective_on' => 'not-a-date']);
 
     expect($result->fails())->toBeTrue()
         ->and($result->errors()->has('effective_on'))->toBeTrue();
 });
 
 test('reason is optional', function () {
-    $result = Validator::make(['status' => 'RETIRED', 'effective_on' => '2026-06-01'], changeStatusRules());
+    $result = changeStatusValidator(['status' => 'RETIRED', 'effective_on' => '2026-06-01']);
+
+    expect($result->fails())->toBeTrue()
+        ->and($result->errors()->has('reason'))->toBeTrue();
+});
+
+test('reason accepted when provided', function () {
+    $result = changeStatusValidator([
+        'status' => 'RETIRED',
+        'effective_on' => '2026-06-01',
+        'reason' => 'सेवानिवृत्ति',
+    ]);
 
     expect($result->passes())->toBeTrue();
 });
 
-test('reason accepted when provided', function () {
-    $result = Validator::make([
-        'status' => 'RETIRED',
-        'effective_on' => '2026-06-01',
-        'reason' => 'सेवानिवृत्ति',
-    ], changeStatusRules());
+test('reason is required for inactive status', function () {
+    $result = changeStatusValidator(['status' => 'INACTIVE', 'effective_on' => '2026-06-01']);
+
+    expect($result->fails())->toBeTrue()
+        ->and($result->errors()->has('reason'))->toBeTrue();
+});
+
+test('reason remains optional for active status', function () {
+    $result = changeStatusValidator(['status' => 'ACTIVE', 'effective_on' => '2026-06-01']);
 
     expect($result->passes())->toBeTrue();
 });

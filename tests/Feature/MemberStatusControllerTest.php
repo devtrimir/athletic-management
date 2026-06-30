@@ -7,6 +7,9 @@ use App\Models\MemberStatusHistory;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\SportSession;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +62,7 @@ test('user without members.changeStatus gets 403', function () {
         ->post(route('members.status.store', $member), [
             'status' => 'RETIRED',
             'effective_on' => '2026-05-23',
+            'reason' => 'Retired from service',
         ])
         ->assertForbidden();
 });
@@ -87,6 +91,29 @@ test('valid status change writes history and updates member', function () {
     expect($member->fresh()->current_status)->toBe('RETIRED');
 });
 
+test('doping disqualification status can be recorded', function () {
+    $user = statusUser('members.changeStatus');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'current_status' => 'ACTIVE',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('members.status.store', $member), [
+            'status' => 'DOPING_DISQUALIFIED',
+            'effective_on' => '2026-06-30',
+            'reason' => 'Positive doping test',
+        ])
+        ->assertRedirect(route('members.status', $member));
+
+    $history = MemberStatusHistory::where('member_id', $member->id)->latest()->first();
+    expect($history)->not->toBeNull()
+        ->and($history->status)->toBe('DOPING_DISQUALIFIED')
+        ->and($history->reason)->toBe('Positive doping test');
+
+    expect($member->fresh()->current_status)->toBe('DOPING_DISQUALIFIED');
+});
+
 test('invalid payload returns validation errors', function () {
     $user = statusUser('members.changeStatus');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
@@ -107,4 +134,81 @@ test('member from other org returns 404', function () {
             'effective_on' => '2026-05-23',
         ])
         ->assertNotFound();
+});
+
+test('inactive status removes active team memberships with reason', function () {
+    $user = statusUser('members.changeStatus');
+    $organization = Organization::findOrFail($user->organization_id);
+    $member = Member::factory()->create([
+        'organization_id' => $organization->id,
+        'current_status' => 'ACTIVE',
+    ]);
+    $team = Team::factory()->forOrganization($organization)->create();
+
+    $teamMember = TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'role' => 'PLAYER',
+        'left_on' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('members.status.store', $member), [
+            'status' => 'INACTIVE',
+            'effective_on' => '2026-06-30',
+            'reason' => 'Not in current team',
+        ])
+        ->assertRedirect(route('members.status', $member));
+
+    expect($teamMember->fresh()->left_on?->toDateString())->toBe('2026-06-30');
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'team_member_id' => $teamMember->id,
+        'action' => 'REMOVED',
+        'reason' => 'Not in current team',
+        'source' => 'member_status_change',
+    ]);
+    expect($member->fresh()->current_status)->toBe('INACTIVE');
+});
+
+test('retired status removes all active team memberships before updating status', function () {
+    $user = statusUser('members.changeStatus');
+    $organization = Organization::findOrFail($user->organization_id);
+    $member = Member::factory()->create([
+        'organization_id' => $organization->id,
+        'current_status' => 'ACTIVE',
+    ]);
+    $firstTeam = Team::factory()->forOrganization($organization)->create();
+    $secondSession = SportSession::factory()->create(['organization_id' => $organization->id]);
+    $secondTeam = Team::factory()->forOrganization($organization)->create(['session_id' => $secondSession->id]);
+
+    $firstRow = TeamMember::factory()->create([
+        'team_id' => $firstTeam->id,
+        'member_id' => $member->id,
+        'session_id' => $firstTeam->session_id,
+        'role' => 'PLAYER',
+        'left_on' => null,
+    ]);
+    $secondRow = TeamMember::factory()->create([
+        'team_id' => $secondTeam->id,
+        'member_id' => $member->id,
+        'session_id' => $secondTeam->session_id,
+        'role' => 'CAPTAIN',
+        'left_on' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('members.status.store', $member), [
+            'status' => 'RETIRED',
+            'effective_on' => '2026-06-30',
+            'reason' => 'Retired from service',
+        ])
+        ->assertRedirect(route('members.status', $member));
+
+    expect($firstRow->fresh()->left_on?->toDateString())->toBe('2026-06-30')
+        ->and($secondRow->fresh()->left_on?->toDateString())->toBe('2026-06-30')
+        ->and($member->fresh()->current_status)->toBe('RETIRED');
 });

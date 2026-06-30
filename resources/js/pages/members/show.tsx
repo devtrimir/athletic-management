@@ -171,6 +171,23 @@ function eventClassLabel(
     }
 }
 
+function humanizeCode(value: string): string {
+    return value
+        .replace(/[_-]+/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function statusLabel(value: string | null | undefined, t: (key: string) => string): string {
+    if (!value) {
+        return '';
+    }
+
+    const translated = t(value);
+
+    return translated === value ? humanizeCode(value) : translated;
+}
+
 function isOtherTierOrLevel(value: string | null | undefined): boolean {
     return value?.toUpperCase() === 'OTHER';
 }
@@ -1364,7 +1381,7 @@ export default function MembersShow({
                 case 'mobile':
                     return member.mobile ?? '';
                 case 'current_status':
-                    return t(member.current_status);
+                    return statusLabel(member.current_status, t);
                 case 'player_category':
                     return member.player_category ?? '';
                 case 'player_level':
@@ -1670,7 +1687,7 @@ export default function MembersShow({
                                         {detail(
                                             t('Current status'),
                                             <Badge variant="outline">
-                                                {t(member.current_status)}
+                                                {statusLabel(member.current_status, t)}
                                             </Badge>,
                                         )}
                                         {detail(t('Rank'), member.rank)}
@@ -2911,7 +2928,7 @@ export default function MembersShow({
                                             >
                                                 <div className="space-y-0.5">
                                                     <Badge variant="outline">
-                                                        {t(row.status)}
+                                                        {statusLabel(row.status, t)}
                                                     </Badge>
                                                     {row.reason && (
                                                         <p className="text-xs text-muted-foreground">

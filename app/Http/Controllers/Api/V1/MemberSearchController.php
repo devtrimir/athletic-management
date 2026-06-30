@@ -26,7 +26,7 @@ class MemberSearchController extends Controller
             'q' => ['required', 'string', 'min:1', 'max:100'],
             'player_category' => ['nullable', 'string', 'in:GD,SPORTS_QUOTA'],
             'player_level' => ['nullable', 'string', 'in:ZONAL,NATIONAL,INTERNATIONAL,AIPSC'],
-            'current_status' => ['nullable', 'string', 'in:ACTIVE,INACTIVE,RESIGNED,DISMISSED,DECEASED,RETIRED'],
+            'current_status' => ['nullable', 'string', Rule::in(Member::STATUSES)],
             'sport_id' => ['nullable', 'integer', Rule::exists('sports', 'id')->where('organization_id', (int) $request->user()->organization_id)],
             'available_for_team_id' => ['nullable', 'integer', Rule::exists('teams', 'id')->where('organization_id', (int) $request->user()->organization_id)],
             'available_for_session_id' => ['nullable', 'integer', Rule::exists('sport_sessions', 'id')->where('organization_id', (int) $request->user()->organization_id)],

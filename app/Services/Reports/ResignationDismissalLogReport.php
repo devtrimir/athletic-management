@@ -14,7 +14,7 @@ class ResignationDismissalLogReport
     /**
      * Return resignation/dismissal log entries ordered by effective_on desc.
      *
-     * @param  array{session_id?: int|null, sport_id?: int|null, unit_id?: int|null, tier_id?: int|null}  $filters
+     * @param  array{session_id?: int|null, sport_id?: int|null, unit_id?: int|null, tier_id?: int|null, member_name?: string|null, pno?: string|null}  $filters
      * @return Collection<int, array{id: int, member_code: string, pno: string|null, full_name: string, rank: string|null, current_status: string, effective_on: string, reason: string|null, unit: array{id: int, name: string}|null}>
      */
     public function run(
@@ -25,6 +25,8 @@ class ResignationDismissalLogReport
         ?string $status,
     ): Collection {
         $unitId = $filters['unit_id'] ?? null;
+        $memberName = trim((string) ($filters['member_name'] ?? ''));
+        $pno = trim((string) ($filters['pno'] ?? ''));
         $statuses = $status !== null ? [$status] : self::STATUSES;
 
         $rows = DB::table('members as m')
@@ -49,6 +51,8 @@ class ResignationDismissalLogReport
             ->when($fromDate, fn ($q) => $q->where('msh.effective_on', '>=', $fromDate))
             ->when($toDate, fn ($q) => $q->where('msh.effective_on', '<=', $toDate))
             ->when($unitId, fn ($q) => $q->where('m.current_unit_id', $unitId))
+            ->when($memberName !== '', fn ($q) => $q->where('m.full_name', 'like', '%'.$memberName.'%'))
+            ->when($pno !== '', fn ($q) => $q->where('m.pno', 'like', '%'.$pno.'%'))
             ->orderByDesc('msh.effective_on')
             ->orderBy('m.full_name')
             ->get();

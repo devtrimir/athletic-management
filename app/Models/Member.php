@@ -103,6 +103,17 @@ class Member extends Model
     /** @use HasFactory<MemberFactory> */
     use Auditable, HasFactory, SoftDeletes, Tenanted;
 
+    /** @var list<string> */
+    public const STATUSES = [
+        'ACTIVE',
+        'INACTIVE',
+        'RESIGNED',
+        'DISMISSED',
+        'DECEASED',
+        'RETIRED',
+        'DOPING_DISQUALIFIED',
+    ];
+
     /**
      * @return array<string, string>
      */

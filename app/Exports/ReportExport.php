@@ -19,12 +19,14 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithEvents, WithHe
 {
     /**
      * @param  array<int, string>  $headings
+     * @param  array<int, array<int, string>>  $headerRows
      * @param  array<int, string>  $mergeRanges
      */
     public function __construct(
         private readonly Collection $rows,
         private readonly array $headings,
         private readonly string $title,
+        private readonly array $headerRows = [],
         private readonly array $mergeRanges = [],
     ) {}
 
@@ -71,9 +73,13 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithEvents, WithHe
         return trim(json_encode($value, JSON_UNESCAPED_UNICODE) ?: '');
     }
 
-    /** @return array<int, string> */
+    /** @return array<int, array<int, string>>|array<int, string> */
     public function headings(): array
     {
+        if ($this->headerRows !== []) {
+            return [...$this->headerRows, $this->headings];
+        }
+
         return $this->headings;
     }
 
@@ -113,8 +119,18 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithEvents, WithHe
     /** @return array<int|string, mixed> */
     public function styles(Worksheet $sheet): array
     {
-        return [
-            1 => ['font' => ['bold' => true]],
-        ];
+        $styles = [];
+
+        if ($this->headerRows !== []) {
+            $styles[1] = [
+                'font' => ['bold' => true, 'size' => 14],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            ];
+            $styles[count($this->headerRows) + 1] = ['font' => ['bold' => true]];
+
+            return $styles;
+        }
+
+        return [1 => ['font' => ['bold' => true]]];
     }
 }
