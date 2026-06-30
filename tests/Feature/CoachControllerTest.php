@@ -736,6 +736,71 @@ test('coach achievements tab returns medals from coached team members', function
         );
 });
 
+test('coach achievements tab shows tournament cash reward only once across event groups', function () {
+    $user = coachUser('coaches.view');
+    $organization = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create(['organization_id' => $organization->id]);
+    $sport = Sport::factory()->create(['organization_id' => $organization->id]);
+    $team = Team::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+    ]);
+    $coach = Coach::factory()->create(['organization_id' => $organization->id]);
+    CoachAssignment::factory()->head()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'assigned_at' => '2026-01-01 00:00:00',
+    ]);
+    $firstAchievement = coachedMedal([
+        'organization' => $organization,
+        'session' => $session,
+        'sport' => $sport,
+        'team' => $team,
+        'event_name' => 'First Event',
+    ]);
+    $tournament = Tournament::withoutGlobalScopes()->findOrFail($firstAchievement->participation->event->tournament_id);
+    $secondEvent = Event::factory()
+        ->forTournament($tournament)
+        ->create(['name' => 'Second Event']);
+    coachedMedal([
+        'organization' => $organization,
+        'session' => $session,
+        'sport' => $sport,
+        'team' => $team,
+        'event' => $secondEvent,
+    ]);
+    $promotion = CoachPromotion::factory()->create([
+        'organization_id' => $organization->id,
+        'coach_id' => $coach->id,
+        'cash_reward_amount' => '9000.00',
+    ]);
+    CoachPromotionEvidence::factory()->create([
+        'organization_id' => $organization->id,
+        'coach_promotion_id' => $promotion->id,
+        'session_id' => $session->id,
+        'tournament_id' => $tournament->id,
+        'event_id' => null,
+        'team_id' => $team->id,
+        'achievement_id' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.achievements', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/show')
+            ->where('coachAchievements.groups', function ($groups): bool {
+                $rewards = collect($groups)->flatMap(fn (array $group): array => $group['rewards']);
+
+                return collect($groups)->count() === 2
+                    && $rewards->count() === 1
+                    && $rewards->sum(fn (array $reward): float => (float) $reward['cash_reward_amount']) === 9000.0;
+            })
+        );
+});
+
 test('coach achievements show other tier rows without counting medals', function () {
     $user = coachUser('coaches.view');
     $organization = Organization::findOrFail($user->organization_id);

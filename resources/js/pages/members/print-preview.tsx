@@ -179,6 +179,19 @@ type SpecialAchievementsData = {
         commendation_discs: number;
     };
 };
+type ExternalCoachingAssignmentRow = {
+    id: number;
+    start_date: string | null;
+    end_date: string | null;
+    status: string;
+    attendance_mode: string;
+    external_coach: { id: number; name: string } | null;
+    training_venue: { id: number; name: string } | null;
+    sport: { id: number; name: string } | null;
+};
+type ExternalCoachingData = {
+    assignments: ExternalCoachingAssignmentRow[];
+};
 type PromotionEvidenceTableRow = {
     key: string;
     session: ReactNode;
@@ -207,6 +220,7 @@ type SectionKey =
     | 'sports'
     | 'status'
     | 'teams'
+    | 'externalCoaching'
     | 'achievements'
     | 'specialAchievements'
     | 'promotions'
@@ -221,6 +235,7 @@ type Props = {
     legacyAchievements?: LegacyAchievement[];
     achievements?: AchievementRow[];
     specialAchievements?: SpecialAchievementsData;
+    externalCoaching?: ExternalCoachingData;
     promotions?: PromotionRow[];
     auditLog?: AuditEntry[];
 };
@@ -240,8 +255,8 @@ const UI_LABELS: Record<
     'Print preview': { en: 'Print preview', hi: 'प्रिंट पूर्वावलोकन' },
     'Print options': { en: 'Print options', hi: 'प्रिंट विकल्प' },
     'UP Police Sports Unit': {
-        en: 'UP Police Sports Unit',
-        hi: 'उत्तर प्रदेश पुलिस खेल इकाई',
+        en: 'UP Police Sport Control Board (UPPSCB)',
+        hi: 'उत्तर प्रदेश पुलिस खेल नियंत्रण बोर्ड (यूपीपीएससीबी)',
     },
     'Member profile record': {
         en: 'Member profile record',
@@ -277,6 +292,26 @@ const UI_LABELS: Record<
     status: { en: 'Status history', hi: 'स्थिति इतिहास' },
     'Team memberships': { en: 'Team memberships', hi: 'टीम सदस्यता' },
     teams: { en: 'Team memberships', hi: 'टीम सदस्यता' },
+    'Current team associations': {
+        en: 'Current team associations',
+        hi: 'वर्तमान टीम संबद्धता',
+    },
+    'External coaching': {
+        en: 'External coaching',
+        hi: 'बाहरी कोचिंग',
+    },
+    externalCoaching: {
+        en: 'External coaching',
+        hi: 'बाहरी कोचिंग',
+    },
+    'External coaching assignments': {
+        en: 'External coaching assignments',
+        hi: 'बाहरी कोचिंग असाइनमेंट',
+    },
+    'No external coaching assignments.': {
+        en: 'No external coaching assignments.',
+        hi: 'कोई बाहरी कोचिंग असाइनमेंट नहीं।',
+    },
     'Legacy achievements': {
         en: 'Legacy achievements',
         hi: 'पूर्व उपलब्धियां',
@@ -743,8 +778,8 @@ function genderClassLabel(
     }
 
     const labels: Record<string, string> = {
-        F: 'F',
-        M: 'M',
+        F: 'Female',
+        M: 'Male',
         MIXED: 'Mixed',
         OPEN: 'Open',
         O: 'O',
@@ -760,12 +795,12 @@ function genderLabel(value: string | null | undefined): string | null {
 
     const code = value.toUpperCase();
 
-    if (code === 'MALE') {
-        return 'M';
+    if (code === 'M' || code === 'MALE') {
+        return 'Male';
     }
 
-    if (code === 'FEMALE') {
-        return 'F';
+    if (code === 'F' || code === 'FEMALE') {
+        return 'Female';
     }
 
     return code;
@@ -1126,6 +1161,7 @@ const AVAILABLE_SECTIONS: SectionKey[] = [
     'service',
     'sports',
     'teams',
+    'externalCoaching',
     'achievements',
     'specialAchievements',
     'promotions',
@@ -1152,6 +1188,7 @@ export default function PrintPreview({
     legacyAchievements,
     achievements,
     specialAchievements,
+    externalCoaching,
     promotions,
     auditLog,
 }: Props) {
@@ -1179,6 +1216,11 @@ export default function PrintPreview({
 
     const preferredName = member.full_name;
     const teamRows = memberTeams ?? [];
+    const currentTeamNames = teamRows
+        .filter((row) => !row.left_on)
+        .map((row) => row.team?.name)
+        .filter((name): name is string => Boolean(name));
+    const externalCoachingRows = externalCoaching?.assignments ?? [];
     const achievementRows = [
         ...(legacyAchievements ?? [])
             .filter((row) => row.period !== PRE_RECRUITMENT_PERIOD)
@@ -1404,19 +1446,6 @@ export default function PrintPreview({
 
                 <div className="flex items-start justify-between gap-4 print:hidden">
                     <div className="flex items-start gap-4">
-                        <div className="size-24 overflow-hidden rounded-xl border bg-muted">
-                            {member.photo_path ? (
-                                <img
-                                    src={`/storage/${member.photo_path}`}
-                                    alt={member.full_name}
-                                    className="size-full object-cover"
-                                />
-                            ) : (
-                                <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
-                                    {t('No photo')}
-                                </div>
-                            )}
-                        </div>
                         <div className="space-y-1">
                             <div className="text-xs text-muted-foreground">
                                 {breadcrumbs
@@ -1522,49 +1551,93 @@ export default function PrintPreview({
                                 locale,
                             )}
                         >
-                            <DetailsTable
-                                rows={[
-                                    {
-                                        label: uiText('PNO', locale),
-                                        value: member.pno ? (
-                                            <span className="font-mono">
-                                                {member.pno}
-                                            </span>
-                                        ) : null,
-                                    },
-                                    {
-                                        label: uiText('Current status', locale),
-                                        value: (
-                                            <Badge variant="outline">
-                                                {printValue(
-                                                    member.current_status,
-                                                    t,
-                                                )}
-                                            </Badge>
-                                        ),
-                                    },
-                                    {
-                                        label: uiText('Name', locale),
-                                        value: preferredName,
-                                    },
-                                    {
-                                        label: uiText("Father's name", locale),
-                                        value: member.father_name,
-                                    },
-                                    {
-                                        label: uiText('Gender', locale),
-                                        value: genderLabel(member.gender),
-                                    },
-                                    {
-                                        label: uiText('Date of birth', locale),
-                                        value: formatDateValue(
-                                            member.dob,
-                                            locale,
-                                            'long',
-                                        ),
-                                    },
-                                ]}
-                            />
+                            <div className="flex items-start gap-4 print:gap-3">
+                                <div className="min-w-0 flex-1 space-y-3 print:space-y-2">
+                                    <div>
+                                        <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase print:text-[8px]">
+                                            {uiText('Name', locale)}
+                                        </div>
+                                        <div className="mt-1 text-2xl leading-tight font-bold text-foreground print:text-[16px]">
+                                            {preferredName}
+                                        </div>
+                                    </div>
+                                    <DetailsTable
+                                        rows={[
+                                            {
+                                                label: uiText('PNO', locale),
+                                                value: member.pno ? (
+                                                    <span className="font-mono">
+                                                        {member.pno}
+                                                    </span>
+                                                ) : null,
+                                            },
+                                            {
+                                                label: uiText(
+                                                    'Current status',
+                                                    locale,
+                                                ),
+                                                value: (
+                                                    <Badge variant="outline">
+                                                        {printValue(
+                                                            member.current_status,
+                                                            t,
+                                                        )}
+                                                    </Badge>
+                                                ),
+                                            },
+                                            {
+                                                label: uiText(
+                                                    "Father's name",
+                                                    locale,
+                                                ),
+                                                value: member.father_name,
+                                            },
+                                            {
+                                                label: uiText('Gender', locale),
+                                                value: genderLabel(
+                                                    member.gender,
+                                                ),
+                                            },
+                                            {
+                                                label: uiText(
+                                                    'Date of birth',
+                                                    locale,
+                                                ),
+                                                value: formatDateValue(
+                                                    member.dob,
+                                                    locale,
+                                                    'long',
+                                                ),
+                                            },
+                                            {
+                                                label: uiText(
+                                                    'Current team associations',
+                                                    locale,
+                                                ),
+                                                value:
+                                                    currentTeamNames.length > 0
+                                                        ? currentTeamNames.join(
+                                                              ', ',
+                                                          )
+                                                        : null,
+                                            },
+                                        ]}
+                                    />
+                                </div>
+                                <div className="size-28 shrink-0 overflow-hidden rounded-md border bg-muted print:size-24">
+                                    {member.photo_path ? (
+                                        <img
+                                            src={`/storage/${member.photo_path}`}
+                                            alt={member.full_name}
+                                            className="size-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex size-full items-center justify-center px-2 text-center text-xs text-muted-foreground print:text-[9px]">
+                                            {t('No photo')}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </Section>
                     )}
 
@@ -1897,6 +1970,121 @@ export default function PrintPreview({
                                                         )}
                                                     </tr>
                                                 ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </Deferred>
+                        </Section>
+                    )}
+
+                    {sectionEnabled('externalCoaching') && (
+                        <Section
+                            title={uiText(
+                                'External coaching assignments',
+                                locale,
+                            )}
+                        >
+                            <Deferred
+                                data="externalCoaching"
+                                fallback={<Skeleton className="h-10 w-full" />}
+                            >
+                                {externalCoachingRows.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        {uiText(
+                                            'No external coaching assignments.',
+                                            locale,
+                                        )}
+                                    </p>
+                                ) : (
+                                    <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                <tr>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Period',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Coach',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Training venue',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Sport',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                    <th className="p-2">
+                                                        {uiText(
+                                                            'Status',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="print:text-[10px]">
+                                                {externalCoachingRows.map(
+                                                    (assignment) => (
+                                                        <tr
+                                                            key={assignment.id}
+                                                            className="border-t print:align-top"
+                                                        >
+                                                            <td className="p-2 print:py-1">
+                                                                {[
+                                                                    formatDateValue(
+                                                                        assignment.start_date,
+                                                                        locale,
+                                                                    ),
+                                                                    formatDateValue(
+                                                                        assignment.end_date,
+                                                                        locale,
+                                                                    ),
+                                                                ]
+                                                                    .filter(
+                                                                        Boolean,
+                                                                    )
+                                                                    .join(
+                                                                        ' - ',
+                                                                    ) || '-'}
+                                                            </td>
+                                                            <td className="p-2 print:py-1">
+                                                                {assignment
+                                                                    .external_coach
+                                                                    ?.name ??
+                                                                    '-'}
+                                                            </td>
+                                                            <td className="p-2 print:py-1">
+                                                                {assignment
+                                                                    .training_venue
+                                                                    ?.name ??
+                                                                    '-'}
+                                                            </td>
+                                                            <td className="p-2 print:py-1">
+                                                                {assignment
+                                                                    .sport
+                                                                    ?.name ??
+                                                                    '-'}
+                                                            </td>
+                                                            <td className="p-2 print:py-1">
+                                                                {printValue(
+                                                                    assignment.status,
+                                                                    t,
+                                                                ) ?? '-'}
+                                                            </td>
+                                                        </tr>
+                                                    ),
+                                                )}
                                             </tbody>
                                         </table>
                                     </div>
