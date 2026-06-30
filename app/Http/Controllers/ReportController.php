@@ -131,9 +131,11 @@ class ReportController extends Controller
         $orgId = (int) $request->user()->organization_id;
         $filters = $this->buildFilters($request, $key);
         $data = $this->runService($key, $orgId, $filters);
-
-        $title = self::REPORTS[$key]['name'];
-        $filename = $key.'.xlsx';
+        $locale = $request->user()?->locale ?? app()->getLocale();
+        $title = $this->reportTitle($key, $locale);
+        $filename = Str::slug(self::REPORTS[$key]['name_en']).'-'.now()->format('Y-m-d').'.xlsx';
+        $headerRows = [];
+        $mergeRanges = [];
 
         if ($data->count() > 500) {
             $uuid = (string) Str::uuid();
@@ -143,10 +145,22 @@ class ReportController extends Controller
             return response()->json(['status' => 'queued', 'job_id' => $uuid], 202);
         }
 
-        /** @var array<int, string> $headings */
-        $headings = $data->isNotEmpty() ? array_keys((array) $data->first()) : [];
+        if ($key === 'resignation-dismissal-log') {
+            $data = $data->values()->map(
+                fn (array $row, int $index): array => [
+                    'serial_number' => $index + 1,
+                    ...collect($row)->except(['id', 'member_code'])->all(),
+                ]
+            );
+            $headerRows = [[$this->reportHeadingLine($locale)]];
+            $mergeRanges = ['A1:H1'];
+        }
 
-        return Excel::download(new ReportExport($data, $headings, $title), $filename);
+        $headings = $key === 'resignation-dismissal-log'
+            ? $this->resignationDismissalExportHeadings($locale)
+            : ($data->isNotEmpty() ? array_keys((array) $data->first()) : []);
+
+        return Excel::download(new ReportExport($data, $headings, $title, $headerRows, $mergeRanges), $filename);
     }
 
     public function memberPerformanceDetail(Request $request, string $key, Member $member): JsonResponse
@@ -291,8 +305,14 @@ class ReportController extends Controller
         }
 
         if ($key === 'resignation-dismissal-log') {
-            $extra = $request->validate(['status' => ['nullable', 'string', 'in:RESIGNED,DISMISSED']]);
+            $extra = $request->validate([
+                'status' => ['nullable', 'string', 'in:RESIGNED,DISMISSED'],
+                'member_name' => ['nullable', 'string', 'max:100'],
+                'pno' => ['nullable', 'string', 'max:20'],
+            ]);
             $filters['status'] = $extra['status'] ?? null;
+            $filters['member_name'] = $extra['member_name'] ?? null;
+            $filters['pno'] = $extra['pno'] ?? null;
         }
 
         if ($key === 'achievement-history') {
@@ -330,6 +350,32 @@ class ReportController extends Controller
             'new-joiners' => $this->newJoiners->run($orgId, $filters),
             'achievement-history' => $this->achievementHistory->run($orgId, $filters),
         };
+    }
+
+    private function reportTitle(string $key, string $locale): string
+    {
+        return $locale === 'hi'
+            ? self::REPORTS[$key]['name_hi']
+            : self::REPORTS[$key]['name_en'];
+    }
+
+    private function reportHeadingLine(string $locale): string
+    {
+        return $locale === 'hi'
+            ? 'रिपोर्ट: त्याग/बर्खास्तगी लॉग'
+            : 'Report: Resignation / Dismissal Log';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resignationDismissalExportHeadings(string $locale): array
+    {
+        if ($locale === 'hi') {
+            return ['क्र.', 'पीएनओ', 'नाम', 'रैंक', 'स्थिति', 'प्रभावी दिनांक', 'कारण', 'इकाई'];
+        }
+
+        return ['S. No.', 'PNO', 'Name', 'Rank', 'Status', 'Effective On', 'Reason', 'Unit'];
     }
 
     /**

@@ -15,9 +15,31 @@ type Props = {
     onOpenChange: (open: boolean) => void;
 };
 
+const MEMBER_STATUS_OPTIONS = [
+    'ACTIVE',
+    'INACTIVE',
+    'RESIGNED',
+    'DISMISSED',
+    'DECEASED',
+    'RETIRED',
+    'DOPING_DISQUALIFIED',
+] as const;
+
+function humanizeCode(value: string): string {
+    return value
+        .replace(/[_-]+/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export function StatusChangeModal({ member, open, onOpenChange }: Props) {
     const { t } = useTranslation();
     const form = useForm({ status: '', effective_on: '', reason: '' });
+    const statusLabel = (status: (typeof MEMBER_STATUS_OPTIONS)[number]) => {
+        const translated = t(status);
+
+        return translated === status ? humanizeCode(status) : translated;
+    };
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -45,9 +67,9 @@ export function StatusChangeModal({ member, open, onOpenChange }: Props) {
                                 <SelectValue placeholder={t('Select status')} />
                             </SelectTrigger>
                             <SelectContent>
-                                {(['ACTIVE', 'RESIGNED', 'DISMISSED', 'DECEASED', 'RETIRED'] as const).map((s) => (
+                                {MEMBER_STATUS_OPTIONS.map((s) => (
                                     <SelectItem key={s} value={s}>
-                                        {t(s)}
+                                        {statusLabel(s)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
