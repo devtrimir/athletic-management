@@ -255,8 +255,8 @@ const UI_LABELS: Record<
     'Print preview': { en: 'Print preview', hi: 'प्रिंट पूर्वावलोकन' },
     'Print options': { en: 'Print options', hi: 'प्रिंट विकल्प' },
     'UP Police Sports Unit': {
-        en: 'UPPSCB - UP Police Sport Control Board',
-        hi: 'यूपीपीएससीबी - उत्तर प्रदेश पुलिस खेल नियंत्रण बोर्ड',
+        en: 'UP Police Sport Control Board (UPPSCB)',
+        hi: 'उत्तर प्रदेश पुलिस खेल नियंत्रण बोर्ड (यूपीपीएससीबी)',
     },
     'Member profile record': {
         en: 'Member profile record',
