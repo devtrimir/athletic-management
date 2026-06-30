@@ -306,6 +306,8 @@ class CoachProfileData
             }
         }
 
+        $seenRewardIds = collect();
+
         $groups = $achievements
             ->groupBy(fn (Achievement $achievement): string => collect([
                 $achievement->participation->session_id,
@@ -314,7 +316,23 @@ class CoachProfileData
                 $achievement->participation->event->id,
                 $achievement->participation->team_id,
             ])->join(':'))
-            ->map(fn (Collection $group): array => $this->coachAchievementGroupPayload($group, $rewardEvidenceByKey))
+            ->map(function (Collection $group) use ($rewardEvidenceByKey, $seenRewardIds): array {
+                $payload = $this->coachAchievementGroupPayload($group, $rewardEvidenceByKey);
+                $payload['rewards'] = collect($payload['rewards'])
+                    ->reject(function (array $reward) use ($seenRewardIds): bool {
+                        if ($seenRewardIds->has($reward['id'])) {
+                            return true;
+                        }
+
+                        $seenRewardIds->put($reward['id'], true);
+
+                        return false;
+                    })
+                    ->values()
+                    ->all();
+
+                return $payload;
+            })
             ->sortBy([
                 ['session.name', 'desc'],
                 ['tournament.tier_weight', 'desc'],
