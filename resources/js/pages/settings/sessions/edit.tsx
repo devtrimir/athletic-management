@@ -44,10 +44,13 @@ export default function Edit({ session }: { session: SportSession }) {
                     description={t('Update sport session details')}
                 />
 
-                <Form {...SportSessionController.update.form(session.id)} className="max-w-xl space-y-6">
+                <Form
+                    {...SportSessionController.update.form(session.id)}
+                    className="max-w-xl space-y-6"
+                >
                     {({ processing, errors }) => (
                         <>
-                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                            <div className="space-y-5 rounded-xl border bg-card p-6">
                                 <div className="grid gap-2">
                                     <Label htmlFor="name">{t('Name')}</Label>
                                     <Input
@@ -63,7 +66,9 @@ export default function Edit({ session }: { session: SportSession }) {
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="start_year">{t('Start year')}</Label>
+                                        <Label htmlFor="start_year">
+                                            {t('Start year')}
+                                        </Label>
                                         <Input
                                             id="start_year"
                                             name="start_year"
@@ -73,11 +78,15 @@ export default function Edit({ session }: { session: SportSession }) {
                                             max={2100}
                                             required
                                         />
-                                        <InputError message={errors.start_year} />
+                                        <InputError
+                                            message={errors.start_year}
+                                        />
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="end_year">{t('End year')}</Label>
+                                        <Label htmlFor="end_year">
+                                            {t('End year')}
+                                        </Label>
                                         <Input
                                             id="end_year"
                                             name="end_year"
@@ -98,17 +107,32 @@ export default function Edit({ session }: { session: SportSession }) {
                                         defaultChecked={session.is_current}
                                     />
                                     <div>
-                                        <Label htmlFor="is_current" className="cursor-pointer">{t('Mark as current session')}</Label>
-                                        <p className="text-xs text-muted-foreground">{t('Only one session can be current at a time.')}</p>
+                                        <Label
+                                            htmlFor="is_current"
+                                            className="cursor-pointer"
+                                        >
+                                            {t('Mark as current session')}
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                'Only one session can be current at a time.',
+                                            )}
+                                        </p>
                                     </div>
                                     <InputError message={errors.is_current} />
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>{t('Save changes')}</Button>
+                                <Button disabled={processing}>
+                                    {t('Save changes')}
+                                </Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={SportSessionController.index.url()}>{t('Cancel')}</Link>
+                                    <Link
+                                        href={SportSessionController.index.url()}
+                                    >
+                                        {t('Cancel')}
+                                    </Link>
                                 </Button>
                             </div>
                         </>

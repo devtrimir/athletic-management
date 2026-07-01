@@ -50,7 +50,9 @@ type Filters = {
 };
 
 function displayValue(value: string | number | null | undefined): string {
-    return value === null || value === undefined || value === '' ? '' : String(value);
+    return value === null || value === undefined || value === ''
+        ? ''
+        : String(value);
 }
 
 export default function InchargesIndex({
@@ -79,7 +81,9 @@ export default function InchargesIndex({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <Heading
                         title={t('Team Prabhari')}
-                        description={t('Manage team prabhari and their assignments.')}
+                        description={t(
+                            'Manage team prabhari and their assignments.',
+                        )}
                     />
                     <Button asChild>
                         <Link href={InchargeController.create.url()}>
@@ -100,33 +104,50 @@ export default function InchargesIndex({
                                     applySearch();
                                 }
                             }}
-                            placeholder={t('Search team prabhari by name, PNO, rank, or designation')}
+                            placeholder={t(
+                                'Search team prabhari by name, PNO, rank, or designation',
+                            )}
                             className="pl-9"
                         />
                     </div>
-                    <Button type="button" variant="outline" onClick={applySearch}>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={applySearch}
+                    >
                         {t('Search')}
                     </Button>
                 </div>
 
-                <ListingPagination paginator={incharges} itemLabel={t('team prabhari')} className="sticky top-0 z-40 shadow-sm" />
+                <ListingPagination
+                    paginator={incharges}
+                    itemLabel={t('team prabhari')}
+                    className="sticky top-0 z-40 shadow-sm"
+                />
                 <div className="overflow-hidden rounded-md border bg-card">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-16 text-center">{t('S. No.')}</TableHead>
+                                <TableHead className="w-16 text-center">
+                                    {t('S. No.')}
+                                </TableHead>
                                 <TableHead>{t('Team Prabhari')}</TableHead>
                                 <TableHead>{t('Rank')}</TableHead>
                                 <TableHead>{t('Contact')}</TableHead>
                                 <TableHead>{t('Current teams')}</TableHead>
                                 <TableHead>{t('Status')}</TableHead>
-                                <TableHead className="text-right">{t('Actions')}</TableHead>
+                                <TableHead className="text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {incharges.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-28 text-center text-muted-foreground">
+                                    <TableCell
+                                        colSpan={7}
+                                        className="h-28 text-center text-muted-foreground"
+                                    >
                                         {t('No team prabhari found.')}
                                     </TableCell>
                                 </TableRow>
@@ -143,44 +164,85 @@ export default function InchargesIndex({
                                                 </span>
                                                 <div>
                                                     <Link
-                                                        href={InchargeController.show.url(incharge.id)}
+                                                        href={InchargeController.show.url(
+                                                            incharge.id,
+                                                        )}
                                                         className="font-medium hover:underline"
                                                     >
                                                         {incharge.full_name}
                                                     </Link>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {t('PNO')}: {incharge.pno}
+                                                        {t('PNO')}:{' '}
+                                                        {incharge.pno}
                                                     </p>
                                                 </div>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="text-sm">{displayValue(incharge.rank)}</div>
+                                            <div className="text-sm">
+                                                {displayValue(incharge.rank)}
+                                            </div>
                                             <div className="text-xs text-muted-foreground">
-                                                {displayValue(incharge.designation)}
+                                                {displayValue(
+                                                    incharge.designation,
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="text-sm">{displayValue(incharge.mobile)}</div>
+                                            <div className="text-sm">
+                                                {displayValue(incharge.mobile)}
+                                            </div>
                                             <div className="text-xs text-muted-foreground">
                                                 {displayValue(incharge.email)}
                                             </div>
                                         </TableCell>
-                                        <TableCell>{incharge.current_teams_count}</TableCell>
                                         <TableCell>
-                                            <Badge variant={incharge.is_active ? 'default' : 'secondary'}>
-                                                {incharge.is_active ? t('Active') : t('Inactive')}
+                                            {incharge.current_teams_count}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={
+                                                    incharge.is_active
+                                                        ? 'default'
+                                                        : 'secondary'
+                                                }
+                                            >
+                                                {incharge.is_active
+                                                    ? t('Active')
+                                                    : t('Inactive')}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button asChild size="icon" variant="ghost" aria-label={t('View team prabhari')}>
-                                                    <Link href={InchargeController.show.url(incharge.id)}>
+                                                <Button
+                                                    asChild
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    aria-label={t(
+                                                        'View team prabhari',
+                                                    )}
+                                                >
+                                                    <Link
+                                                        href={InchargeController.show.url(
+                                                            incharge.id,
+                                                        )}
+                                                    >
                                                         <Eye className="size-4" />
                                                     </Link>
                                                 </Button>
-                                                <Button asChild size="icon" variant="ghost" aria-label={t('Edit team prabhari')}>
-                                                    <Link href={InchargeController.edit.url(incharge.id)}>
+                                                <Button
+                                                    asChild
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    aria-label={t(
+                                                        'Edit team prabhari',
+                                                    )}
+                                                >
+                                                    <Link
+                                                        href={InchargeController.edit.url(
+                                                            incharge.id,
+                                                        )}
+                                                    >
                                                         <Edit className="size-4" />
                                                     </Link>
                                                 </Button>
@@ -192,12 +254,13 @@ export default function InchargesIndex({
                         </TableBody>
                     </Table>
                 </div>
-
             </div>
         </>
     );
 }
 
 InchargesIndex.layout = {
-    breadcrumbs: [{ title: 'Team Prabhari', href: InchargeController.index.url() }],
+    breadcrumbs: [
+        { title: 'Team Prabhari', href: InchargeController.index.url() },
+    ],
 };

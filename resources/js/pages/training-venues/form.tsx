@@ -1,14 +1,23 @@
 import { Form, Link } from '@inertiajs/react';
 import { ArrowLeft, MapPin } from 'lucide-react';
 
-import type { store, update } from '@/actions/App/Http/Controllers/TrainingVenueController';
+import type {
+    store,
+    update,
+} from '@/actions/App/Http/Controllers/TrainingVenueController';
 import { index } from '@/actions/App/Http/Controllers/TrainingVenueController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -34,7 +43,13 @@ type Props = {
     venue?: TrainingVenue;
 };
 
-export function TrainingVenueForm({ title, description, action, statuses, venue }: Props) {
+export function TrainingVenueForm({
+    title,
+    description,
+    action,
+    statuses,
+    venue,
+}: Props) {
     const { t } = useTranslation();
 
     return (
@@ -58,8 +73,14 @@ export function TrainingVenueForm({ title, description, action, statuses, venue 
                                     <MapPin className="size-4" />
                                 </div>
                                 <div>
-                                    <h2 className="text-sm font-semibold">{t('Venue details')}</h2>
-                                    <p className="text-xs text-muted-foreground">{t('Location, radius, and operational status')}</p>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Venue details')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Location, radius, and operational status',
+                                        )}
+                                    </p>
                                 </div>
                             </div>
 
@@ -67,48 +88,104 @@ export function TrainingVenueForm({ title, description, action, statuses, venue 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
                                         <Label htmlFor="name">
-                                            {t('Name')} <span className="text-destructive">*</span>
+                                            {t('Name')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
                                         </Label>
-                                        <Input id="name" name="name" defaultValue={venue?.name} required />
+                                        <Input
+                                            id="name"
+                                            name="name"
+                                            defaultValue={venue?.name}
+                                            required
+                                        />
                                         <InputError message={errors.name} />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="code">{t('Code')}</Label>
-                                        <Input id="code" name="code" defaultValue={venue?.code ?? ''} />
+                                        <Label htmlFor="code">
+                                            {t('Code')}
+                                        </Label>
+                                        <Input
+                                            id="code"
+                                            name="code"
+                                            defaultValue={venue?.code ?? ''}
+                                        />
                                         <InputError message={errors.code} />
                                     </div>
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="address">{t('Address')}</Label>
-                                    <Textarea id="address" name="address" rows={3} defaultValue={venue?.address ?? ''} />
+                                    <Label htmlFor="address">
+                                        {t('Address')}
+                                    </Label>
+                                    <Textarea
+                                        id="address"
+                                        name="address"
+                                        rows={3}
+                                        defaultValue={venue?.address ?? ''}
+                                    />
                                     <InputError message={errors.address} />
                                 </div>
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="city">{t('City')}</Label>
-                                        <Input id="city" name="city" defaultValue={venue?.city ?? ''} />
+                                        <Label htmlFor="city">
+                                            {t('City')}
+                                        </Label>
+                                        <Input
+                                            id="city"
+                                            name="city"
+                                            defaultValue={venue?.city ?? ''}
+                                        />
                                         <InputError message={errors.city} />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="state">{t('State')}</Label>
-                                        <Input id="state" name="state" defaultValue={venue?.state ?? ''} />
+                                        <Label htmlFor="state">
+                                            {t('State')}
+                                        </Label>
+                                        <Input
+                                            id="state"
+                                            name="state"
+                                            defaultValue={venue?.state ?? ''}
+                                        />
                                         <InputError message={errors.state} />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="latitude">{t('Latitude')}</Label>
-                                        <Input id="latitude" name="latitude" type="number" step="0.000001" defaultValue={venue?.latitude ?? ''} />
+                                        <Label htmlFor="latitude">
+                                            {t('Latitude')}
+                                        </Label>
+                                        <Input
+                                            id="latitude"
+                                            name="latitude"
+                                            type="number"
+                                            step="0.000001"
+                                            defaultValue={venue?.latitude ?? ''}
+                                        />
                                         <InputError message={errors.latitude} />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="longitude">{t('Longitude')}</Label>
-                                        <Input id="longitude" name="longitude" type="number" step="0.000001" defaultValue={venue?.longitude ?? ''} />
-                                        <InputError message={errors.longitude} />
+                                        <Label htmlFor="longitude">
+                                            {t('Longitude')}
+                                        </Label>
+                                        <Input
+                                            id="longitude"
+                                            name="longitude"
+                                            type="number"
+                                            step="0.000001"
+                                            defaultValue={
+                                                venue?.longitude ?? ''
+                                            }
+                                        />
+                                        <InputError
+                                            message={errors.longitude}
+                                        />
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="allowed_radius_meters">
-                                            {t('Allowed radius (meters)')} <span className="text-destructive">*</span>
+                                            {t('Allowed radius (meters)')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
                                         </Label>
                                         <Input
                                             id="allowed_radius_meters"
@@ -116,20 +193,38 @@ export function TrainingVenueForm({ title, description, action, statuses, venue 
                                             type="number"
                                             min="1"
                                             max="10000"
-                                            defaultValue={venue?.allowed_radius_meters ?? 100}
+                                            defaultValue={
+                                                venue?.allowed_radius_meters ??
+                                                100
+                                            }
                                             required
                                         />
-                                        <InputError message={errors.allowed_radius_meters} />
+                                        <InputError
+                                            message={
+                                                errors.allowed_radius_meters
+                                            }
+                                        />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="status">{t('Status')}</Label>
-                                        <Select name="status" defaultValue={venue?.status ?? 'active'} required>
+                                        <Label htmlFor="status">
+                                            {t('Status')}
+                                        </Label>
+                                        <Select
+                                            name="status"
+                                            defaultValue={
+                                                venue?.status ?? 'active'
+                                            }
+                                            required
+                                        >
                                             <SelectTrigger id="status">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {statuses.map((status) => (
-                                                    <SelectItem key={status} value={status}>
+                                                    <SelectItem
+                                                        key={status}
+                                                        value={status}
+                                                    >
                                                         {t(status)}
                                                     </SelectItem>
                                                 ))}
@@ -140,8 +235,15 @@ export function TrainingVenueForm({ title, description, action, statuses, venue 
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="remarks">{t('Remarks')}</Label>
-                                    <Textarea id="remarks" name="remarks" rows={3} defaultValue={venue?.remarks ?? ''} />
+                                    <Label htmlFor="remarks">
+                                        {t('Remarks')}
+                                    </Label>
+                                    <Textarea
+                                        id="remarks"
+                                        name="remarks"
+                                        rows={3}
+                                        defaultValue={venue?.remarks ?? ''}
+                                    />
                                     <InputError message={errors.remarks} />
                                 </div>
                             </div>

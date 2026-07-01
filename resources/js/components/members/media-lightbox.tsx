@@ -2,16 +2,24 @@ import { X } from 'lucide-react';
 import { useState } from 'react';
 import type { MediaFile } from './participation-media-sheet';
 
-export function Lightbox({ files, index, onClose }: { files: MediaFile[]; index: number; onClose: () => void }) {
+export function Lightbox({
+    files,
+    index,
+    onClose,
+}: {
+    files: MediaFile[];
+    index: number;
+    onClose: () => void;
+}) {
     const [current, setCurrent] = useState(index);
     const file = files[current];
 
     function prev() {
- setCurrent((i) => (i - 1 + files.length) % files.length);
-}
+        setCurrent((i) => (i - 1 + files.length) % files.length);
+    }
     function next() {
- setCurrent((i) => (i + 1) % files.length);
-}
+        setCurrent((i) => (i + 1) % files.length);
+    }
 
     return (
         <div
@@ -30,19 +38,21 @@ export function Lightbox({ files, index, onClose }: { files: MediaFile[]; index:
                 <>
                     <button
                         type="button"
-                        className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-4 py-2 text-xl text-white hover:bg-black/70"
+                        className="absolute top-1/2 left-4 -translate-y-1/2 rounded-full bg-black/50 px-4 py-2 text-xl text-white hover:bg-black/70"
                         onClick={(e) => {
- e.stopPropagation(); prev();
-}}
+                            e.stopPropagation();
+                            prev();
+                        }}
                     >
                         ‹
                     </button>
                     <button
                         type="button"
-                        className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-4 py-2 text-xl text-white hover:bg-black/70"
+                        className="absolute top-1/2 right-4 -translate-y-1/2 rounded-full bg-black/50 px-4 py-2 text-xl text-white hover:bg-black/70"
                         onClick={(e) => {
- e.stopPropagation(); next();
-}}
+                            e.stopPropagation();
+                            next();
+                        }}
                     >
                         ›
                     </button>
@@ -59,9 +69,13 @@ export function Lightbox({ files, index, onClose }: { files: MediaFile[]; index:
                     className="max-h-[80vh] max-w-full rounded-lg object-contain"
                 />
                 {file?.caption && (
-                    <p className="text-center text-sm text-white/80">{file.caption}</p>
+                    <p className="text-center text-sm text-white/80">
+                        {file.caption}
+                    </p>
                 )}
-                <p className="text-xs text-white/50">{current + 1} / {files.length}</p>
+                <p className="text-xs text-white/50">
+                    {current + 1} / {files.length}
+                </p>
             </div>
         </div>
     );

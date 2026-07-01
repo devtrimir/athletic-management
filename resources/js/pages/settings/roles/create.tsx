@@ -40,10 +40,12 @@ export default function Create() {
             <div className="space-y-6">
                 <Heading
                     title={t('New role')}
-                    description={t('Create a custom role for this organization')}
+                    description={t(
+                        'Create a custom role for this organization',
+                    )}
                 />
 
-                <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+                <form onSubmit={handleSubmit} className="max-w-md space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="code">{t('Code')}</Label>
                         <Input
@@ -54,7 +56,9 @@ export default function Create() {
                             autoComplete="off"
                         />
                         <p className="text-xs text-muted-foreground">
-                            {t('Lowercase letters, numbers, and underscores only.')}
+                            {t(
+                                'Lowercase letters, numbers, and underscores only.',
+                            )}
                         </p>
                         <InputError message={errors.code} />
                     </div>
@@ -87,5 +91,3 @@ export default function Create() {
         </>
     );
 }
-
-

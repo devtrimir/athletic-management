@@ -4,7 +4,14 @@ import RoleController from '@/actions/App/Http/Controllers/Settings/RoleControll
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 type RoleRow = {
@@ -42,15 +49,22 @@ export default function Index({ roles }: { roles: RoleRow[] }) {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t('Name')}</TableHead>
-                            <TableHead className="text-right">{t('Permissions')}</TableHead>
-                            <TableHead className="text-right">{t('Users')}</TableHead>
+                            <TableHead className="text-right">
+                                {t('Permissions')}
+                            </TableHead>
+                            <TableHead className="text-right">
+                                {t('Users')}
+                            </TableHead>
                             <TableHead />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {roles.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                <TableCell
+                                    colSpan={4}
+                                    className="text-center text-muted-foreground"
+                                >
                                     {t('No roles yet.')}
                                 </TableCell>
                             </TableRow>
@@ -60,33 +74,55 @@ export default function Index({ roles }: { roles: RoleRow[] }) {
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <span className="font-medium">
-                                            {locale === 'hi' ? role.name_hi : role.name_en}
+                                            {locale === 'hi'
+                                                ? role.name_hi
+                                                : role.name_en}
                                         </span>
                                         {role.is_system && (
-                                            <Badge variant="secondary">{t('System')}</Badge>
+                                            <Badge variant="secondary">
+                                                {t('System')}
+                                            </Badge>
                                         )}
                                     </div>
                                     <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                                         {role.code}
                                     </p>
                                 </TableCell>
-                                <TableCell className="text-right">{role.permissions_count}</TableCell>
-                                <TableCell className="text-right">{role.user_count}</TableCell>
+                                <TableCell className="text-right">
+                                    {role.permissions_count}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    {role.user_count}
+                                </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-2">
-                                        <Button variant="ghost" size="sm" asChild>
-                                            <Link href={RoleController.show.url(role.id)}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            asChild
+                                        >
+                                            <Link
+                                                href={RoleController.show.url(
+                                                    role.id,
+                                                )}
+                                            >
                                                 <Pencil className="h-4 w-4" />
-                                                <span className="sr-only">{t('Edit')}</span>
+                                                <span className="sr-only">
+                                                    {t('Edit')}
+                                                </span>
                                             </Link>
                                         </Button>
                                         {!role.is_system && (
                                             <Form
-                                                action={RoleController.destroy.url(role.id)}
+                                                action={RoleController.destroy.url(
+                                                    role.id,
+                                                )}
                                                 method="delete"
                                                 onBefore={() =>
                                                     confirm(
-                                                        t('Are you sure you want to delete this role?'),
+                                                        t(
+                                                            'Are you sure you want to delete this role?',
+                                                        ),
                                                     )
                                                 }
                                             >
@@ -97,7 +133,9 @@ export default function Index({ roles }: { roles: RoleRow[] }) {
                                                     className="text-destructive hover:text-destructive"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
-                                                    <span className="sr-only">{t('Delete')}</span>
+                                                    <span className="sr-only">
+                                                        {t('Delete')}
+                                                    </span>
                                                 </Button>
                                             </Form>
                                         )}
@@ -113,7 +151,5 @@ export default function Index({ roles }: { roles: RoleRow[] }) {
 }
 
 Index.layout = {
-    breadcrumbs: [
-        { title: 'Roles', href: RoleController.index.url() },
-    ],
+    breadcrumbs: [{ title: 'Roles', href: RoleController.index.url() }],
 };

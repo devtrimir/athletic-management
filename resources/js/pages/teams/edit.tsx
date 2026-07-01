@@ -1,11 +1,21 @@
 import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
-import { index as teamsIndex, show as showTeam, update as updateTeam } from '@/actions/App/Http/Controllers/TeamController';
+import {
+    index as teamsIndex,
+    show as showTeam,
+    update as updateTeam,
+} from '@/actions/App/Http/Controllers/TeamController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Sport = { id: number; name: string };
@@ -68,7 +78,9 @@ export default function TeamsEdit({
     });
 
     const selectedUnit = units.find((unit) => String(unit.id) === data.unit_id);
-    const derivedDistrict = districts.find((district) => district.id === selectedUnit?.district_id);
+    const derivedDistrict = districts.find(
+        (district) => district.id === selectedUnit?.district_id,
+    );
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -81,25 +93,40 @@ export default function TeamsEdit({
             <h1 className="sr-only">{t('Edit team')}</h1>
 
             <div className="space-y-6">
-                <Heading variant="small" title={t('Edit team')} description={team.name} />
+                <Heading
+                    variant="small"
+                    title={t('Edit team')}
+                    description={team.name}
+                />
 
                 <form onSubmit={handleSubmit} className="max-w-xl space-y-6">
-                    <div className="rounded-xl border bg-card p-6 space-y-5">
+                    <div className="space-y-5 rounded-xl border bg-card p-6">
                         <div className="grid gap-5 sm:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="sport_id">
-                                    {t('Sport')} <span className="text-destructive">*</span>
+                                    {t('Sport')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Select
                                     value={data.sport_id}
-                                    onValueChange={(v) => setData('sport_id', v)}
+                                    onValueChange={(v) =>
+                                        setData('sport_id', v)
+                                    }
                                 >
-                                    <SelectTrigger id="sport_id" className="w-full">
-                                        <SelectValue placeholder={t('Select sport')} />
+                                    <SelectTrigger
+                                        id="sport_id"
+                                        className="w-full"
+                                    >
+                                        <SelectValue
+                                            placeholder={t('Select sport')}
+                                        />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {sports.map((s) => (
-                                            <SelectItem key={s.id} value={String(s.id)}>
+                                            <SelectItem
+                                                key={s.id}
+                                                value={String(s.id)}
+                                            >
                                                 {s.name}
                                             </SelectItem>
                                         ))}
@@ -110,18 +137,29 @@ export default function TeamsEdit({
 
                             <div className="grid gap-2">
                                 <Label htmlFor="session_id">
-                                    {t('Session')} <span className="text-destructive">*</span>
+                                    {t('Session')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Select
                                     value={data.session_id}
-                                    onValueChange={(v) => setData('session_id', v)}
+                                    onValueChange={(v) =>
+                                        setData('session_id', v)
+                                    }
                                 >
-                                    <SelectTrigger id="session_id" className="w-full">
-                                        <SelectValue placeholder={t('Select session')} />
+                                    <SelectTrigger
+                                        id="session_id"
+                                        className="w-full"
+                                    >
+                                        <SelectValue
+                                            placeholder={t('Select session')}
+                                        />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {sessions.map((s) => (
-                                            <SelectItem key={s.id} value={String(s.id)}>
+                                            <SelectItem
+                                                key={s.id}
+                                                value={String(s.id)}
+                                            >
                                                 {s.name}
                                             </SelectItem>
                                         ))}
@@ -133,7 +171,8 @@ export default function TeamsEdit({
 
                         <div className="grid gap-2">
                             <Label htmlFor="location_type">
-                                {t('Team Location')} <span className="text-destructive">*</span>
+                                {t('Team Location')}{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
                             <Select
                                 value={data.location_type}
@@ -143,7 +182,10 @@ export default function TeamsEdit({
                                     setData('district_id', '');
                                 }}
                             >
-                                <SelectTrigger id="location_type" className="w-full">
+                                <SelectTrigger
+                                    id="location_type"
+                                    className="w-full"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -162,7 +204,10 @@ export default function TeamsEdit({
                             <>
                                 <div className="grid gap-2">
                                     <Label htmlFor="unit_id">
-                                        {t('Unit')} <span className="text-destructive">*</span>
+                                        {t('Unit')}{' '}
+                                        <span className="text-destructive">
+                                            *
+                                        </span>
                                     </Label>
                                     <Select
                                         value={data.unit_id}
@@ -171,12 +216,20 @@ export default function TeamsEdit({
                                             setData('district_id', '');
                                         }}
                                     >
-                                        <SelectTrigger id="unit_id" className="w-full">
-                                            <SelectValue placeholder={t('Select unit')} />
+                                        <SelectTrigger
+                                            id="unit_id"
+                                            className="w-full"
+                                        >
+                                            <SelectValue
+                                                placeholder={t('Select unit')}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {units.map((unit) => (
-                                                <SelectItem key={unit.id} value={String(unit.id)}>
+                                                <SelectItem
+                                                    key={unit.id}
+                                                    value={String(unit.id)}
+                                                >
                                                     {unit.name}
                                                 </SelectItem>
                                             ))}
@@ -188,25 +241,39 @@ export default function TeamsEdit({
                                 <div className="grid gap-2">
                                     <Label>{t('District')}</Label>
                                     <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                                        {derivedDistrict?.name ?? t('District will be derived from the selected unit.')}
+                                        {derivedDistrict?.name ??
+                                            t(
+                                                'District will be derived from the selected unit.',
+                                            )}
                                     </div>
                                 </div>
                             </>
                         ) : (
                             <div className="grid gap-2">
                                 <Label htmlFor="district_id">
-                                    {t('District')} <span className="text-destructive">*</span>
+                                    {t('District')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Select
                                     value={data.district_id}
-                                    onValueChange={(value) => setData('district_id', value)}
+                                    onValueChange={(value) =>
+                                        setData('district_id', value)
+                                    }
                                 >
-                                    <SelectTrigger id="district_id" className="w-full">
-                                        <SelectValue placeholder={t('Select district')} />
+                                    <SelectTrigger
+                                        id="district_id"
+                                        className="w-full"
+                                    >
+                                        <SelectValue
+                                            placeholder={t('Select district')}
+                                        />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {districts.map((district) => (
-                                            <SelectItem key={district.id} value={String(district.id)}>
+                                            <SelectItem
+                                                key={district.id}
+                                                value={String(district.id)}
+                                            >
                                                 {district.name}
                                             </SelectItem>
                                         ))}
@@ -219,12 +286,15 @@ export default function TeamsEdit({
                         <div className="grid gap-5 sm:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="name">
-                                    {t('Team name')} <span className="text-destructive">*</span>
+                                    {t('Team name')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
                                     id="name"
                                     value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
+                                    onChange={(e) =>
+                                        setData('name', e.target.value)
+                                    }
                                     maxLength={100}
                                     required
                                 />
@@ -233,18 +303,28 @@ export default function TeamsEdit({
 
                             <div className="grid gap-2">
                                 <Label htmlFor="is_active">
-                                    {t('Status')} <span className="text-destructive">*</span>
+                                    {t('Status')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Select
                                     value={data.is_active ? '1' : '0'}
-                                    onValueChange={(value) => setData('is_active', value === '1')}
+                                    onValueChange={(value) =>
+                                        setData('is_active', value === '1')
+                                    }
                                 >
-                                    <SelectTrigger id="is_active" className="w-full">
+                                    <SelectTrigger
+                                        id="is_active"
+                                        className="w-full"
+                                    >
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="1">{t('Active')}</SelectItem>
-                                        <SelectItem value="0">{t('Inactive')}</SelectItem>
+                                        <SelectItem value="1">
+                                            {t('Active')}
+                                        </SelectItem>
+                                        <SelectItem value="0">
+                                            {t('Inactive')}
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <InputError message={errors.is_active} />
@@ -252,7 +332,9 @@ export default function TeamsEdit({
                         </div>
 
                         <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
-                            {t('Use the team page to assign or change the current incharge with history tracking.')}
+                            {t(
+                                'Use the team page to assign or change the current incharge with history tracking.',
+                            )}
                         </p>
                     </div>
 

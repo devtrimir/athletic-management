@@ -16,7 +16,9 @@ export default function SportsCalendarsCreate({
             <Head title={t('Create sports calendar')} />
             <SportsCalendarForm
                 title={t('Create sports calendar')}
-                description={t('Create a yearly sports calendar row with competition and venue details.')}
+                description={t(
+                    'Create a yearly sports calendar row with competition and venue details.',
+                )}
                 action={store()}
                 years={years}
             />

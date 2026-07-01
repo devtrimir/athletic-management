@@ -20,7 +20,10 @@ type Props = {
     statuses: string[];
 };
 
-export default function ExternalCoachesEdit({ externalCoach, statuses }: Props) {
+export default function ExternalCoachesEdit({
+    externalCoach,
+    statuses,
+}: Props) {
     const { t } = useTranslation();
 
     return (
@@ -28,7 +31,9 @@ export default function ExternalCoachesEdit({ externalCoach, statuses }: Props) 
             <Head title={t('Edit external coach')} />
             <ExternalCoachForm
                 title={t('Edit external coach')}
-                description={t('Update login, contact, experience, and availability details.')}
+                description={t(
+                    'Update login, contact, experience, and availability details.',
+                )}
                 action={update(externalCoach)}
                 statuses={statuses}
                 coach={externalCoach}

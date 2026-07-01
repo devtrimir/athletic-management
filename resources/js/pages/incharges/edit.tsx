@@ -23,7 +23,10 @@ export default function InchargesEdit({
             <Head title={t('Edit team prabhari')} />
             <div className="space-y-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Heading title={t('Edit team prabhari')} description={t('Update this team prabhari profile.')} />
+                    <Heading
+                        title={t('Edit team prabhari')}
+                        description={t('Update this team prabhari profile.')}
+                    />
                     <Button asChild variant="outline">
                         <Link href={InchargeController.show.url(incharge.id)}>
                             <ArrowLeft className="size-4" />
@@ -31,12 +34,18 @@ export default function InchargesEdit({
                         </Link>
                     </Button>
                 </div>
-                <InchargeForm incharge={incharge} ranks={ranks} designations={designations} />
+                <InchargeForm
+                    incharge={incharge}
+                    ranks={ranks}
+                    designations={designations}
+                />
             </div>
         </>
     );
 }
 
 InchargesEdit.layout = {
-    breadcrumbs: [{ title: 'Team Prabhari', href: InchargeController.index.url() }],
+    breadcrumbs: [
+        { title: 'Team Prabhari', href: InchargeController.index.url() },
+    ],
 };

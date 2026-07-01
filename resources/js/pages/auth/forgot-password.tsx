@@ -32,7 +32,9 @@ export default function ForgotPassword({ status }: { status?: string }) {
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="email">{t('Email address')}</Label>
+                                <Label htmlFor="email">
+                                    {t('Email address')}
+                                </Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -65,5 +67,3 @@ export default function ForgotPassword({ status }: { status?: string }) {
         </>
     );
 }
-
-

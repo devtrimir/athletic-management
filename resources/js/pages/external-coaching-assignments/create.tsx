@@ -5,7 +5,12 @@ import { useTranslation } from '@/hooks/use-translation';
 import { AssignmentForm } from './form';
 
 type Option = { id: number; name: string };
-type CoachOption = { id: number; name: string; email: string | null; phone: string | null };
+type CoachOption = {
+    id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+};
 
 export default function ExternalCoachingAssignmentsCreate({
     externalCoaches,
@@ -27,7 +32,9 @@ export default function ExternalCoachingAssignmentsCreate({
             <Head title={t('Create external coaching assignment')} />
             <AssignmentForm
                 title={t('Create external coaching assignment')}
-                description={t('Assign an active member to an external coach, venue, sport, and approved schedule.')}
+                description={t(
+                    'Assign an active member to an external coach, venue, sport, and approved schedule.',
+                )}
                 action={store()}
                 externalCoaches={externalCoaches}
                 trainingVenues={trainingVenues}

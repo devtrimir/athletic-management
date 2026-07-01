@@ -612,29 +612,27 @@ export default function CoachesShow({
             return '';
         }
 
-        return (
-            rankItems.find((rank) => rank.value === value)?.label ?? value
-        );
+        return rankItems.find((rank) => rank.value === value)?.label ?? value;
     }
 
     function hasPromotionFields(promotion: CoachPromotion): boolean {
         return Boolean(
             promotion.promotion_date ||
-                (promotion.from_rank &&
-                    promotion.to_rank &&
-                    promotion.from_rank !== promotion.to_rank) ||
-                promotion.to_rank ||
-                promotion.reason ||
-                promotion.remarks,
+            (promotion.from_rank &&
+                promotion.to_rank &&
+                promotion.from_rank !== promotion.to_rank) ||
+            promotion.to_rank ||
+            promotion.reason ||
+            promotion.remarks,
         );
     }
 
     function hasRewardFields(promotion: CoachPromotion): boolean {
         return Boolean(
             promotion.cash_reward_amount ||
-                promotion.cash_reward_date ||
-                promotion.cash_reward_reference ||
-                promotion.cash_reward_remarks,
+            promotion.cash_reward_date ||
+            promotion.cash_reward_reference ||
+            promotion.cash_reward_remarks,
         );
     }
 
@@ -700,7 +698,9 @@ export default function CoachesShow({
         ].join(':');
     }
 
-    function collectText(values: Array<string | number | null | undefined>): string {
+    function collectText(
+        values: Array<string | number | null | undefined>,
+    ): string {
         return values.filter(Boolean).join(' · ');
     }
 
@@ -717,12 +717,16 @@ export default function CoachesShow({
 
         setRewardEvidenceSelection((current) =>
             current.some((selected) => rewardEvidenceKey(selected) === key)
-                ? current.filter((selected) => rewardEvidenceKey(selected) !== key)
+                ? current.filter(
+                      (selected) => rewardEvidenceKey(selected) !== key,
+                  )
                 : [...current, evidence],
         );
     }
 
-    function selectedRewardEvidenceLabel(evidence: RewardEvidenceInput): string {
+    function selectedRewardEvidenceLabel(
+        evidence: RewardEvidenceInput,
+    ): string {
         const option = rewardEvidenceLookup.get(rewardEvidenceKey(evidence));
 
         return collectText([
@@ -955,26 +959,24 @@ export default function CoachesShow({
                 group.team.id,
                 group.tournament.id,
             ].join(':');
-            const existing =
-                groups.get(key) ??
-                {
-                    id: key,
-                    session: group.session,
-                    team: group.team,
-                    tournament: group.tournament,
-                    rows: [],
-                    medalCounts: {
-                        GOLD: 0,
-                        SILVER: 0,
-                        BRONZE: 0,
-                        MERIT: 0,
-                    },
-                    playerCount: 0,
-                    prizeMoney: 0,
-                    rewardCount: 0,
-                    rewardDates: [],
-                    rewardReferences: [],
-                };
+            const existing = groups.get(key) ?? {
+                id: key,
+                session: group.session,
+                team: group.team,
+                tournament: group.tournament,
+                rows: [],
+                medalCounts: {
+                    GOLD: 0,
+                    SILVER: 0,
+                    BRONZE: 0,
+                    MERIT: 0,
+                },
+                playerCount: 0,
+                prizeMoney: 0,
+                rewardCount: 0,
+                rewardDates: [],
+                rewardReferences: [],
+            };
 
             existing.rows.push(group);
 
@@ -1179,7 +1181,9 @@ export default function CoachesShow({
         promotionForm.clearErrors();
     }
 
-    function openAddPromotionDialog(mode: 'promotion' | 'reward' = 'promotion') {
+    function openAddPromotionDialog(
+        mode: 'promotion' | 'reward' = 'promotion',
+    ) {
         resetPromotionForm();
         setPromotionDialogMode(mode);
         setSelectedRewardSessionId(
@@ -1321,15 +1325,15 @@ export default function CoachesShow({
         event.preventDefault();
 
         sportForm.transform((data) => ({
-                ...data,
-                sport_id: data.sport_id,
-                level_master_id: data.level_master_id || null,
-                level: data.level || null,
-                sport_event: data.sport_event || null,
-                effective_from: data.effective_from || null,
-                effective_to: data.effective_to || null,
-                notes: data.notes || null,
-            }));
+            ...data,
+            sport_id: data.sport_id,
+            level_master_id: data.level_master_id || null,
+            level: data.level || null,
+            sport_event: data.sport_event || null,
+            effective_from: data.effective_from || null,
+            effective_to: data.effective_to || null,
+            notes: data.notes || null,
+        }));
 
         sportForm.post(storeCoachSport.url(coach), {
             preserveScroll: true,
@@ -1448,10 +1452,9 @@ export default function CoachesShow({
                                             : t('Inactive')}
                                     </Badge>
                                     {coach.coach_status ? (
-                                        <Badge
-                                            variant="outline"
-                                        >
-                                            {t('Profile')}: {t(coach.coach_status)}
+                                        <Badge variant="outline">
+                                            {t('Profile')}:{' '}
+                                            {t(coach.coach_status)}
                                         </Badge>
                                     ) : null}
                                     {coach.designation ? (
@@ -1625,11 +1628,21 @@ export default function CoachesShow({
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t('Name')}</TableHead>
-                                                <TableHead>{t('Type')}</TableHead>
-                                                <TableHead>{t('Issuer')}</TableHead>
-                                                <TableHead>{t('Issued')}</TableHead>
-                                                <TableHead>{t('Expired')}</TableHead>
+                                                <TableHead>
+                                                    {t('Name')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Type')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Issuer')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Issued')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Expired')}
+                                                </TableHead>
                                                 <TableHead>
                                                     {t('Attachment')}
                                                 </TableHead>
@@ -1692,7 +1705,9 @@ export default function CoachesShow({
                                                                         )
                                                                     }
                                                                 >
-                                                                    {t('Remove')}
+                                                                    {t(
+                                                                        'Remove',
+                                                                    )}
                                                                 </Button>
                                                             </div>
                                                         </TableCell>
@@ -1730,93 +1745,108 @@ export default function CoachesShow({
                             </div>
 
                             <div className="rounded-xl border bg-card">
-                            {(coach.sports ?? []).length === 0 ? (
-                                <p className="p-4 text-sm text-muted-foreground">
-                                    {t('No sports specialization yet.')}
-                                </p>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>{t('Sport')}</TableHead>
-                                            <TableHead>
-                                                {t('Primary')}
-                                            </TableHead>
-                                            <TableHead>{t('Level')}</TableHead>
-                                            <TableHead>
-                                                {t('Event / Discipline')}
-                                            </TableHead>
-                                            <TableHead>{t('From')}</TableHead>
-                                            <TableHead>{t('To')}</TableHead>
-                                            <TableHead>{t('Notes')}</TableHead>
-                                            <TableHead className="text-right">
-                                                {t('Actions')}
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(coach.sports ?? []).map((sport) => (
-                                            <TableRow key={sport.id}>
-                                                <TableCell className="font-medium">
-                                                    {sport.name}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {sport.is_primary
-                                                        ? t('Yes')
-                                                        : t('No')}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {sport.level ?? ''}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {sport.sport_event ?? ''}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {sport.effective_from ?? ''}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {sport.effective_to ?? ''}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {sport.notes ?? ''}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() =>
-                                                                openEditSportDialog(
-                                                                    sport,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Pencil className="mr-1.5 h-4 w-4" />
-                                                            {t('Edit')}
-                                                        </Button>
-                                                        {sport.coach_sport_id !==
-                                                        null ? (
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    removeSport(
-                                                                        sport.coach_sport_id,
-                                                                    )
-                                                                }
-                                                            >
-                                                                {t('Remove')}
-                                                            </Button>
-                                                        ) : null}
-                                                    </div>
-                                                </TableCell>
+                                {(coach.sports ?? []).length === 0 ? (
+                                    <p className="p-4 text-sm text-muted-foreground">
+                                        {t('No sports specialization yet.')}
+                                    </p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>
+                                                    {t('Sport')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Primary')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Level')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Event / Discipline')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('From')}
+                                                </TableHead>
+                                                <TableHead>{t('To')}</TableHead>
+                                                <TableHead>
+                                                    {t('Notes')}
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    {t('Actions')}
+                                                </TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            )}
+                                        </TableHeader>
+                                        <TableBody>
+                                            {(coach.sports ?? []).map(
+                                                (sport) => (
+                                                    <TableRow key={sport.id}>
+                                                        <TableCell className="font-medium">
+                                                            {sport.name}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {sport.is_primary
+                                                                ? t('Yes')
+                                                                : t('No')}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {sport.level ?? ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {sport.sport_event ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {sport.effective_from ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {sport.effective_to ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {sport.notes ?? ''}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        openEditSportDialog(
+                                                                            sport,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Pencil className="mr-1.5 h-4 w-4" />
+                                                                    {t('Edit')}
+                                                                </Button>
+                                                                {sport.coach_sport_id !==
+                                                                null ? (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() =>
+                                                                            removeSport(
+                                                                                sport.coach_sport_id,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {t(
+                                                                            'Remove',
+                                                                        )}
+                                                                    </Button>
+                                                                ) : null}
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                )}
                             </div>
                         </div>
                     </TabsContent>
@@ -1937,24 +1967,29 @@ export default function CoachesShow({
                             </div>
 
                             <div className="flex flex-wrap gap-3">
-                                {(['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const).map(
-                                    (medal) => (
-                                        <div
-                                            key={medal}
-                                            className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2"
+                                {(
+                                    [
+                                        'GOLD',
+                                        'SILVER',
+                                        'BRONZE',
+                                        'MERIT',
+                                    ] as const
+                                ).map((medal) => (
+                                    <div
+                                        key={medal}
+                                        className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2"
+                                    >
+                                        <span
+                                            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
                                         >
-                                            <span
-                                                className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
-                                            >
-                                                <Medal className="h-3.5 w-3.5" />
-                                                {t(medal)}
-                                            </span>
-                                            <span className="text-lg font-semibold">
-                                                {achievementSummary[medal]}
-                                            </span>
-                                        </div>
-                                    ),
-                                )}
+                                            <Medal className="h-3.5 w-3.5" />
+                                            {t(medal)}
+                                        </span>
+                                        <span className="text-lg font-semibold">
+                                            {achievementSummary[medal]}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
 
                             <div className="grid gap-3 md:grid-cols-[1fr_11rem_11rem_11rem]">
@@ -1975,9 +2010,7 @@ export default function CoachesShow({
                                 </div>
                                 <Select
                                     value={achievementSessionFilter}
-                                    onValueChange={
-                                        setAchievementSessionFilter
-                                    }
+                                    onValueChange={setAchievementSessionFilter}
                                 >
                                     <SelectTrigger>
                                         <SelectValue
@@ -1990,10 +2023,7 @@ export default function CoachesShow({
                                         </SelectItem>
                                         {achievementSessions.map(
                                             ([id, name]) => (
-                                                <SelectItem
-                                                    key={id}
-                                                    value={id}
-                                                >
+                                                <SelectItem key={id} value={id}>
                                                     {name}
                                                 </SelectItem>
                                             ),
@@ -2063,15 +2093,21 @@ export default function CoachesShow({
                                     <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t('S.No.')}</TableHead>
+                                                <TableHead>
+                                                    {t('S.No.')}
+                                                </TableHead>
                                                 <TableHead>
                                                     {t('Tournament')}
                                                 </TableHead>
-                                                <TableHead>{t('Tier')}</TableHead>
+                                                <TableHead>
+                                                    {t('Tier')}
+                                                </TableHead>
                                                 <TableHead>
                                                     {t('Session')}
                                                 </TableHead>
-                                                <TableHead>{t('Team')}</TableHead>
+                                                <TableHead>
+                                                    {t('Team')}
+                                                </TableHead>
                                                 <TableHead className="text-right">
                                                     {t('Events')}
                                                 </TableHead>
@@ -2125,7 +2161,8 @@ export default function CoachesShow({
                                                                         ) : (
                                                                             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                                                                         )}
-                                                                        {index + 1}
+                                                                        {index +
+                                                                            1}
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell>
@@ -2200,13 +2237,19 @@ export default function CoachesShow({
                                                                 <TableCell>
                                                                     {tournamentGroup.rewardCount >
                                                                     0
-                                                                        ? t('Yes')
-                                                                        : t('No')}
+                                                                        ? t(
+                                                                              'Yes',
+                                                                          )
+                                                                        : t(
+                                                                              'No',
+                                                                          )}
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     {tournamentGroup.rewardCount >
                                                                     0
-                                                                        ? t('Cash reward')
+                                                                        ? t(
+                                                                              'Cash reward',
+                                                                          )
                                                                         : '—'}
                                                                 </TableCell>
                                                                 <TableCell className="text-right">
@@ -2234,331 +2277,334 @@ export default function CoachesShow({
                                                                         className="bg-muted/20 p-0"
                                                                     >
                                                                         <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
-                                                            <TableHeader>
-                                                                <TableRow>
-                                                                    <TableHead>
-                                                                        {t(
-                                                                            'S.No.',
-                                                                        )}
-                                                                    </TableHead>
-                                                                    <TableHead>
-                                                                        {t(
-                                                                            'Event',
-                                                                        )}
-                                                                    </TableHead>
-                                                                    <TableHead>
-                                                                        {t(
-                                                                            'Date',
-                                                                        )}
-                                                                    </TableHead>
-                                                                    <TableHead>
-                                                                        {t(
-                                                                            'Class',
-                                                                        )}
-                                                                    </TableHead>
-                                                                    <TableHead>
-                                                                        {t(
-                                                                            'Medals',
-                                                                        )}
-                                                                    </TableHead>
-                                                                    <TableHead className="text-right">
-                                                                        {t(
-                                                                            'Players',
-                                                                        )}
-                                                                    </TableHead>
-                                                                </TableRow>
-                                                            </TableHeader>
-                                                            <TableBody>
-                                                                {tournamentGroup.rows.map(
-                                                                    (group) => {
-                                                                        const expanded =
-                                                                            expandedAchievementGroups.includes(
-                                                                                group.id,
-                                                                            );
-
-                                                                        return (
-                                                                            <Fragment
-                                                                                key={
-                                                                                    group.id
-                                                                                }
-                                                                            >
-                                                                                <TableRow
-                                                                                    className="cursor-pointer align-top hover:bg-muted/40"
-                                                                                    onClick={() =>
-                                                                                        toggleAchievementGroup(
-                                                                                            group.id,
-                                                                                        )
-                                                                                    }
-                                                                                >
-                                                                                    <TableCell>
-                                                                                        <div className="flex items-center gap-1.5">
-                                                                                            {expanded ? (
-                                                                                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                                            ) : (
-                                                                                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                                            )}
-                                                                                            {
-                                                                                                ++rowNumber
-                                                                                            }
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="max-w-[14rem] space-y-1">
-                                                                                            <div className="font-medium">
-                                                                                                {
-                                                                                                    group
-                                                                                                        .event
-                                                                                                        .name
-                                                                                                }
-                                                                                            </div>
-                                                                                            {group
-                                                                                                .event
-                                                                                                .discipline ||
-                                                                                            group
-                                                                                                .event
-                                                                                                .weight_category ? (
-                                                                                                <p className="text-xs text-muted-foreground">
-                                                                                                    {[
-                                                                                                        group
-                                                                                                            .event
-                                                                                                            .discipline,
-                                                                                                        group
-                                                                                                            .event
-                                                                                                            .weight_category,
-                                                                                                    ]
-                                                                                                        .filter(
-                                                                                                            Boolean,
-                                                                                                        )
-                                                                                                        .join(
-                                                                                                            ' · ',
-                                                                                                        )}
-                                                                                                </p>
-                                                                                            ) : null}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        {group
-                                                                                            .tournament
-                                                                                            .date_from ??
-                                                                                            t(
-                                                                                                'No date',
-                                                                                            )}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        {group
-                                                                                            .event
-                                                                                            .gender_class
-                                                                                            ? t(
-                                                                                                  group
-                                                                                                      .event
-                                                                                                      .gender_class,
-                                                                                              )
-                                                                                            : '—'}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                                            {(
-                                                                                                [
-                                                                                                    'GOLD',
-                                                                                                    'SILVER',
-                                                                                                    'BRONZE',
-                                                                                                    'MERIT',
-                                                                                                ] as const
-                                                                                            ).map(
-                                                                                                (
-                                                                                                    medal,
-                                                                                                ) =>
-                                                                                                    group
-                                                                                                        .medal_counts[
-                                                                                                        medal
-                                                                                                    ] >
-                                                                                                    0 ? (
-                                                                                                        <span
-                                                                                                            key={
-                                                                                                                medal
-                                                                                                            }
-                                                                                                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
-                                                                                                        >
-                                                                                                            {t(
-                                                                                                                medal,
-                                                                                                            )}
-                                                                                                            :{' '}
-                                                                                                            {
-                                                                                                                group
-                                                                                                                    .medal_counts[
-                                                                                                                    medal
-                                                                                                                ]
-                                                                                                            }
-                                                                                                        </span>
-                                                                                                    ) : null,
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="text-right">
-                                                                                        {
-                                                                                            group
-                                                                                                .players
-                                                                                                .length
-                                                                                        }
-                                                                                    </TableCell>
+                                                                            <TableHeader>
+                                                                                <TableRow>
+                                                                                    <TableHead>
+                                                                                        {t(
+                                                                                            'S.No.',
+                                                                                        )}
+                                                                                    </TableHead>
+                                                                                    <TableHead>
+                                                                                        {t(
+                                                                                            'Event',
+                                                                                        )}
+                                                                                    </TableHead>
+                                                                                    <TableHead>
+                                                                                        {t(
+                                                                                            'Date',
+                                                                                        )}
+                                                                                    </TableHead>
+                                                                                    <TableHead>
+                                                                                        {t(
+                                                                                            'Class',
+                                                                                        )}
+                                                                                    </TableHead>
+                                                                                    <TableHead>
+                                                                                        {t(
+                                                                                            'Medals',
+                                                                                        )}
+                                                                                    </TableHead>
+                                                                                    <TableHead className="text-right">
+                                                                                        {t(
+                                                                                            'Players',
+                                                                                        )}
+                                                                                    </TableHead>
                                                                                 </TableRow>
-                                                                                {expanded ? (
-                                                                                    <TableRow>
-                                                                                        <TableCell
-                                                                                            colSpan={
-                                                                                                6
-                                                                                            }
-                                                                                            className="bg-muted/20 p-0"
-                                                                                        >
-                                                                                            <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
-                                                                                                <TableHeader>
-                                                                                                    <TableRow className="bg-muted/40 hover:bg-muted/40">
-                                                                                                        <TableHead className="pl-8">
-                                                                                                            {t(
-                                                                                                                'S.No.',
-                                                                                                            )}
-                                                                                                        </TableHead>
-                                                                                                        <TableHead>
-                                                                                                            {t(
-                                                                                                                'Player',
-                                                                                                            )}
-                                                                                                        </TableHead>
-                                                                                                        <TableHead>
-                                                                                                            {t(
-                                                                                                                'PNO',
-                                                                                                            )}
-                                                                                                        </TableHead>
-                                                                                                        <TableHead>
-                                                                                                            {t(
-                                                                                                                'Medal',
-                                                                                                            )}
-                                                                                                        </TableHead>
-                                                                                                        <TableHead>
-                                                                                                            {t(
-                                                                                                                'Position',
-                                                                                                            )}
-                                                                                                        </TableHead>
-                                                                                                        <TableHead>
-                                                                                                            {t(
-                                                                                                                'Remarks',
-                                                                                                            )}
-                                                                                                        </TableHead>
-                                                                                                    </TableRow>
-                                                                                                </TableHeader>
-                                                                                                <TableBody>
-                                                                                                    {group.players.map(
-                                                                                                        (
-                                                                                                            player,
-                                                                                                            index,
-                                                                                                        ) => {
-                                                                                                            const playerAchievementUrl =
-                                                                                                                memberAchievementUrl(
-                                                                                                                    player,
-                                                                                                                    group,
-                                                                                                                );
+                                                                            </TableHeader>
+                                                                            <TableBody>
+                                                                                {tournamentGroup.rows.map(
+                                                                                    (
+                                                                                        group,
+                                                                                    ) => {
+                                                                                        const expanded =
+                                                                                            expandedAchievementGroups.includes(
+                                                                                                group.id,
+                                                                                            );
 
-                                                                                                            return (
-                                                                                                                <TableRow
-                                                                                                                    key={
-                                                                                                                        player.achievement_id
-                                                                                                                    }
-                                                                                                                    className="bg-background/80"
-                                                                                                                >
-                                                                                                                    <TableCell className="pl-8 text-muted-foreground">
-                                                                                                                        {index +
-                                                                                                                            1}
-                                                                                                                    </TableCell>
-                                                                                                                    <TableCell>
-                                                                                                                        <a
-                                                                                                                            href={
-                                                                                                                                playerAchievementUrl
-                                                                                                                            }
-                                                                                                                            target="_blank"
-                                                                                                                            rel="noreferrer"
-                                                                                                                            className="font-medium text-primary underline-offset-4 hover:underline"
-                                                                                                                            title={t(
-                                                                                                                                'Open member achievement in a new tab',
-                                                                                                                            )}
-                                                                                                                        >
-                                                                                                                            {
-                                                                                                                                player
-                                                                                                                                    .member
-                                                                                                                                    .full_name
-                                                                                                                            }
-                                                                                                                        </a>
-                                                                                                                    </TableCell>
-                                                                                                                    <TableCell>
-                                                                                                                        {player
-                                                                                                                            .member
-                                                                                                                            .pno ? (
-                                                                                                                            <a
-                                                                                                                                href={
-                                                                                                                                    playerAchievementUrl
-                                                                                                                                }
-                                                                                                                                target="_blank"
-                                                                                                                                rel="noreferrer"
-                                                                                                                                className="text-primary underline-offset-4 hover:underline"
-                                                                                                                                title={t(
-                                                                                                                                    'Open member achievement in a new tab',
-                                                                                                                                )}
-                                                                                                                            >
-                                                                                                                                {
-                                                                                                                                    player
-                                                                                                                                        .member
-                                                                                                                                        .pno
-                                                                                                                                }
-                                                                                                                            </a>
-                                                                                                                        ) : (
-                                                                                                                            <span className="text-muted-foreground">
-                                                                                                                                —
-                                                                                                                            </span>
+                                                                                        return (
+                                                                                            <Fragment
+                                                                                                key={
+                                                                                                    group.id
+                                                                                                }
+                                                                                            >
+                                                                                                <TableRow
+                                                                                                    className="cursor-pointer align-top hover:bg-muted/40"
+                                                                                                    onClick={() =>
+                                                                                                        toggleAchievementGroup(
+                                                                                                            group.id,
+                                                                                                        )
+                                                                                                    }
+                                                                                                >
+                                                                                                    <TableCell>
+                                                                                                        <div className="flex items-center gap-1.5">
+                                                                                                            {expanded ? (
+                                                                                                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                                                            ) : (
+                                                                                                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                                                            )}
+                                                                                                            {
+                                                                                                                ++rowNumber
+                                                                                                            }
+                                                                                                        </div>
+                                                                                                    </TableCell>
+                                                                                                    <TableCell>
+                                                                                                        <div className="max-w-[14rem] space-y-1">
+                                                                                                            <div className="font-medium">
+                                                                                                                {
+                                                                                                                    group
+                                                                                                                        .event
+                                                                                                                        .name
+                                                                                                                }
+                                                                                                            </div>
+                                                                                                            {group
+                                                                                                                .event
+                                                                                                                .discipline ||
+                                                                                                            group
+                                                                                                                .event
+                                                                                                                .weight_category ? (
+                                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                                    {[
+                                                                                                                        group
+                                                                                                                            .event
+                                                                                                                            .discipline,
+                                                                                                                        group
+                                                                                                                            .event
+                                                                                                                            .weight_category,
+                                                                                                                    ]
+                                                                                                                        .filter(
+                                                                                                                            Boolean,
+                                                                                                                        )
+                                                                                                                        .join(
+                                                                                                                            ' · ',
                                                                                                                         )}
-                                                                                                                    </TableCell>
-                                                                                                                    <TableCell>
+                                                                                                                </p>
+                                                                                                            ) : null}
+                                                                                                        </div>
+                                                                                                    </TableCell>
+                                                                                                    <TableCell>
+                                                                                                        {group
+                                                                                                            .tournament
+                                                                                                            .date_from ??
+                                                                                                            t(
+                                                                                                                'No date',
+                                                                                                            )}
+                                                                                                    </TableCell>
+                                                                                                    <TableCell>
+                                                                                                        {group
+                                                                                                            .event
+                                                                                                            .gender_class
+                                                                                                            ? t(
+                                                                                                                  group
+                                                                                                                      .event
+                                                                                                                      .gender_class,
+                                                                                                              )
+                                                                                                            : '—'}
+                                                                                                    </TableCell>
+                                                                                                    <TableCell>
+                                                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                                                            {(
+                                                                                                                [
+                                                                                                                    'GOLD',
+                                                                                                                    'SILVER',
+                                                                                                                    'BRONZE',
+                                                                                                                    'MERIT',
+                                                                                                                ] as const
+                                                                                                            ).map(
+                                                                                                                (
+                                                                                                                    medal,
+                                                                                                                ) =>
+                                                                                                                    group
+                                                                                                                        .medal_counts[
+                                                                                                                        medal
+                                                                                                                    ] >
+                                                                                                                    0 ? (
                                                                                                                         <span
-                                                                                                                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(player.medal_type)}`}
+                                                                                                                            key={
+                                                                                                                                medal
+                                                                                                                            }
+                                                                                                                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(medal)}`}
                                                                                                                         >
                                                                                                                             {t(
-                                                                                                                                player.medal_type,
+                                                                                                                                medal,
                                                                                                                             )}
+
+                                                                                                                            :{' '}
+                                                                                                                            {
+                                                                                                                                group
+                                                                                                                                    .medal_counts[
+                                                                                                                                    medal
+                                                                                                                                ]
+                                                                                                                            }
                                                                                                                         </span>
-                                                                                                                    </TableCell>
-                                                                                                                    <TableCell>
-                                                                                                                        #
-                                                                                                                        {player.position ??
-                                                                                                                            player.participation_position ??
-                                                                                                                            '—'}
-                                                                                                                    </TableCell>
-                                                                                                                    <TableCell className="max-w-xs text-muted-foreground">
-                                                                                                                        <span className="line-clamp-2">
-                                                                                                                            {player.remarks ??
-                                                                                                                                '—'}
-                                                                                                                        </span>
-                                                                                                                    </TableCell>
-                                                                                                                </TableRow>
-                                                                                                            );
-                                                                                                        },
-                                                                                                    )}
-                                                                                                </TableBody>
-                                                                                            </Table>
-                                                                                        </TableCell>
-                                                                                    </TableRow>
-                                                                                ) : null}
-                                                                            </Fragment>
-                                                                        );
-                                                                    },
-                                                                )}
-                                                            </TableBody>
-                                                        </Table>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ) : null}
-                                        </Fragment>
-                                    );
-                                },
-                            )}
-                        </TableBody>
-                    </Table>
+                                                                                                                    ) : null,
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    </TableCell>
+                                                                                                    <TableCell className="text-right">
+                                                                                                        {
+                                                                                                            group
+                                                                                                                .players
+                                                                                                                .length
+                                                                                                        }
+                                                                                                    </TableCell>
+                                                                                                </TableRow>
+                                                                                                {expanded ? (
+                                                                                                    <TableRow>
+                                                                                                        <TableCell
+                                                                                                            colSpan={
+                                                                                                                6
+                                                                                                            }
+                                                                                                            className="bg-muted/20 p-0"
+                                                                                                        >
+                                                                                                            <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
+                                                                                                                <TableHeader>
+                                                                                                                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                                                                                                                        <TableHead className="pl-8">
+                                                                                                                            {t(
+                                                                                                                                'S.No.',
+                                                                                                                            )}
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead>
+                                                                                                                            {t(
+                                                                                                                                'Player',
+                                                                                                                            )}
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead>
+                                                                                                                            {t(
+                                                                                                                                'PNO',
+                                                                                                                            )}
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead>
+                                                                                                                            {t(
+                                                                                                                                'Medal',
+                                                                                                                            )}
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead>
+                                                                                                                            {t(
+                                                                                                                                'Position',
+                                                                                                                            )}
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead>
+                                                                                                                            {t(
+                                                                                                                                'Remarks',
+                                                                                                                            )}
+                                                                                                                        </TableHead>
+                                                                                                                    </TableRow>
+                                                                                                                </TableHeader>
+                                                                                                                <TableBody>
+                                                                                                                    {group.players.map(
+                                                                                                                        (
+                                                                                                                            player,
+                                                                                                                            index,
+                                                                                                                        ) => {
+                                                                                                                            const playerAchievementUrl =
+                                                                                                                                memberAchievementUrl(
+                                                                                                                                    player,
+                                                                                                                                    group,
+                                                                                                                                );
+
+                                                                                                                            return (
+                                                                                                                                <TableRow
+                                                                                                                                    key={
+                                                                                                                                        player.achievement_id
+                                                                                                                                    }
+                                                                                                                                    className="bg-background/80"
+                                                                                                                                >
+                                                                                                                                    <TableCell className="pl-8 text-muted-foreground">
+                                                                                                                                        {index +
+                                                                                                                                            1}
+                                                                                                                                    </TableCell>
+                                                                                                                                    <TableCell>
+                                                                                                                                        <a
+                                                                                                                                            href={
+                                                                                                                                                playerAchievementUrl
+                                                                                                                                            }
+                                                                                                                                            target="_blank"
+                                                                                                                                            rel="noreferrer"
+                                                                                                                                            className="font-medium text-primary underline-offset-4 hover:underline"
+                                                                                                                                            title={t(
+                                                                                                                                                'Open member achievement in a new tab',
+                                                                                                                                            )}
+                                                                                                                                        >
+                                                                                                                                            {
+                                                                                                                                                player
+                                                                                                                                                    .member
+                                                                                                                                                    .full_name
+                                                                                                                                            }
+                                                                                                                                        </a>
+                                                                                                                                    </TableCell>
+                                                                                                                                    <TableCell>
+                                                                                                                                        {player
+                                                                                                                                            .member
+                                                                                                                                            .pno ? (
+                                                                                                                                            <a
+                                                                                                                                                href={
+                                                                                                                                                    playerAchievementUrl
+                                                                                                                                                }
+                                                                                                                                                target="_blank"
+                                                                                                                                                rel="noreferrer"
+                                                                                                                                                className="text-primary underline-offset-4 hover:underline"
+                                                                                                                                                title={t(
+                                                                                                                                                    'Open member achievement in a new tab',
+                                                                                                                                                )}
+                                                                                                                                            >
+                                                                                                                                                {
+                                                                                                                                                    player
+                                                                                                                                                        .member
+                                                                                                                                                        .pno
+                                                                                                                                                }
+                                                                                                                                            </a>
+                                                                                                                                        ) : (
+                                                                                                                                            <span className="text-muted-foreground">
+                                                                                                                                                —
+                                                                                                                                            </span>
+                                                                                                                                        )}
+                                                                                                                                    </TableCell>
+                                                                                                                                    <TableCell>
+                                                                                                                                        <span
+                                                                                                                                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${medalBadgeClass(player.medal_type)}`}
+                                                                                                                                        >
+                                                                                                                                            {t(
+                                                                                                                                                player.medal_type,
+                                                                                                                                            )}
+                                                                                                                                        </span>
+                                                                                                                                    </TableCell>
+                                                                                                                                    <TableCell>
+                                                                                                                                        #
+                                                                                                                                        {player.position ??
+                                                                                                                                            player.participation_position ??
+                                                                                                                                            '—'}
+                                                                                                                                    </TableCell>
+                                                                                                                                    <TableCell className="max-w-xs text-muted-foreground">
+                                                                                                                                        <span className="line-clamp-2">
+                                                                                                                                            {player.remarks ??
+                                                                                                                                                '—'}
+                                                                                                                                        </span>
+                                                                                                                                    </TableCell>
+                                                                                                                                </TableRow>
+                                                                                                                            );
+                                                                                                                        },
+                                                                                                                    )}
+                                                                                                                </TableBody>
+                                                                                                            </Table>
+                                                                                                        </TableCell>
+                                                                                                    </TableRow>
+                                                                                                ) : null}
+                                                                                            </Fragment>
+                                                                                        );
+                                                                                    },
+                                                                                )}
+                                                                            </TableBody>
+                                                                        </Table>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ) : null}
+                                                        </Fragment>
+                                                    );
+                                                },
+                                            )}
+                                        </TableBody>
+                                    </Table>
                                 </div>
                             )}
                         </div>
@@ -2633,9 +2679,15 @@ export default function CoachesShow({
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>{t('Type')}</TableHead>
-                                            <TableHead>{t('From rank')}</TableHead>
-                                            <TableHead>{t('To rank')}</TableHead>
-                                            <TableHead>{t('Decision date')}</TableHead>
+                                            <TableHead>
+                                                {t('From rank')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('To rank')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('Decision date')}
+                                            </TableHead>
                                             <TableHead>
                                                 {t('Reason / Remarks')}
                                             </TableHead>
@@ -2748,15 +2800,21 @@ export default function CoachesShow({
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>{t('Type')}</TableHead>
-                                            <TableHead>{t('Reward date')}</TableHead>
+                                            <TableHead>
+                                                {t('Reward date')}
+                                            </TableHead>
                                             <TableHead>
                                                 {t('Reward amount')}
                                             </TableHead>
                                             <TableHead>
                                                 {t('Tournament events')}
                                             </TableHead>
-                                            <TableHead>{t('Reference')}</TableHead>
-                                            <TableHead>{t('Remarks')}</TableHead>
+                                            <TableHead>
+                                                {t('Reference')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('Remarks')}
+                                            </TableHead>
                                             <TableHead>
                                                 {t('Recorded by')}
                                             </TableHead>

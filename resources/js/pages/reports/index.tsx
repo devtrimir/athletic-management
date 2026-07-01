@@ -1,7 +1,12 @@
 import { Head, Link, setLayoutProps } from '@inertiajs/react';
 import * as ReportController from '@/actions/App/Http/Controllers/ReportController';
 import Heading from '@/components/heading';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { useTranslation } from '@/hooks/use-translation';
 
 type ReportMeta = {
@@ -21,15 +26,25 @@ export default function ReportsIndex({ reports }: { reports: ReportMeta[] }) {
             <Head title={t('Reports')} />
 
             <div className="px-4 py-6">
-                <Heading title={t('Reports')} description={t('Select a report to view')} />
+                <Heading
+                    title={t('Reports')}
+                    description={t('Select a report to view')}
+                />
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {reports.map((report) => (
-                        <Link key={report.key} href={ReportController.show(report.key).url}>
-                            <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
+                        <Link
+                            key={report.key}
+                            href={ReportController.show(report.key).url}
+                        >
+                            <Card className="cursor-pointer transition-colors hover:bg-muted/50">
                                 <CardHeader>
-                                    <CardTitle className="text-base">{report.name}</CardTitle>
-                                    <CardDescription>{report.name}</CardDescription>
+                                    <CardTitle className="text-base">
+                                        {report.name}
+                                    </CardTitle>
+                                    <CardDescription>
+                                        {report.name}
+                                    </CardDescription>
                                 </CardHeader>
                             </Card>
                         </Link>

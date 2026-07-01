@@ -37,12 +37,24 @@ interface CoachPickerProps {
     id?: string;
 }
 
-export function CoachPicker({ value, onChange, sportId = null, placeholder, disabled = false, id }: CoachPickerProps) {
+export function CoachPicker({
+    value,
+    onChange,
+    sportId = null,
+    placeholder,
+    disabled = false,
+    id,
+}: CoachPickerProps) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<CoachOption[]>([]);
-    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    const { get, cancel, processing } = useHttp<Record<string, never>, SearchResponse>({});
+    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+        undefined,
+    );
+    const { get, cancel, processing } = useHttp<
+        Record<string, never>,
+        SearchResponse
+    >({});
 
     const handleInputChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,7 +104,9 @@ export function CoachPicker({ value, onChange, sportId = null, placeholder, disa
             suffix.push(coach.designation);
         }
 
-        return suffix.length > 0 ? `${coach.full_name} · ${suffix.join(' · ')}` : coach.full_name;
+        return suffix.length > 0
+            ? `${coach.full_name} · ${suffix.join(' · ')}`
+            : coach.full_name;
     };
 
     return (
@@ -101,8 +115,8 @@ export function CoachPicker({ value, onChange, sportId = null, placeholder, disa
                 <ComboboxInput
                     id={id}
                     className={cn(
-                        'border-input placeholder:text-muted-foreground flex h-9 w-full rounded-md border bg-transparent px-3 py-1 pr-8 text-base shadow-xs transition-[color,box-shadow] outline-none',
-                        'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+                        'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground',
+                        'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
                         'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
                         'md:text-sm',
                     )}
@@ -112,10 +126,13 @@ export function CoachPicker({ value, onChange, sportId = null, placeholder, disa
                     autoComplete="off"
                 />
                 <ComboboxButton className="absolute inset-y-0 right-0 flex items-center pr-2">
-                    <ChevronsUpDown className="text-muted-foreground h-4 w-4" aria-hidden="true" />
+                    <ChevronsUpDown
+                        className="h-4 w-4 text-muted-foreground"
+                        aria-hidden="true"
+                    />
                 </ComboboxButton>
 
-                <ComboboxOptions className="bg-popover text-popover-foreground absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md border shadow-md outline-none">
+                <ComboboxOptions className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md outline-none">
                     {processing && (
                         <div className="space-y-1 p-2">
                             <Skeleton className="h-8 w-full" />
@@ -124,9 +141,13 @@ export function CoachPicker({ value, onChange, sportId = null, placeholder, disa
                         </div>
                     )}
 
-                    {!processing && query.trim().length > 0 && results.length === 0 && (
-                        <p className="text-muted-foreground px-3 py-2 text-sm">{t('No coach found.')}</p>
-                    )}
+                    {!processing &&
+                        query.trim().length > 0 &&
+                        results.length === 0 && (
+                            <p className="px-3 py-2 text-sm text-muted-foreground">
+                                {t('No coach found.')}
+                            </p>
+                        )}
 
                     {!processing &&
                         results.map((coach) => (
@@ -135,21 +156,30 @@ export function CoachPicker({ value, onChange, sportId = null, placeholder, disa
                                 value={coach}
                                 className={({ focus }) =>
                                     cn(
-                                        'relative cursor-pointer select-none px-3 py-2 text-sm',
-                                        focus ? 'bg-accent text-accent-foreground' : '',
+                                        'relative cursor-pointer px-3 py-2 text-sm select-none',
+                                        focus
+                                            ? 'bg-accent text-accent-foreground'
+                                            : '',
                                     )
                                 }
                             >
                                 {({ selected }) => (
                                     <div className="flex items-start gap-2">
                                         <Check
-                                            className={cn('mt-0.5 h-4 w-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
+                                            className={cn(
+                                                'mt-0.5 h-4 w-4 shrink-0',
+                                                selected
+                                                    ? 'opacity-100'
+                                                    : 'opacity-0',
+                                            )}
                                         />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-medium">{coach.full_name}</span>
+                                                <span className="font-medium">
+                                                    {coach.full_name}
+                                                </span>
                                                 {coach.pno && (
-                                                    <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
+                                                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
                                                         {coach.pno}
                                                     </span>
                                                 )}

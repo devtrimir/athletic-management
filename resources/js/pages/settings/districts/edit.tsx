@@ -33,7 +33,9 @@ export default function Edit({ district }: { district: District }) {
         <>
             <Head title={`${t('Edit')} ${district.name}`} />
 
-            <h1 className="sr-only">{t('Edit')} {district.name}</h1>
+            <h1 className="sr-only">
+                {t('Edit')} {district.name}
+            </h1>
 
             <div className="space-y-6">
                 <Heading
@@ -42,13 +44,18 @@ export default function Edit({ district }: { district: District }) {
                     description={t('Update district details')}
                 />
 
-                <Form {...DistrictController.update.form(district.id)} className="max-w-xl space-y-6">
+                <Form
+                    {...DistrictController.update.form(district.id)}
+                    className="max-w-xl space-y-6"
+                >
                     {({ processing, errors }) => (
                         <>
-                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                            <div className="space-y-5 rounded-xl border bg-card p-6">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name">{t('Name')}</Label>
+                                        <Label htmlFor="name">
+                                            {t('Name')}
+                                        </Label>
                                         <Input
                                             id="name"
                                             name="name"
@@ -62,7 +69,9 @@ export default function Edit({ district }: { district: District }) {
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="state">{t('State')}</Label>
+                                        <Label htmlFor="state">
+                                            {t('State')}
+                                        </Label>
                                         <Input
                                             id="state"
                                             name="state"
@@ -74,7 +83,9 @@ export default function Edit({ district }: { district: District }) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="code">{t('Code')}</Label>
+                                        <Label htmlFor="code">
+                                            {t('Code')}
+                                        </Label>
                                         <Input
                                             id="code"
                                             name="code"
@@ -89,9 +100,13 @@ export default function Edit({ district }: { district: District }) {
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>{t('Save changes')}</Button>
+                                <Button disabled={processing}>
+                                    {t('Save changes')}
+                                </Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={DistrictController.index.url()}>{t('Cancel')}</Link>
+                                    <Link href={DistrictController.index.url()}>
+                                        {t('Cancel')}
+                                    </Link>
                                 </Button>
                             </div>
                         </>

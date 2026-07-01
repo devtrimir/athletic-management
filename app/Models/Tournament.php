@@ -7,9 +7,11 @@ namespace App\Models;
 use App\Concerns\Tenanted;
 use Database\Factories\TournamentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -32,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @property-read SportSession $session
  * @property-read TournamentTier $tier
  * @property-read Sport|null $sport
+ * @property-read Collection<int, Sport> $sports
  */
 #[Fillable([
     'organization_id',
@@ -83,6 +86,13 @@ class Tournament extends Model
     public function sport(): BelongsTo
     {
         return $this->belongsTo(Sport::class);
+    }
+
+    /** @return BelongsToMany<Sport, $this> */
+    public function sports(): BelongsToMany
+    {
+        return $this->belongsToMany(Sport::class, 'tournament_sport')
+            ->withTimestamps();
     }
 
     /** @return HasMany<Event, $this> */

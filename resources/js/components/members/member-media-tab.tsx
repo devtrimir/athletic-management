@@ -1,9 +1,27 @@
 import { useHttp } from '@inertiajs/react';
-import { ChevronDown, Download, Grid2X2, LayoutList, Square, Trash2, X } from 'lucide-react';
+import {
+    ChevronDown,
+    Download,
+    Grid2X2,
+    LayoutList,
+    Square,
+    Trash2,
+    X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import MemberMediaController from '@/actions/App/Http/Controllers/Api/V1/MemberMediaController';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
 import { Lightbox } from './media-lightbox';
@@ -14,7 +32,11 @@ import type { MediaFile } from './participation-media-sheet';
 // ---------------------------------------------------------------------------
 
 type EventMedia = {
-    event: { id: number; name: string; sport: { id: number; name: string } | null } | null;
+    event: {
+        id: number;
+        name: string;
+        sport: { id: number; name: string } | null;
+    } | null;
     media: MediaFile[];
     count: number;
 };
@@ -43,12 +65,12 @@ type ViewMode = 'grid' | 'list' | 'large';
 
 function formatBytes(bytes: number): string {
     if (bytes < 1024) {
-return `${bytes} B`;
-}
+        return `${bytes} B`;
+    }
 
     if (bytes < 1024 * 1024) {
-return `${(bytes / 1024).toFixed(0)} KB`;
-}
+        return `${(bytes / 1024).toFixed(0)} KB`;
+    }
 
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
@@ -57,23 +79,37 @@ return `${(bytes / 1024).toFixed(0)} KB`;
 // View mode toggle (Finder-style toolbar)
 // ---------------------------------------------------------------------------
 
-function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+function ViewModeToggle({
+    mode,
+    onChange,
+}: {
+    mode: ViewMode;
+    onChange: (m: ViewMode) => void;
+}) {
     const { t } = useTranslation();
     const MODES: { key: ViewMode; icon: React.ReactNode; label: string }[] = [
-        { key: 'grid',  icon: <Grid2X2 className="size-4" />,     label: t('Grid') },
-        { key: 'list',  icon: <LayoutList className="size-4" />,  label: t('List') },
-        { key: 'large', icon: <Square className="size-4" />,      label: t('Large') },
+        { key: 'grid', icon: <Grid2X2 className="size-4" />, label: t('Grid') },
+        {
+            key: 'list',
+            icon: <LayoutList className="size-4" />,
+            label: t('List'),
+        },
+        {
+            key: 'large',
+            icon: <Square className="size-4" />,
+            label: t('Large'),
+        },
     ];
 
     return (
-        <div className="flex items-center rounded-md border divide-x overflow-hidden">
+        <div className="flex items-center divide-x overflow-hidden rounded-md border">
             {MODES.map(({ key, icon, label }) => (
                 <button
                     key={key}
                     type="button"
                     title={label}
                     onClick={() => onChange(key)}
-                    className={`flex items-center justify-center px-3 py-1.5 transition-colors ${mode === key ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-muted-foreground'}`}
+                    className={`flex items-center justify-center px-3 py-1.5 transition-colors ${mode === key ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
                 >
                     {icon}
                     <span className="sr-only">{label}</span>
@@ -119,15 +155,23 @@ function FilterBar({
             {/* Tournament */}
             <Select
                 value={filters.tournament_id || '__all__'}
-                onValueChange={(v) => onChange('tournament_id', v === '__all__' ? '' : v)}
+                onValueChange={(v) =>
+                    onChange('tournament_id', v === '__all__' ? '' : v)
+                }
             >
-                <SelectTrigger className={`h-8 w-auto min-w-32 rounded-full border text-xs font-medium px-3 gap-1 ${filters.tournament_id ? 'border-primary/40 bg-primary/8 text-primary' : 'border-input text-muted-foreground'}`}>
+                <SelectTrigger
+                    className={`h-8 w-auto min-w-32 gap-1 rounded-full border px-3 text-xs font-medium ${filters.tournament_id ? 'border-primary/40 bg-primary/8 text-primary' : 'border-input text-muted-foreground'}`}
+                >
                     <SelectValue placeholder={t('Tournament')} />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="__all__">{t('All Tournaments')}</SelectItem>
+                    <SelectItem value="__all__">
+                        {t('All Tournaments')}
+                    </SelectItem>
                     {tournaments.map((t2) => (
-                        <SelectItem key={t2.id} value={String(t2.id)}>{t2.name}</SelectItem>
+                        <SelectItem key={t2.id} value={String(t2.id)}>
+                            {t2.name}
+                        </SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -135,15 +179,21 @@ function FilterBar({
             {/* Sport */}
             <Select
                 value={filters.sport_id || '__all__'}
-                onValueChange={(v) => onChange('sport_id', v === '__all__' ? '' : v)}
+                onValueChange={(v) =>
+                    onChange('sport_id', v === '__all__' ? '' : v)
+                }
             >
-                <SelectTrigger className={`h-8 w-auto min-w-28 rounded-full border text-xs font-medium px-3 gap-1 ${filters.sport_id ? 'border-primary/40 bg-primary/8 text-primary' : 'border-input text-muted-foreground'}`}>
+                <SelectTrigger
+                    className={`h-8 w-auto min-w-28 gap-1 rounded-full border px-3 text-xs font-medium ${filters.sport_id ? 'border-primary/40 bg-primary/8 text-primary' : 'border-input text-muted-foreground'}`}
+                >
                     <SelectValue placeholder={t('Sport')} />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="__all__">{t('All Sports')}</SelectItem>
                     {sports.map((sp) => (
-                        <SelectItem key={sp.id} value={String(sp.id)}>{sp.name}</SelectItem>
+                        <SelectItem key={sp.id} value={String(sp.id)}>
+                            {sp.name}
+                        </SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -151,15 +201,21 @@ function FilterBar({
             {/* Session */}
             <Select
                 value={filters.session_id || '__all__'}
-                onValueChange={(v) => onChange('session_id', v === '__all__' ? '' : v)}
+                onValueChange={(v) =>
+                    onChange('session_id', v === '__all__' ? '' : v)
+                }
             >
-                <SelectTrigger className={`h-8 w-auto min-w-28 rounded-full border text-xs font-medium px-3 gap-1 ${filters.session_id ? 'border-primary/40 bg-primary/8 text-primary' : 'border-input text-muted-foreground'}`}>
+                <SelectTrigger
+                    className={`h-8 w-auto min-w-28 gap-1 rounded-full border px-3 text-xs font-medium ${filters.session_id ? 'border-primary/40 bg-primary/8 text-primary' : 'border-input text-muted-foreground'}`}
+                >
                     <SelectValue placeholder={t('Session')} />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="__all__">{t('All Sessions')}</SelectItem>
                     {sessions.map((s) => (
-                        <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                        <SelectItem key={s.id} value={String(s.id)}>
+                            {s.name}
+                        </SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -167,15 +223,21 @@ function FilterBar({
             {/* Medal type */}
             <Select
                 value={filters.medal_type || '__all__'}
-                onValueChange={(v) => onChange('medal_type', v === '__all__' ? '' : v)}
+                onValueChange={(v) =>
+                    onChange('medal_type', v === '__all__' ? '' : v)
+                }
             >
-                <SelectTrigger className={`h-8 w-auto min-w-28 rounded-full border text-xs font-medium px-3 gap-1 ${filters.medal_type ? 'border-primary/40 bg-primary/8 text-primary' : 'border-input text-muted-foreground'}`}>
+                <SelectTrigger
+                    className={`h-8 w-auto min-w-28 gap-1 rounded-full border px-3 text-xs font-medium ${filters.medal_type ? 'border-primary/40 bg-primary/8 text-primary' : 'border-input text-muted-foreground'}`}
+                >
                     <SelectValue placeholder={t('Medal')} />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="__all__">{t('All medals')}</SelectItem>
                     {MEDAL_OPTIONS.map((m) => (
-                        <SelectItem key={m} value={m}>{t(m)}</SelectItem>
+                        <SelectItem key={m} value={m}>
+                            {t(m)}
+                        </SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -216,7 +278,9 @@ function GridThumb({
     const { t } = useTranslation();
 
     return (
-        <div className={`group relative overflow-hidden rounded-lg border bg-muted ${size === 'lg' ? 'aspect-video' : 'aspect-square'}`}>
+        <div
+            className={`group relative overflow-hidden rounded-lg border bg-muted ${size === 'lg' ? 'aspect-video' : 'aspect-square'}`}
+        >
             <img
                 src={file.url}
                 alt={file.caption ?? file.original_name}
@@ -226,13 +290,15 @@ function GridThumb({
 
             {/* Caption overlay */}
             {file.caption && (
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-4">
-                    <p className="text-[10px] leading-tight text-white truncate">{file.caption}</p>
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pt-4 pb-2">
+                    <p className="truncate text-[10px] leading-tight text-white">
+                        {file.caption}
+                    </p>
                 </div>
             )}
 
             {/* Action overlay */}
-            <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <a
                     href={file.url}
                     download={file.original_name}
@@ -247,8 +313,9 @@ function GridThumb({
                         type="button"
                         disabled={deleting}
                         onClick={(e) => {
- e.stopPropagation(); onDelete();
-}}
+                            e.stopPropagation();
+                            onDelete();
+                        }}
                         className="flex h-6 w-6 items-center justify-center rounded-full bg-destructive/80 text-white hover:bg-destructive"
                         title={t('Delete')}
                     >
@@ -280,7 +347,7 @@ function ListRow({
     const { t } = useTranslation();
 
     return (
-        <div className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2 hover:bg-muted/40 transition-colors">
+        <div className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2 transition-colors hover:bg-muted/40">
             <div
                 className="size-12 shrink-0 cursor-zoom-in overflow-hidden rounded-md border bg-muted"
                 onClick={onOpen}
@@ -293,15 +360,16 @@ function ListRow({
             </div>
 
             <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium leading-tight">
+                <p className="truncate text-sm leading-tight font-medium">
                     {file.caption ?? file.original_name}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                    {formatBytes(file.size_bytes)} · {new Date(file.created_at).toLocaleDateString('hi-IN')}
+                    {formatBytes(file.size_bytes)} ·{' '}
+                    {new Date(file.created_at).toLocaleDateString('hi-IN')}
                 </p>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <a
                     href={file.url}
                     download={file.original_name}
@@ -315,7 +383,7 @@ function ListRow({
                         type="button"
                         disabled={deleting}
                         onClick={onDelete}
-                        className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-destructive/10 text-destructive"
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-destructive hover:bg-destructive/10"
                         title={t('Delete')}
                     >
                         <Trash2 className="size-4" />
@@ -353,14 +421,14 @@ function EventGroup({
 
     return (
         <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+            <h4 className="flex items-center gap-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                 {eventMedia.event?.name ?? t('Unknown event')}
                 {eventMedia.event?.sport && (
-                    <span className="font-normal normal-case tracking-normal text-muted-foreground/70">
+                    <span className="font-normal tracking-normal text-muted-foreground/70 normal-case">
                         — {eventMedia.event.sport.name}
                     </span>
                 )}
-                <span className="ml-auto font-normal normal-case tracking-normal">
+                <span className="ml-auto font-normal tracking-normal normal-case">
                     {eventMedia.count}
                 </span>
             </h4>
@@ -379,7 +447,9 @@ function EventGroup({
                     ))}
                 </div>
             ) : (
-                <div className={`grid gap-3 ${viewMode === 'large' ? 'grid-cols-2' : 'grid-cols-3 sm:grid-cols-4'}`}>
+                <div
+                    className={`grid gap-3 ${viewMode === 'large' ? 'grid-cols-2' : 'grid-cols-3 sm:grid-cols-4'}`}
+                >
                     {eventMedia.media.map((file, i) => (
                         <GridThumb
                             key={file.id}
@@ -407,37 +477,51 @@ type MediaTabProps = {
     initialData?: MediaResponse | null;
 };
 
-export function MemberMediaTab({ memberId, canDelete, initialData = null }: MediaTabProps) {
+export function MemberMediaTab({
+    memberId,
+    canDelete,
+    initialData = null,
+}: MediaTabProps) {
     const { t } = useTranslation();
     const [data, setData] = useState<MediaResponse | null>(null);
     const mediaData = data ?? initialData;
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
-    const [filters, setFilters] = useState<Filters>({ tournament_id: '', sport_id: '', session_id: '', medal_type: '' });
-    const [lightbox, setLightbox] = useState<{ files: MediaFile[]; index: number } | null>(null);
+    const [filters, setFilters] = useState<Filters>({
+        tournament_id: '',
+        sport_id: '',
+        session_id: '',
+        medal_type: '',
+    });
+    const [lightbox, setLightbox] = useState<{
+        files: MediaFile[];
+        index: number;
+    } | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const fetchedRef = useRef(false);
 
-    const { get, processing } = useHttp<Record<string, never>, MediaResponse>({});
+    const { get, processing } = useHttp<Record<string, never>, MediaResponse>(
+        {},
+    );
 
     function buildUrl(overrideFilters?: Partial<Filters>): string {
         const merged = { ...filters, ...overrideFilters };
         const params = new URLSearchParams();
 
         if (merged.tournament_id) {
-params.set('filter[tournament_id]', merged.tournament_id);
-}
+            params.set('filter[tournament_id]', merged.tournament_id);
+        }
 
         if (merged.sport_id) {
-params.set('filter[sport_id]', merged.sport_id);
-}
+            params.set('filter[sport_id]', merged.sport_id);
+        }
 
         if (merged.session_id) {
-params.set('filter[session_id]', merged.session_id);
-}
+            params.set('filter[session_id]', merged.session_id);
+        }
 
         if (merged.medal_type) {
-params.set('filter[medal_type]', merged.medal_type);
-}
+            params.set('filter[medal_type]', merged.medal_type);
+        }
 
         const base = MemberMediaController.url(memberId);
         const qs = params.toString();
@@ -465,7 +549,7 @@ params.set('filter[medal_type]', merged.medal_type);
             fetchedRef.current = true;
             fetchMedia();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialData, memberId]);
 
     function handleFilterChange(key: keyof Filters, value: string) {
@@ -481,7 +565,12 @@ params.set('filter[medal_type]', merged.medal_type);
     }
 
     function handleFilterReset() {
-        const cleared: Filters = { tournament_id: '', sport_id: '', session_id: '', medal_type: '' };
+        const cleared: Filters = {
+            tournament_id: '',
+            sport_id: '',
+            session_id: '',
+            medal_type: '',
+        };
         setFilters(cleared);
 
         if (initialData) {
@@ -496,33 +585,60 @@ params.set('filter[medal_type]', merged.medal_type);
         setDeletingId(mediaFileId);
 
         try {
-            const res = await fetch(`/participations/${participationId}/media/${mediaFileId}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '',
+            const res = await fetch(
+                `/participations/${participationId}/media/${mediaFileId}`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN':
+                            (
+                                document.querySelector(
+                                    'meta[name="csrf-token"]',
+                                ) as HTMLMetaElement
+                            )?.content ?? '',
+                    },
                 },
-            });
+            );
 
             if (res.ok || res.status === 204) {
                 setData((prev) => {
                     const current = prev ?? initialData;
 
                     if (!current) {
-return prev;
-}
+                        return prev;
+                    }
 
                     return {
                         ...current,
                         total: current.total - 1,
-                        data: current.data.map((td) => ({
-                            ...td,
-                            total: td.total - td.events.reduce((acc, ev) => acc + ev.media.filter((f) => f.id === mediaFileId).length, 0),
-                            events: td.events.map((ev) => ({
-                                ...ev,
-                                count: ev.count - ev.media.filter((f) => f.id === mediaFileId).length,
-                                media: ev.media.filter((f) => f.id !== mediaFileId),
-                            })).filter((ev) => ev.count > 0),
-                        })).filter((td) => td.total > 0),
+                        data: current.data
+                            .map((td) => ({
+                                ...td,
+                                total:
+                                    td.total -
+                                    td.events.reduce(
+                                        (acc, ev) =>
+                                            acc +
+                                            ev.media.filter(
+                                                (f) => f.id === mediaFileId,
+                                            ).length,
+                                        0,
+                                    ),
+                                events: td.events
+                                    .map((ev) => ({
+                                        ...ev,
+                                        count:
+                                            ev.count -
+                                            ev.media.filter(
+                                                (f) => f.id === mediaFileId,
+                                            ).length,
+                                        media: ev.media.filter(
+                                            (f) => f.id !== mediaFileId,
+                                        ),
+                                    }))
+                                    .filter((ev) => ev.count > 0),
+                            }))
+                            .filter((td) => td.total > 0),
                     };
                 });
             }
@@ -532,7 +648,9 @@ return prev;
     }
 
     // Flatten all media files for lightbox navigation
-    const allMediaFlat: MediaFile[] = (mediaData?.data ?? []).flatMap((td) => td.events.flatMap((ev) => ev.media));
+    const allMediaFlat: MediaFile[] = (mediaData?.data ?? []).flatMap((td) =>
+        td.events.flatMap((ev) => ev.media),
+    );
 
     // Derive unique tournaments/sports/sessions from full (unfiltered) data for filter dropdowns
     const uniqueTournaments = (mediaData?.data ?? [])
@@ -559,7 +677,10 @@ return prev;
                 </div>
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
                     {Array.from({ length: 8 }).map((_, i) => (
-                        <Skeleton key={i} className="aspect-square rounded-lg" />
+                        <Skeleton
+                            key={i}
+                            className="aspect-square rounded-lg"
+                        />
                     ))}
                 </div>
             </div>
@@ -590,7 +711,11 @@ return prev;
                 <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed py-16 text-center">
                     <div className="text-4xl">📷</div>
                     <p className="text-sm text-muted-foreground">
-                        {activeFilterCount > 0 ? t('No photos match the current filters.') : t('No photos yet. Upload photos from the Events page.')}
+                        {activeFilterCount > 0
+                            ? t('No photos match the current filters.')
+                            : t(
+                                  'No photos yet. Upload photos from the Events page.',
+                              )}
                     </p>
                     {activeFilterCount > 0 && (
                         <button
@@ -605,21 +730,31 @@ return prev;
             ) : (
                 <div className="space-y-2">
                     {mediaData.data.map((tournamentData, tIdx) => (
-                        <Collapsible key={tournamentData.tournament?.id ?? tIdx} defaultOpen>
-                            <CollapsibleTrigger className="group flex w-full items-center gap-2 rounded-lg bg-muted/50 px-4 py-3 text-left hover:bg-muted/80 transition-colors">
+                        <Collapsible
+                            key={tournamentData.tournament?.id ?? tIdx}
+                            defaultOpen
+                        >
+                            <CollapsibleTrigger className="group flex w-full items-center gap-2 rounded-lg bg-muted/50 px-4 py-3 text-left transition-colors hover:bg-muted/80">
                                 <ChevronDown className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-                                <div className="flex-1 min-w-0">
-                                    <span className="font-semibold text-sm truncate">
-                                        {tournamentData.tournament?.name ?? t('Unknown tournament')}
+                                <div className="min-w-0 flex-1">
+                                    <span className="truncate text-sm font-semibold">
+                                        {tournamentData.tournament?.name ??
+                                            t('Unknown tournament')}
                                     </span>
                                     {tournamentData.tournament?.tier && (
                                         <span className="ml-2 text-xs text-muted-foreground">
-                                            {tournamentData.tournament.tier.name}
+                                            {
+                                                tournamentData.tournament.tier
+                                                    .name
+                                            }
                                         </span>
                                     )}
                                     {tournamentData.tournament?.date_from && (
                                         <span className="ml-2 text-xs text-muted-foreground">
-                                            {new Date(tournamentData.tournament.date_from).getFullYear()}
+                                            {new Date(
+                                                tournamentData.tournament
+                                                    .date_from,
+                                            ).getFullYear()}
                                         </span>
                                     )}
                                 </div>
@@ -630,23 +765,42 @@ return prev;
 
                             <CollapsibleContent>
                                 <div className="mt-3 space-y-6 px-1">
-                                    {tournamentData.events.map((eventMedia, eIdx) => {
-                                        const baseIndex = allMediaFlat.indexOf(eventMedia.media[0]);
+                                    {tournamentData.events.map(
+                                        (eventMedia, eIdx) => {
+                                            const baseIndex =
+                                                allMediaFlat.indexOf(
+                                                    eventMedia.media[0],
+                                                );
 
-                                        return (
-                                            <EventGroup
-                                                key={eventMedia.event?.id ?? eIdx}
-                                                eventMedia={eventMedia}
-                                                viewMode={viewMode}
-                                                canDelete={canDelete}
-                                                onLightbox={(files, idx) => setLightbox({ files, index: idx })}
-                                                onDelete={(id) => void handleDelete(id, 0)}
-                                                deletingId={deletingId}
-                                                allFiles={allMediaFlat}
-                                                baseIndex={baseIndex < 0 ? 0 : baseIndex}
-                                            />
-                                        );
-                                    })}
+                                            return (
+                                                <EventGroup
+                                                    key={
+                                                        eventMedia.event?.id ??
+                                                        eIdx
+                                                    }
+                                                    eventMedia={eventMedia}
+                                                    viewMode={viewMode}
+                                                    canDelete={canDelete}
+                                                    onLightbox={(files, idx) =>
+                                                        setLightbox({
+                                                            files,
+                                                            index: idx,
+                                                        })
+                                                    }
+                                                    onDelete={(id) =>
+                                                        void handleDelete(id, 0)
+                                                    }
+                                                    deletingId={deletingId}
+                                                    allFiles={allMediaFlat}
+                                                    baseIndex={
+                                                        baseIndex < 0
+                                                            ? 0
+                                                            : baseIndex
+                                                    }
+                                                />
+                                            );
+                                        },
+                                    )}
                                 </div>
                             </CollapsibleContent>
                         </Collapsible>

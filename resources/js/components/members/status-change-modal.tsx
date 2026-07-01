@@ -3,9 +3,20 @@ import { store as storeStatus } from '@/actions/App/Http/Controllers/MemberStatu
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -60,9 +71,13 @@ export function StatusChangeModal({ member, open, onOpenChange }: Props) {
                 <form onSubmit={handleSubmit} className="mt-2 space-y-4">
                     <div className="grid gap-2">
                         <Label>
-                            {t('New status')} <span className="text-destructive">*</span>
+                            {t('New status')}{' '}
+                            <span className="text-destructive">*</span>
                         </Label>
-                        <Select value={form.data.status} onValueChange={(v) => form.setData('status', v)}>
+                        <Select
+                            value={form.data.status}
+                            onValueChange={(v) => form.setData('status', v)}
+                        >
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select status')} />
                             </SelectTrigger>
@@ -78,7 +93,8 @@ export function StatusChangeModal({ member, open, onOpenChange }: Props) {
                     </div>
                     <div className="grid gap-2">
                         <Label>
-                            {t('Effective date')} <span className="text-destructive">*</span>
+                            {t('Effective date')}{' '}
+                            <span className="text-destructive">*</span>
                         </Label>
                         <DatePicker
                             value={form.data.effective_on}
@@ -90,7 +106,9 @@ export function StatusChangeModal({ member, open, onOpenChange }: Props) {
                         <Label>{t('Reason')}</Label>
                         <Textarea
                             value={form.data.reason}
-                            onChange={(e) => form.setData('reason', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('reason', e.target.value)
+                            }
                             rows={3}
                         />
                         <InputError message={form.errors.reason} />
@@ -99,7 +117,11 @@ export function StatusChangeModal({ member, open, onOpenChange }: Props) {
                         <Button type="submit" disabled={form.processing}>
                             {t('Save changes')}
                         </Button>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                        >
                             {t('Cancel')}
                         </Button>
                     </div>

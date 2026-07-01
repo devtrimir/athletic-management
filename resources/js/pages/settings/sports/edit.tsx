@@ -5,7 +5,13 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
 
 const CATEGORIES = [
@@ -50,13 +56,18 @@ export default function Edit({ sport }: { sport: Sport }) {
                     description={t('Update sport discipline details')}
                 />
 
-                <Form {...SportController.update.form(sport.id)} className="max-w-xl space-y-6">
+                <Form
+                    {...SportController.update.form(sport.id)}
+                    className="max-w-xl space-y-6"
+                >
                     {({ processing, errors }) => (
                         <>
-                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                            <div className="space-y-5 rounded-xl border bg-card p-6">
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name">{t('Name')}</Label>
+                                        <Label htmlFor="name">
+                                            {t('Name')}
+                                        </Label>
                                         <Input
                                             id="name"
                                             name="name"
@@ -69,14 +80,26 @@ export default function Edit({ sport }: { sport: Sport }) {
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="category">{t('Category')}</Label>
-                                    <Select name="category" defaultValue={sport.category} required>
-                                        <SelectTrigger id="category" className="w-full">
+                                    <Label htmlFor="category">
+                                        {t('Category')}
+                                    </Label>
+                                    <Select
+                                        name="category"
+                                        defaultValue={sport.category}
+                                        required
+                                    >
+                                        <SelectTrigger
+                                            id="category"
+                                            className="w-full"
+                                        >
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {CATEGORIES.map((cat) => (
-                                                <SelectItem key={cat.value} value={cat.value}>
+                                                <SelectItem
+                                                    key={cat.value}
+                                                    value={cat.value}
+                                                >
                                                     {cat.label}
                                                 </SelectItem>
                                             ))}
@@ -87,9 +110,13 @@ export default function Edit({ sport }: { sport: Sport }) {
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>{t('Save changes')}</Button>
+                                <Button disabled={processing}>
+                                    {t('Save changes')}
+                                </Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={SportController.index.url()}>{t('Cancel')}</Link>
+                                    <Link href={SportController.index.url()}>
+                                        {t('Cancel')}
+                                    </Link>
                                 </Button>
                             </div>
                         </>

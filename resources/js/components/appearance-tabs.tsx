@@ -37,7 +37,9 @@ export default function AppearanceToggleTab({
                     )}
                 >
                     <Icon className="h-4 w-4 sm:-ml-1" />
-                    <span className="ml-1.5 hidden text-sm sm:inline">{label}</span>
+                    <span className="ml-1.5 hidden text-sm sm:inline">
+                        {label}
+                    </span>
                 </button>
             ))}
         </div>

@@ -40,13 +40,20 @@ export function LocaleSwitcher({ className, collapsed = false }: Props) {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className={cn('h-8 w-8 rounded-md border border-sidebar-border bg-sidebar-accent/30', className)}
+                        className={cn(
+                            'h-8 w-8 rounded-md border border-sidebar-border bg-sidebar-accent/30',
+                            className,
+                        )}
                         aria-label="Change language"
                     >
                         <Languages className="size-4" />
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" side="right" className="min-w-32">
+                <DropdownMenuContent
+                    align="end"
+                    side="right"
+                    className="min-w-32"
+                >
                     {LOCALES.map(({ value, label }) => (
                         <DropdownMenuItem
                             key={value}

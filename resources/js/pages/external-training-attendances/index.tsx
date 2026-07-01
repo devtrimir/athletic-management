@@ -1,5 +1,12 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, Eye, Printer, Search, SlidersHorizontal, X } from 'lucide-react';
+import {
+    Download,
+    Eye,
+    Printer,
+    Search,
+    SlidersHorizontal,
+    X,
+} from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
@@ -22,7 +29,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -42,7 +55,12 @@ type Attendance = {
     distance_from_venue_meters: string | null;
     flag_reason: string | null;
     submitted_at: string;
-    member: { id: number; full_name: string; member_code: string | null; pno: string | null };
+    member: {
+        id: number;
+        full_name: string;
+        member_code: string | null;
+        pno: string | null;
+    };
     external_coach: { id: number; name: string };
     training_venue: { name: string };
     assignment: { sport: { name: string } | null } | null;
@@ -140,9 +158,18 @@ const exportColumnGroups: { label: string; columns: ExportColumn[] }[] = [
             { key: 'distance_meters', label: 'Distance (m)' },
             { key: 'submitted_latitude', label: 'Submitted Latitude' },
             { key: 'submitted_longitude', label: 'Submitted Longitude' },
-            { key: 'submitted_gps_accuracy_m', label: 'Submitted GPS Accuracy (m)' },
-            { key: 'venue_latitude_snapshot', label: 'Venue Latitude Snapshot' },
-            { key: 'venue_longitude_snapshot', label: 'Venue Longitude Snapshot' },
+            {
+                key: 'submitted_gps_accuracy_m',
+                label: 'Submitted GPS Accuracy (m)',
+            },
+            {
+                key: 'venue_latitude_snapshot',
+                label: 'Venue Latitude Snapshot',
+            },
+            {
+                key: 'venue_longitude_snapshot',
+                label: 'Venue Longitude Snapshot',
+            },
             { key: 'allowed_radius_meters', label: 'Allowed Radius (m)' },
         ],
     },
@@ -166,14 +193,23 @@ const exportColumnGroups: { label: string; columns: ExportColumn[] }[] = [
             { key: 'check_in_at', label: 'Check In At' },
             { key: 'check_in_latitude', label: 'Check In Latitude' },
             { key: 'check_in_longitude', label: 'Check In Longitude' },
-            { key: 'check_in_gps_accuracy_m', label: 'Check In GPS Accuracy (m)' },
+            {
+                key: 'check_in_gps_accuracy_m',
+                label: 'Check In GPS Accuracy (m)',
+            },
             { key: 'check_in_distance_meters', label: 'Check In Distance (m)' },
             { key: 'check_in_geo_status', label: 'Check In Geo Status' },
             { key: 'check_out_at', label: 'Check Out At' },
             { key: 'check_out_latitude', label: 'Check Out Latitude' },
             { key: 'check_out_longitude', label: 'Check Out Longitude' },
-            { key: 'check_out_gps_accuracy_m', label: 'Check Out GPS Accuracy (m)' },
-            { key: 'check_out_distance_meters', label: 'Check Out Distance (m)' },
+            {
+                key: 'check_out_gps_accuracy_m',
+                label: 'Check Out GPS Accuracy (m)',
+            },
+            {
+                key: 'check_out_distance_meters',
+                label: 'Check Out Distance (m)',
+            },
             { key: 'check_out_geo_status', label: 'Check Out Geo Status' },
             { key: 'duration_minutes', label: 'Duration (minutes)' },
         ],
@@ -206,20 +242,39 @@ export default function ExternalTrainingAttendanceIndex({
 }: Props) {
     const { t } = useTranslation();
     const { locale = 'en' } = usePage().props as { locale?: string };
-    const [memberQuery, setMemberQuery] = useState<string>(filters.member_query ?? '');
-    const [coachQuery, setCoachQuery] = useState<string>(filters.coach_query ?? '');
-    const [venueQuery, setVenueQuery] = useState<string>(filters.venue_query ?? '');
-    const [sportQuery, setSportQuery] = useState<string>(filters.sport_query ?? '');
-    const [sportFilter, setSportFilter] = useState<string>(filters.sport_id ?? 'all');
+    const [memberQuery, setMemberQuery] = useState<string>(
+        filters.member_query ?? '',
+    );
+    const [coachQuery, setCoachQuery] = useState<string>(
+        filters.coach_query ?? '',
+    );
+    const [venueQuery, setVenueQuery] = useState<string>(
+        filters.venue_query ?? '',
+    );
+    const [sportQuery, setSportQuery] = useState<string>(
+        filters.sport_query ?? '',
+    );
+    const [sportFilter, setSportFilter] = useState<string>(
+        filters.sport_id ?? 'all',
+    );
     const [dateFrom, setDateFrom] = useState<string>(filters.date_from ?? '');
     const [dateTo, setDateTo] = useState<string>(filters.date_to ?? '');
-    const [attendanceStatusFilter, setAttendanceStatusFilter] = useState<string>(filters.attendance_status ?? 'all');
-    const [geoStatusFilter, setGeoStatusFilter] = useState<string>(filters.geo_status ?? 'all');
-    const [reviewStatusFilter, setReviewStatusFilter] = useState<string>(filters.review_status ?? 'all');
+    const [attendanceStatusFilter, setAttendanceStatusFilter] =
+        useState<string>(filters.attendance_status ?? 'all');
+    const [geoStatusFilter, setGeoStatusFilter] = useState<string>(
+        filters.geo_status ?? 'all',
+    );
+    const [reviewStatusFilter, setReviewStatusFilter] = useState<string>(
+        filters.review_status ?? 'all',
+    );
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [outputOpen, setOutputOpen] = useState(false);
-    const [selectedOutputColumns, setSelectedOutputColumns] = useState<string[]>(defaultExportColumns);
-    const sportItems: ComboboxItem[] = sports.map((sport) => ({ value: String(sport.id), label: sport.name }));
+    const [selectedOutputColumns, setSelectedOutputColumns] =
+        useState<string[]>(defaultExportColumns);
+    const sportItems: ComboboxItem[] = sports.map((sport) => ({
+        value: String(sport.id),
+        label: sport.name,
+    }));
     const advancedFilterCount = [
         sportFilter !== 'all',
         dateFrom !== '',
@@ -314,7 +369,11 @@ export default function ExternalTrainingAttendanceIndex({
         setGeoStatusFilter('all');
         setReviewStatusFilter('all');
 
-        router.get('/external-training-attendances', {}, { replace: true, preserveScroll: true, preserveState: true });
+        router.get(
+            '/external-training-attendances',
+            {},
+            { replace: true, preserveScroll: true, preserveState: true },
+        );
     }
 
     function toggleOutputColumn(column: string, checked: boolean): void {
@@ -323,7 +382,9 @@ export default function ExternalTrainingAttendanceIndex({
                 return Array.from(new Set([...current, column]));
             }
 
-            return current.length === 1 ? current : current.filter((item) => item !== column);
+            return current.length === 1
+                ? current
+                : current.filter((item) => item !== column);
         });
     }
 
@@ -346,95 +407,137 @@ export default function ExternalTrainingAttendanceIndex({
             <div className="space-y-4 p-4 sm:p-6">
                 <Heading
                     title={t('External training attendance')}
-                    description={t('Review submitted external training proof and geo flags.')}
+                    description={t(
+                        'Review submitted external training proof and geo flags.',
+                    )}
                 />
 
-                <form className="overflow-hidden rounded-lg border bg-card shadow-sm" onSubmit={applyFilters}>
+                <form
+                    className="overflow-hidden rounded-lg border bg-card shadow-sm"
+                    onSubmit={applyFilters}
+                >
                     <div className="border-b bg-muted/20 px-3 py-2 sm:hidden">
-                        <div className="text-sm font-semibold">{t('Search filters')}</div>
-                        <div className="text-[11px] text-muted-foreground">{t('Search by member, coach, venue, or sport.')}</div>
+                        <div className="text-sm font-semibold">
+                            {t('Search filters')}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                            {t('Search by member, coach, venue, or sport.')}
+                        </div>
                     </div>
 
                     <div className="grid gap-3 p-3">
                         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                        <div className="space-y-1">
-                            <Label htmlFor="member_query" className="text-xs font-medium text-muted-foreground sm:text-sm sm:text-foreground">
-                                {t('Member')}
-                            </Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="member_query"
-                                    name="member_query"
-                                    value={memberQuery}
-                                    onChange={(event) => setMemberQuery(event.target.value)}
-                                    placeholder={t('Search member by name, code, or PNO')}
-                                    className="pl-9"
-                                />
+                            <div className="space-y-1">
+                                <Label
+                                    htmlFor="member_query"
+                                    className="text-xs font-medium text-muted-foreground sm:text-sm sm:text-foreground"
+                                >
+                                    {t('Member')}
+                                </Label>
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+                                    <Input
+                                        id="member_query"
+                                        name="member_query"
+                                        value={memberQuery}
+                                        onChange={(event) =>
+                                            setMemberQuery(event.target.value)
+                                        }
+                                        placeholder={t(
+                                            'Search member by name, code, or PNO',
+                                        )}
+                                        className="pl-9"
+                                    />
+                                </div>
                             </div>
-                        </div>
 
                             <div className="space-y-1">
-                            <Label htmlFor="coach_query" className="text-xs font-medium text-muted-foreground sm:text-sm sm:text-foreground">
-                                {t('External coach')}
-                            </Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="coach_query"
-                                    name="coach_query"
-                                    value={coachQuery}
-                                    onChange={(event) => setCoachQuery(event.target.value)}
-                                    placeholder={t('Search coach by name, phone, or email')}
-                                    className="pl-9"
-                                />
+                                <Label
+                                    htmlFor="coach_query"
+                                    className="text-xs font-medium text-muted-foreground sm:text-sm sm:text-foreground"
+                                >
+                                    {t('External coach')}
+                                </Label>
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+                                    <Input
+                                        id="coach_query"
+                                        name="coach_query"
+                                        value={coachQuery}
+                                        onChange={(event) =>
+                                            setCoachQuery(event.target.value)
+                                        }
+                                        placeholder={t(
+                                            'Search coach by name, phone, or email',
+                                        )}
+                                        className="pl-9"
+                                    />
+                                </div>
                             </div>
-                        </div>
 
                             <div className="space-y-1">
-                            <Label htmlFor="venue_query" className="text-xs font-medium text-muted-foreground sm:text-sm sm:text-foreground">
-                                {t('Venue')}
-                            </Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="venue_query"
-                                    name="venue_query"
-                                    value={venueQuery}
-                                    onChange={(event) => setVenueQuery(event.target.value)}
-                                    placeholder={t('Search venue by name')}
-                                    className="pl-9"
-                                />
+                                <Label
+                                    htmlFor="venue_query"
+                                    className="text-xs font-medium text-muted-foreground sm:text-sm sm:text-foreground"
+                                >
+                                    {t('Venue')}
+                                </Label>
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+                                    <Input
+                                        id="venue_query"
+                                        name="venue_query"
+                                        value={venueQuery}
+                                        onChange={(event) =>
+                                            setVenueQuery(event.target.value)
+                                        }
+                                        placeholder={t('Search venue by name')}
+                                        className="pl-9"
+                                    />
+                                </div>
                             </div>
-                        </div>
 
                             <div className="space-y-1">
-                            <Label htmlFor="sport_query" className="text-xs font-medium text-muted-foreground sm:text-sm sm:text-foreground">
-                                {t('Sport')}
-                            </Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="sport_query"
-                                    name="sport_query"
-                                    value={sportQuery}
-                                    onChange={(event) => setSportQuery(event.target.value)}
-                                    placeholder={t('Search sport')}
-                                    className="pl-9"
-                                />
+                                <Label
+                                    htmlFor="sport_query"
+                                    className="text-xs font-medium text-muted-foreground sm:text-sm sm:text-foreground"
+                                >
+                                    {t('Sport')}
+                                </Label>
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+                                    <Input
+                                        id="sport_query"
+                                        name="sport_query"
+                                        value={sportQuery}
+                                        onChange={(event) =>
+                                            setSportQuery(event.target.value)
+                                        }
+                                        placeholder={t('Search sport')}
+                                        className="pl-9"
+                                    />
+                                </div>
                             </div>
-                        </div>
-
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-end">
-                            <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+                            <Dialog
+                                open={filtersOpen}
+                                onOpenChange={setFiltersOpen}
+                            >
                                 <DialogTrigger asChild>
-                                    <Button type="button" variant="outline" className="h-9 w-full sm:w-auto">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="h-9 w-full sm:w-auto"
+                                    >
                                         <SlidersHorizontal className="size-4" />
                                         {t('More filters')}
                                         {advancedFilterCount > 0 ? (
-                                            <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-1 px-1.5 py-0 text-[10px]"
+                                            >
                                                 {advancedFilterCount}
                                             </Badge>
                                         ) : null}
@@ -442,111 +545,199 @@ export default function ExternalTrainingAttendanceIndex({
                                 </DialogTrigger>
                                 <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl">
                                     <DialogHeader>
-                                        <DialogTitle>{t('More filters')}</DialogTitle>
+                                        <DialogTitle>
+                                            {t('More filters')}
+                                        </DialogTitle>
                                     </DialogHeader>
 
                                     <div className="grid gap-3 py-2 sm:grid-cols-2 lg:grid-cols-3">
                                         <div className="space-y-1">
-                                            <Label htmlFor="sport_filter" className="text-sm font-medium">
+                                            <Label
+                                                htmlFor="sport_filter"
+                                                className="text-sm font-medium"
+                                            >
                                                 {t('Sport (from list)')}
                                             </Label>
                                             <Combobox
                                                 id="sport_filter"
-                                                value={sportFilter === 'all' ? '' : sportFilter}
-                                                onValueChange={(value) => setSportFilter(value || 'all')}
+                                                value={
+                                                    sportFilter === 'all'
+                                                        ? ''
+                                                        : sportFilter
+                                                }
+                                                onValueChange={(value) =>
+                                                    setSportFilter(
+                                                        value || 'all',
+                                                    )
+                                                }
                                                 items={sportItems}
                                                 placeholder={t('All sports')}
-                                                searchPlaceholder={t('Search sport')}
-                                                emptyMessage={t('No sport found.')}
+                                                searchPlaceholder={t(
+                                                    'Search sport',
+                                                )}
+                                                emptyMessage={t(
+                                                    'No sport found.',
+                                                )}
                                             />
                                         </div>
 
                                         <div className="space-y-1">
-                                            <Label htmlFor="attendance_status" className="text-sm font-medium">
+                                            <Label
+                                                htmlFor="attendance_status"
+                                                className="text-sm font-medium"
+                                            >
                                                 {t('Attendance status')}
                                             </Label>
-                                            <Select value={attendanceStatusFilter} onValueChange={setAttendanceStatusFilter}>
+                                            <Select
+                                                value={attendanceStatusFilter}
+                                                onValueChange={
+                                                    setAttendanceStatusFilter
+                                                }
+                                            >
                                                 <SelectTrigger id="attendance_status">
-                                                    <SelectValue placeholder={t('All')} />
+                                                    <SelectValue
+                                                        placeholder={t('All')}
+                                                    />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="all">{t('All')}</SelectItem>
-                                                    {attendanceStatuses.map((status) => (
-                                                        <SelectItem key={status} value={status}>
-                                                            {t(status)}
-                                                        </SelectItem>
-                                                    ))}
+                                                    <SelectItem value="all">
+                                                        {t('All')}
+                                                    </SelectItem>
+                                                    {attendanceStatuses.map(
+                                                        (status) => (
+                                                            <SelectItem
+                                                                key={status}
+                                                                value={status}
+                                                            >
+                                                                {t(status)}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
                                         <div className="space-y-1">
-                                            <Label htmlFor="geo_status" className="text-sm font-medium">
+                                            <Label
+                                                htmlFor="geo_status"
+                                                className="text-sm font-medium"
+                                            >
                                                 {t('Geo status')}
                                             </Label>
-                                            <Select value={geoStatusFilter} onValueChange={setGeoStatusFilter}>
+                                            <Select
+                                                value={geoStatusFilter}
+                                                onValueChange={
+                                                    setGeoStatusFilter
+                                                }
+                                            >
                                                 <SelectTrigger id="geo_status">
-                                                    <SelectValue placeholder={t('All')} />
+                                                    <SelectValue
+                                                        placeholder={t('All')}
+                                                    />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="all">{t('All')}</SelectItem>
-                                                    {geoStatuses.map((status) => (
-                                                        <SelectItem key={status} value={status}>
-                                                            {t(status)}
-                                                        </SelectItem>
-                                                    ))}
+                                                    <SelectItem value="all">
+                                                        {t('All')}
+                                                    </SelectItem>
+                                                    {geoStatuses.map(
+                                                        (status) => (
+                                                            <SelectItem
+                                                                key={status}
+                                                                value={status}
+                                                            >
+                                                                {t(status)}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
                                         <div className="space-y-1">
-                                            <Label htmlFor="review_status" className="text-sm font-medium">
+                                            <Label
+                                                htmlFor="review_status"
+                                                className="text-sm font-medium"
+                                            >
                                                 {t('Review status')}
                                             </Label>
-                                            <Select value={reviewStatusFilter} onValueChange={setReviewStatusFilter}>
+                                            <Select
+                                                value={reviewStatusFilter}
+                                                onValueChange={
+                                                    setReviewStatusFilter
+                                                }
+                                            >
                                                 <SelectTrigger id="review_status">
-                                                    <SelectValue placeholder={t('All')} />
+                                                    <SelectValue
+                                                        placeholder={t('All')}
+                                                    />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="all">{t('All')}</SelectItem>
-                                                    {reviewStatuses.map((status) => (
-                                                        <SelectItem key={status} value={status}>
-                                                            {t(status)}
-                                                        </SelectItem>
-                                                    ))}
+                                                    <SelectItem value="all">
+                                                        {t('All')}
+                                                    </SelectItem>
+                                                    {reviewStatuses.map(
+                                                        (status) => (
+                                                            <SelectItem
+                                                                key={status}
+                                                                value={status}
+                                                            >
+                                                                {t(status)}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
                                         <div className="space-y-1">
-                                            <Label htmlFor="date_from" className="text-sm font-medium">
+                                            <Label
+                                                htmlFor="date_from"
+                                                className="text-sm font-medium"
+                                            >
                                                 {t('Date from')}
                                             </Label>
                                             <DatePicker
                                                 id="date_from"
                                                 value={dateFrom}
                                                 onChange={setDateFrom}
-                                                placeholder={t('Select start date')}
+                                                placeholder={t(
+                                                    'Select start date',
+                                                )}
                                             />
                                         </div>
 
                                         <div className="space-y-1">
-                                            <Label htmlFor="date_to" className="text-sm font-medium">
+                                            <Label
+                                                htmlFor="date_to"
+                                                className="text-sm font-medium"
+                                            >
                                                 {t('Date to')}
                                             </Label>
                                             <DatePicker
                                                 id="date_to"
                                                 value={dateTo}
                                                 onChange={setDateTo}
-                                                placeholder={t('Select end date')}
+                                                placeholder={t(
+                                                    'Select end date',
+                                                )}
                                                 aria-invalid={hasDateError}
                                             />
-                                            {hasDateError ? <p className="text-xs text-destructive">{t('Date from cannot be after date to.')}</p> : null}
+                                            {hasDateError ? (
+                                                <p className="text-xs text-destructive">
+                                                    {t(
+                                                        'Date from cannot be after date to.',
+                                                    )}
+                                                </p>
+                                            ) : null}
                                         </div>
                                     </div>
 
                                     <DialogFooter className="gap-2 sm:gap-0">
-                                        <Button type="button" variant="outline" onClick={clearFilters}>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={clearFilters}
+                                        >
                                             <X className="size-4" />
                                             {t('Clear filters')}
                                         </Button>
@@ -564,73 +755,160 @@ export default function ExternalTrainingAttendanceIndex({
                                 </DialogContent>
                             </Dialog>
                             {hasFilters ? (
-                                <Button type="button" variant="outline" onClick={clearFilters} className="h-9 w-full sm:w-auto">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={clearFilters}
+                                    className="h-9 w-full sm:w-auto"
+                                >
                                     <X className="size-4" />
                                     {t('Clear')}
                                 </Button>
                             ) : null}
-                            <Button type="submit" disabled={hasDateError} className={hasFilters ? 'col-span-2 h-9 w-full sm:col-span-1 sm:w-auto' : 'h-9 w-full sm:w-auto'}>
+                            <Button
+                                type="submit"
+                                disabled={hasDateError}
+                                className={
+                                    hasFilters
+                                        ? 'col-span-2 h-9 w-full sm:col-span-1 sm:w-auto'
+                                        : 'h-9 w-full sm:w-auto'
+                                }
+                            >
                                 {t('Search')}
                             </Button>
                         </div>
                     </div>
                 </form>
 
-                <div id="external-training-attendance-print" className="overflow-hidden rounded-lg border bg-card shadow-sm print:border-0 print:shadow-none">
+                <div
+                    id="external-training-attendance-print"
+                    className="overflow-hidden rounded-lg border bg-card shadow-sm print:border-0 print:shadow-none"
+                >
                     <div className="flex flex-col gap-2 border-b bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between print:hidden">
                         <div>
-                            <div className="text-sm font-semibold">{t('Attendance records')}</div>
-                            <div className="text-[11px] font-medium text-muted-foreground">{paginationSummary}</div>
+                            <div className="text-sm font-semibold">
+                                {t('Attendance records')}
+                            </div>
+                            <div className="text-[11px] font-medium text-muted-foreground">
+                                {paginationSummary}
+                            </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            <Dialog open={outputOpen} onOpenChange={setOutputOpen}>
+                            <Dialog
+                                open={outputOpen}
+                                onOpenChange={setOutputOpen}
+                            >
                                 <DialogTrigger asChild>
-                                    <Button type="button" variant="outline" size="sm" className="h-8">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8"
+                                    >
                                         <Download className="size-4" />
                                         {t('Export / Print')}
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-4xl">
                                     <DialogHeader>
-                                        <DialogTitle>{t('Choose columns')}</DialogTitle>
+                                        <DialogTitle>
+                                            {t('Choose columns')}
+                                        </DialogTitle>
                                     </DialogHeader>
 
                                     <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-                                        <Button type="button" variant="outline" size="sm" onClick={() => setSelectedOutputColumns(allOutputColumns())}>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                setSelectedOutputColumns(
+                                                    allOutputColumns(),
+                                                )
+                                            }
+                                        >
                                             {t('Select all')}
                                         </Button>
-                                        <Button type="button" variant="outline" size="sm" onClick={() => setSelectedOutputColumns(defaultExportColumns)}>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                setSelectedOutputColumns(
+                                                    defaultExportColumns,
+                                                )
+                                            }
+                                        >
                                             {t('Default')}
                                         </Button>
                                         <span className="text-xs text-muted-foreground">
-                                            {selectedOutputColumns.length} {t('columns selected')}
+                                            {selectedOutputColumns.length}{' '}
+                                            {t('columns selected')}
                                         </span>
                                     </div>
 
                                     <div className="grid gap-3 py-3 sm:grid-cols-2 xl:grid-cols-3">
                                         {exportColumnGroups.map((group) => {
-                                            const groupColumns = group.columns.map((column) => column.key);
-                                            const allChecked = groupColumns.every((column) => selectedOutputColumns.includes(column));
+                                            const groupColumns =
+                                                group.columns.map(
+                                                    (column) => column.key,
+                                                );
+                                            const allChecked =
+                                                groupColumns.every((column) =>
+                                                    selectedOutputColumns.includes(
+                                                        column,
+                                                    ),
+                                                );
 
                                             return (
-                                                <section key={group.label} className="rounded-lg border bg-muted/10 p-3">
+                                                <section
+                                                    key={group.label}
+                                                    className="rounded-lg border bg-muted/10 p-3"
+                                                >
                                                     <label className="flex items-center gap-2 text-sm font-semibold">
                                                         <Checkbox
                                                             checked={allChecked}
-                                                            onCheckedChange={(checked) => setOutputGroup(groupColumns, checked === true)}
+                                                            onCheckedChange={(
+                                                                checked,
+                                                            ) =>
+                                                                setOutputGroup(
+                                                                    groupColumns,
+                                                                    checked ===
+                                                                        true,
+                                                                )
+                                                            }
                                                         />
                                                         {t(group.label)}
                                                     </label>
                                                     <div className="mt-3 grid gap-2">
-                                                        {group.columns.map((column) => (
-                                                            <label key={column.key} className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                <Checkbox
-                                                                    checked={selectedOutputColumns.includes(column.key)}
-                                                                    onCheckedChange={(checked) => toggleOutputColumn(column.key, checked === true)}
-                                                                />
-                                                                {t(column.label)}
-                                                            </label>
-                                                        ))}
+                                                        {group.columns.map(
+                                                            (column) => (
+                                                                <label
+                                                                    key={
+                                                                        column.key
+                                                                    }
+                                                                    className="flex items-center gap-2 text-xs text-muted-foreground"
+                                                                >
+                                                                    <Checkbox
+                                                                        checked={selectedOutputColumns.includes(
+                                                                            column.key,
+                                                                        )}
+                                                                        onCheckedChange={(
+                                                                            checked,
+                                                                        ) =>
+                                                                            toggleOutputColumn(
+                                                                                column.key,
+                                                                                checked ===
+                                                                                    true,
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                    {t(
+                                                                        column.label,
+                                                                    )}
+                                                                </label>
+                                                            ),
+                                                        )}
                                                     </div>
                                                 </section>
                                             );
@@ -644,7 +922,17 @@ export default function ExternalTrainingAttendanceIndex({
                                                 {t('Export selected')}
                                             </a>
                                         </Button>
-                                        <Button type="button" onClick={() => printSelectedAttendanceColumns(t('External training attendance'), selectedOutputColumns)}>
+                                        <Button
+                                            type="button"
+                                            onClick={() =>
+                                                printSelectedAttendanceColumns(
+                                                    t(
+                                                        'External training attendance',
+                                                    ),
+                                                    selectedOutputColumns,
+                                                )
+                                            }
+                                        >
                                             <Printer className="size-4" />
                                             {t('Print selected')}
                                         </Button>
@@ -656,81 +944,168 @@ export default function ExternalTrainingAttendanceIndex({
                     <Table className="min-w-[980px] text-[11px]">
                         <TableHeader>
                             <TableRow className="border-b bg-muted/60 hover:bg-muted/60">
-                                <TableHead className="sticky left-0 z-20 h-8 w-12 border-r bg-muted px-2 text-[10px]">{t('S.No.')}</TableHead>
-                                <TableHead className="sticky left-12 z-20 h-8 w-20 border-r bg-muted px-2 text-[10px] shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)]">{t('Review')}</TableHead>
-                                <TableHead className="h-8 w-24 px-2 text-[10px]">{t('Date')}</TableHead>
-                                <TableHead className="h-8 min-w-40 px-2 text-[10px]">{t('Member')}</TableHead>
-                                <TableHead className="h-8 min-w-36 px-2 text-[10px]">{t('External coach')}</TableHead>
-                                <TableHead className="h-8 min-w-28 px-2 text-[10px]">{t('Venue')}</TableHead>
-                                <TableHead className="h-8 min-w-24 px-2 text-[10px]">{t('Sport')}</TableHead>
-                                <TableHead className="h-8 w-24 px-2 text-[10px]">{t('Attendance')}</TableHead>
-                                <TableHead className="h-8 w-28 px-2 text-[10px]">{t('Corrected status')}</TableHead>
-                                <TableHead className="h-8 w-24 px-2 text-[10px]">{t('Geo status')}</TableHead>
-                                <TableHead className="h-8 w-28 px-2 text-[10px]">{t('Review action')}</TableHead>
-                                <TableHead className="h-8 w-20 px-2 text-right text-[10px]">{t('Distance')}</TableHead>
+                                <TableHead className="sticky left-0 z-20 h-8 w-12 border-r bg-muted px-2 text-[10px]">
+                                    {t('S.No.')}
+                                </TableHead>
+                                <TableHead className="sticky left-12 z-20 h-8 w-20 border-r bg-muted px-2 text-[10px] shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)]">
+                                    {t('Review')}
+                                </TableHead>
+                                <TableHead className="h-8 w-24 px-2 text-[10px]">
+                                    {t('Date')}
+                                </TableHead>
+                                <TableHead className="h-8 min-w-40 px-2 text-[10px]">
+                                    {t('Member')}
+                                </TableHead>
+                                <TableHead className="h-8 min-w-36 px-2 text-[10px]">
+                                    {t('External coach')}
+                                </TableHead>
+                                <TableHead className="h-8 min-w-28 px-2 text-[10px]">
+                                    {t('Venue')}
+                                </TableHead>
+                                <TableHead className="h-8 min-w-24 px-2 text-[10px]">
+                                    {t('Sport')}
+                                </TableHead>
+                                <TableHead className="h-8 w-24 px-2 text-[10px]">
+                                    {t('Attendance')}
+                                </TableHead>
+                                <TableHead className="h-8 w-28 px-2 text-[10px]">
+                                    {t('Corrected status')}
+                                </TableHead>
+                                <TableHead className="h-8 w-24 px-2 text-[10px]">
+                                    {t('Geo status')}
+                                </TableHead>
+                                <TableHead className="h-8 w-28 px-2 text-[10px]">
+                                    {t('Review action')}
+                                </TableHead>
+                                <TableHead className="h-8 w-20 px-2 text-right text-[10px]">
+                                    {t('Distance')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {attendances.data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={12} className="h-24 text-center text-sm text-muted-foreground">
+                                    <TableCell
+                                        colSpan={12}
+                                        className="h-24 text-center text-sm text-muted-foreground"
+                                    >
                                         {t('No attendance records found.')}
                                     </TableCell>
                                 </TableRow>
                             ) : null}
                             {attendances.data.map((attendance, index) => (
-                                <TableRow key={attendance.id} className="group bg-card hover:bg-muted/30">
-                                    <TableCell className="sticky left-0 z-10 border-r bg-card px-2 py-1.5 text-muted-foreground group-hover:bg-muted/30">{(attendances.from ?? 1) + index}</TableCell>
+                                <TableRow
+                                    key={attendance.id}
+                                    className="group bg-card hover:bg-muted/30"
+                                >
+                                    <TableCell className="sticky left-0 z-10 border-r bg-card px-2 py-1.5 text-muted-foreground group-hover:bg-muted/30">
+                                        {(attendances.from ?? 1) + index}
+                                    </TableCell>
                                     <TableCell className="sticky left-12 z-10 border-r bg-card px-2 py-1.5 shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-muted/30">
-                                        <Button asChild size="sm" className="h-6 px-1.5 text-[11px]">
-                                            <Link href={`/external-training-attendances/${attendance.id}`}>
+                                        <Button
+                                            asChild
+                                            size="sm"
+                                            className="h-6 px-1.5 text-[11px]"
+                                        >
+                                            <Link
+                                                href={`/external-training-attendances/${attendance.id}`}
+                                            >
                                                 <Eye className="size-3.5" />
                                                 {t('Review')}
                                             </Link>
                                         </Button>
                                     </TableCell>
-                                    <TableCell className="px-2 py-1.5 font-medium whitespace-nowrap">{formatDisplayDate(attendance.attendance_date, locale)}</TableCell>
+                                    <TableCell className="px-2 py-1.5 font-medium whitespace-nowrap">
+                                        {formatDisplayDate(
+                                            attendance.attendance_date,
+                                            locale,
+                                        )}
+                                    </TableCell>
                                     <TableCell className="min-w-40 px-2 py-1.5">
-                                        <Link href={`/members/${attendance.member.id}`} className="font-semibold text-foreground hover:text-primary hover:underline">
+                                        <Link
+                                            href={`/members/${attendance.member.id}`}
+                                            className="font-semibold text-foreground hover:text-primary hover:underline"
+                                        >
                                             {attendance.member.full_name}
                                         </Link>
-                                        {attendance.member.pno ? <div className="text-[10px] text-muted-foreground">{attendance.member.pno}</div> : null}
+                                        {attendance.member.pno ? (
+                                            <div className="text-[10px] text-muted-foreground">
+                                                {attendance.member.pno}
+                                            </div>
+                                        ) : null}
                                     </TableCell>
                                     <TableCell className="min-w-36 px-2 py-1.5">
-                                        <Link href={`/external-coaches/${attendance.external_coach.id}`} className="font-medium text-primary hover:underline">
+                                        <Link
+                                            href={`/external-coaches/${attendance.external_coach.id}`}
+                                            className="font-medium text-primary hover:underline"
+                                        >
                                             {attendance.external_coach.name}
                                         </Link>
                                     </TableCell>
-                                    <TableCell className="max-w-32 truncate px-2 py-1.5">{attendance.training_venue.name}</TableCell>
-                                    <TableCell className="max-w-28 truncate px-2 py-1.5">{attendance.assignment?.sport?.name ?? '-'}</TableCell>
+                                    <TableCell className="max-w-32 truncate px-2 py-1.5">
+                                        {attendance.training_venue.name}
+                                    </TableCell>
+                                    <TableCell className="max-w-28 truncate px-2 py-1.5">
+                                        {attendance.assignment?.sport?.name ??
+                                            '-'}
+                                    </TableCell>
                                     <TableCell className="px-2 py-1.5 whitespace-nowrap">
                                         <div className="flex flex-col items-start gap-1">
-                                            <Badge variant="outline" className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}>
-                                                {t(attendance.attendance_status)}
+                                            <Badge
+                                                variant="outline"
+                                                className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}
+                                            >
+                                                {t(
+                                                    attendance.attendance_status,
+                                                )}
                                             </Badge>
                                         </div>
                                     </TableCell>
                                     <TableCell className="px-2 py-1.5 whitespace-nowrap">
-                                        {attendance.review_status === 'corrected' ? (
-                                            <Badge variant="outline" className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}>
-                                                {t(attendance.attendance_status)}
+                                        {attendance.review_status ===
+                                        'corrected' ? (
+                                            <Badge
+                                                variant="outline"
+                                                className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}
+                                            >
+                                                {t(
+                                                    attendance.attendance_status,
+                                                )}
                                             </Badge>
                                         ) : (
-                                            <span className="text-[11px] text-muted-foreground">-</span>
+                                            <span className="text-[11px] text-muted-foreground">
+                                                -
+                                            </span>
                                         )}
                                     </TableCell>
                                     <TableCell className="px-2 py-1.5 whitespace-nowrap">
-                                        <Badge variant={attendance.geo_status === 'valid' ? 'secondary' : 'destructive'} className="rounded-full px-1.5 py-0 text-[10px] font-semibold">
+                                        <Badge
+                                            variant={
+                                                attendance.geo_status ===
+                                                'valid'
+                                                    ? 'secondary'
+                                                    : 'destructive'
+                                            }
+                                            className="rounded-full px-1.5 py-0 text-[10px] font-semibold"
+                                        >
                                             {t(attendance.geo_status)}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="px-2 py-1.5 whitespace-nowrap">
-                                        <Badge variant="outline" className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${reviewActionBadgeClass(attendance.review_status)}`}>
-                                            {reviewActionLabel(attendance.review_status, t)}
+                                        <Badge
+                                            variant="outline"
+                                            className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${reviewActionBadgeClass(attendance.review_status)}`}
+                                        >
+                                            {reviewActionLabel(
+                                                attendance.review_status,
+                                                t,
+                                            )}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="px-2 py-1.5 text-right whitespace-nowrap tabular-nums">
-                                        {attendance.distance_from_venue_meters ?? '-'} m
+                                        {attendance.distance_from_venue_meters ??
+                                            '-'}{' '}
+                                        m
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -738,7 +1113,10 @@ export default function ExternalTrainingAttendanceIndex({
                     </Table>
                 </div>
 
-                <ListingPagination paginator={attendances} itemLabel={t('attendances')} />
+                <ListingPagination
+                    paginator={attendances}
+                    itemLabel={t('attendances')}
+                />
             </div>
         </>
     );
@@ -774,21 +1152,36 @@ function formatDisplayDate(value: string, locale: string): string {
 }
 
 function allOutputColumns(): string[] {
-    return exportColumnGroups.flatMap((group) => group.columns.map((column) => column.key));
+    return exportColumnGroups.flatMap((group) =>
+        group.columns.map((column) => column.key),
+    );
 }
 
 function exportUrlFor(columns: string[]): string {
-    const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+    const params = new URLSearchParams(
+        typeof window === 'undefined' ? '' : window.location.search,
+    );
     params.delete('columns[]');
     columns.forEach((column) => params.append('columns[]', column));
 
     return `/external-training-attendances/export?${params.toString()}`;
 }
 
-function printSelectedAttendanceColumns(title: string, columns: string[]): void {
-    const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('#external-training-attendance-print tbody tr'));
+function printSelectedAttendanceColumns(
+    title: string,
+    columns: string[],
+): void {
+    const rows = Array.from(
+        document.querySelectorAll<HTMLTableRowElement>(
+            '#external-training-attendance-print tbody tr',
+        ),
+    );
     const headerLabels = columns
-        .map((column) => exportColumnGroups.flatMap((group) => group.columns).find((item) => item.key === column))
+        .map((column) =>
+            exportColumnGroups
+                .flatMap((group) => group.columns)
+                .find((item) => item.key === column),
+        )
         .filter((column): column is ExportColumn => column !== undefined);
     const printWindow = window.open('', '_blank', 'width=1200,height=800');
 
@@ -811,7 +1204,9 @@ function printSelectedAttendanceColumns(title: string, columns: string[]): void 
             distance_meters: cells[11]?.textContent?.trim() ?? '',
         };
 
-        return headerLabels.map((column) => `<td>${escapeHtml(values[column.key] ?? '')}</td>`).join('');
+        return headerLabels
+            .map((column) => `<td>${escapeHtml(values[column.key] ?? '')}</td>`)
+            .join('');
     });
 
     printWindow.document.write(`
@@ -849,13 +1244,17 @@ function printSelectedAttendanceColumns(title: string, columns: string[]): void 
 }
 
 function escapeHtml(value: string): string {
-    return value.replace(/[&<>"']/g, (character) => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;',
-    })[character] ?? character);
+    return value.replace(
+        /[&<>"']/g,
+        (character) =>
+            ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;',
+            })[character] ?? character,
+    );
 }
 
 function attendanceStatusBadgeClass(status: string): string {

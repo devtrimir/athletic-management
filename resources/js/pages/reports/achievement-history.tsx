@@ -5,15 +5,33 @@ import AchievementHistoryController from '@/actions/App/Http/Controllers/Api/V1/
 import * as MemberController from '@/actions/App/Http/Controllers/MemberController';
 import * as ReportController from '@/actions/App/Http/Controllers/ReportController';
 import * as TournamentController from '@/actions/App/Http/Controllers/TournamentController';
-import { Combobox  } from '@/components/combobox';
-import type {ComboboxItem} from '@/components/combobox';
+import { Combobox } from '@/components/combobox';
+import type { ComboboxItem } from '@/components/combobox';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Session = { id: number; name: string };
@@ -23,7 +41,13 @@ type Unit = { id: number; name: string };
 type Tournament = { id: number; name: string; date_from: string | null };
 
 type AchievementRow = {
-    member: { id: number; member_code: string; pno: string | null; full_name: string; rank: string | null };
+    member: {
+        id: number;
+        member_code: string;
+        pno: string | null;
+        full_name: string;
+        rank: string | null;
+    };
     tournament: {
         id: number;
         name: string;
@@ -83,19 +107,35 @@ export default function AchievementHistory({
         ],
     });
 
-    const [sessionId, setSessionId] = useState<string>(filters.session_id ? String(filters.session_id) : ALL);
-    const [sportId, setSportId] = useState<string>(filters.sport_id ? String(filters.sport_id) : '');
-    const [tierId, setTierId] = useState<string>(filters.tier_id ? String(filters.tier_id) : ALL);
-    const [unitId, setUnitId] = useState<string>(filters.unit_id ? String(filters.unit_id) : ALL);
+    const [sessionId, setSessionId] = useState<string>(
+        filters.session_id ? String(filters.session_id) : ALL,
+    );
+    const [sportId, setSportId] = useState<string>(
+        filters.sport_id ? String(filters.sport_id) : '',
+    );
+    const [tierId, setTierId] = useState<string>(
+        filters.tier_id ? String(filters.tier_id) : ALL,
+    );
+    const [unitId, setUnitId] = useState<string>(
+        filters.unit_id ? String(filters.unit_id) : ALL,
+    );
     const [tournamentId, setTournamentId] = useState<string>(
         filters.tournament_id ? String(filters.tournament_id) : '',
     );
-    const [memberNameInput, setMemberNameInput] = useState<string>(filters.member_name ?? '');
-    const [memberName, setMemberName] = useState<string>(filters.member_name ?? '');
+    const [memberNameInput, setMemberNameInput] = useState<string>(
+        filters.member_name ?? '',
+    );
+    const [memberName, setMemberName] = useState<string>(
+        filters.member_name ?? '',
+    );
     const [pnoInput, setPnoInput] = useState<string>(filters.pno ?? '');
     const [pno, setPno] = useState<string>(filters.pno ?? '');
-    const [eventNameInput, setEventNameInput] = useState<string>(filters.event_name ?? '');
-    const [eventName, setEventName] = useState<string>(filters.event_name ?? '');
+    const [eventNameInput, setEventNameInput] = useState<string>(
+        filters.event_name ?? '',
+    );
+    const [eventName, setEventName] = useState<string>(
+        filters.event_name ?? '',
+    );
     const [rows, setRows] = useState<AchievementRow[]>(data);
     const [selectedRow, setSelectedRow] = useState<AchievementRow | null>(null);
     const isFirstRender = useRef(true);
@@ -129,36 +169,36 @@ export default function AchievementHistory({
         const params: Record<string, string> = {};
 
         if (sessionId !== ALL) {
-params['session_id'] = sessionId;
-}
+            params['session_id'] = sessionId;
+        }
 
         if (sportId) {
-params['sport_id'] = sportId;
-}
+            params['sport_id'] = sportId;
+        }
 
         if (tierId !== ALL) {
-params['tier_id'] = tierId;
-}
+            params['tier_id'] = tierId;
+        }
 
         if (unitId !== ALL) {
-params['unit_id'] = unitId;
-}
+            params['unit_id'] = unitId;
+        }
 
         if (tournamentId) {
-params['tournament_id'] = tournamentId;
-}
+            params['tournament_id'] = tournamentId;
+        }
 
         if (memberName) {
-params['member_name'] = memberName;
-}
+            params['member_name'] = memberName;
+        }
 
         if (pno) {
-params['pno'] = pno;
-}
+            params['pno'] = pno;
+        }
 
         if (eventName) {
-params['event_name'] = eventName;
-}
+            params['event_name'] = eventName;
+        }
 
         get(AchievementHistoryController.url({ query: params }), {
             onSuccess: (res) => {
@@ -167,7 +207,17 @@ params['event_name'] = eventName;
             },
             onError: () => setRows([]),
         });
-    }, [sessionId, sportId, tierId, unitId, tournamentId, memberName, pno, eventName, get]);
+    }, [
+        sessionId,
+        sportId,
+        tierId,
+        unitId,
+        tournamentId,
+        memberName,
+        pno,
+        eventName,
+        get,
+    ]);
 
     const hasFilters =
         sessionId !== ALL ||
@@ -193,7 +243,10 @@ params['event_name'] = eventName;
         setEventName('');
     }
 
-    const sportItems: ComboboxItem[] = sports.map((s) => ({ value: String(s.id), label: s.name }));
+    const sportItems: ComboboxItem[] = sports.map((s) => ({
+        value: String(s.id),
+        label: s.name,
+    }));
     const tournamentItems: ComboboxItem[] = tournaments.map((tour) => ({
         value: String(tour.id),
         label: tour.name,
@@ -207,14 +260,16 @@ params['event_name'] = eventName;
                 <Heading title={t('Achievement History')} />
 
                 {/* Filters */}
-                <div className="bg-card space-y-3 rounded-xl border p-4">
+                <div className="space-y-3 rounded-xl border bg-card p-4">
                     <div className="flex flex-wrap gap-3">
                         <Select value={sessionId} onValueChange={setSessionId}>
                             <SelectTrigger className="w-44">
                                 <SelectValue placeholder={t('All Sessions')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={ALL}>{t('All Sessions')}</SelectItem>
+                                <SelectItem value={ALL}>
+                                    {t('All Sessions')}
+                                </SelectItem>
                                 {sessions.map((s) => (
                                     <SelectItem key={s.id} value={String(s.id)}>
                                         {s.name}
@@ -244,9 +299,14 @@ params['event_name'] = eventName;
                                 <SelectValue placeholder={t('All Tiers')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={ALL}>{t('All Tiers')}</SelectItem>
+                                <SelectItem value={ALL}>
+                                    {t('All Tiers')}
+                                </SelectItem>
                                 {tiers.map((tier) => (
-                                    <SelectItem key={tier.id} value={String(tier.id)}>
+                                    <SelectItem
+                                        key={tier.id}
+                                        value={String(tier.id)}
+                                    >
                                         {tier.label_hi}
                                     </SelectItem>
                                 ))}
@@ -258,7 +318,9 @@ params['event_name'] = eventName;
                                 <SelectValue placeholder={t('All Units')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={ALL}>{t('All Units')}</SelectItem>
+                                <SelectItem value={ALL}>
+                                    {t('All Units')}
+                                </SelectItem>
                                 {units.map((u) => (
                                     <SelectItem key={u.id} value={String(u.id)}>
                                         {u.name}
@@ -288,7 +350,11 @@ params['event_name'] = eventName;
                             onChange={(e) => setEventNameInput(e.target.value)}
                         />
                         {hasFilters && (
-                            <Button variant="ghost" size="sm" onClick={clearFilters}>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={clearFilters}
+                            >
                                 <X className="mr-1 size-3.5" />
                                 {t('Clear filters')}
                             </Button>
@@ -297,7 +363,7 @@ params['event_name'] = eventName;
                 </div>
 
                 {/* Count */}
-                <p className="text-muted-foreground text-sm">
+                <p className="text-sm text-muted-foreground">
                     {rows.length} {t('records')}
                 </p>
 
@@ -318,7 +384,10 @@ params['event_name'] = eventName;
                     <TableBody>
                         {rows.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-muted-foreground text-center">
+                                <TableCell
+                                    colSpan={8}
+                                    className="text-center text-muted-foreground"
+                                >
                                     {t('No results.')}
                                 </TableCell>
                             </TableRow>
@@ -329,24 +398,40 @@ params['event_name'] = eventName;
                                     className="cursor-pointer"
                                     onClick={() => setSelectedRow(row)}
                                 >
-                                    <TableCell>{row.member.full_name}</TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">
-                                        {[row.member.pno, row.member.rank].filter(Boolean).join(' / ')}
+                                    <TableCell>
+                                        {row.member.full_name}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">
+                                        {[row.member.pno, row.member.rank]
+                                            .filter(Boolean)
+                                            .join(' / ')}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={MEDAL_VARIANT[row.medal_type] ?? 'outline'}>
+                                        <Badge
+                                            variant={
+                                                MEDAL_VARIANT[row.medal_type] ??
+                                                'outline'
+                                            }
+                                        >
                                             {t(row.medal_type)}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell>{row.position != null ? `#${row.position}` : '—'}</TableCell>
+                                    <TableCell>
+                                        {row.position != null
+                                            ? `#${row.position}`
+                                            : '—'}
+                                    </TableCell>
                                     <TableCell>{row.tournament.name}</TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">
-                                        {[row.tournament.tier_label_hi, row.tournament.sport_name]
+                                    <TableCell className="text-sm text-muted-foreground">
+                                        {[
+                                            row.tournament.tier_label_hi,
+                                            row.tournament.sport_name,
+                                        ]
                                             .filter(Boolean)
                                             .join(' / ')}
                                     </TableCell>
                                     <TableCell>{row.event.name}</TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">
+                                    <TableCell className="text-sm text-muted-foreground">
                                         {row.session.name}
                                     </TableCell>
                                 </TableRow>
@@ -361,8 +446,8 @@ params['event_name'] = eventName;
                 open={selectedRow !== null}
                 onOpenChange={(open) => {
                     if (!open) {
-setSelectedRow(null);
-}
+                        setSelectedRow(null);
+                    }
                 }}
             >
                 <DialogContent className="max-w-lg">
@@ -374,14 +459,30 @@ setSelectedRow(null);
                             {/* Member */}
                             <div className="space-y-1">
                                 <p className="font-semibold">{t('Member')}</p>
-                                <p className="text-base">{selectedRow.member.full_name}</p>
-                                <p className="text-muted-foreground">
-                                    {t('Code')}: {selectedRow.member.member_code}
-                                    {selectedRow.member.pno ? ` · ${t('PNO')}: ${selectedRow.member.pno}` : ''}
-                                    {selectedRow.member.rank ? ` · ${t('Rank')}: ${selectedRow.member.rank}` : ''}
+                                <p className="text-base">
+                                    {selectedRow.member.full_name}
                                 </p>
-                                <Button asChild variant="link" size="sm" className="h-auto p-0">
-                                    <Link href={MemberController.show.url(selectedRow.member.id)}>
+                                <p className="text-muted-foreground">
+                                    {t('Code')}:{' '}
+                                    {selectedRow.member.member_code}
+                                    {selectedRow.member.pno
+                                        ? ` · ${t('PNO')}: ${selectedRow.member.pno}`
+                                        : ''}
+                                    {selectedRow.member.rank
+                                        ? ` · ${t('Rank')}: ${selectedRow.member.rank}`
+                                        : ''}
+                                </p>
+                                <Button
+                                    asChild
+                                    variant="link"
+                                    size="sm"
+                                    className="h-auto p-0"
+                                >
+                                    <Link
+                                        href={MemberController.show.url(
+                                            selectedRow.member.id,
+                                        )}
+                                    >
                                         {t('View profile')} →
                                     </Link>
                                 </Button>
@@ -389,7 +490,9 @@ setSelectedRow(null);
 
                             {/* Tournament */}
                             <div className="space-y-1">
-                                <p className="font-semibold">{t('Tournament')}</p>
+                                <p className="font-semibold">
+                                    {t('Tournament')}
+                                </p>
                                 <p>{selectedRow.tournament.name}</p>
                                 <p className="text-muted-foreground">
                                     {[
@@ -400,8 +503,17 @@ setSelectedRow(null);
                                         .filter(Boolean)
                                         .join(' · ')}
                                 </p>
-                                <Button asChild variant="link" size="sm" className="h-auto p-0">
-                                    <Link href={TournamentController.show.url(selectedRow.tournament.id)}>
+                                <Button
+                                    asChild
+                                    variant="link"
+                                    size="sm"
+                                    className="h-auto p-0"
+                                >
+                                    <Link
+                                        href={TournamentController.show.url(
+                                            selectedRow.tournament.id,
+                                        )}
+                                    >
                                         {t('View')} →
                                     </Link>
                                 </Button>
@@ -412,19 +524,34 @@ setSelectedRow(null);
                                 <p className="font-semibold">{t('Event')}</p>
                                 <p>{selectedRow.event.name}</p>
                                 <p className="text-muted-foreground">
-                                    {[selectedRow.event.discipline, selectedRow.session.name].filter(Boolean).join(' · ')}
+                                    {[
+                                        selectedRow.event.discipline,
+                                        selectedRow.session.name,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' · ')}
                                 </p>
                             </div>
 
                             {/* Achievement */}
                             <div className="space-y-1">
-                                <p className="font-semibold">{t('Achievement')}</p>
+                                <p className="font-semibold">
+                                    {t('Achievement')}
+                                </p>
                                 <div className="flex items-center gap-2">
-                                    <Badge variant={MEDAL_VARIANT[selectedRow.medal_type] ?? 'outline'}>
+                                    <Badge
+                                        variant={
+                                            MEDAL_VARIANT[
+                                                selectedRow.medal_type
+                                            ] ?? 'outline'
+                                        }
+                                    >
                                         {t(selectedRow.medal_type)}
                                     </Badge>
                                     {selectedRow.position != null && (
-                                        <span className="text-muted-foreground">#{selectedRow.position}</span>
+                                        <span className="text-muted-foreground">
+                                            #{selectedRow.position}
+                                        </span>
                                     )}
                                 </div>
                             </div>

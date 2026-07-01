@@ -6,7 +6,12 @@ import { AssignmentForm } from './form';
 import type { Assignment } from './form';
 
 type Option = { id: number; name: string };
-type CoachOption = { id: number; name: string; email: string | null; phone: string | null };
+type CoachOption = {
+    id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+};
 
 export default function ExternalCoachingAssignmentsEdit({
     assignment,
@@ -30,7 +35,9 @@ export default function ExternalCoachingAssignmentsEdit({
             <Head title={t('Edit external coaching assignment')} />
             <AssignmentForm
                 title={t('Edit external coaching assignment')}
-                description={t('Update the coach, venue, approval status, and training schedule.')}
+                description={t(
+                    'Update the coach, venue, approval status, and training schedule.',
+                )}
                 action={update(assignment)}
                 assignment={assignment}
                 externalCoaches={externalCoaches}

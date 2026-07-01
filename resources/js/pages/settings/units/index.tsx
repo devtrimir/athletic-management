@@ -6,8 +6,21 @@ import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 type District = {
@@ -42,7 +55,8 @@ export default function Index({ units }: { units: Unit[] }) {
                 u.name.toLowerCase().includes(q) ||
                 (u.commandant ?? '').toLowerCase().includes(q) ||
                 (u.district?.name ?? '').toLowerCase().includes(q);
-            const matchesType = typeFilter === 'all' || u.unit_type === typeFilter;
+            const matchesType =
+                typeFilter === 'all' || u.unit_type === typeFilter;
 
             return matchesQuery && matchesType;
         });
@@ -71,7 +85,7 @@ export default function Index({ units }: { units: Unit[] }) {
 
                 <div className="flex items-center gap-3">
                     <div className="relative max-w-xs flex-1">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t('Search units…')}
                             value={query}
@@ -84,15 +98,19 @@ export default function Index({ units }: { units: Unit[] }) {
                             <SelectValue placeholder={t('Unit type')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{t('All types')}</SelectItem>
+                            <SelectItem value="all">
+                                {t('All types')}
+                            </SelectItem>
                             {unitTypes.map((t_) => (
-                                <SelectItem key={t_} value={t_}>{t_}</SelectItem>
+                                <SelectItem key={t_} value={t_}>
+                                    {t_}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                 </div>
 
-                <div className="rounded-xl border overflow-hidden">
+                <div className="overflow-hidden rounded-xl border">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -100,42 +118,78 @@ export default function Index({ units }: { units: Unit[] }) {
                                 <TableHead>{t('Type')}</TableHead>
                                 <TableHead>{t('Commandant')}</TableHead>
                                 <TableHead>{t('District')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead className="w-0 text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                                        {units.length === 0 ? t('No units yet.') : t('No units match your filters.')}
+                                    <TableCell
+                                        colSpan={5}
+                                        className="py-12 text-center text-muted-foreground"
+                                    >
+                                        {units.length === 0
+                                            ? t('No units yet.')
+                                            : t('No units match your filters.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filtered.map((unit) => (
                                     <TableRow key={unit.id}>
-                                        <TableCell className="font-medium">{unit.name}</TableCell>
+                                        <TableCell className="font-medium">
+                                            {unit.name}
+                                        </TableCell>
                                         <TableCell>
-                                            <Badge variant="secondary">{t(unit.unit_type)}</Badge>
+                                            <Badge variant="secondary">
+                                                {t(unit.unit_type)}
+                                            </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {unit.commandant ?? <span className="select-none text-border">—</span>}
+                                            {unit.commandant ?? (
+                                                <span className="text-border select-none">
+                                                    —
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {unit.district?.name ?? <span className="select-none text-border">—</span>}
+                                            {unit.district?.name ?? (
+                                                <span className="text-border select-none">
+                                                    —
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center justify-end gap-1">
-                                                <Button variant="ghost" size="icon" title={t('Edit')} asChild>
-                                                    <Link href={UnitController.edit.url(unit.id)}><Pencil className="h-4 w-4" /></Link>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Edit')}
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={UnitController.edit.url(
+                                                            unit.id,
+                                                        )}
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Link>
                                                 </Button>
-                                                <Form {...UnitController.destroy.form(unit.id)}>
+                                                <Form
+                                                    {...UnitController.destroy.form(
+                                                        unit.id,
+                                                    )}
+                                                >
                                                     {({ processing }) => (
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
                                                             title={t('Delete')}
                                                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                            disabled={processing}
+                                                            disabled={
+                                                                processing
+                                                            }
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>

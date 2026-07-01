@@ -38,15 +38,25 @@ export type MasterOption = {
 const OTHER_OPTION = '__other__';
 
 function masterLabel(option: MasterOption): string {
-    return option.short_name ? `${option.short_name} - ${option.name}` : option.name;
+    return option.short_name
+        ? `${option.short_name} - ${option.name}`
+        : option.name;
 }
 
-function resolveMasterSelection(value: string | null | undefined, options: MasterOption[]): string {
+function resolveMasterSelection(
+    value: string | null | undefined,
+    options: MasterOption[],
+): string {
     if (!value) {
         return '';
     }
 
-    const match = options.find((option) => option.code === value || option.name === value || option.short_name === value);
+    const match = options.find(
+        (option) =>
+            option.code === value ||
+            option.name === value ||
+            option.short_name === value,
+    );
 
     return match ? match.code : OTHER_OPTION;
 }
@@ -61,11 +71,19 @@ export function InchargeForm({
     designations: MasterOption[];
 }) {
     const { t } = useTranslation();
-    const [rankSelection, setRankSelection] = useState(resolveMasterSelection(incharge?.rank, ranks));
-    const [rankCustom, setRankCustom] = useState(rankSelection === OTHER_OPTION ? (incharge?.rank ?? '') : '');
-    const [designationSelection, setDesignationSelection] = useState(resolveMasterSelection(incharge?.designation, designations));
+    const [rankSelection, setRankSelection] = useState(
+        resolveMasterSelection(incharge?.rank, ranks),
+    );
+    const [rankCustom, setRankCustom] = useState(
+        rankSelection === OTHER_OPTION ? (incharge?.rank ?? '') : '',
+    );
+    const [designationSelection, setDesignationSelection] = useState(
+        resolveMasterSelection(incharge?.designation, designations),
+    );
     const [designationCustom, setDesignationCustom] = useState(
-        designationSelection === OTHER_OPTION ? (incharge?.designation ?? '') : '',
+        designationSelection === OTHER_OPTION
+            ? (incharge?.designation ?? '')
+            : '',
     );
     const form = useForm({
         full_name: incharge?.full_name ?? '',
@@ -82,7 +100,9 @@ export function InchargeForm({
         event.preventDefault();
 
         if (incharge?.id) {
-            form.patch(InchargeController.update.url(incharge.id), { preserveScroll: true });
+            form.patch(InchargeController.update.url(incharge.id), {
+                preserveScroll: true,
+            });
 
             return;
         }
@@ -98,7 +118,9 @@ export function InchargeForm({
                     <Input
                         id="full_name"
                         value={form.data.full_name}
-                        onChange={(event) => form.setData('full_name', event.target.value)}
+                        onChange={(event) =>
+                            form.setData('full_name', event.target.value)
+                        }
                         required
                     />
                     <InputError message={form.errors.full_name} />
@@ -108,7 +130,9 @@ export function InchargeForm({
                     <Input
                         id="pno"
                         value={form.data.pno}
-                        onChange={(event) => form.setData('pno', event.target.value)}
+                        onChange={(event) =>
+                            form.setData('pno', event.target.value)
+                        }
                         required
                     />
                     <InputError message={form.errors.pno} />
@@ -119,7 +143,10 @@ export function InchargeForm({
                         value={rankSelection}
                         onValueChange={(value) => {
                             setRankSelection(value);
-                            form.setData('rank', value === OTHER_OPTION ? rankCustom : value);
+                            form.setData(
+                                'rank',
+                                value === OTHER_OPTION ? rankCustom : value,
+                            );
                         }}
                     >
                         <SelectTrigger id="rank" className="h-9 w-full">
@@ -131,7 +158,9 @@ export function InchargeForm({
                                     {masterLabel(rank)}
                                 </SelectItem>
                             ))}
-                            <SelectItem value={OTHER_OPTION}>{t('Other')}</SelectItem>
+                            <SelectItem value={OTHER_OPTION}>
+                                {t('Other')}
+                            </SelectItem>
                         </SelectContent>
                     </Select>
                     {rankSelection === OTHER_OPTION && (
@@ -154,19 +183,31 @@ export function InchargeForm({
                         value={designationSelection}
                         onValueChange={(value) => {
                             setDesignationSelection(value);
-                            form.setData('designation', value === OTHER_OPTION ? designationCustom : value);
+                            form.setData(
+                                'designation',
+                                value === OTHER_OPTION
+                                    ? designationCustom
+                                    : value,
+                            );
                         }}
                     >
                         <SelectTrigger id="designation" className="h-9 w-full">
-                            <SelectValue placeholder={t('Select designation')} />
+                            <SelectValue
+                                placeholder={t('Select designation')}
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             {designations.map((designation) => (
-                                <SelectItem key={designation.code} value={designation.code}>
+                                <SelectItem
+                                    key={designation.code}
+                                    value={designation.code}
+                                >
                                     {masterLabel(designation)}
                                 </SelectItem>
                             ))}
-                            <SelectItem value={OTHER_OPTION}>{t('Other')}</SelectItem>
+                            <SelectItem value={OTHER_OPTION}>
+                                {t('Other')}
+                            </SelectItem>
                         </SelectContent>
                     </Select>
                     {designationSelection === OTHER_OPTION && (
@@ -175,7 +216,10 @@ export function InchargeForm({
                             value={designationCustom}
                             onChange={(event) => {
                                 setDesignationCustom(event.target.value);
-                                form.setData('designation', event.target.value.trim());
+                                form.setData(
+                                    'designation',
+                                    event.target.value.trim(),
+                                );
                             }}
                             maxLength={100}
                             placeholder={t('Enter designation')}
@@ -185,12 +229,25 @@ export function InchargeForm({
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="mobile">{t('Mobile')}</Label>
-                    <Input id="mobile" value={form.data.mobile} onChange={(event) => form.setData('mobile', event.target.value)} />
+                    <Input
+                        id="mobile"
+                        value={form.data.mobile}
+                        onChange={(event) =>
+                            form.setData('mobile', event.target.value)
+                        }
+                    />
                     <InputError message={form.errors.mobile} />
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="email">{t('Email')}</Label>
-                    <Input id="email" type="email" value={form.data.email} onChange={(event) => form.setData('email', event.target.value)} />
+                    <Input
+                        id="email"
+                        type="email"
+                        value={form.data.email}
+                        onChange={(event) =>
+                            form.setData('email', event.target.value)
+                        }
+                    />
                     <InputError message={form.errors.email} />
                 </div>
                 <div className="grid gap-2 sm:col-span-2">
@@ -198,14 +255,18 @@ export function InchargeForm({
                     <Textarea
                         id="remarks"
                         value={form.data.remarks}
-                        onChange={(event) => form.setData('remarks', event.target.value)}
+                        onChange={(event) =>
+                            form.setData('remarks', event.target.value)
+                        }
                     />
                     <InputError message={form.errors.remarks} />
                 </div>
                 <label className="flex items-center gap-2 text-sm font-medium">
                     <Checkbox
                         checked={form.data.is_active}
-                        onCheckedChange={(checked) => form.setData('is_active', checked === true)}
+                        onCheckedChange={(checked) =>
+                            form.setData('is_active', checked === true)
+                        }
                     />
                     {t('Active')}
                 </label>
@@ -213,7 +274,13 @@ export function InchargeForm({
 
             <div className="flex justify-end gap-2">
                 <Button asChild type="button" variant="outline">
-                    <Link href={incharge?.id ? InchargeController.show.url(incharge.id) : InchargeController.index.url()}>
+                    <Link
+                        href={
+                            incharge?.id
+                                ? InchargeController.show.url(incharge.id)
+                                : InchargeController.index.url()
+                        }
+                    >
                         {t('Cancel')}
                     </Link>
                 </Button>

@@ -178,7 +178,10 @@ function humanizeCode(value: string): string {
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function statusLabel(value: string | null | undefined, t: (key: string) => string): string {
+function statusLabel(
+    value: string | null | undefined,
+    t: (key: string) => string,
+): string {
     if (!value) {
         return '';
     }
@@ -1687,7 +1690,10 @@ export default function MembersShow({
                                         {detail(
                                             t('Current status'),
                                             <Badge variant="outline">
-                                                {statusLabel(member.current_status, t)}
+                                                {statusLabel(
+                                                    member.current_status,
+                                                    t,
+                                                )}
                                             </Badge>,
                                         )}
                                         {detail(t('Rank'), member.rank)}
@@ -2928,7 +2934,10 @@ export default function MembersShow({
                                             >
                                                 <div className="space-y-0.5">
                                                     <Badge variant="outline">
-                                                        {statusLabel(row.status, t)}
+                                                        {statusLabel(
+                                                            row.status,
+                                                            t,
+                                                        )}
                                                     </Badge>
                                                     {row.reason && (
                                                         <p className="text-xs text-muted-foreground">

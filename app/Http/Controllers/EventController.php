@@ -10,6 +10,8 @@ use App\Models\Event;
 use App\Models\Sport;
 use App\Models\Team;
 use App\Models\TeamMember;
+use App\Models\Member;
+use App\Models\Participation;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Services\Tournaments\TournamentEventPayload;
@@ -35,6 +37,8 @@ class EventController extends Controller
                 $data = $payload->forStoreOrUpdate($tournament, [
                     'event_mode' => 'official',
                     'sport_event_variant_id' => $variantId,
+                    'event_type' => $validated['event_type'] ?? null,
+                    'participants_required' => $validated['participants_required'] ?? null,
                 ]);
                 $data['tournament_id'] = $tournament->id;
 
@@ -91,6 +95,8 @@ class EventController extends Controller
                 'gender_class' => $event->gender_class,
                 'event_source' => $event->event_source,
                 'provisional_reason' => $event->provisional_reason,
+                'event_type' => $event->event_type,
+                'participants_required' => $event->participants_required,
                 'sport' => $event->sport ? [
                     'id' => $event->sport->id,
                     'name' => $event->sport->name,
@@ -110,26 +116,67 @@ class EventController extends Controller
                     ]),
             ],
             'participantCandidates' => Inertia::defer(fn () => $this->participantCandidates($tournament, $event)),
-            'participations' => Inertia::defer(fn () => $event->participations()
-                ->with(['member:id,full_name,pno', 'achievement'])
-                ->withCount('media')
-                ->orderBy('position')
-                ->get()
-                ->map(fn ($p) => [
-                    'id' => $p->id,
-                    'position' => $p->position,
-                    'media_files_count' => $p->media_count,
-                    'member' => $p->member ? [
-                        'id' => $p->member->id,
-                        'full_name' => $p->member->full_name,
-                        'pno' => $p->member->pno,
-                    ] : null,
-                    'achievement' => $p->achievement ? [
-                        'medal_type' => $p->achievement->medal_type,
-                        'position' => $p->achievement->position,
-                        'remarks' => $p->achievement->remarks,
-                    ] : null,
-                ])),
+            'participations' => Inertia::defer(function () use ($event): array {
+                $participations = $event->participations()
+                    ->with([
+                        'member:id,full_name,pno,photo_path',
+                        'team:id,name',
+                        'achievement',
+                    ])
+                    ->withCount('media')
+                    ->orderBy('position')
+                    ->get();
+
+                $lineupMemberIds = $participations
+                    ->flatMap(fn (Participation $participation): array => (array) ($participation->lineup_member_ids ?? []))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $lineupMembersById = Member::query()
+                    ->select(['id', 'full_name', 'pno', 'photo_path'])
+                    ->whereIn('id', $lineupMemberIds)
+                    ->get()
+                    ->keyBy('id');
+
+                return $participations
+                    ->map(fn ($p) => [
+                        'id' => $p->id,
+                        'position' => $p->position,
+                        'media_files_count' => $p->media_count,
+                        'member' => $p->member ? [
+                            'id' => $p->member->id,
+                            'full_name' => $p->member->full_name,
+                            'pno' => $p->member->pno,
+                            'photo_path' => $p->member->photo_path,
+                        ] : null,
+                        'team' => $p->team ? [
+                            'id' => $p->team->id,
+                            'name' => $p->team->name,
+                        ] : null,
+                        'lineup_members' => array_values(
+                            array_filter(
+                                array_map(
+                                        fn (int $memberId): ?array => $lineupMembersById->has($memberId) ? [
+                                        'id' => $lineupMembersById[$memberId]->id,
+                                        'full_name' => $lineupMembersById[$memberId]->full_name,
+                                        'pno' => $lineupMembersById[$memberId]->pno,
+                                        'photo_path' => $lineupMembersById[$memberId]->photo_path,
+                                    ] : null,
+                                    array_map('intval', (array) ($p->lineup_member_ids ?? [])),
+                                ),
+                                static fn ($member): bool => is_array($member),
+                            ),
+                        ),
+                        'achievement' => $p->achievement ? [
+                            'medal_type' => $p->achievement->medal_type,
+                            'position' => $p->achievement->position,
+                            'remarks' => $p->achievement->remarks,
+                        ] : null,
+                    ])
+                    ->all();
+            }),
         ]);
     }
 

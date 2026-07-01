@@ -6,12 +6,26 @@ import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 const CATEGORY_VARIANTS: Record<string, string> = {
-    INDIVIDUAL: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    INDIVIDUAL:
+        'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
     TEAM: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
     COMBAT: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
     WATER: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
@@ -47,7 +61,8 @@ export default function Index({ sports }: { sports: Sport[] }) {
                 s.slug.toLowerCase().includes(q) ||
                 (s.code?.toLowerCase().includes(q) ?? false) ||
                 (s.description?.toLowerCase().includes(q) ?? false);
-            const matchesCategory = categoryFilter === 'all' || s.category === categoryFilter;
+            const matchesCategory =
+                categoryFilter === 'all' || s.category === categoryFilter;
 
             return matchesQuery && matchesCategory;
         });
@@ -76,7 +91,7 @@ export default function Index({ sports }: { sports: Sport[] }) {
 
                 <div className="flex items-center gap-3">
                     <div className="relative max-w-xs flex-1">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t('Search sports…')}
                             value={query}
@@ -84,37 +99,57 @@ export default function Index({ sports }: { sports: Sport[] }) {
                             className="pl-8"
                         />
                     </div>
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <Select
+                        value={categoryFilter}
+                        onValueChange={setCategoryFilter}
+                    >
                         <SelectTrigger className="w-40">
                             <SelectValue placeholder={t('Category')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{t('All categories')}</SelectItem>
+                            <SelectItem value="all">
+                                {t('All categories')}
+                            </SelectItem>
                             {CATEGORIES.map((c) => (
-                                <SelectItem key={c} value={c}>{c}</SelectItem>
+                                <SelectItem key={c} value={c}>
+                                    {c}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                 </div>
 
-                <div className="rounded-xl border overflow-hidden">
+                <div className="overflow-hidden rounded-xl border">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
                                 <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Code')}</TableHead>
                                 <TableHead>{t('Category')}</TableHead>
-                                <TableHead className="text-right">{t('Events')}</TableHead>
-                                <TableHead className="text-right">{t('Variants')}</TableHead>
+                                <TableHead className="text-right">
+                                    {t('Events')}
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    {t('Variants')}
+                                </TableHead>
                                 <TableHead>{t('Status')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead className="w-0 text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                                        {sports.length === 0 ? t('No sports yet.') : t('No sports match your filters.')}
+                                    <TableCell
+                                        colSpan={7}
+                                        className="py-12 text-center text-muted-foreground"
+                                    >
+                                        {sports.length === 0
+                                            ? t('No sports yet.')
+                                            : t(
+                                                  'No sports match your filters.',
+                                              )}
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -122,7 +157,9 @@ export default function Index({ sports }: { sports: Sport[] }) {
                                     <TableRow key={sport.id}>
                                         <TableCell className="min-w-64">
                                             <div className="space-y-1">
-                                                <div className="font-medium">{sport.name}</div>
+                                                <div className="font-medium">
+                                                    {sport.name}
+                                                </div>
                                                 {sport.description && (
                                                     <div className="line-clamp-2 max-w-md text-xs text-muted-foreground">
                                                         {sport.description}
@@ -132,44 +169,93 @@ export default function Index({ sports }: { sports: Sport[] }) {
                                         </TableCell>
                                         <TableCell>
                                             {sport.code ? (
-                                                <Badge variant="outline" className="font-mono">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="font-mono"
+                                                >
                                                     {sport.code}
                                                 </Badge>
                                             ) : (
-                                                <span className="text-muted-foreground">-</span>
+                                                <span className="text-muted-foreground">
+                                                    -
+                                                </span>
                                             )}
                                         </TableCell>
                                         <TableCell>
                                             <Badge
                                                 variant="outline"
-                                                className={CATEGORY_VARIANTS[sport.category] ?? ''}
+                                                className={
+                                                    CATEGORY_VARIANTS[
+                                                        sport.category
+                                                    ] ?? ''
+                                                }
                                             >
                                                 {t(sport.category)}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right tabular-nums">{sport.sport_events_count}</TableCell>
-                                        <TableCell className="text-right tabular-nums">{sport.event_variants_count}</TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {sport.sport_events_count}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {sport.event_variants_count}
+                                        </TableCell>
                                         <TableCell>
-                                            <Badge variant={sport.is_active ? 'default' : 'secondary'}>
-                                                {sport.is_active ? t('Active') : t('Inactive')}
+                                            <Badge
+                                                variant={
+                                                    sport.is_active
+                                                        ? 'default'
+                                                        : 'secondary'
+                                                }
+                                            >
+                                                {sport.is_active
+                                                    ? t('Active')
+                                                    : t('Inactive')}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center justify-end gap-1">
-                                                <Button variant="ghost" size="icon" title={t('View')} asChild>
-                                                    <Link href={SportController.show.url(sport.id)}><Eye className="h-4 w-4" /></Link>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('View')}
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={SportController.show.url(
+                                                            sport.id,
+                                                        )}
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </Link>
                                                 </Button>
-                                                <Button variant="ghost" size="icon" title={t('Edit')} asChild>
-                                                    <Link href={SportController.edit.url(sport.id)}><Pencil className="h-4 w-4" /></Link>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Edit')}
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={SportController.edit.url(
+                                                            sport.id,
+                                                        )}
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Link>
                                                 </Button>
-                                                <Form {...SportController.destroy.form(sport.id)}>
+                                                <Form
+                                                    {...SportController.destroy.form(
+                                                        sport.id,
+                                                    )}
+                                                >
                                                     {({ processing }) => (
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
                                                             title={t('Delete')}
                                                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                            disabled={processing}
+                                                            disabled={
+                                                                processing
+                                                            }
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>

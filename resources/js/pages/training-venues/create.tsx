@@ -16,7 +16,9 @@ export default function TrainingVenuesCreate({
             <Head title={t('Create training venue')} />
             <TrainingVenueForm
                 title={t('Create training venue')}
-                description={t('Register a venue that external coaches can use for verified training.')}
+                description={t(
+                    'Register a venue that external coaches can use for verified training.',
+                )}
                 action={store()}
                 statuses={statuses}
             />

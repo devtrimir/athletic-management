@@ -1,9 +1,13 @@
-import { Head, setLayoutProps, useForm } from '@inertiajs/react';
-import { index as tournamentsIndex, store as storeTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import { Head, usePage, setLayoutProps, useForm } from '@inertiajs/react';
+import {
+    index as tournamentsIndex,
+    store as storeTournament,
+} from '@/actions/App/Http/Controllers/TournamentController';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { SportsMultiSelect } from '@/components/sports-multi-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,7 +22,7 @@ type FormData = {
     name: string;
     session_id: string;
     tier_id: string;
-    sport_id: string;
+    sport_ids: string[];
     date_from: string;
     date_to: string;
     venue: string;
@@ -35,6 +39,7 @@ export default function TournamentsCreate({
     tiers: Tier[];
 }) {
     const { t } = useTranslation();
+    const { locale = 'en' } = usePage().props as { locale?: string };
 
     setLayoutProps({
         breadcrumbs: [
@@ -47,12 +52,23 @@ export default function TournamentsCreate({
         name: '',
         session_id: '',
         tier_id: '',
-        sport_id: '',
+        sport_ids: [],
         date_from: '',
         date_to: '',
         venue: '',
         raw_date_text: '',
     });
+
+    const selectedSportCount = data.sport_ids.length;
+    const selectedSports = data.sport_ids
+        .map((id) => sports.find((sport) => String(sport.id) === id))
+        .filter((sport): sport is Sport => Boolean(sport));
+    const hasMinimumRequired = Boolean(
+        data.name.trim() &&
+        data.session_id &&
+        data.tier_id &&
+        selectedSportCount > 0,
+    );
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -64,19 +80,39 @@ export default function TournamentsCreate({
             <Head title={t('New tournament')} />
 
             <div className="space-y-6">
-                <Heading variant="small" title={t('New tournament')} description={t('Create tournament')} />
+                <Heading
+                    variant="small"
+                    title={t('New tournament')}
+                    description={t(
+                        'Create tournament details and add all sports that will have events.',
+                    )}
+                />
 
                 <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-                    <div className="rounded-xl border bg-card p-6 space-y-5">
+                    <div className="space-y-5 rounded-xl border bg-card p-6">
+                        <div className="space-y-1">
+                            <h2 className="text-sm font-medium">
+                                {t('Tournament details')}
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                {t(
+                                    'Set the core identity of the tournament first.',
+                                )}
+                            </p>
+                        </div>
+
                         {/* Name */}
                         <div className="grid gap-2">
                             <Label htmlFor="name">
-                                {t('Name')} <span className="text-destructive">*</span>
+                                {t('Name')}{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="name"
                                 value={data.name}
-                                onChange={(e) => setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    setData('name', e.target.value)
+                                }
                                 maxLength={255}
                                 required
                             />
@@ -87,13 +123,19 @@ export default function TournamentsCreate({
                             {/* Session */}
                             <div className="grid gap-2">
                                 <Label htmlFor="session_id">
-                                    {t('Session')} <span className="text-destructive">*</span>
+                                    {t('Session')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Combobox
                                     id="session_id"
                                     value={data.session_id}
-                                    onValueChange={(v) => setData('session_id', v)}
-                                    items={sessions.map((s) => ({ value: String(s.id), label: s.name }))}
+                                    onValueChange={(v) =>
+                                        setData('session_id', v)
+                                    }
+                                    items={sessions.map((s) => ({
+                                        value: String(s.id),
+                                        label: s.name,
+                                    }))}
                                     placeholder={t('Select session')}
                                     searchPlaceholder={t('Search sessions…')}
                                 />
@@ -103,31 +145,21 @@ export default function TournamentsCreate({
                             {/* Tier */}
                             <div className="grid gap-2">
                                 <Label htmlFor="tier_id">
-                                    {t('Tier')} <span className="text-destructive">*</span>
+                                    {t('Tier')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Combobox
                                     id="tier_id"
                                     value={data.tier_id}
                                     onValueChange={(v) => setData('tier_id', v)}
-                                    items={tiers.map((tier) => ({ value: String(tier.id), label: tier.label }))}
+                                    items={tiers.map((tier) => ({
+                                        value: String(tier.id),
+                                        label: tier.label,
+                                    }))}
                                     placeholder={t('Select tier')}
                                     searchPlaceholder={t('Search tiers…')}
                                 />
                                 <InputError message={errors.tier_id} />
-                            </div>
-
-                            {/* Sport */}
-                            <div className="grid gap-2">
-                                <Label htmlFor="sport_id">{t('Sport')}</Label>
-                                <Combobox
-                                    id="sport_id"
-                                    value={data.sport_id}
-                                    onValueChange={(v) => setData('sport_id', v)}
-                                    items={sports.map((sp) => ({ value: String(sp.id), label: sp.name }))}
-                                    placeholder={t('All sports')}
-                                    searchPlaceholder={t('Search sports…')}
-                                />
-                                <InputError message={errors.sport_id} />
                             </div>
 
                             {/* Venue */}
@@ -136,15 +168,86 @@ export default function TournamentsCreate({
                                 <Input
                                     id="venue"
                                     value={data.venue}
-                                    onChange={(e) => setData('venue', e.target.value)}
+                                    onChange={(e) =>
+                                        setData('venue', e.target.value)
+                                    }
                                     maxLength={255}
                                 />
                                 <InputError message={errors.venue} />
                             </div>
+                        </div>
 
-                            {/* Date from */}
+                        <div className="space-y-1 border-t pt-2">
+                            <h2 className="text-sm font-medium">
+                                {t('Event sports')}
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                {t(
+                                    'Select all sports covered by this tournament. You can add individual events for any of them.',
+                                )}
+                            </p>
+                        </div>
+
+                        <div className="grid gap-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="date_from">{t('Date from')}</Label>
+                                <Label htmlFor="sport_ids">
+                                    {t('Sports')}{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {selectedSportCount === 0
+                                        ? t(
+                                              'Pick at least one sport for this tournament.',
+                                          )
+                                        : `${selectedSportCount} ${selectedSportCount === 1 ? t('sport') : t('sports')} ${t('selected')}.`}
+                                </p>
+                                {selectedSports.length > 0 ? (
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        <p className="text-xs font-medium text-muted-foreground">
+                                            {t('Selected sports')}
+                                        </p>
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            {selectedSports.map((sport) => (
+                                                <p
+                                                    key={sport.id}
+                                                    className="rounded-md border bg-muted px-2 py-1.5 text-sm"
+                                                >
+                                                    {sport.name}
+                                                </p>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                                <SportsMultiSelect
+                                    id="sport_ids"
+                                    value={data.sport_ids}
+                                    onValueChange={(value) =>
+                                        setData('sport_ids', value)
+                                    }
+                                    sports={sports}
+                                    locale={locale}
+                                    placeholder={t('Select sports')}
+                                />
+                                <InputError message={errors.sport_ids} />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1 border-t pt-2">
+                            <h2 className="text-sm font-medium">
+                                {t('Venue and timing')}
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                {t(
+                                    'Optional details help with planning and reporting.',
+                                )}
+                            </p>
+                        </div>
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="date_from">
+                                    {t('Date from')}
+                                </Label>
                                 <DatePicker
                                     id="date_from"
                                     value={data.date_from}
@@ -153,7 +256,6 @@ export default function TournamentsCreate({
                                 <InputError message={errors.date_from} />
                             </div>
 
-                            {/* Date to */}
                             <div className="grid gap-2">
                                 <Label htmlFor="date_to">{t('Date to')}</Label>
                                 <DatePicker
@@ -167,11 +269,15 @@ export default function TournamentsCreate({
 
                         {/* Raw date text */}
                         <div className="grid gap-2">
-                            <Label htmlFor="raw_date_text">{t('Raw date text')}</Label>
+                            <Label htmlFor="raw_date_text">
+                                {t('Raw date text')}
+                            </Label>
                             <Textarea
                                 id="raw_date_text"
                                 value={data.raw_date_text}
-                                onChange={(e) => setData('raw_date_text', e.target.value)}
+                                onChange={(e) =>
+                                    setData('raw_date_text', e.target.value)
+                                }
                                 maxLength={500}
                                 rows={2}
                             />
@@ -180,7 +286,10 @@ export default function TournamentsCreate({
                     </div>
 
                     <div className="flex gap-3">
-                        <Button type="submit" disabled={processing}>
+                        <Button
+                            type="submit"
+                            disabled={processing || !hasMinimumRequired}
+                        >
                             {processing ? t('Saving…') : t('Create tournament')}
                         </Button>
                         <Button variant="outline" type="button" asChild>
@@ -192,4 +301,3 @@ export default function TournamentsCreate({
         </>
     );
 }
-

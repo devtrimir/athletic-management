@@ -39,19 +39,32 @@ export default function Create() {
                     description={t('Add a new reference tournament tier')}
                 />
 
-                <Form {...TournamentTierController.store.form()} className="max-w-xl space-y-6">
+                <Form
+                    {...TournamentTierController.store.form()}
+                    className="max-w-xl space-y-6"
+                >
                     {({ processing, errors }) => (
                         <>
-                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                            <div className="space-y-5 rounded-xl border bg-card p-6">
                                 <div className="grid gap-2">
                                     <Label htmlFor="code">{t('Code')}</Label>
                                     <Select name="code" required>
-                                        <SelectTrigger id="code" className="w-full">
-                                            <SelectValue placeholder={t('Select a tier code')} />
+                                        <SelectTrigger
+                                            id="code"
+                                            className="w-full"
+                                        >
+                                            <SelectValue
+                                                placeholder={t(
+                                                    'Select a tier code',
+                                                )}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {TIER_CODES.map((tier) => (
-                                                <SelectItem key={tier.value} value={tier.value}>
+                                                <SelectItem
+                                                    key={tier.value}
+                                                    value={tier.value}
+                                                >
                                                     {tier.label}
                                                 </SelectItem>
                                             ))}
@@ -62,7 +75,9 @@ export default function Create() {
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="label_hi">{t('Label (Hindi)')}</Label>
+                                        <Label htmlFor="label_hi">
+                                            {t('Label (Hindi)')}
+                                        </Label>
                                         <Input
                                             id="label_hi"
                                             name="label_hi"
@@ -74,7 +89,9 @@ export default function Create() {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="label_en">{t('Label (English)')}</Label>
+                                        <Label htmlFor="label_en">
+                                            {t('Label (English)')}
+                                        </Label>
                                         <Input
                                             id="label_en"
                                             name="label_en"
@@ -86,8 +103,10 @@ export default function Create() {
                                     </div>
                                 </div>
 
-                                <div className="grid gap-2 max-w-[200px]">
-                                    <Label htmlFor="weight">{t('Weight')}</Label>
+                                <div className="grid max-w-[200px] gap-2">
+                                    <Label htmlFor="weight">
+                                        {t('Weight')}
+                                    </Label>
                                     <Input
                                         id="weight"
                                         name="weight"
@@ -99,14 +118,24 @@ export default function Create() {
                                         required
                                     />
                                     <InputError message={errors.weight} />
-                                    <p className="text-xs text-muted-foreground">{t('Higher weight = higher tier priority.')}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Higher weight = higher tier priority.',
+                                        )}
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>{t('Create tier')}</Button>
+                                <Button disabled={processing}>
+                                    {t('Create tier')}
+                                </Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={TournamentTierController.index.url()}>{t('Cancel')}</Link>
+                                    <Link
+                                        href={TournamentTierController.index.url()}
+                                    >
+                                        {t('Cancel')}
+                                    </Link>
                                 </Button>
                             </div>
                         </>

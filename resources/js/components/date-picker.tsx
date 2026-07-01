@@ -186,7 +186,9 @@ export function DatePicker({
                     const nextValue = event.target.value;
                     const normalized = normalizeTypedDate(nextValue);
 
-                    onChange(isCanonicalDate(normalized) ? normalized : nextValue);
+                    onChange(
+                        isCanonicalDate(normalized) ? normalized : nextValue,
+                    );
                 }}
                 onBlur={handleBlur}
                 className="h-9 min-w-0 flex-1"
@@ -215,7 +217,10 @@ export function DatePicker({
                         <CalendarIcon className="size-4 opacity-70" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[296px] max-w-[calc(100vw-1rem)] p-0" align="end">
+                <PopoverContent
+                    className="w-[296px] max-w-[calc(100vw-1rem)] p-0"
+                    align="end"
+                >
                     <div className="flex items-center gap-2 border-b p-2">
                         <Button
                             type="button"

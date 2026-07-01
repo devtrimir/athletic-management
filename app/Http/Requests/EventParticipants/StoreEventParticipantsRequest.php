@@ -24,21 +24,27 @@ class StoreEventParticipantsRequest extends FormRequest
     public function rules(): array
     {
         $orgId = (int) $this->user()->organization_id;
+        $event = $this->route('event');
+        $eventType = $event instanceof Event ? $event->event_type : 'individual';
 
         return [
             'participants' => ['required', 'array', 'min:1'],
             'participants.*.member_id' => [
-                'required',
+                Rule::requiredIf($eventType === 'individual'),
+                'nullable',
                 'integer',
-                'distinct',
                 Rule::exists('members', 'id')->where('organization_id', $orgId),
+                Rule::distinct(),
             ],
-            'participants.*.position' => ['nullable', 'integer', 'min:1'],
             'participants.*.team_id' => [
-                'required',
+                Rule::requiredIf($eventType === 'team'),
+                'nullable',
                 'integer',
                 Rule::exists('teams', 'id')->where('organization_id', $orgId),
             ],
+            'participants.*.player_ids' => ['nullable', 'array'],
+            'participants.*.player_ids.*' => ['integer', Rule::exists('members', 'id')->where('organization_id', $orgId)],
+            'participants.*.position' => ['nullable', 'integer', 'min:1'],
             'participants.*.medal_type' => ['nullable', Rule::in(['GOLD', 'SILVER', 'BRONZE', 'MERIT'])],
             'participants.*.medal_position' => ['nullable', 'integer', 'min:1'],
             'participants.*.remarks' => ['nullable', 'string', 'max:500'],
@@ -56,31 +62,129 @@ class StoreEventParticipantsRequest extends FormRequest
                     return;
                 }
 
-                foreach ((array) $this->input('participants', []) as $index => $row) {
-                    if (! is_array($row) || empty($row['member_id']) || empty($row['team_id'])) {
+                $eventType = $event->event_type;
+                $requiredCount = $event->participants_required;
+                $variantMin = (int) ($event->sportEventVariant?->min_participants ?? 0);
+                $variantMax = (int) ($event->sportEventVariant?->max_participants ?? 0);
+                $rows = (array) $this->input('participants', []);
+                $teamRows = 0;
+                $usedTeamIds = [];
+
+                foreach ($rows as $index => $row) {
+                    if (! is_array($row)) {
                         continue;
                     }
 
-                    $isActiveRosterMember = TeamMember::query()
-                        ->where('member_id', (int) $row['member_id'])
-                        ->where('team_id', (int) $row['team_id'])
-                        ->where('session_id', $tournament->session_id)
-                        ->whereNull('left_on')
-                        ->whereHas('team', function ($query) use ($event, $tournament): void {
-                            $query
-                                ->where('organization_id', $tournament->organization_id)
-                                ->where('session_id', $tournament->session_id)
-                                ->where('sport_id', $event->sport_id)
-                                ->where('is_active', true);
-                        })
-                        ->exists();
+                    $teamId = (int) ($row['team_id'] ?? 0);
+                    $memberId = (int) ($row['member_id'] ?? 0);
+                    $playerIds = array_values(array_unique(array_map('intval', (array) ($row['player_ids'] ?? []))));
+                    $playerIds = array_values(array_filter($playerIds, static fn (int $memberId): bool => $memberId > 0));
+                    $medalType = strtoupper((string) ($row['medal_type'] ?? ''));
+                    $positionValue = $row['position'] ?? $row['medal_position'] ?? null;
 
-                    if (! $isActiveRosterMember) {
-                        $validator->errors()->add(
-                            "participants.{$index}.member_id",
-                            __('Participant must belong to an active team for this event sport and session.'),
-                        );
+                    if ($medalType === 'MERIT') {
+                        if ($positionValue === null || $positionValue === '') {
+                            $validator->errors()->add("participants.{$index}.position", __('Merit medal needs a position.'));
+                        } elseif (! is_numeric($positionValue) || ! in_array((int) $positionValue, [1, 2, 3], true)) {
+                            $validator->errors()->add("participants.{$index}.position", __('Position must be 1, 2, or 3 for merit medals.'));
+                        }
                     }
+
+                    if ($eventType === 'team') {
+                        if ($teamId <= 0) {
+                            $validator->errors()->add("participants.{$index}.team_id", __('Team is required for team events.'));
+                            continue;
+                        }
+
+                        if (in_array($teamId, $usedTeamIds, true)) {
+                            $validator->errors()->add("participants.{$index}.team_id", __('Each team can be added only once.'));
+                            continue;
+                        }
+
+                        if ($memberId > 0) {
+                            $validator->errors()->add("participants.{$index}.member_id", __('Remove individual member and use lineup for team events.'));
+                        }
+
+                        if (count($playerIds) === 0) {
+                            $validator->errors()->add("participants.{$index}.player_ids", __('Choose at least one player for team lineup.'));
+                            continue;
+                        }
+
+                        if ($requiredCount !== null && count($playerIds) !== (int) $requiredCount) {
+                            $validator->errors()->add("participants.{$index}.player_ids", __('Each team must have exactly :count participants.')->replace(':count', (string) $requiredCount));
+                        } elseif ($requiredCount === null && $variantMin > 0 && count($playerIds) < $variantMin) {
+                            $validator->errors()->add("participants.{$index}.player_ids", __('Each team must have at least :count participants.')->replace(':count', (string) $variantMin));
+                        } elseif ($variantMax > 0 && count($playerIds) > $variantMax) {
+                            $validator->errors()->add("participants.{$index}.player_ids", __('Each team cannot exceed :count participants.')->replace(':count', (string) $variantMax));
+                        }
+
+                        $activePlayerIds = TeamMember::query()
+                            ->where('team_id', $teamId)
+                            ->where('session_id', $tournament->session_id)
+                            ->whereNull('left_on')
+                            ->whereIn('member_id', $playerIds)
+                            ->pluck('member_id')
+                            ->all();
+
+                        if (count($activePlayerIds) !== count($playerIds)) {
+                            $validator->errors()->add("participants.{$index}.player_ids", __('One or more selected players are not active in this team and session.'));
+                        }
+
+                        $teamRows++;
+                        $usedTeamIds[] = $teamId;
+                    } else {
+                        if ($memberId <= 0) {
+                            $validator->errors()->add("participants.{$index}.member_id", __('Member is required for individual events.'));
+                            continue;
+                        }
+
+                        if (! empty($playerIds)) {
+                            $validator->errors()->add("participants.{$index}.player_ids", __('Individual participants should not include lineup.'));
+                        }
+
+                        if ($teamId <= 0) {
+                            $validator->errors()->add("participants.{$index}.team_id", __('Team is required for individual events.'));
+                        } else {
+                            $isActiveRosterMember = TeamMember::query()
+                                ->where('member_id', $memberId)
+                                ->where('team_id', $teamId)
+                                ->where('session_id', $tournament->session_id)
+                                ->whereNull('left_on')
+                                ->whereHas('team', function ($query) use ($event, $tournament): void {
+                                    $query
+                                        ->where('organization_id', $tournament->organization_id)
+                                        ->where('session_id', $tournament->session_id)
+                                        ->where('sport_id', $event->sport_id)
+                                        ->where('is_active', true);
+                                })
+                                ->exists();
+
+                            if (! $isActiveRosterMember) {
+                                $validator->errors()->add(
+                                    "participants.{$index}.member_id",
+                                    __('Participant must belong to an active team for this event sport and session.'),
+                                );
+                            }
+                        }
+                    }
+                }
+
+                if ($eventType === 'individual') {
+                    $individualCount = count(
+                        array_filter($rows, static fn (array $row): bool => isset($row['member_id']) && (int) $row['member_id'] > 0),
+                    );
+
+                    if ($requiredCount !== null && $individualCount !== (int) $requiredCount) {
+                        $validator->errors()->add('participants', __('This event needs exactly :count participants.')->replace(':count', (string) $requiredCount));
+                    } elseif ($requiredCount === null && $variantMin > 0 && $individualCount < $variantMin) {
+                        $validator->errors()->add('participants', __('Minimum :count participants are required.')->replace(':count', (string) $variantMin));
+                    } elseif ($variantMax > 0 && $individualCount > $variantMax) {
+                        $validator->errors()->add('participants', __('No more than :count participants are allowed.')->replace(':count', (string) $variantMax));
+                    }
+                }
+
+                if ($eventType === 'team' && $teamRows === 0) {
+                    $validator->errors()->add('participants', __('Add at least one team with players.'));
                 }
             },
         ];

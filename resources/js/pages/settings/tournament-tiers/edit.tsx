@@ -50,7 +50,9 @@ export default function Edit({ tier }: { tier: Tier }) {
         <>
             <Head title={`${t('Edit')} ${tier.label_en}`} />
 
-            <h1 className="sr-only">{t('Edit')} {tier.label_en}</h1>
+            <h1 className="sr-only">
+                {t('Edit')} {tier.label_en}
+            </h1>
 
             <div className="space-y-6">
                 <Heading
@@ -59,19 +61,32 @@ export default function Edit({ tier }: { tier: Tier }) {
                     description={t('Update tournament tier details')}
                 />
 
-                <Form {...TournamentTierController.update.form(tier.id)} className="max-w-xl space-y-6">
+                <Form
+                    {...TournamentTierController.update.form(tier.id)}
+                    className="max-w-xl space-y-6"
+                >
                     {({ processing, errors }) => (
                         <>
-                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                            <div className="space-y-5 rounded-xl border bg-card p-6">
                                 <div className="grid gap-2">
                                     <Label htmlFor="code">{t('Code')}</Label>
-                                    <Select name="code" defaultValue={tier.code} required>
-                                        <SelectTrigger id="code" className="w-full">
+                                    <Select
+                                        name="code"
+                                        defaultValue={tier.code}
+                                        required
+                                    >
+                                        <SelectTrigger
+                                            id="code"
+                                            className="w-full"
+                                        >
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {TIER_CODES.map((tc) => (
-                                                <SelectItem key={tc.value} value={tc.value}>
+                                                <SelectItem
+                                                    key={tc.value}
+                                                    value={tc.value}
+                                                >
                                                     {tc.label}
                                                 </SelectItem>
                                             ))}
@@ -82,7 +97,9 @@ export default function Edit({ tier }: { tier: Tier }) {
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="label_hi">{t('Label (Hindi)')}</Label>
+                                        <Label htmlFor="label_hi">
+                                            {t('Label (Hindi)')}
+                                        </Label>
                                         <Input
                                             id="label_hi"
                                             name="label_hi"
@@ -94,7 +111,9 @@ export default function Edit({ tier }: { tier: Tier }) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="label_en">{t('Label (English)')}</Label>
+                                        <Label htmlFor="label_en">
+                                            {t('Label (English)')}
+                                        </Label>
                                         <Input
                                             id="label_en"
                                             name="label_en"
@@ -106,8 +125,10 @@ export default function Edit({ tier }: { tier: Tier }) {
                                     </div>
                                 </div>
 
-                                <div className="grid gap-2 max-w-[200px]">
-                                    <Label htmlFor="weight">{t('Weight')}</Label>
+                                <div className="grid max-w-[200px] gap-2">
+                                    <Label htmlFor="weight">
+                                        {t('Weight')}
+                                    </Label>
                                     <Input
                                         id="weight"
                                         name="weight"
@@ -119,14 +140,24 @@ export default function Edit({ tier }: { tier: Tier }) {
                                         required
                                     />
                                     <InputError message={errors.weight} />
-                                    <p className="text-xs text-muted-foreground">{t('Higher weight = higher tier priority.')}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Higher weight = higher tier priority.',
+                                        )}
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>{t('Save changes')}</Button>
+                                <Button disabled={processing}>
+                                    {t('Save changes')}
+                                </Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={TournamentTierController.index.url()}>{t('Cancel')}</Link>
+                                    <Link
+                                        href={TournamentTierController.index.url()}
+                                    >
+                                        {t('Cancel')}
+                                    </Link>
                                 </Button>
                             </div>
                         </>

@@ -17,7 +17,11 @@ import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
     Dialog,
     DialogContent,
@@ -27,7 +31,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -75,7 +85,10 @@ type Props = {
     hidePostRecruitmentRows?: boolean;
 };
 
-const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+const MEDAL_VARIANT: Record<
+    string,
+    'default' | 'secondary' | 'outline' | 'destructive'
+> = {
     GOLD: 'default',
     SILVER: 'secondary',
     BRONZE: 'outline',
@@ -83,7 +96,14 @@ const MEDAL_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destr
     CERTIFICATE: 'outline',
 };
 
-const LEVELS = ['INTERNATIONAL', 'NATIONAL', 'AIPSC', 'STATE', 'ZONAL', 'OTHER'] as const;
+const LEVELS = [
+    'INTERNATIONAL',
+    'NATIONAL',
+    'AIPSC',
+    'STATE',
+    'ZONAL',
+    'OTHER',
+] as const;
 const MEDALS = ['GOLD', 'SILVER', 'BRONZE', 'MERIT', 'CERTIFICATE'] as const;
 const BENEFIT_TYPES = [
     'PROMOTION',
@@ -349,7 +369,9 @@ function formatReadableDate(value: string | null): string | null {
 }
 
 function inferPositionFromMedal(medalType: string): string {
-    return MEDAL_POSITION_MAP[medalType as keyof typeof MEDAL_POSITION_MAP] ?? '';
+    return (
+        MEDAL_POSITION_MAP[medalType as keyof typeof MEDAL_POSITION_MAP] ?? ''
+    );
 }
 
 export function AddAchievementDialog({
@@ -388,7 +410,10 @@ export function AddAchievementDialog({
         label: session.name,
         badge: session.is_current ? t('Current') : undefined,
     }));
-    const defaults = useMemo(() => buildAddAchievementDefaults(period), [period]);
+    const defaults = useMemo(
+        () => buildAddAchievementDefaults(period),
+        [period],
+    );
     const draftMeta = useAchievementDraft(draftKey);
     const [restoredDraft, setRestoredDraft] = useState<AchievementDraft | null>(
         null,
@@ -466,7 +491,7 @@ export function AddAchievementDialog({
             <div className="flex items-center gap-2">
                 <DialogTrigger asChild>
                     <Button variant={triggerVariant} size="sm">
-                        <Plus className="size-4 mr-1" />
+                        <Plus className="mr-1 size-4" />
                         {triggerLabel ?? t('Add achievement')}
                     </Button>
                 </DialogTrigger>
@@ -492,333 +517,406 @@ export function AddAchievementDialog({
                     className="flex min-h-0 flex-1 flex-col"
                 >
                     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
-                    {restoredDraft ? (
-                        <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/30">
-                            <div className="space-y-1">
-                                <p className="font-medium text-foreground">
-                                    {t('Local draft restored')}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    {t('Draft resumed from :source. Saved :time.')
-                                        .replace(
-                                            ':source',
-                                            restoredDraft.sourceLabel,
+                        {restoredDraft ? (
+                            <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/30">
+                                <div className="space-y-1">
+                                    <p className="font-medium text-foreground">
+                                        {t('Local draft restored')}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Draft resumed from :source. Saved :time.',
                                         )
-                                        .replace(
-                                            ':time',
-                                            formatDraftTimestamp(
-                                                restoredDraft.updatedAt,
-                                            ),
-                                        )}
+                                            .replace(
+                                                ':source',
+                                                restoredDraft.sourceLabel,
+                                            )
+                                            .replace(
+                                                ':time',
+                                                formatDraftTimestamp(
+                                                    restoredDraft.updatedAt,
+                                                ),
+                                            )}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="shrink-0"
+                                    onClick={() => {
+                                        removeAchievementDraft(draftKey);
+                                        setRestoredDraft(null);
+                                        form.setData(defaults);
+                                        form.clearErrors();
+                                    }}
+                                >
+                                    {t('Discard draft')}
+                                </Button>
+                            </div>
+                        ) : null}
+                        <div className="space-y-3 rounded-xl border bg-card p-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Tournament information')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Keep the old competition details lightweight and record only what is available.',
+                                    )}
                                 </p>
                             </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="shrink-0"
-                                onClick={() => {
-                                    removeAchievementDraft(draftKey);
-                                    setRestoredDraft(null);
-                                    form.setData(defaults);
-                                    form.clearErrors();
-                                }}
-                            >
-                                {t('Discard draft')}
-                            </Button>
-                        </div>
-                    ) : null}
-                    <div className="space-y-3 rounded-xl border bg-card p-4">
-                        <div>
-                            <h4 className="text-sm font-semibold">
-                                {t('Tournament information')}
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                                {t('Keep the old competition details lightweight and record only what is available.')}
-                            </p>
-                        </div>
 
-                        {period === 'POST_RECRUITMENT' ? (
-                            <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
-                                <div className="grid gap-2">
-                                    <Label>{t('Session')}</Label>
-                                    <Combobox
-                                        value={form.data.session_id}
-                                        onValueChange={(value) => form.setData('session_id', value)}
-                                        items={sessionItems}
-                                        placeholder={t('Select session')}
-                                        searchPlaceholder={t('Search sessions…')}
-                                        emptyMessage={t('No sessions found.')}
-                                        className="bg-background"
-                                    />
-                                    <InputError message={form.errors.session_id} />
+                            {period === 'POST_RECRUITMENT' ? (
+                                <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label>{t('Session')}</Label>
+                                        <Combobox
+                                            value={form.data.session_id}
+                                            onValueChange={(value) =>
+                                                form.setData(
+                                                    'session_id',
+                                                    value,
+                                                )
+                                            }
+                                            items={sessionItems}
+                                            placeholder={t('Select session')}
+                                            searchPlaceholder={t(
+                                                'Search sessions…',
+                                            )}
+                                            emptyMessage={t(
+                                                'No sessions found.',
+                                            )}
+                                            className="bg-background"
+                                        />
+                                        <InputError
+                                            message={form.errors.session_id}
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label>
+                                            {t('Tier / Level')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                        <Combobox
+                                            value={form.data.level}
+                                            onValueChange={(value) =>
+                                                form.setData('level', value)
+                                            }
+                                            items={LEVEL_ITEMS.map((item) => ({
+                                                ...item,
+                                                label: t(item.label),
+                                            }))}
+                                            placeholder={t('Select tier')}
+                                            searchPlaceholder={t(
+                                                'Search levels…',
+                                            )}
+                                            emptyMessage={t('No levels found.')}
+                                            className="bg-background"
+                                        />
+                                        <InputError
+                                            message={form.errors.level}
+                                        />
+                                    </div>
                                 </div>
-
+                            ) : (
                                 <div className="grid gap-2">
                                     <Label>
-                                        {t('Tier / Level')} <span className="text-destructive">*</span>
+                                        {t('Level')}{' '}
+                                        <span className="text-destructive">
+                                            *
+                                        </span>
                                     </Label>
                                     <Combobox
                                         value={form.data.level}
-                                        onValueChange={(value) => form.setData('level', value)}
+                                        onValueChange={(value) =>
+                                            form.setData('level', value)
+                                        }
                                         items={LEVEL_ITEMS.map((item) => ({
                                             ...item,
                                             label: t(item.label),
                                         }))}
-                                        placeholder={t('Select tier')}
+                                        placeholder={t('Select level')}
                                         searchPlaceholder={t('Search levels…')}
                                         emptyMessage={t('No levels found.')}
                                         className="bg-background"
                                     />
                                     <InputError message={form.errors.level} />
                                 </div>
-                            </div>
-                        ) : (
+                            )}
+
                             <div className="grid gap-2">
                                 <Label>
-                                    {t('Level')} <span className="text-destructive">*</span>
+                                    {period === 'POST_RECRUITMENT'
+                                        ? t('Tournament')
+                                        : t(
+                                              'Tournament / competition details',
+                                          )}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
-                                <Combobox
-                                    value={form.data.level}
-                                    onValueChange={(value) => form.setData('level', value)}
-                                    items={LEVEL_ITEMS.map((item) => ({
-                                        ...item,
-                                        label: t(item.label),
-                                    }))}
-                                    placeholder={t('Select level')}
-                                    searchPlaceholder={t('Search levels…')}
-                                    emptyMessage={t('No levels found.')}
-                                    className="bg-background"
-                                />
-                                <InputError message={form.errors.level} />
-                            </div>
-                        )}
-
-                        <div className="grid gap-2">
-                            <Label>
-                                {period === 'POST_RECRUITMENT'
-                                    ? t('Tournament')
-                                    : t('Tournament / competition details')}{' '}
-                                <span className="text-destructive">*</span>
-                            </Label>
-                            <Textarea
-                                value={form.data.competition_details}
-                                onChange={(e) => form.setData('competition_details', e.target.value)}
-                                rows={3}
-                                className="bg-background"
-                                placeholder={
-                                    period === 'POST_RECRUITMENT'
-                                        ? t('Enter tournament name or source record')
-                                        : undefined
-                                }
-                            />
-                            <InputError message={form.errors.competition_details} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label>
-                                {t('Event date')} <span className="text-destructive">*</span>
-                            </Label>
-                            <DatePicker
-                                value={form.data.event_date}
-                                onChange={(v) => form.setData('event_date', v)}
-                                className="gap-2"
-                            />
-                            <InputError message={form.errors.event_date} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>{t('Venue')}</Label>
-                            <Input
-                                value={form.data.venue}
-                                onChange={(e) => form.setData('venue', e.target.value)}
-                                maxLength={255}
-                                className="bg-background"
-                            />
-                            <InputError message={form.errors.venue} />
-                        </div>
-                    </div>
-
-                    <div className="space-y-3 rounded-xl border bg-card p-4">
-                        <div>
-                            <h4 className="text-sm font-semibold">
-                                {t('Sport & event information')}
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                                {t('Select the sport from master data, then add the specific event details for this record.')}
-                            </p>
-                        </div>
-
-                        <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label>{t('Sport')}</Label>
-                                <Combobox
-                                    value={form.data.sport_id}
-                                    onValueChange={(value) => {
-                                        const selectedSport = sports.find(
-                                            (sport) => String(sport.id) === value,
-                                        );
-
-                                        form.setData((current) => ({
-                                            ...current,
-                                            sport_id: value,
-                                            sport_discipline:
-                                                selectedSport?.name ?? '',
-                                        }));
-                                    }}
-                                    items={sports.map((sport) => ({
-                                        value: String(sport.id),
-                                        label: sport.name,
-                                    }))}
-                                    placeholder={t('Select sport')}
-                                    searchPlaceholder={t('Search sports…')}
-                                    emptyMessage={t('No sports found.')}
-                                    className="bg-background"
-                                />
-                                <InputError
-                                    message={
-                                        form.errors.sport_id ??
-                                        form.errors.sport_discipline
+                                <Textarea
+                                    value={form.data.competition_details}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'competition_details',
+                                            e.target.value,
+                                        )
                                     }
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>{t('Event name')}</Label>
-                                <Input
-                                    value={form.data.event}
-                                    onChange={(e) => form.setData('event', e.target.value)}
-                                    maxLength={100}
+                                    rows={3}
                                     className="bg-background"
                                     placeholder={
                                         period === 'POST_RECRUITMENT'
-                                            ? t('e.g. 100m sprint')
-                                            : t('e.g. 100m sprint')
+                                            ? t(
+                                                  'Enter tournament name or source record',
+                                              )
+                                            : undefined
                                     }
                                 />
-                                <InputError message={form.errors.event} />
+                                <InputError
+                                    message={form.errors.competition_details}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label>
+                                    {t('Event date')}{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <DatePicker
+                                    value={form.data.event_date}
+                                    onChange={(v) =>
+                                        form.setData('event_date', v)
+                                    }
+                                    className="gap-2"
+                                />
+                                <InputError message={form.errors.event_date} />
                             </div>
                             <div className="grid gap-2">
-                                <Label>{t('Discipline')}</Label>
+                                <Label>{t('Venue')}</Label>
                                 <Input
-                                    value={form.data.discipline}
+                                    value={form.data.venue}
                                     onChange={(e) =>
-                                        form.setData(
-                                            'discipline',
-                                            e.target.value,
-                                        )
+                                        form.setData('venue', e.target.value)
                                     }
                                     maxLength={255}
                                     className="bg-background"
                                 />
-                                <InputError message={form.errors.discipline} />
+                                <InputError message={form.errors.venue} />
                             </div>
+                        </div>
+
+                        <div className="space-y-3 rounded-xl border bg-card p-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Sport & event information')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Select the sport from master data, then add the specific event details for this record.',
+                                    )}
+                                </p>
+                            </div>
+
+                            <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label>{t('Sport')}</Label>
+                                    <Combobox
+                                        value={form.data.sport_id}
+                                        onValueChange={(value) => {
+                                            const selectedSport = sports.find(
+                                                (sport) =>
+                                                    String(sport.id) === value,
+                                            );
+
+                                            form.setData((current) => ({
+                                                ...current,
+                                                sport_id: value,
+                                                sport_discipline:
+                                                    selectedSport?.name ?? '',
+                                            }));
+                                        }}
+                                        items={sports.map((sport) => ({
+                                            value: String(sport.id),
+                                            label: sport.name,
+                                        }))}
+                                        placeholder={t('Select sport')}
+                                        searchPlaceholder={t('Search sports…')}
+                                        emptyMessage={t('No sports found.')}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={
+                                            form.errors.sport_id ??
+                                            form.errors.sport_discipline
+                                        }
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>{t('Event name')}</Label>
+                                    <Input
+                                        value={form.data.event}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'event',
+                                                e.target.value,
+                                            )
+                                        }
+                                        maxLength={100}
+                                        className="bg-background"
+                                        placeholder={
+                                            period === 'POST_RECRUITMENT'
+                                                ? t('e.g. 100m sprint')
+                                                : t('e.g. 100m sprint')
+                                        }
+                                    />
+                                    <InputError message={form.errors.event} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>{t('Discipline')}</Label>
+                                    <Input
+                                        value={form.data.discipline}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'discipline',
+                                                e.target.value,
+                                            )
+                                        }
+                                        maxLength={255}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={form.errors.discipline}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>{t('Gender class')}</Label>
+                                    <Combobox
+                                        value={form.data.gender_class}
+                                        onValueChange={(value) =>
+                                            form.setData('gender_class', value)
+                                        }
+                                        items={GENDER_CLASS_ITEMS.map(
+                                            (item) => ({
+                                                ...item,
+                                                label: t(item.label),
+                                            }),
+                                        )}
+                                        placeholder={t('Select gender class')}
+                                        searchPlaceholder={t(
+                                            'Search gender classes…',
+                                        )}
+                                        emptyMessage={t(
+                                            'No gender classes found.',
+                                        )}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={form.errors.gender_class}
+                                    />
+                                </div>
+                                <div className="grid gap-2 sm:col-span-2">
+                                    <Label>{t('Weight category')}</Label>
+                                    <Input
+                                        value={form.data.weight_category}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'weight_category',
+                                                e.target.value,
+                                            )
+                                        }
+                                        maxLength={100}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={form.errors.weight_category}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 rounded-xl border bg-card p-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Achievement information')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Record only the result that is available for this legacy achievement.',
+                                    )}
+                                </p>
+                            </div>
+
+                            <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label>{t('Medal')}</Label>
+                                    <Combobox
+                                        value={form.data.medal_type}
+                                        onValueChange={(value) =>
+                                            form.setData((current) => ({
+                                                ...current,
+                                                medal_type: value,
+                                                position:
+                                                    inferPositionFromMedal(
+                                                        value,
+                                                    ),
+                                            }))
+                                        }
+                                        items={[
+                                            { value: '', label: t('No medal') },
+                                            ...MEDAL_ITEMS.map((item) => ({
+                                                ...item,
+                                                label: t(item.label),
+                                            })),
+                                        ]}
+                                        placeholder={t('Select medal')}
+                                        searchPlaceholder={t('Search medals…')}
+                                        emptyMessage={t('No medals found.')}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={form.errors.medal_type}
+                                    />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label>{t('Position')}</Label>
+                                    <Input
+                                        value={form.data.position}
+                                        className="bg-background"
+                                        readOnly
+                                        placeholder={t('Auto-set from medal')}
+                                    />
+                                    <InputError
+                                        message={form.errors.position}
+                                    />
+                                </div>
+                            </div>
+
                             <div className="grid gap-2">
-                                <Label>{t('Gender class')}</Label>
-                                <Combobox
-                                    value={form.data.gender_class}
-                                    onValueChange={(value) =>
-                                        form.setData('gender_class', value)
-                                    }
-                                    items={GENDER_CLASS_ITEMS.map((item) => ({
-                                        ...item,
-                                        label: t(item.label),
-                                    }))}
-                                    placeholder={t('Select gender class')}
-                                    searchPlaceholder={t(
-                                        'Search gender classes…',
-                                    )}
-                                    emptyMessage={t(
-                                        'No gender classes found.',
-                                    )}
-                                    className="bg-background"
-                                />
-                                <InputError message={form.errors.gender_class} />
-                            </div>
-                            <div className="grid gap-2 sm:col-span-2">
-                                <Label>{t('Weight category')}</Label>
-                                <Input
-                                    value={form.data.weight_category}
+                                <Label>{t('Remarks')}</Label>
+                                <Textarea
+                                    value={form.data.remarks}
                                     onChange={(e) =>
-                                        form.setData(
-                                            'weight_category',
-                                            e.target.value,
-                                        )
+                                        form.setData('remarks', e.target.value)
                                     }
-                                    maxLength={100}
+                                    rows={3}
                                     className="bg-background"
                                 />
-                                <InputError
-                                    message={form.errors.weight_category}
-                                />
+                                <InputError message={form.errors.remarks} />
                             </div>
                         </div>
-                    </div>
-
-                    <div className="space-y-3 rounded-xl border bg-card p-4">
-                        <div>
-                            <h4 className="text-sm font-semibold">
-                                {t('Achievement information')}
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                                {t('Record only the result that is available for this legacy achievement.')}
-                            </p>
-                        </div>
-
-                        <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label>{t('Medal')}</Label>
-                                <Combobox
-                                    value={form.data.medal_type}
-                                    onValueChange={(value) =>
-                                        form.setData((current) => ({
-                                            ...current,
-                                            medal_type: value,
-                                            position: inferPositionFromMedal(value),
-                                        }))
-                                    }
-                                    items={[
-                                        { value: '', label: t('No medal') },
-                                        ...MEDAL_ITEMS.map((item) => ({
-                                            ...item,
-                                            label: t(item.label),
-                                        })),
-                                    ]}
-                                    placeholder={t('Select medal')}
-                                    searchPlaceholder={t('Search medals…')}
-                                    emptyMessage={t('No medals found.')}
-                                    className="bg-background"
-                                />
-                                <InputError message={form.errors.medal_type} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label>{t('Position')}</Label>
-                                <Input
-                                    value={form.data.position}
-                                    className="bg-background"
-                                    readOnly
-                                    placeholder={t('Auto-set from medal')}
-                                />
-                                <InputError message={form.errors.position} />
-                            </div>
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label>{t('Remarks')}</Label>
-                            <Textarea
-                                value={form.data.remarks}
-                                onChange={(e) => form.setData('remarks', e.target.value)}
-                                rows={3}
-                                className="bg-background"
-                            />
-                            <InputError message={form.errors.remarks} />
-                        </div>
-                    </div>
-
                     </div>
 
                     <div className="border-t bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                         <div className="flex justify-end gap-2">
-                            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setOpen(false)}
+                            >
                                 {t('Cancel')}
                             </Button>
                             <Button type="submit" disabled={form.processing}>
@@ -882,8 +980,8 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
             }}
         >
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-xs h-7">
-                    <Plus className="size-3 mr-1" />
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                    <Plus className="mr-1 size-3" />
                     {t('Add benefit')}
                 </Button>
             </DialogTrigger>
@@ -891,17 +989,22 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
                 <DialogHeader>
                     <DialogTitle>{t('Add benefit')}</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+                <form onSubmit={handleSubmit} className="mt-2 space-y-4">
                     <div className="grid gap-2">
                         <Label>
-                            {t('Benefit type')} <span className="text-destructive">*</span>
+                            {t('Benefit type')}{' '}
+                            <span className="text-destructive">*</span>
                         </Label>
                         <Select
                             value={form.data.benefit_type}
-                            onValueChange={(v) => form.setData('benefit_type', v)}
+                            onValueChange={(v) =>
+                                form.setData('benefit_type', v)
+                            }
                         >
                             <SelectTrigger className="w-full">
-                                <SelectValue placeholder={t('Select benefit type')} />
+                                <SelectValue
+                                    placeholder={t('Select benefit type')}
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {BENEFIT_TYPES.map((bt) => (
@@ -920,19 +1023,33 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
                                 <Label>{t('Promoted from rank')}</Label>
                                 <Input
                                     value={form.data.promoted_from_rank}
-                                    onChange={(e) => form.setData('promoted_from_rank', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'promoted_from_rank',
+                                            e.target.value,
+                                        )
+                                    }
                                     maxLength={100}
                                 />
-                                <InputError message={form.errors.promoted_from_rank} />
+                                <InputError
+                                    message={form.errors.promoted_from_rank}
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label>{t('Promoted to rank')}</Label>
                                 <Input
                                     value={form.data.promoted_to_rank}
-                                    onChange={(e) => form.setData('promoted_to_rank', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'promoted_to_rank',
+                                            e.target.value,
+                                        )
+                                    }
                                     maxLength={100}
                                 />
-                                <InputError message={form.errors.promoted_to_rank} />
+                                <InputError
+                                    message={form.errors.promoted_to_rank}
+                                />
                             </div>
                         </div>
                     )}
@@ -944,7 +1061,9 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
                                 type="number"
                                 step="0.01"
                                 value={form.data.cash_amount}
-                                onChange={(e) => form.setData('cash_amount', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('cash_amount', e.target.value)
+                                }
                             />
                             <InputError message={form.errors.cash_amount} />
                         </div>
@@ -955,7 +1074,9 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
                             <Label>{t('Benefit date')}</Label>
                             <DatePicker
                                 value={form.data.benefit_date}
-                                onChange={(v) => form.setData('benefit_date', v)}
+                                onChange={(v) =>
+                                    form.setData('benefit_date', v)
+                                }
                             />
                             <InputError message={form.errors.benefit_date} />
                         </div>
@@ -963,7 +1084,12 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
                             <Label>{t('Order reference')}</Label>
                             <Input
                                 value={form.data.order_reference}
-                                onChange={(e) => form.setData('order_reference', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'order_reference',
+                                        e.target.value,
+                                    )
+                                }
                                 maxLength={255}
                             />
                             <InputError message={form.errors.order_reference} />
@@ -974,14 +1100,20 @@ function AddBenefitDialog({ achievement }: { achievement: LegacyAchievement }) {
                         <Label>{t('Remarks')}</Label>
                         <Textarea
                             value={form.data.remarks}
-                            onChange={(e) => form.setData('remarks', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('remarks', e.target.value)
+                            }
                             rows={2}
                         />
                         <InputError message={form.errors.remarks} />
                     </div>
 
                     <div className="flex justify-end gap-2 pt-2">
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
                             {t('Cancel')}
                         </Button>
                         <Button type="submit" disabled={form.processing}>
@@ -1134,328 +1266,398 @@ export function EditAchievementDialog({
                     className="flex min-h-0 flex-1 flex-col"
                 >
                     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
-                    {restoredDraft ? (
-                        <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/30">
-                            <div className="space-y-1">
-                                <p className="font-medium text-foreground">
-                                    {t('Local draft restored')}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    {t('Draft resumed from :source. Saved :time.')
-                                        .replace(
-                                            ':source',
-                                            restoredDraft.sourceLabel,
+                        {restoredDraft ? (
+                            <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/30">
+                                <div className="space-y-1">
+                                    <p className="font-medium text-foreground">
+                                        {t('Local draft restored')}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Draft resumed from :source. Saved :time.',
                                         )
-                                        .replace(
-                                            ':time',
-                                            formatDraftTimestamp(
-                                                restoredDraft.updatedAt,
-                                            ),
-                                        )}
+                                            .replace(
+                                                ':source',
+                                                restoredDraft.sourceLabel,
+                                            )
+                                            .replace(
+                                                ':time',
+                                                formatDraftTimestamp(
+                                                    restoredDraft.updatedAt,
+                                                ),
+                                            )}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="shrink-0"
+                                    onClick={() => {
+                                        removeAchievementDraft(draftKey);
+                                        setRestoredDraft(null);
+                                        resetForm();
+                                        form.clearErrors();
+                                    }}
+                                >
+                                    {t('Discard draft')}
+                                </Button>
+                            </div>
+                        ) : null}
+                        <div className="space-y-3 rounded-xl border bg-card p-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Tournament information')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Keep the old competition details lightweight and record only what is available.',
+                                    )}
                                 </p>
                             </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="shrink-0"
-                                onClick={() => {
-                                    removeAchievementDraft(draftKey);
-                                    setRestoredDraft(null);
-                                    resetForm();
-                                    form.clearErrors();
-                                }}
-                            >
-                                {t('Discard draft')}
-                            </Button>
-                        </div>
-                    ) : null}
-                    <div className="space-y-3 rounded-xl border bg-card p-4">
-                        <div>
-                            <h4 className="text-sm font-semibold">
-                                {t('Tournament information')}
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                                {t('Keep the old competition details lightweight and record only what is available.')}
-                            </p>
-                        </div>
 
-                        {form.data.period === 'POST_RECRUITMENT' ? (
-                            <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
-                                <div className="grid gap-2">
-                                    <Label>{t('Session')}</Label>
-                                    <Combobox
-                                        value={form.data.session_id}
-                                        onValueChange={(value) => form.setData('session_id', value)}
-                                        items={sessionItems}
-                                        placeholder={t('Select session')}
-                                        searchPlaceholder={t('Search sessions…')}
-                                        emptyMessage={t('No sessions found.')}
-                                        className="bg-background"
-                                    />
-                                    <InputError message={form.errors.session_id} />
+                            {form.data.period === 'POST_RECRUITMENT' ? (
+                                <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label>{t('Session')}</Label>
+                                        <Combobox
+                                            value={form.data.session_id}
+                                            onValueChange={(value) =>
+                                                form.setData(
+                                                    'session_id',
+                                                    value,
+                                                )
+                                            }
+                                            items={sessionItems}
+                                            placeholder={t('Select session')}
+                                            searchPlaceholder={t(
+                                                'Search sessions…',
+                                            )}
+                                            emptyMessage={t(
+                                                'No sessions found.',
+                                            )}
+                                            className="bg-background"
+                                        />
+                                        <InputError
+                                            message={form.errors.session_id}
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label>
+                                            {t('Tier / Level')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                        <Combobox
+                                            value={form.data.level}
+                                            onValueChange={(value) =>
+                                                form.setData('level', value)
+                                            }
+                                            items={LEVEL_ITEMS.map((item) => ({
+                                                ...item,
+                                                label: t(item.label),
+                                            }))}
+                                            placeholder={t('Select tier')}
+                                            searchPlaceholder={t(
+                                                'Search levels…',
+                                            )}
+                                            emptyMessage={t('No levels found.')}
+                                            className="bg-background"
+                                        />
+                                        <InputError
+                                            message={form.errors.level}
+                                        />
+                                    </div>
                                 </div>
-
+                            ) : (
                                 <div className="grid gap-2">
                                     <Label>
-                                        {t('Tier / Level')} <span className="text-destructive">*</span>
+                                        {t('Level')}{' '}
+                                        <span className="text-destructive">
+                                            *
+                                        </span>
                                     </Label>
                                     <Combobox
                                         value={form.data.level}
-                                        onValueChange={(value) => form.setData('level', value)}
+                                        onValueChange={(value) =>
+                                            form.setData('level', value)
+                                        }
                                         items={LEVEL_ITEMS.map((item) => ({
                                             ...item,
                                             label: t(item.label),
                                         }))}
-                                        placeholder={t('Select tier')}
+                                        placeholder={t('Select level')}
                                         searchPlaceholder={t('Search levels…')}
                                         emptyMessage={t('No levels found.')}
                                         className="bg-background"
                                     />
                                     <InputError message={form.errors.level} />
                                 </div>
-                            </div>
-                        ) : (
+                            )}
+
                             <div className="grid gap-2">
                                 <Label>
-                                    {t('Level')} <span className="text-destructive">*</span>
+                                    {form.data.period === 'POST_RECRUITMENT'
+                                        ? t('Tournament')
+                                        : t(
+                                              'Tournament / competition details',
+                                          )}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
-                                <Combobox
-                                    value={form.data.level}
-                                    onValueChange={(value) => form.setData('level', value)}
-                                    items={LEVEL_ITEMS.map((item) => ({
-                                        ...item,
-                                        label: t(item.label),
-                                    }))}
-                                    placeholder={t('Select level')}
-                                    searchPlaceholder={t('Search levels…')}
-                                    emptyMessage={t('No levels found.')}
-                                    className="bg-background"
-                                />
-                                <InputError message={form.errors.level} />
-                            </div>
-                        )}
-
-                        <div className="grid gap-2">
-                            <Label>
-                                {form.data.period === 'POST_RECRUITMENT'
-                                    ? t('Tournament')
-                                    : t('Tournament / competition details')}{' '}
-                                <span className="text-destructive">*</span>
-                            </Label>
-                            <Textarea
-                                value={form.data.competition_details}
-                                onChange={(e) => form.setData('competition_details', e.target.value)}
-                                rows={3}
-                                className="bg-background"
-                                placeholder={
-                                    form.data.period === 'POST_RECRUITMENT'
-                                        ? t('Enter tournament name or source record')
-                                        : undefined
-                                }
-                            />
-                            <InputError message={form.errors.competition_details} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label>
-                                {t('Event date')} <span className="text-destructive">*</span>
-                            </Label>
-                            <DatePicker
-                                value={form.data.event_date}
-                                onChange={(v) => form.setData('event_date', v)}
-                                className="gap-2"
-                            />
-                            <InputError message={form.errors.event_date} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>{t('Venue')}</Label>
-                            <Input
-                                value={form.data.venue}
-                                onChange={(e) => form.setData('venue', e.target.value)}
-                                maxLength={255}
-                                className="bg-background"
-                            />
-                            <InputError message={form.errors.venue} />
-                        </div>
-                    </div>
-
-                    <div className="space-y-3 rounded-xl border bg-card p-4">
-                        <div>
-                            <h4 className="text-sm font-semibold">
-                                {t('Sport & event information')}
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                                {t('Select the sport from master data, then add the specific event details for this record.')}
-                            </p>
-                        </div>
-
-                        <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label>{t('Sport')}</Label>
-                                <Combobox
-                                    value={form.data.sport_id}
-                                    onValueChange={(value) => {
-                                        const selectedSport = sports.find(
-                                            (sport) => String(sport.id) === value,
-                                        );
-
-                                        form.setData((current) => ({
-                                            ...current,
-                                            sport_id: value,
-                                            sport_discipline:
-                                                selectedSport?.name ?? '',
-                                        }));
-                                    }}
-                                    items={sports.map((sport) => ({
-                                        value: String(sport.id),
-                                        label: sport.name,
-                                    }))}
-                                    placeholder={t('Select sport')}
-                                    searchPlaceholder={t('Search sports…')}
-                                    emptyMessage={t('No sports found.')}
-                                    className="bg-background"
-                                />
-                                <InputError
-                                    message={
-                                        form.errors.sport_id ??
-                                        form.errors.sport_discipline
+                                <Textarea
+                                    value={form.data.competition_details}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'competition_details',
+                                            e.target.value,
+                                        )
                                     }
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>{t('Event name')}</Label>
-                                <Input
-                                    value={form.data.event}
-                                    onChange={(e) => form.setData('event', e.target.value)}
-                                    maxLength={100}
+                                    rows={3}
                                     className="bg-background"
                                     placeholder={
                                         form.data.period === 'POST_RECRUITMENT'
-                                            ? t('e.g. 100m sprint')
-                                            : t('e.g. 100m sprint')
+                                            ? t(
+                                                  'Enter tournament name or source record',
+                                              )
+                                            : undefined
                                     }
                                 />
-                                <InputError message={form.errors.event} />
+                                <InputError
+                                    message={form.errors.competition_details}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label>
+                                    {t('Event date')}{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <DatePicker
+                                    value={form.data.event_date}
+                                    onChange={(v) =>
+                                        form.setData('event_date', v)
+                                    }
+                                    className="gap-2"
+                                />
+                                <InputError message={form.errors.event_date} />
                             </div>
                             <div className="grid gap-2">
-                                <Label>{t('Discipline')}</Label>
+                                <Label>{t('Venue')}</Label>
                                 <Input
-                                    value={form.data.discipline}
+                                    value={form.data.venue}
                                     onChange={(e) =>
-                                        form.setData(
-                                            'discipline',
-                                            e.target.value,
-                                        )
+                                        form.setData('venue', e.target.value)
                                     }
                                     maxLength={255}
                                     className="bg-background"
                                 />
-                                <InputError message={form.errors.discipline} />
+                                <InputError message={form.errors.venue} />
                             </div>
+                        </div>
+
+                        <div className="space-y-3 rounded-xl border bg-card p-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Sport & event information')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Select the sport from master data, then add the specific event details for this record.',
+                                    )}
+                                </p>
+                            </div>
+
+                            <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label>{t('Sport')}</Label>
+                                    <Combobox
+                                        value={form.data.sport_id}
+                                        onValueChange={(value) => {
+                                            const selectedSport = sports.find(
+                                                (sport) =>
+                                                    String(sport.id) === value,
+                                            );
+
+                                            form.setData((current) => ({
+                                                ...current,
+                                                sport_id: value,
+                                                sport_discipline:
+                                                    selectedSport?.name ?? '',
+                                            }));
+                                        }}
+                                        items={sports.map((sport) => ({
+                                            value: String(sport.id),
+                                            label: sport.name,
+                                        }))}
+                                        placeholder={t('Select sport')}
+                                        searchPlaceholder={t('Search sports…')}
+                                        emptyMessage={t('No sports found.')}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={
+                                            form.errors.sport_id ??
+                                            form.errors.sport_discipline
+                                        }
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>{t('Event name')}</Label>
+                                    <Input
+                                        value={form.data.event}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'event',
+                                                e.target.value,
+                                            )
+                                        }
+                                        maxLength={100}
+                                        className="bg-background"
+                                        placeholder={
+                                            form.data.period ===
+                                            'POST_RECRUITMENT'
+                                                ? t('e.g. 100m sprint')
+                                                : t('e.g. 100m sprint')
+                                        }
+                                    />
+                                    <InputError message={form.errors.event} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>{t('Discipline')}</Label>
+                                    <Input
+                                        value={form.data.discipline}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'discipline',
+                                                e.target.value,
+                                            )
+                                        }
+                                        maxLength={255}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={form.errors.discipline}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>{t('Gender class')}</Label>
+                                    <Combobox
+                                        value={form.data.gender_class}
+                                        onValueChange={(value) =>
+                                            form.setData('gender_class', value)
+                                        }
+                                        items={GENDER_CLASS_ITEMS.map(
+                                            (item) => ({
+                                                ...item,
+                                                label: t(item.label),
+                                            }),
+                                        )}
+                                        placeholder={t('Select gender class')}
+                                        searchPlaceholder={t(
+                                            'Search gender classes…',
+                                        )}
+                                        emptyMessage={t(
+                                            'No gender classes found.',
+                                        )}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={form.errors.gender_class}
+                                    />
+                                </div>
+                                <div className="grid gap-2 sm:col-span-2">
+                                    <Label>{t('Weight category')}</Label>
+                                    <Input
+                                        value={form.data.weight_category}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'weight_category',
+                                                e.target.value,
+                                            )
+                                        }
+                                        maxLength={100}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={form.errors.weight_category}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 rounded-xl border bg-card p-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Achievement information')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Record only the result that is available for this legacy achievement.',
+                                    )}
+                                </p>
+                            </div>
+
+                            <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label>{t('Medal')}</Label>
+                                    <Combobox
+                                        value={form.data.medal_type}
+                                        onValueChange={(value) =>
+                                            form.setData((current) => ({
+                                                ...current,
+                                                medal_type: value,
+                                                position:
+                                                    inferPositionFromMedal(
+                                                        value,
+                                                    ),
+                                            }))
+                                        }
+                                        items={[
+                                            { value: '', label: t('No medal') },
+                                            ...MEDAL_ITEMS.map((item) => ({
+                                                ...item,
+                                                label: t(item.label),
+                                            })),
+                                        ]}
+                                        placeholder={t('Select medal')}
+                                        searchPlaceholder={t('Search medals…')}
+                                        emptyMessage={t('No medals found.')}
+                                        className="bg-background"
+                                    />
+                                    <InputError
+                                        message={form.errors.medal_type}
+                                    />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label>{t('Position')}</Label>
+                                    <Input
+                                        value={form.data.position}
+                                        className="bg-background"
+                                        readOnly
+                                        placeholder={t('Auto-set from medal')}
+                                    />
+                                    <InputError
+                                        message={form.errors.position}
+                                    />
+                                </div>
+                            </div>
+
                             <div className="grid gap-2">
-                                <Label>{t('Gender class')}</Label>
-                                <Combobox
-                                    value={form.data.gender_class}
-                                    onValueChange={(value) =>
-                                        form.setData('gender_class', value)
-                                    }
-                                    items={GENDER_CLASS_ITEMS.map((item) => ({
-                                        ...item,
-                                        label: t(item.label),
-                                    }))}
-                                    placeholder={t('Select gender class')}
-                                    searchPlaceholder={t(
-                                        'Search gender classes…',
-                                    )}
-                                    emptyMessage={t(
-                                        'No gender classes found.',
-                                    )}
-                                    className="bg-background"
-                                />
-                                <InputError message={form.errors.gender_class} />
-                            </div>
-                            <div className="grid gap-2 sm:col-span-2">
-                                <Label>{t('Weight category')}</Label>
-                                <Input
-                                    value={form.data.weight_category}
+                                <Label>{t('Remarks')}</Label>
+                                <Textarea
+                                    value={form.data.remarks}
                                     onChange={(e) =>
-                                        form.setData(
-                                            'weight_category',
-                                            e.target.value,
-                                        )
+                                        form.setData('remarks', e.target.value)
                                     }
-                                    maxLength={100}
+                                    rows={3}
                                     className="bg-background"
                                 />
-                                <InputError
-                                    message={form.errors.weight_category}
-                                />
+                                <InputError message={form.errors.remarks} />
                             </div>
                         </div>
-                    </div>
-
-                    <div className="space-y-3 rounded-xl border bg-card p-4">
-                        <div>
-                            <h4 className="text-sm font-semibold">
-                                {t('Achievement information')}
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                                {t('Record only the result that is available for this legacy achievement.')}
-                            </p>
-                        </div>
-
-                        <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label>{t('Medal')}</Label>
-                                <Combobox
-                                    value={form.data.medal_type}
-                                    onValueChange={(value) =>
-                                        form.setData((current) => ({
-                                            ...current,
-                                            medal_type: value,
-                                            position: inferPositionFromMedal(value),
-                                        }))
-                                    }
-                                    items={[
-                                        { value: '', label: t('No medal') },
-                                        ...MEDAL_ITEMS.map((item) => ({
-                                            ...item,
-                                            label: t(item.label),
-                                        })),
-                                    ]}
-                                    placeholder={t('Select medal')}
-                                    searchPlaceholder={t('Search medals…')}
-                                    emptyMessage={t('No medals found.')}
-                                    className="bg-background"
-                                />
-                                <InputError message={form.errors.medal_type} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label>{t('Position')}</Label>
-                                <Input
-                                    value={form.data.position}
-                                    className="bg-background"
-                                    readOnly
-                                    placeholder={t('Auto-set from medal')}
-                                />
-                                <InputError message={form.errors.position} />
-                            </div>
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label>{t('Remarks')}</Label>
-                            <Textarea
-                                value={form.data.remarks}
-                                onChange={(e) => form.setData('remarks', e.target.value)}
-                                rows={3}
-                                className="bg-background"
-                            />
-                            <InputError message={form.errors.remarks} />
-                        </div>
-                    </div>
-
                     </div>
 
                     <div className="border-t bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -1519,28 +1721,42 @@ function AchievementRow({
 
     return (
         <Collapsible open={open} onOpenChange={setOpen}>
-            <div className="flex items-start justify-between gap-3 py-3 px-4">
+            <div className="flex items-start justify-between gap-3 px-4 py-3">
                 <CollapsibleTrigger asChild>
-                    <button className="flex items-start gap-2 text-left flex-1 min-w-0">
+                    <button className="flex min-w-0 flex-1 items-start gap-2 text-left">
                         <ChevronDown
-                            className={`size-4 mt-0.5 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`}
+                            className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`}
                         />
                         <div className="min-w-0 space-y-0.5">
-                            <p className="text-sm font-medium leading-tight">{achievement.competition_details}</p>
+                            <p className="text-sm leading-tight font-medium">
+                                {achievement.competition_details}
+                            </p>
                             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span>{t(achievement.level)}</span>
-                                {achievement.session && <span>{achievement.session.name}</span>}
-                                {achievement.event_date && (
-                                    <span>{formatReadableDate(achievement.event_date)}</span>
+                                {achievement.session && (
+                                    <span>{achievement.session.name}</span>
                                 )}
-                                {achievement.sport_discipline && <span>{achievement.sport_discipline}</span>}
-                                {achievement.event && <span>{achievement.event}</span>}
-                                {achievement.venue && <span>{achievement.venue}</span>}
+                                {achievement.event_date && (
+                                    <span>
+                                        {formatReadableDate(
+                                            achievement.event_date,
+                                        )}
+                                    </span>
+                                )}
+                                {achievement.sport_discipline && (
+                                    <span>{achievement.sport_discipline}</span>
+                                )}
+                                {achievement.event && (
+                                    <span>{achievement.event}</span>
+                                )}
+                                {achievement.venue && (
+                                    <span>{achievement.venue}</span>
+                                )}
                             </div>
                         </div>
                     </button>
                 </CollapsibleTrigger>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
                     <EditAchievementDialog
                         achievement={achievement}
                         member={member}
@@ -1548,9 +1764,14 @@ function AchievementRow({
                         sports={sports}
                     />
                     {achievement.medal_type && (
-                        <Badge variant={MEDAL_VARIANT[achievement.medal_type] ?? 'outline'}>
+                        <Badge
+                            variant={
+                                MEDAL_VARIANT[achievement.medal_type] ??
+                                'outline'
+                            }
+                        >
                             {t(achievement.medal_type)}
-                                </Badge>
+                        </Badge>
                     )}
                     <Button
                         variant="ghost"
@@ -1564,16 +1785,18 @@ function AchievementRow({
             </div>
 
             <CollapsibleContent>
-                <div className="px-4 pb-3 pt-0 space-y-2 border-t">
+                <div className="space-y-2 border-t px-4 pt-0 pb-3">
                     <div className="flex items-center justify-between pt-2">
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                             {t('Benefits')}
                         </span>
                         <AddBenefitDialog achievement={achievement} />
                     </div>
 
                     {achievement.benefits.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-1">{t('No benefits recorded.')}</p>
+                        <p className="py-1 text-xs text-muted-foreground">
+                            {t('No benefits recorded.')}
+                        </p>
                     ) : (
                         <div className="space-y-1">
                             {achievement.benefits.map((b) => (
@@ -1582,34 +1805,49 @@ function AchievementRow({
                                     className="flex items-start justify-between gap-2 rounded-md bg-muted/50 px-3 py-2 text-xs"
                                 >
                                     <div className="space-y-0.5">
-                                        <Badge variant="outline" className="text-xs">
+                                        <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                        >
                                             {t(b.benefit_type)}
                                         </Badge>
-                                        {(b.promoted_from_rank || b.promoted_to_rank) && (
+                                        {(b.promoted_from_rank ||
+                                            b.promoted_to_rank) && (
                                             <p className="text-muted-foreground">
-                                                {b.promoted_from_rank} → {b.promoted_to_rank}
+                                                {b.promoted_from_rank} →{' '}
+                                                {b.promoted_to_rank}
                                             </p>
                                         )}
                                         {b.cash_amount && (
-                                            <p className="text-muted-foreground">₹{b.cash_amount}</p>
+                                            <p className="text-muted-foreground">
+                                                ₹{b.cash_amount}
+                                            </p>
                                         )}
                                         {b.benefit_date && (
                                             <p className="text-muted-foreground">
-                                                {formatReadableDate(b.benefit_date)}
+                                                {formatReadableDate(
+                                                    b.benefit_date,
+                                                )}
                                             </p>
                                         )}
                                         {b.order_reference && (
-                                            <p className="text-muted-foreground">{b.order_reference}</p>
+                                            <p className="text-muted-foreground">
+                                                {b.order_reference}
+                                            </p>
                                         )}
                                         {b.remarks && (
-                                            <p className="text-muted-foreground">{b.remarks}</p>
+                                            <p className="text-muted-foreground">
+                                                {b.remarks}
+                                            </p>
                                         )}
                                     </div>
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="size-6 text-destructive hover:text-destructive shrink-0"
-                                        onClick={() => handleDeleteBenefit(b.id)}
+                                        className="size-6 shrink-0 text-destructive hover:text-destructive"
+                                        onClick={() =>
+                                            handleDeleteBenefit(b.id)
+                                        }
                                     >
                                         <Trash2 className="size-3" />
                                     </Button>
@@ -1661,12 +1899,11 @@ function PeriodSection({
     supplementaryFirst?: boolean;
     supplementaryNoPadding?: boolean;
 }) {
-    const supplementaryPadding =
-        supplementaryNoPadding
-            ? ''
-            : compact
-              ? 'p-3 sm:p-4'
-              : 'p-4';
+    const supplementaryPadding = supplementaryNoPadding
+        ? ''
+        : compact
+          ? 'p-3 sm:p-4'
+          : 'p-4';
     const { t } = useTranslation();
 
     return (
@@ -1680,10 +1917,14 @@ function PeriodSection({
                 <h4
                     className={[
                         'font-semibold',
-                        compact ? 'text-xs uppercase tracking-[0.16em] text-muted-foreground' : 'text-sm',
+                        compact
+                            ? 'text-xs tracking-[0.16em] text-muted-foreground uppercase'
+                            : 'text-sm',
                     ].join(' ')}
                 >
-                    {period === 'PRE_RECRUITMENT' ? t('Pre-recruitment') : t('Post-recruitment')}
+                    {period === 'PRE_RECRUITMENT'
+                        ? t('Pre-recruitment')
+                        : t('Post-recruitment')}
                 </h4>
                 {showActions ? (
                     <AddAchievementDialog
@@ -1741,7 +1982,9 @@ export function LegacyAchievementsTab({
     supplementaryNoPadding = false,
     hidePostRecruitmentRows = false,
 }: Props) {
-    const preRecruitment = (legacyAchievements ?? []).filter((a) => a.period === 'PRE_RECRUITMENT');
+    const preRecruitment = (legacyAchievements ?? []).filter(
+        (a) => a.period === 'PRE_RECRUITMENT',
+    );
     const postRecruitment = hidePostRecruitmentRows
         ? []
         : (legacyAchievements ?? []).filter(

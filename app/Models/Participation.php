@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property int $event_id
  * @property int $member_id
  * @property int|null $team_id
+ * @property array<int, int>|null $lineup_member_ids
  * @property int $session_id
  * @property int|null $position
  * @property Carbon $created_at
@@ -34,18 +35,29 @@ use Illuminate\Support\Carbon;
  * @property-read Achievement|null $achievement
  * @property-read Collection<int, ParticipationAward> $participationAwards
  */
-#[Fillable([
-    'event_id',
-    'member_id',
-    'team_id',
-    'session_id',
-    'position',
-])]
+    #[Fillable([
+        'event_id',
+        'member_id',
+        'team_id',
+        'lineup_member_ids',
+        'session_id',
+        'position',
+    ])]
 #[ObservedBy([AuditObserver::class])]
 class Participation extends Model
 {
     /** @use HasFactory<ParticipationFactory> */
     use Auditable, HasFactory, HasMedia;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'lineup_member_ids' => 'array',
+        ];
+    }
 
     /** @return BelongsTo<Event, $this> */
     public function event(): BelongsTo

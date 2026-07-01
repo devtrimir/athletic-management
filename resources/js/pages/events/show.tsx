@@ -103,6 +103,8 @@ type EventProp = {
     id: number;
     sport_id: number | null;
     sport_event_variant_id: number | null;
+    event_type: 'individual' | 'team';
+    participants_required: number | null;
     can_update_structure: boolean;
     name: string;
     discipline: string | null;
@@ -117,11 +119,19 @@ type ParticipationRow = {
     id: number;
     position: number | null;
     media_files_count: number;
+    team: { id: number; name: string } | null;
     member: {
         id: number;
         full_name: string;
         pno: string | null;
+        photo_path: string | null;
     } | null;
+    lineup_members: {
+        id: number;
+        full_name: string;
+        pno: string | null;
+        photo_path: string | null;
+    }[];
     achievement: {
         medal_type: string | null;
         position: number | null;
@@ -166,6 +176,8 @@ type EventForm = {
     discipline: string;
     weight_category: string;
     gender_class: string;
+    event_type: 'individual' | 'team';
+    participants_required: string;
     provisional_reason: string;
 };
 
@@ -322,6 +334,16 @@ function EventFormFields({
             setData('discipline', variant.discipline ?? '');
             setData('weight_category', variant.weight_category ?? '');
             setData('gender_class', variant.gender_class);
+            setData(
+                'event_type',
+                variant.is_team_based ? 'team' : 'individual',
+            );
+            setData(
+                'participants_required',
+                variant.min_participants
+                    ? String(variant.min_participants)
+                    : '',
+            );
         }
     }
 
@@ -390,6 +412,55 @@ function EventFormFields({
                     searchPlaceholder={t('Search sports…')}
                 />
                 <InputError message={errors.sport_id} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_event_type`}>
+                    {t('Event type')}{' '}
+                    <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                    value={data.event_type}
+                    onValueChange={(value) =>
+                        setData(
+                            'event_type',
+                            value === 'team' ? 'team' : 'individual',
+                        )
+                    }
+                >
+                    <SelectTrigger id={`${idPrefix}_event_type`}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="individual">
+                            {t('Individual')}
+                        </SelectItem>
+                        <SelectItem value="team">{t('Team')}</SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError message={errors.event_type} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_participants_required`}>
+                    {t('Participants per entry')}
+                </Label>
+                <Input
+                    id={`${idPrefix}_participants_required`}
+                    type="number"
+                    min={1}
+                    value={data.participants_required}
+                    onChange={(e) =>
+                        setData('participants_required', e.target.value)
+                    }
+                    placeholder={t('Auto from variant (optional)')}
+                />
+                <InputError message={errors.participants_required} />
+                <p className="text-xs text-muted-foreground">
+                    {t(
+                        'For team events this is players per team. For individual events this is total participant limit.',
+                    )}
+                </p>
             </div>
 
             {data.event_mode === 'official' ? (
@@ -589,6 +660,10 @@ function EditEventDialog({
             discipline: event.discipline ?? '',
             weight_category: event.weight_category ?? '',
             gender_class: event.gender_class,
+            event_type: event.event_type,
+            participants_required: event.participants_required
+                ? String(event.participants_required)
+                : '',
             provisional_reason:
                 event.provisional_reason ??
                 'Reference event not available in master data',
@@ -703,13 +778,19 @@ function ParticipantFormFields({
     setData,
     errors,
     idPrefix,
+    selectedMedal,
 }: {
     data: ParticipantForm;
     setData: (field: keyof ParticipantForm, value: string) => void;
     errors: Partial<Record<keyof ParticipantForm, string>>;
     idPrefix: string;
+    selectedMedal?: string;
 }) {
     const { t } = useTranslation();
+    const isRankedMedal = ['GOLD', 'SILVER', 'BRONZE'].includes(
+        selectedMedal ?? '',
+    );
+    const isMerit = selectedMedal === 'MERIT';
 
     return (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -719,12 +800,20 @@ function ParticipantFormFields({
                     id={`${idPrefix}_position`}
                     type="number"
                     min={1}
+                    max={isMerit ? 3 : undefined}
+                    step={isMerit ? 1 : undefined}
                     value={data.position}
                     onChange={(e) => setData('position', e.target.value)}
                     placeholder="—"
                     className="h-9"
+                    disabled={isRankedMedal}
                 />
                 <InputError message={errors.position} />
+                {isMerit ? (
+                    <p className="text-xs text-muted-foreground">
+                        {t('Allowed values: 1, 2, or 3.')}
+                    </p>
+                ) : null}
             </div>
 
             <div className="grid gap-2">
@@ -764,6 +853,115 @@ function ParticipantFormFields({
                 />
                 <InputError message={errors.remarks} />
             </div>
+        </div>
+    );
+}
+
+function TeamMedalOnlyFields({
+    data,
+    setData,
+    errors,
+    idPrefix,
+}: {
+    data: { medal_type: string; position: string; remarks: string };
+    setData: (
+        field: 'medal_type' | 'position' | 'remarks',
+        value: string,
+    ) => void;
+    errors: Partial<Record<'medal_type' | 'position' | 'remarks', string>>;
+    idPrefix: string;
+}) {
+    const { t } = useTranslation();
+    const selectedMedal = data.medal_type;
+    const isRankedMedal = ['GOLD', 'SILVER', 'BRONZE'].includes(selectedMedal);
+    const hasMerit = selectedMedal === 'MERIT';
+    const rankedMedalPosition =
+        selectedMedal === 'GOLD'
+            ? '1'
+            : selectedMedal === 'SILVER'
+              ? '2'
+              : selectedMedal === 'BRONZE'
+                ? '3'
+                : '';
+    const displayPosition = isRankedMedal
+        ? data.position || rankedMedalPosition
+        : data.position;
+
+    return (
+        <div className="grid gap-2">
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_position`}>{t('Position')}</Label>
+                <Input
+                    id={`${idPrefix}_position`}
+                    type="number"
+                    min={1}
+                    max={hasMerit ? 3 : undefined}
+                    step={hasMerit ? 1 : undefined}
+                    value={displayPosition}
+                    onChange={(e) => setData('position', e.target.value)}
+                    placeholder="—"
+                    className="h-9"
+                    disabled={isRankedMedal}
+                />
+                <InputError message={errors.position} />
+                {isRankedMedal ? (
+                    <p className="text-xs text-muted-foreground">
+                        {t('Position is auto-filled from medal.')}
+                    </p>
+                ) : hasMerit ? (
+                    <p className="text-xs text-muted-foreground">
+                        {t('Allowed values: 1, 2, or 3.')}
+                    </p>
+                ) : null}
+            </div>
+
+            <Label htmlFor={`${idPrefix}_medal_type`}>{t('Medal')}</Label>
+            <Select
+                value={data.medal_type || 'none'}
+                onValueChange={(v) => {
+                    const medal = v === 'none' ? '' : v;
+                    setData('medal_type', medal);
+
+                    if (medal === 'GOLD') {
+                        setData('position', '1');
+                    } else if (medal === 'SILVER') {
+                        setData('position', '2');
+                    } else if (medal === 'BRONZE') {
+                        setData('position', '3');
+                    } else if (medal !== 'MERIT') {
+                        setData('position', '');
+                    }
+                }}
+            >
+                <SelectTrigger id={`${idPrefix}_medal_type`} className="h-9">
+                    <SelectValue placeholder={t('No medal')} />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="none">{t('No medal')}</SelectItem>
+                    {MEDAL_TYPES.map((m) => (
+                        <SelectItem key={m} value={m}>
+                            {t(m)}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <InputError message={errors.medal_type} />
+
+            {hasMerit ? (
+                <div className="grid gap-2">
+                    <Label htmlFor={`${idPrefix}_remarks`}>
+                        {t('Remarks')}
+                    </Label>
+                    <Input
+                        id={`${idPrefix}_remarks`}
+                        value={data.remarks}
+                        onChange={(e) => setData('remarks', e.target.value)}
+                        maxLength={500}
+                        placeholder="—"
+                    />
+                    <InputError message={errors.remarks} />
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -851,53 +1049,86 @@ function AddParticipantDialog({
 }) {
     const { t } = useTranslation();
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
     const [query, setQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterLevel, setFilterLevel] = useState('');
     const { errors, reset } = useForm<Record<string, never>>({});
     const [submitting, setSubmitting] = useState(false);
+    const isTeamEvent = event.event_type === 'team';
+    const isProvisionalEvent = event.event_source === 'provisional';
+    const eventDetailLine = isProvisionalEvent
+        ? ''
+        : [
+              event.discipline,
+              event.weight_category,
+              genderLabel(event.gender_class, t),
+          ]
+              .filter(Boolean)
+              .join(' · ');
 
     const candidates = participantCandidates ?? [];
     const candidatesLoading = participantCandidates === undefined;
+    const candidateTeams = candidates.filter((team) => team.members.length > 0);
+    const selectedTeam =
+        selectedTeamId === null
+            ? null
+            : (candidateTeams.find((team) => team.id === selectedTeamId) ??
+              null);
     const selectedIdSet = new Set(selectedIds);
     const normalizedQuery = query.trim().toLowerCase();
     const totalCandidates = candidates.reduce(
         (total, team) => total + team.members.length,
         0,
     );
-    const visibleCandidateTeams = candidates
-        .map((team) => ({
-            ...team,
-            members: team.members.filter((member) => {
-                const matchesCategory =
-                    !filterCategory ||
-                    member.player_category === filterCategory;
-                const matchesLevel =
-                    !filterLevel || member.player_level === filterLevel;
-                const searchable = [
-                    member.full_name,
-                    member.pno,
-                    member.role,
-                    member.player_category,
-                    member.player_level,
-                    member.sport_event,
-                ]
-                    .filter(Boolean)
-                    .join(' ')
-                    .toLowerCase();
+    const filterMembers = (
+        members: ParticipantCandidate[],
+    ): ParticipantCandidate[] =>
+        members.filter((member) => {
+            const matchesCategory =
+                !filterCategory || member.player_category === filterCategory;
+            const matchesLevel =
+                !filterLevel || member.player_level === filterLevel;
+            const searchable = [
+                member.full_name,
+                member.pno,
+                member.role,
+                member.player_category,
+                member.player_level,
+                member.sport_event,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
 
-                return (
-                    matchesCategory &&
-                    matchesLevel &&
-                    (!normalizedQuery || searchable.includes(normalizedQuery))
-                );
-            }),
-        }))
-        .filter((team) => team.members.length > 0);
+            return (
+                matchesCategory &&
+                matchesLevel &&
+                (!normalizedQuery || searchable.includes(normalizedQuery))
+            );
+        });
+    const visibleCandidateTeams = isTeamEvent
+        ? selectedTeam
+            ? [
+                  {
+                      ...selectedTeam,
+                      members: filterMembers(selectedTeam.members),
+                  },
+              ]
+            : candidateTeams.map((team) => ({
+                  ...team,
+                  members: filterMembers(team.members),
+              }))
+        : candidateTeams
+              .map((team) => ({
+                  ...team,
+                  members: filterMembers(team.members),
+              }))
+              .filter((team) => team.members.length > 0);
     const visibleCandidates = visibleCandidateTeams.flatMap(
         (team) => team.members,
     );
-    const selectedCandidates = candidates
+    const selectedCandidates = visibleCandidateTeams
         .flatMap((team) => team.members)
         .filter((member) => selectedIdSet.has(member.id));
     const hasActiveFilters = Boolean(
@@ -924,11 +1155,34 @@ function AddParticipantDialog({
     function handleClose() {
         reset();
         setSelectedIds([]);
+        setSelectedTeamId(null);
         setQuery('');
         setFilterCategory('');
         setFilterLevel('');
         onOpenChange(false);
     }
+
+    function setTeam(teamId: string) {
+        setSelectedTeamId(teamId ? Number(teamId) : null);
+        setSelectedIds([]);
+    }
+
+    const teamModeValidationMessage =
+        isTeamEvent && event.participants_required
+            ? t('Team must include exactly :count players.').replace(
+                  ':count',
+                  String(event.participants_required),
+              )
+            : t('Select players from one team for this team entry.');
+
+    const submitDisabled =
+        submitting ||
+        selectedCandidates.length === 0 ||
+        (isTeamEvent &&
+            (!selectedTeamId ||
+                (event.participants_required !== null &&
+                    selectedCandidates.length !==
+                        event.participants_required)));
 
     function toggleCandidate(memberId: number) {
         setSelectedIds((current) =>
@@ -966,7 +1220,10 @@ function AddParticipantDialog({
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
-        if (selectedCandidates.length === 0) {
+        if (
+            selectedCandidates.length === 0 ||
+            (isTeamEvent && !selectedTeamId)
+        ) {
             return;
         }
 
@@ -977,10 +1234,17 @@ function AddParticipantDialog({
                 event: event.id,
             }),
             {
-                participants: selectedCandidates.map((member) => ({
-                    member_id: member.id,
-                    team_id: member.team_id,
-                })),
+                participants: isTeamEvent
+                    ? [
+                          {
+                              team_id: selectedTeamId,
+                              player_ids: selectedIds,
+                          },
+                      ]
+                    : selectedCandidates.map((member) => ({
+                          member_id: member.id,
+                          team_id: member.team_id,
+                      })),
             },
             {
                 onSuccess: () => handleClose(),
@@ -1003,8 +1267,15 @@ function AddParticipantDialog({
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                             <DialogTitle>{t('Add participants')}</DialogTitle>
-                            <DialogDescription className="truncate">
-                                {event.name}
+                            <DialogDescription>
+                                <span className="font-medium">
+                                    {event.name}
+                                </span>
+                                {!isProvisionalEvent && eventDetailLine ? (
+                                    <span className="ml-1 block text-xs text-muted-foreground">
+                                        ({eventDetailLine})
+                                    </span>
+                                ) : null}
                             </DialogDescription>
                         </div>
                         <div className="mr-1 flex shrink-0 flex-wrap justify-end gap-1.5">
@@ -1026,6 +1297,43 @@ function AddParticipantDialog({
                     className="flex max-h-[72vh] flex-col"
                 >
                     <div className="space-y-3 border-b bg-muted/20 px-5 py-4">
+                        {isTeamEvent ? (
+                            <div className="grid gap-2">
+                                <Label htmlFor="event-team-select">
+                                    {t('Select team')}
+                                </Label>
+                                <Select
+                                    value={
+                                        selectedTeamId
+                                            ? String(selectedTeamId)
+                                            : ''
+                                    }
+                                    onValueChange={setTeam}
+                                >
+                                    <SelectTrigger
+                                        id="event-team-select"
+                                        className="h-9"
+                                    >
+                                        <SelectValue
+                                            placeholder={t('Choose a team')}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {candidateTeams.map((team) => (
+                                            <SelectItem
+                                                key={team.id}
+                                                value={String(team.id)}
+                                            >
+                                                {team.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">
+                                    {teamModeValidationMessage}
+                                </p>
+                            </div>
+                        ) : null}
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="space-y-0.5">
                                 <Label>{t('Eligible roster')}</Label>
@@ -1089,9 +1397,15 @@ function AddParticipantDialog({
                         </div>
                         <InputError
                             message={
-                                errors.participants ??
+                                (errors.participants as string | undefined) ||
                                 (errors as Record<string, string>)[
                                     'participants.0.member_id'
+                                ] ||
+                                (errors as Record<string, string>)[
+                                    'participants.0.team_id'
+                                ] ||
+                                (errors as Record<string, string>)[
+                                    'participants.0.player_ids'
                                 ]
                             }
                         />
@@ -1100,9 +1414,11 @@ function AddParticipantDialog({
                     <div className="flex min-h-0 flex-1 flex-col">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-2.5">
                             <div className="text-xs text-muted-foreground">
-                                {hasActiveFilters
-                                    ? t('Filtered roster')
-                                    : t('All matching active teams')}
+                                {isTeamEvent
+                                    ? t('Team roster')
+                                    : hasActiveFilters
+                                      ? t('Filtered roster')
+                                      : t('All matching active teams')}
                             </div>
                             {visibleCandidates.length > 0 && (
                                 <div className="flex gap-2">
@@ -1393,15 +1709,17 @@ function AddParticipantDialog({
                     <Button
                         type="submit"
                         form="add-participant-form"
-                        disabled={submitting || selectedCandidates.length === 0}
+                        disabled={submitDisabled}
                     >
                         <Plus className="mr-1.5 h-4 w-4" />
                         {submitting
                             ? t('Saving…')
-                            : t('Add :count participants').replace(
-                                  ':count',
-                                  String(selectedCandidates.length),
-                              )}
+                            : isTeamEvent
+                              ? t('Add team')
+                              : t('Add :count participants').replace(
+                                    ':count',
+                                    String(selectedCandidates.length),
+                                )}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -1425,6 +1743,7 @@ function EditParticipantDialog({
     onClose: () => void;
 }) {
     const { t } = useTranslation();
+    const isTeamEvent = event.event_type === 'team';
     const { data, setData, patch, errors, processing, reset } =
         useForm<ParticipantForm>({
             position:
@@ -1434,11 +1753,44 @@ function EditParticipantDialog({
             medal_type: participation?.achievement?.medal_type ?? '',
             remarks: participation?.achievement?.remarks ?? '',
         });
+    const {
+        data: teamMedalData,
+        setData: setTeamMedalData,
+        patch: patchTeamMedal,
+        errors: teamMedalErrors,
+        processing: teamMedalProcessing,
+        reset: resetTeamMedal,
+    } = useForm<{ medal_type: string; position: string; remarks: string }>({
+        medal_type: participation?.achievement?.medal_type ?? '',
+        position:
+            participation?.position != null
+                ? String(participation.position)
+                : '',
+        remarks: participation?.achievement?.remarks ?? '',
+    });
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
         if (!participation) {
+            return;
+        }
+
+        if (isTeamEvent) {
+            patchTeamMedal(
+                updateParticipant.url({
+                    tournament: tournament.id,
+                    event: event.id,
+                    participation: participation.id,
+                }),
+                {
+                    onSuccess: () => {
+                        resetTeamMedal();
+                        onClose();
+                    },
+                },
+            );
+
             return;
         }
 
@@ -1468,18 +1820,36 @@ function EditParticipantDialog({
         >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>{t('Edit participant')}</DialogTitle>
+                    <DialogTitle>
+                        {event.event_type === 'team'
+                            ? t('Team medal result')
+                            : t('Edit participant')}
+                    </DialogTitle>
                     <DialogDescription>
-                        {participation?.member?.full_name}
+                        {event.event_type === 'team'
+                            ? t(
+                                  'This medal is assigned to the team result (not individual players) and applies to all players in this lineup.',
+                              )
+                            : participation?.member?.full_name}
                     </DialogDescription>
                 </DialogHeader>
                 <form id="edit-participant-form" onSubmit={handleSubmit}>
-                    <ParticipantFormFields
-                        data={data}
-                        setData={(f, v) => setData(f, v)}
-                        errors={errors}
-                        idPrefix="edit_p"
-                    />
+                    {isTeamEvent ? (
+                        <TeamMedalOnlyFields
+                            data={teamMedalData}
+                            setData={(f, v) => setTeamMedalData(f, v)}
+                            errors={teamMedalErrors}
+                            idPrefix="edit_p"
+                        />
+                    ) : (
+                        <ParticipantFormFields
+                            data={data}
+                            setData={(f, v) => setData(f, v)}
+                            errors={errors}
+                            idPrefix="edit_p"
+                            selectedMedal={data.medal_type}
+                        />
+                    )}
                 </form>
                 <DialogFooter>
                     <Button variant="outline" type="button" onClick={onClose}>
@@ -1488,9 +1858,17 @@ function EditParticipantDialog({
                     <Button
                         type="submit"
                         form="edit-participant-form"
-                        disabled={processing}
+                        disabled={
+                            isTeamEvent ? teamMedalProcessing : processing
+                        }
                     >
-                        {processing ? t('Saving…') : t('Save changes')}
+                        {isTeamEvent
+                            ? teamMedalProcessing
+                                ? t('Saving…')
+                                : t('Save medal')
+                            : processing
+                              ? t('Saving…')
+                              : t('Save changes')}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -1519,6 +1897,179 @@ function MedalBadge({ medal }: { medal: string | null }) {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function normalizeTeamParticipationPlayers(participation: ParticipationRow): {
+    id: number;
+    full_name: string;
+    pno: string | null;
+    photo_path: string | null;
+}[] {
+    if (participation.lineup_members.length > 0) {
+        return participation.lineup_members;
+    }
+
+    if (!participation.member) {
+        return [];
+    }
+
+    return [
+        {
+            id: participation.member.id,
+            full_name: participation.member.full_name,
+            pno: participation.member.pno,
+            photo_path: participation.member.photo_path,
+        },
+    ];
+}
+
+function resolveDisplayPlayerName(
+    row: TeamPlayerTableRow,
+    eventName: string,
+): string {
+    const normalize = (value?: string | null): string =>
+        (value ?? '').trim();
+    const normalizeForCompare = (value?: string | null): string =>
+        normalize(value).toLowerCase();
+    const isRepeated = (value: string): boolean =>
+        !value ||
+        normalizeForCompare(value) === normalizeForCompare(eventName);
+
+    const nameFromRow = normalize(row.playerName);
+    const nameFromParticipation = normalize(row.participation.member?.full_name);
+
+    if (!isRepeated(nameFromRow)) {
+        return nameFromRow;
+    }
+
+    if (!isRepeated(nameFromParticipation)) {
+        return nameFromParticipation;
+    }
+
+    return '—';
+}
+
+function mergeTeamParticipations(
+    participations: ParticipationRow[],
+): ParticipationRow[] {
+    const rowsByTeam = new Map<number, ParticipationRow>();
+    const mergedRows: ParticipationRow[] = [];
+
+    for (const participation of participations) {
+        const teamId = participation.team?.id;
+        if (teamId === null) {
+            mergedRows.push(participation);
+            continue;
+        }
+
+        const teamPlayers = normalizeTeamParticipationPlayers(participation);
+        const existing = rowsByTeam.get(teamId);
+
+        if (!existing) {
+            rowsByTeam.set(teamId, {
+                ...participation,
+                member: null,
+                lineup_members: teamPlayers,
+            });
+            mergedRows.push(rowsByTeam.get(teamId)!);
+            continue;
+        }
+
+        const playerMap = new Map<
+            number,
+            (typeof existing.lineup_members)[number]
+        >();
+        for (const player of existing.lineup_members) {
+            playerMap.set(player.id, player);
+        }
+
+        for (const player of teamPlayers) {
+            if (!playerMap.has(player.id)) {
+                playerMap.set(player.id, player);
+            }
+        }
+
+        existing.lineup_members = Array.from(playerMap.values());
+        existing.media_files_count += participation.media_files_count;
+        if (existing.position === null && participation.position !== null) {
+            existing.position = participation.position;
+        }
+        if (
+            existing.achievement === null &&
+            participation.achievement !== null
+        ) {
+            existing.achievement = participation.achievement;
+        }
+    }
+
+    return mergedRows;
+}
+
+function teamParticipationPlayerCount(participation: ParticipationRow): number {
+    return participation.lineup_members.length > 0
+        ? participation.lineup_members.length
+        : participation.member
+          ? 1
+          : 0;
+}
+
+type TeamPlayerTableRow = {
+    rowId: string;
+    participation: ParticipationRow;
+    playerId: number;
+    playerName: string;
+    playerPno: string | null;
+    playerPhotoPath: string | null;
+    teamPlayerCount: number;
+    isFirstPlayerInTeam: boolean;
+};
+
+function buildTeamDisplayRows(
+    participations: ParticipationRow[],
+): TeamPlayerTableRow[] {
+    return mergeTeamParticipations(participations).flatMap(
+        (participation): TeamPlayerTableRow[] => {
+            const players = normalizeTeamParticipationPlayers(participation);
+
+            return players.map((player, idx) => ({
+                rowId: `${participation.id}-${player.id}-${idx}`,
+                participation,
+                playerId: player.id,
+                playerName: player.full_name,
+                playerPno: player.pno,
+                playerPhotoPath: player.photo_path,
+                teamPlayerCount: players.length,
+                isFirstPlayerInTeam: idx === 0,
+            }));
+        },
+    );
+}
+
+function buildIndividualDisplayRows(
+    participations: ParticipationRow[],
+): TeamPlayerTableRow[] {
+    return participations
+        .map((participation) => {
+            if (!participation.member) {
+                return null;
+            }
+
+            return {
+                rowId: `${participation.id}-${participation.member.id}`,
+                participation,
+                playerId: participation.member.id,
+                playerName: participation.member.full_name,
+                playerPno: participation.member.pno,
+                playerPhotoPath: participation.member.photo_path,
+                teamPlayerCount: 1,
+                isFirstPlayerInTeam: true,
+            };
+        })
+        .filter((row): row is TeamPlayerTableRow => row !== null);
+}
+
+// ---------------------------------------------------------------------------
 // Participants list (deferred child)
 // ---------------------------------------------------------------------------
 
@@ -1536,10 +2087,16 @@ function ParticipantsList({
     canDelete: boolean;
 }) {
     const { t } = useTranslation();
+    type DeleteTarget = {
+        participation: ParticipationRow;
+        playerId?: number;
+        playerName?: string;
+    };
+
     const [editingParticipation, setEditingParticipation] =
         useState<ParticipationRow | null>(null);
     const [deletingParticipation, setDeletingParticipation] =
-        useState<ParticipationRow | null>(null);
+        useState<DeleteTarget | null>(null);
     const [mediaParticipation, setMediaParticipation] =
         useState<ParticipationRow | null>(null);
     const { delete: deleteParticipant, processing: deletingProcessing } =
@@ -1554,9 +2111,16 @@ function ParticipantsList({
             destroyParticipant.url({
                 tournament: tournament.id,
                 event: event.id,
-                participation: deletingParticipation.id,
+                participation: deletingParticipation.participation.id,
             }),
-            { onSuccess: () => setDeletingParticipation(null) },
+            {
+                data: deletingParticipation.playerId
+                    ? {
+                          member_id: deletingParticipation.playerId,
+                      }
+                    : undefined,
+                onSuccess: () => setDeletingParticipation(null),
+            },
         );
     }
 
@@ -1567,6 +2131,11 @@ function ParticipantsList({
             </p>
         );
     }
+
+    const displayRows =
+        event.event_type === 'team'
+            ? buildTeamDisplayRows(participations)
+            : buildIndividualDisplayRows(participations);
 
     return (
         <>
@@ -1579,9 +2148,6 @@ function ParticipantsList({
                             </TableHead>
                             <TableHead className="min-w-56 border-r border-slate-300 text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
                                 {t('Member name')}
-                            </TableHead>
-                            <TableHead className="w-36 border-r border-slate-300 text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
-                                {t('PNO')}
                             </TableHead>
                             <TableHead className="w-24 border-r border-slate-300 text-center text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
                                 {t('Position')}
@@ -1598,104 +2164,269 @@ function ParticipantsList({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {participations.map((p, idx) => (
-                            <TableRow
-                                key={p.id}
-                                className="border-b border-slate-200 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-900/60"
-                            >
+                        {displayRows.map((row, idx) => {
+                            const playerName = resolveDisplayPlayerName(
+                                row,
+                                event.name,
+                            );
+
+                            return (
+                                <TableRow
+                                    key={row.rowId}
+                                    className="border-b border-slate-200 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-900/60"
+                                >
                                 <TableCell className="border-r border-slate-200 text-center text-xs text-muted-foreground tabular-nums dark:border-slate-800">
                                     {idx + 1}
                                 </TableCell>
                                 <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
-                                    <div className="text-sm font-medium">
-                                        {p.member?.full_name ?? '—'}
+                                    <div className="flex items-start gap-2">
+                                        {row.playerPhotoPath ? (
+                                            <img
+                                                src={`/storage/${row.playerPhotoPath}`}
+                                                alt={playerName}
+                                                className="mt-0.5 h-8 w-8 rounded-full border object-cover"
+                                            />
+                                        ) : (
+                                            <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-slate-100 text-xs font-semibold text-slate-500">
+                                                {playerName
+                                                    .slice(0, 1)
+                                                    .toUpperCase()}
+                                            </span>
+                                        )}
+                                        <div>
+                                            <div className="text-sm font-medium">
+                                                {playerName}
+                                            </div>
+                                            {row.playerPno ? (
+                                                <p className="text-xs text-muted-foreground">
+                                                    {t('PNO')}: {row.playerPno}
+                                                </p>
+                                            ) : null}
+                                        </div>
                                     </div>
                                 </TableCell>
-                                <TableCell className="border-r border-slate-200 py-2 text-sm tabular-nums dark:border-slate-800">
-                                    {p.member?.pno ?? (
-                                        <span className="text-muted-foreground">
-                                            —
-                                        </span>
-                                    )}
-                                </TableCell>
-                                <TableCell className="border-r border-slate-200 py-2 text-center tabular-nums dark:border-slate-800">
-                                    {p.position ?? (
-                                        <span className="text-muted-foreground">
-                                            —
-                                        </span>
-                                    )}
-                                </TableCell>
-                                <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
-                                    <MedalBadge
-                                        medal={
-                                            p.achievement?.medal_type ?? null
-                                        }
-                                    />
-                                </TableCell>
-                                <TableCell className="max-w-[260px] border-r border-slate-200 py-2 text-sm text-muted-foreground dark:border-slate-800">
-                                    <span className="line-clamp-2">
-                                        {p.achievement?.remarks || '—'}
-                                    </span>
-                                </TableCell>
-                                <TableCell className="py-2 text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
-                                            title={t('Photos')}
-                                            onClick={() =>
-                                                setMediaParticipation(p)
-                                            }
-                                        >
-                                            {canUpload || canDelete ? (
-                                                <Camera className="h-4 w-4" />
-                                            ) : (
-                                                <Images className="h-4 w-4" />
+                                {event.event_type === 'team' ? (
+                                    row.isFirstPlayerInTeam ? (
+                                        <TableCell
+                                            rowSpan={Math.max(
+                                                row.teamPlayerCount,
+                                                1,
                                             )}
-                                            {p.media_files_count > 0 && (
-                                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
-                                                    {p.media_files_count > 9
-                                                        ? '9+'
-                                                        : p.media_files_count}
+                                            className="border-r border-slate-200 py-2 text-center tabular-nums dark:border-slate-800"
+                                        >
+                                            {row.participation.position ?? (
+                                                <span className="text-muted-foreground">
+                                                    —
                                                 </span>
                                             )}
-                                            <span className="sr-only">
-                                                {t('Photos')}
+                                        </TableCell>
+                                    ) : null
+                                ) : (
+                                    <TableCell className="border-r border-slate-200 py-2 text-center tabular-nums dark:border-slate-800">
+                                        {row.participation.position ?? (
+                                            <span className="text-muted-foreground">
+                                                —
                                             </span>
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            title={t('Edit participant')}
-                                            onClick={() =>
-                                                setEditingParticipation(p)
-                                            }
+                                        )}
+                                    </TableCell>
+                                )}
+                                {event.event_type === 'team' ? (
+                                    row.isFirstPlayerInTeam ? (
+                                        <TableCell
+                                            rowSpan={Math.max(
+                                                row.teamPlayerCount,
+                                                1,
+                                            )}
+                                            className="border-r border-slate-200 py-2 dark:border-slate-800"
                                         >
-                                            <Pencil className="h-4 w-4" />
-                                            <span className="sr-only">
-                                                {t('Edit participant')}
-                                            </span>
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-destructive hover:text-destructive"
-                                            title={t('Remove participant')}
-                                            onClick={() =>
-                                                setDeletingParticipation(p)
+                                            <MedalBadge
+                                                medal={
+                                                    row.participation
+                                                        .achievement
+                                                        ?.medal_type ?? null
+                                                }
+                                            />
+                                        </TableCell>
+                                    ) : null
+                                ) : (
+                                    <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
+                                        <MedalBadge
+                                            medal={
+                                                row.participation.achievement
+                                                    ?.medal_type ?? null
                                             }
+                                        />
+                                    </TableCell>
+                                )}
+                                {event.event_type === 'team' ? (
+                                    row.isFirstPlayerInTeam ? (
+                                        <TableCell
+                                            rowSpan={Math.max(
+                                                row.teamPlayerCount,
+                                                1,
+                                            )}
+                                            className="max-w-[260px] border-r border-slate-200 py-2 text-sm text-muted-foreground dark:border-slate-800"
                                         >
-                                            <Trash2 className="h-4 w-4" />
-                                            <span className="sr-only">
-                                                {t('Remove participant')}
+                                            <span className="line-clamp-2">
+                                                {row.participation.achievement
+                                                    ?.remarks || '—'}
                                             </span>
-                                        </Button>
-                                    </div>
-                                </TableCell>
+                                        </TableCell>
+                                    ) : null
+                                ) : (
+                                    <TableCell className="max-w-[260px] border-r border-slate-200 py-2 text-sm text-muted-foreground dark:border-slate-800">
+                                        <span className="line-clamp-2">
+                                            {row.participation.achievement
+                                                ?.remarks || '—'}
+                                        </span>
+                                    </TableCell>
+                                )}
+                                {event.event_type === 'team' ? (
+                                    <TableCell className="py-2 text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                title={t('Photos')}
+                                                onClick={() =>
+                                                    setMediaParticipation(
+                                                        row.participation,
+                                                    )
+                                                }
+                                            >
+                                                {canUpload || canDelete ? (
+                                                    <Camera className="h-4 w-4" />
+                                                ) : (
+                                                    <Images className="h-4 w-4" />
+                                                )}
+                                                {row.participation
+                                                    .media_files_count > 0 && (
+                                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
+                                                        {row.participation
+                                                            .media_files_count >
+                                                        9
+                                                            ? '9+'
+                                                            : row.participation
+                                                                  .media_files_count}
+                                                    </span>
+                                                )}
+                                                <span className="sr-only">
+                                                    {t('Photos')}
+                                                </span>
+                                            </Button>
+                                            {row.isFirstPlayerInTeam ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    title={t('Edit medal')}
+                                                    onClick={() =>
+                                                        setEditingParticipation(
+                                                            row.participation,
+                                                        )
+                                                    }
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                    <span className="sr-only">
+                                                        {t('Edit medal')}
+                                                    </span>
+                                                </Button>
+                                            ) : null}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                                title={t('Remove participant')}
+                                                onClick={() =>
+                                                    setDeletingParticipation({
+                                                        participation:
+                                                            row.participation,
+                                                        playerId: row.playerId,
+                                                        playerName,
+                                                    })
+                                                }
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                <span className="sr-only">
+                                                    {t('Remove participant')}
+                                                </span>
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                ) : (
+                                    <TableCell className="py-2 text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                title={t('Photos')}
+                                                onClick={() =>
+                                                    setMediaParticipation(
+                                                        row.participation,
+                                                    )
+                                                }
+                                            >
+                                                {canUpload || canDelete ? (
+                                                    <Camera className="h-4 w-4" />
+                                                ) : (
+                                                    <Images className="h-4 w-4" />
+                                                )}
+                                                {row.participation
+                                                    .media_files_count > 0 && (
+                                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
+                                                        {row.participation
+                                                            .media_files_count >
+                                                        9
+                                                            ? '9+'
+                                                            : row.participation
+                                                                  .media_files_count}
+                                                    </span>
+                                                )}
+                                                <span className="sr-only">
+                                                    {t('Photos')}
+                                                </span>
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                title={t('Edit participant')}
+                                                onClick={() =>
+                                                    setEditingParticipation(
+                                                        row.participation,
+                                                    )
+                                                }
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                                <span className="sr-only">
+                                                    {t('Edit participant')}
+                                                </span>
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                                title={t('Remove participant')}
+                                                onClick={() =>
+                                                    setDeletingParticipation({
+                                                        participation:
+                                                            row.participation,
+                                                    })
+                                                }
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                <span className="sr-only">
+                                                    {t('Remove participant')}
+                                                </span>
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                )}
                             </TableRow>
-                        ))}
+                        );
+                        })}
                     </TableBody>
                 </Table>
             </div>
@@ -1716,7 +2447,12 @@ function ParticipantsList({
                 }}
                 title={t('Remove participant')}
                 description={t(
-                    'This will permanently delete the participation and any medal record. This action cannot be undone.',
+                    deletingParticipation?.playerId
+                        ? 'This will remove :name from this team lineup. The team participation will stay for the remaining players.'
+                        : 'This will permanently delete the participation and any medal record. This action cannot be undone.',
+                ).replace(
+                    ':name',
+                    deletingParticipation?.playerName ?? t('this participant'),
                 )}
                 confirmLabel={t('Remove')}
                 onConfirm={handleDelete}
@@ -1725,7 +2461,11 @@ function ParticipantsList({
             {mediaParticipation && (
                 <ParticipationMediaSheet
                     participationId={mediaParticipation.id}
-                    memberName={mediaParticipation.member?.full_name ?? ''}
+                    memberName={
+                        mediaParticipation.member?.full_name ??
+                        mediaParticipation.team?.name ??
+                        ''
+                    }
                     open={mediaParticipation !== null}
                     onOpenChange={(o) => {
                         if (!o) {
@@ -1788,7 +2528,22 @@ export default function EventsShow({
         ],
     });
 
-    const participantCount = participations?.length ?? 0;
+    const normalizedParticipations =
+        event.event_type === 'team'
+            ? mergeTeamParticipations(participations ?? [])
+            : (participations ?? []);
+
+    const participantCount =
+        normalizedParticipations.reduce(
+            (total, participation) =>
+                total +
+                (event.event_type === 'team'
+                    ? teamParticipationPlayerCount(participation)
+                    : participation.member
+                      ? 1
+                      : 0),
+            0,
+        ) ?? 0;
 
     return (
         <>
@@ -1832,11 +2587,23 @@ export default function EventsShow({
                                         {event.discipline}
                                     </Badge>
                                 )}
+                                <Badge variant="outline">
+                                    {event.event_type === 'team'
+                                        ? t('Team event')
+                                        : t('Individual event')}
+                                </Badge>
                                 {event.weight_category && (
                                     <Badge variant="outline">
                                         {event.weight_category}
                                     </Badge>
                                 )}
+                                {event.participants_required ? (
+                                    <Badge variant="outline">
+                                        {event.event_type === 'team'
+                                            ? `${t('Players per team')}: ${event.participants_required}`
+                                            : `${t('Participants')}: ${event.participants_required}`}
+                                    </Badge>
+                                ) : null}
                             </div>
                         </div>
                         <div className="flex shrink-0 gap-2">
@@ -1902,7 +2669,7 @@ export default function EventsShow({
                         }
                     >
                         <ParticipantsList
-                            participations={participations ?? []}
+                            participations={normalizedParticipations}
                             tournament={tournament}
                             event={event}
                             canUpload={canUploadMedia}

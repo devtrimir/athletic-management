@@ -10,7 +10,11 @@ import {
     CommandItem,
     CommandList,
 } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
@@ -46,7 +50,11 @@ function searchableText(value: string): string {
         .trim();
 }
 
-function matchesSearch(value: string, search: string, keywords?: string[]): number {
+function matchesSearch(
+    value: string,
+    search: string,
+    keywords?: string[],
+): number {
     const haystack = searchableText([value, ...(keywords ?? [])].join(' '));
     const needle = searchableText(search);
 
@@ -106,49 +114,72 @@ export function Combobox({
                     aria-expanded={open}
                     disabled={disabled}
                     className={cn(
-                        'border-input h-9 w-full min-w-0 justify-between px-3 font-normal',
+                        'h-9 w-full min-w-0 justify-between border-input px-3 font-normal',
                         !selected && 'text-muted-foreground',
                         className,
                     )}
                 >
                     <span className="min-w-0 flex-1 truncate text-left">
-                        {selected?.label ?? (placeholder ?? t('Select…'))}
+                        {selected?.label ?? placeholder ?? t('Select…')}
                     </span>
                     <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
             <PopoverContent
-                className={cn('w-[--radix-popover-trigger-width] p-0', popoverClassName)}
+                className={cn(
+                    'w-[--radix-popover-trigger-width] p-0',
+                    popoverClassName,
+                )}
                 align="start"
             >
                 <Command filter={matchesSearch}>
-                    <CommandInput placeholder={searchPlaceholder ?? t('Search…')} />
+                    <CommandInput
+                        placeholder={searchPlaceholder ?? t('Search…')}
+                    />
                     <CommandList className="max-h-96">
-                        <CommandEmpty>{emptyMessage ?? t('No results.')}</CommandEmpty>
+                        <CommandEmpty>
+                            {emptyMessage ?? t('No results.')}
+                        </CommandEmpty>
                         {groupedItems.map(([group, groupItems]) => (
-                            <CommandGroup key={group || 'default'} heading={group || undefined}>
+                            <CommandGroup
+                                key={group || 'default'}
+                                heading={group || undefined}
+                            >
                                 {groupItems.map((item) => (
                                     <CommandItem
                                         key={item.value}
                                         className="items-start gap-3 border-b py-2.5 last:border-b-0"
                                         value={item.value}
-                                        keywords={[item.group, item.label, item.badge, item.description].filter(Boolean) as string[]}
+                                        keywords={
+                                            [
+                                                item.group,
+                                                item.label,
+                                                item.badge,
+                                                item.description,
+                                            ].filter(Boolean) as string[]
+                                        }
                                         onSelect={() => {
-                                            onValueChange(item.value === value ? '' : item.value);
+                                            onValueChange(
+                                                item.value === value
+                                                    ? ''
+                                                    : item.value,
+                                            );
                                             setOpen(false);
                                         }}
                                     >
                                         <div className="flex min-w-0 flex-1 items-start gap-2">
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex min-w-0 items-center gap-2">
-                                                    <span className="min-w-0 font-medium leading-snug">
+                                                    <span className="min-w-0 leading-snug font-medium">
                                                         {item.label}
                                                     </span>
                                                     {item.badge ? (
                                                         <span
                                                             className={cn(
-                                                                'shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none',
-                                                                badgeClassName(item.badgeTone),
+                                                                'shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium',
+                                                                badgeClassName(
+                                                                    item.badgeTone,
+                                                                ),
                                                             )}
                                                         >
                                                             {item.badge}
@@ -156,7 +187,7 @@ export function Combobox({
                                                     ) : null}
                                                 </div>
                                                 {item.description ? (
-                                                    <p className="mt-1 whitespace-normal text-xs leading-5 text-muted-foreground">
+                                                    <p className="mt-1 text-xs leading-5 whitespace-normal text-muted-foreground">
                                                         {item.description}
                                                     </p>
                                                 ) : null}
@@ -165,7 +196,9 @@ export function Combobox({
                                         <CheckIcon
                                             className={cn(
                                                 'ml-auto size-4',
-                                                value === item.value ? 'opacity-100' : 'opacity-0',
+                                                value === item.value
+                                                    ? 'opacity-100'
+                                                    : 'opacity-0',
                                             )}
                                         />
                                     </CommandItem>
