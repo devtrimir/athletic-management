@@ -1,8 +1,26 @@
-import { Camera, CheckCircle2, Images, Loader2, Plus, Trash2, XCircle } from 'lucide-react';
+import {
+    Camera,
+    CheckCircle2,
+    Images,
+    Loader2,
+    Plus,
+    Trash2,
+    XCircle,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { destroy as destroyMedia, index as indexMedia, store as storeMedia } from '@/actions/App/Http/Controllers/MediaFileController';
+import {
+    destroy as destroyMedia,
+    index as indexMedia,
+    store as storeMedia,
+} from '@/actions/App/Http/Controllers/MediaFileController';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { useTranslation } from '@/hooks/use-translation';
 import { Lightbox } from './media-lightbox';
 
@@ -35,7 +53,10 @@ type Props = {
 // ---------------------------------------------------------------------------
 
 function getCsrfToken(): string {
-    return (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '';
+    return (
+        (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)
+            ?.content ?? ''
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -68,32 +89,53 @@ function UploadQueue({
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
-                    const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
-                    setItems((prev) => prev.map((i) => (i.localId === localId ? { ...i, progress: pct } : i)));
+                    const pct = Math.min(
+                        99,
+                        Math.round((e.loaded / e.total) * 100),
+                    );
+                    setItems((prev) =>
+                        prev.map((i) =>
+                            i.localId === localId ? { ...i, progress: pct } : i,
+                        ),
+                    );
                 }
             };
 
             xhr.onload = () => {
                 if (xhr.status === 200 || xhr.status === 201) {
-                    const json = JSON.parse(xhr.responseText) as { data: MediaFile } | MediaFile;
+                    const json = JSON.parse(xhr.responseText) as
+                        | { data: MediaFile }
+                        | MediaFile;
                     const data = 'data' in json ? json.data : json;
                     setItems((prev) =>
-                        prev.map((i) => (i.localId === localId ? { ...i, status: 'done', progress: 100 } : i)),
+                        prev.map((i) =>
+                            i.localId === localId
+                                ? { ...i, status: 'done', progress: 100 }
+                                : i,
+                        ),
                     );
                     onUploaded(data);
                 } else {
                     let msg = t('Upload failed.');
 
                     try {
-                        const body = JSON.parse(xhr.responseText) as { message?: string };
+                        const body = JSON.parse(xhr.responseText) as {
+                            message?: string;
+                        };
 
                         if (body.message) {
-msg = body.message;
-}
-                    } catch { /* ignore parse errors */ }
+                            msg = body.message;
+                        }
+                    } catch {
+                        /* ignore parse errors */
+                    }
 
                     setItems((prev) =>
-                        prev.map((i) => (i.localId === localId ? { ...i, status: 'error', error: msg } : i)),
+                        prev.map((i) =>
+                            i.localId === localId
+                                ? { ...i, status: 'error', error: msg }
+                                : i,
+                        ),
                     );
                 }
             };
@@ -101,7 +143,13 @@ msg = body.message;
             xhr.onerror = () => {
                 setItems((prev) =>
                     prev.map((i) =>
-                        i.localId === localId ? { ...i, status: 'error', error: t('Upload failed.') } : i,
+                        i.localId === localId
+                            ? {
+                                  ...i,
+                                  status: 'error',
+                                  error: t('Upload failed.'),
+                              }
+                            : i,
                     ),
                 );
             };
@@ -118,26 +166,30 @@ msg = body.message;
     const addFiles = useCallback(
         (files: FileList | null) => {
             if (!files) {
-return;
-}
+                return;
+            }
 
             const MAX_BYTES = 10 * 1024 * 1024;
             const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
             Array.from(files).forEach((file) => {
                 if (!ALLOWED.includes(file.type) || file.size > MAX_BYTES) {
-return;
-}
+                    return;
+                }
 
-                const localId = (typeof crypto !== 'undefined' && crypto.randomUUID)
-                    ? crypto.randomUUID()
-                    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-                setItems((prev) => [...prev, { localId, file, progress: 0, status: 'uploading' }]);
+                const localId =
+                    typeof crypto !== 'undefined' && crypto.randomUUID
+                        ? crypto.randomUUID()
+                        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                setItems((prev) => [
+                    ...prev,
+                    { localId, file, progress: 0, status: 'uploading' },
+                ]);
                 startUpload(localId, file);
             });
 
             if (inputRef.current) {
-inputRef.current.value = '';
-}
+                inputRef.current.value = '';
+            }
         },
         [startUpload],
     );
@@ -153,7 +205,9 @@ inputRef.current.value = '';
                 role="button"
                 tabIndex={0}
                 onClick={() => inputRef.current?.click()}
-                onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+                onKeyDown={(e) =>
+                    e.key === 'Enter' && inputRef.current?.click()
+                }
                 onDragOver={(e) => {
                     e.preventDefault();
                     setDragOver(true);
@@ -164,15 +218,19 @@ inputRef.current.value = '';
                     setDragOver(false);
                     addFiles(e.dataTransfer.files);
                 }}
-                className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed py-5 transition-colors cursor-pointer select-none ${
+                className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed py-5 transition-colors select-none ${
                     dragOver
                         ? 'border-primary bg-primary/5'
                         : 'border-input hover:border-muted-foreground/50 hover:bg-muted/30'
                 }`}
             >
                 <Plus className="size-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{t('Add photos')}</span>
-                <span className="text-xs text-muted-foreground/60">— {t('JPEG, PNG, WebP — max 10 MB')}</span>
+                <span className="text-sm text-muted-foreground">
+                    {t('Add photos')}
+                </span>
+                <span className="text-xs text-muted-foreground/60">
+                    — {t('JPEG, PNG, WebP — max 10 MB')}
+                </span>
             </div>
 
             <input
@@ -205,20 +263,28 @@ inputRef.current.value = '';
 
                             {/* Filename + progress */}
                             <div className="min-w-0 flex-1 space-y-1">
-                                <p className="truncate text-xs font-medium">{item.file.name}</p>
+                                <p className="truncate text-xs font-medium">
+                                    {item.file.name}
+                                </p>
                                 {item.status === 'uploading' && (
                                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                                         <div
                                             className="h-full rounded-full bg-primary transition-all duration-150"
-                                            style={{ width: `${item.progress}%` }}
+                                            style={{
+                                                width: `${item.progress}%`,
+                                            }}
                                         />
                                     </div>
                                 )}
                                 {item.status === 'done' && (
-                                    <p className="text-[11px] text-green-600">{t('Upload complete')}</p>
+                                    <p className="text-[11px] text-green-600">
+                                        {t('Upload complete')}
+                                    </p>
                                 )}
                                 {item.status === 'error' && item.error && (
-                                    <p className="text-[11px] text-destructive">{item.error}</p>
+                                    <p className="text-[11px] text-destructive">
+                                        {item.error}
+                                    </p>
                                 )}
                             </div>
 
@@ -262,8 +328,8 @@ export function ParticipationMediaSheet({
     // Fetch existing media when sheet opens
     useEffect(() => {
         if (!open) {
-return;
-}
+            return;
+        }
 
         let cancelled = false;
         fetch(indexMedia.url(participationId), {
@@ -297,7 +363,10 @@ return;
 
         try {
             const res = await fetch(
-                destroyMedia.url({ participation: participationId, mediaFile: mediaFileId }),
+                destroyMedia.url({
+                    participation: participationId,
+                    mediaFile: mediaFileId,
+                }),
                 {
                     method: 'DELETE',
                     headers: { 'X-CSRF-TOKEN': getCsrfToken() },
@@ -306,7 +375,9 @@ return;
             );
 
             if (res.ok || res.status === 204) {
-                setMedia((prev) => (prev ?? []).filter((f) => f.id !== mediaFileId));
+                setMedia((prev) =>
+                    (prev ?? []).filter((f) => f.id !== mediaFileId),
+                );
             }
         } finally {
             setDeleting(null);
@@ -316,10 +387,14 @@ return;
     return (
         <>
             <Sheet open={open} onOpenChange={onOpenChange}>
-                <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+                <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
                     <SheetHeader>
                         <SheetTitle className="flex items-center gap-2">
-                            {canUpload ? <Camera className="size-4" /> : <Images className="size-4" />}
+                            {canUpload ? (
+                                <Camera className="size-4" />
+                            ) : (
+                                <Images className="size-4" />
+                            )}
                             {t('Photos')}
                         </SheetTitle>
                         <SheetDescription>{memberName}</SheetDescription>
@@ -327,7 +402,10 @@ return;
 
                     <div className="mt-6 space-y-6">
                         {canUpload && (
-                            <UploadQueue participationId={participationId} onUploaded={handleUploaded} />
+                            <UploadQueue
+                                participationId={participationId}
+                                onUploaded={handleUploaded}
+                            />
                         )}
 
                         {/* Gallery */}
@@ -338,7 +416,9 @@ return;
                         ) : media.length === 0 ? (
                             <div className="flex flex-col items-center gap-2 py-12 text-center">
                                 <Camera className="size-10 text-muted-foreground/40" />
-                                <p className="text-sm text-muted-foreground">{t('No photos yet.')}</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {t('No photos yet.')}
+                                </p>
                             </div>
                         ) : (
                             <>
@@ -353,24 +433,37 @@ return;
                                         >
                                             <img
                                                 src={file.url}
-                                                alt={file.caption ?? file.original_name}
+                                                alt={
+                                                    file.caption ??
+                                                    file.original_name
+                                                }
                                                 className="size-full cursor-pointer object-cover transition-opacity group-hover:opacity-80"
-                                                onClick={() => setLightboxIdx(idx)}
+                                                onClick={() =>
+                                                    setLightboxIdx(idx)
+                                                }
                                             />
                                             {canDelete && (
                                                 <Button
                                                     variant="destructive"
                                                     size="icon"
-                                                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    disabled={deleting === file.id}
-                                                    onClick={() => void handleDelete(file.id)}
+                                                    className="absolute top-1 right-1 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+                                                    disabled={
+                                                        deleting === file.id
+                                                    }
+                                                    onClick={() =>
+                                                        void handleDelete(
+                                                            file.id,
+                                                        )
+                                                    }
                                                 >
                                                     <Trash2 className="size-3" />
                                                 </Button>
                                             )}
                                             {file.caption && (
-                                                <div className="absolute bottom-0 inset-x-0 bg-black/60 px-2 py-1">
-                                                    <p className="text-[10px] text-white truncate">{file.caption}</p>
+                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1">
+                                                    <p className="truncate text-[10px] text-white">
+                                                        {file.caption}
+                                                    </p>
                                                 </div>
                                             )}
                                         </div>
@@ -383,7 +476,11 @@ return;
             </Sheet>
 
             {lightboxIdx !== null && (
-                <Lightbox files={media ?? []} index={lightboxIdx} onClose={() => setLightboxIdx(null)} />
+                <Lightbox
+                    files={media ?? []}
+                    index={lightboxIdx}
+                    onClose={() => setLightboxIdx(null)}
+                />
             )}
         </>
     );

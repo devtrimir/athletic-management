@@ -24,10 +24,13 @@ export default function Create() {
                     description={t('Add a new sport session year')}
                 />
 
-                <Form {...SportSessionController.store.form()} className="max-w-xl space-y-6">
+                <Form
+                    {...SportSessionController.store.form()}
+                    className="max-w-xl space-y-6"
+                >
                     {({ processing, errors }) => (
                         <>
-                            <div className="rounded-xl border bg-card p-6 space-y-5">
+                            <div className="space-y-5 rounded-xl border bg-card p-6">
                                 <div className="grid gap-2">
                                     <Label htmlFor="name">{t('Name')}</Label>
                                     <Input
@@ -42,7 +45,9 @@ export default function Create() {
 
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="start_year">{t('Start year')}</Label>
+                                        <Label htmlFor="start_year">
+                                            {t('Start year')}
+                                        </Label>
                                         <Input
                                             id="start_year"
                                             name="start_year"
@@ -51,11 +56,15 @@ export default function Create() {
                                             max={2100}
                                             required
                                         />
-                                        <InputError message={errors.start_year} />
+                                        <InputError
+                                            message={errors.start_year}
+                                        />
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="end_year">{t('End year')}</Label>
+                                        <Label htmlFor="end_year">
+                                            {t('End year')}
+                                        </Label>
                                         <Input
                                             id="end_year"
                                             name="end_year"
@@ -69,19 +78,37 @@ export default function Create() {
                                 </div>
 
                                 <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                                    <Checkbox id="is_current" name="is_current" />
+                                    <Checkbox
+                                        id="is_current"
+                                        name="is_current"
+                                    />
                                     <div>
-                                        <Label htmlFor="is_current" className="cursor-pointer">{t('Mark as current session')}</Label>
-                                        <p className="text-xs text-muted-foreground">{t('Only one session can be current at a time.')}</p>
+                                        <Label
+                                            htmlFor="is_current"
+                                            className="cursor-pointer"
+                                        >
+                                            {t('Mark as current session')}
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                'Only one session can be current at a time.',
+                                            )}
+                                        </p>
                                     </div>
                                     <InputError message={errors.is_current} />
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button disabled={processing}>{t('Create session')}</Button>
+                                <Button disabled={processing}>
+                                    {t('Create session')}
+                                </Button>
                                 <Button variant="outline" asChild>
-                                    <Link href={SportSessionController.index.url()}>{t('Cancel')}</Link>
+                                    <Link
+                                        href={SportSessionController.index.url()}
+                                    >
+                                        {t('Cancel')}
+                                    </Link>
                                 </Button>
                             </div>
                         </>

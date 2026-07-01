@@ -372,7 +372,9 @@ function SpecialAchievementDialog({
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <InputError message={visibleErrors.achievement_type} />
+                            <InputError
+                                message={visibleErrors.achievement_type}
+                            />
                         </div>
 
                         <div className="grid min-w-0 gap-2">
@@ -403,7 +405,8 @@ function SpecialAchievementDialog({
                         <Label
                             htmlFor={`special-achievement-title-${row?.id ?? 'new'}`}
                         >
-                            {t('Title')} <span className="text-destructive">*</span>
+                            {t('Title')}{' '}
+                            <span className="text-destructive">*</span>
                         </Label>
                         <Input
                             id={`special-achievement-title-${row?.id ?? 'new'}`}
@@ -456,7 +459,9 @@ function SpecialAchievementDialog({
                                 }}
                                 maxLength={100}
                             />
-                            <InputError message={visibleErrors.order_reference} />
+                            <InputError
+                                message={visibleErrors.order_reference}
+                            />
                         </div>
                     </div>
 
@@ -467,13 +472,15 @@ function SpecialAchievementDialog({
                                 <Upload className="size-4" />
                             </span>
                             <span className="min-w-0 flex-1">
-                                <span className="block break-words text-sm font-medium">
+                                <span className="block text-sm font-medium break-words">
                                     {selectedDocumentName ??
                                         row?.order_document?.original_name ??
                                         t('Upload order document')}
                                 </span>
-                                <span className="mt-1 block break-words text-xs text-muted-foreground">
-                                    {t('PDF, JPG, PNG, or WEBP. Stored privately and available only to authorized users.')}
+                                <span className="mt-1 block text-xs break-words text-muted-foreground">
+                                    {t(
+                                        'PDF, JPG, PNG, or WEBP. Stored privately and available only to authorized users.',
+                                    )}
                                 </span>
                             </span>
                             <Input
@@ -571,7 +578,9 @@ export function SpecialAchievementsTab({
                                 {t('Special achievements')}
                             </h3>
                             <p className="text-xs text-muted-foreground">
-                                {t('Standalone departmental recognitions, separate from medals and legacy achievements.')}
+                                {t(
+                                    'Standalone departmental recognitions, separate from medals and legacy achievements.',
+                                )}
                             </p>
                         </div>
                     </div>
@@ -600,11 +609,13 @@ export function SpecialAchievementsTab({
             <div className="rounded-xl border bg-card">
                 <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
                     <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-semibold leading-none">
+                        <h3 className="text-sm leading-none font-semibold">
                             {t('Recognition records')}
                         </h3>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            {t('Track the order, authority, place, and protected document for each recognition.')}
+                            {t(
+                                'Track the order, authority, place, and protected document for each recognition.',
+                            )}
                         </p>
                     </div>
                 </div>
@@ -618,7 +629,9 @@ export function SpecialAchievementsTab({
                             {t('No special achievements recorded')}
                         </h4>
                         <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                            {t('Add commendation discs, appreciation letters, honour certificates, or other standalone recognitions here.')}
+                            {t(
+                                'Add commendation discs, appreciation letters, honour certificates, or other standalone recognitions here.',
+                            )}
                         </p>
                         <div className="mt-5">
                             <SpecialAchievementDialog member={member} />
@@ -633,18 +646,27 @@ export function SpecialAchievementsTab({
                             >
                                 <div className="min-w-0 space-y-3">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <Badge variant="outline" className="gap-1.5">
+                                        <Badge
+                                            variant="outline"
+                                            className="gap-1.5"
+                                        >
                                             <Award className="size-3.5" />
                                             {typeLabel(row.achievement_type, t)}
                                         </Badge>
                                         {row.place ? (
-                                            <Badge variant="secondary" className="gap-1.5">
+                                            <Badge
+                                                variant="secondary"
+                                                className="gap-1.5"
+                                            >
                                                 <MapPin className="size-3" />
                                                 {row.place}
                                             </Badge>
                                         ) : null}
                                         {row.order_document ? (
-                                            <Badge variant="secondary" className="gap-1.5">
+                                            <Badge
+                                                variant="secondary"
+                                                className="gap-1.5"
+                                            >
                                                 <ShieldCheck className="size-3" />
                                                 {t('Private document')}
                                             </Badge>
@@ -652,7 +674,7 @@ export function SpecialAchievementsTab({
                                     </div>
 
                                     <div>
-                                        <h4 className="text-base font-semibold leading-6">
+                                        <h4 className="text-base leading-6 font-semibold">
                                             {row.title}
                                         </h4>
                                         {row.remarks ? (
@@ -669,7 +691,9 @@ export function SpecialAchievementsTab({
                                                 <div className="text-xs font-medium text-muted-foreground">
                                                     {t('Award date')}
                                                 </div>
-                                                <div>{formatDate(row.awarded_on)}</div>
+                                                <div>
+                                                    {formatDate(row.awarded_on)}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
@@ -679,7 +703,8 @@ export function SpecialAchievementsTab({
                                                     {t('Authority')}
                                                 </div>
                                                 <div className="truncate">
-                                                    {row.issuing_authority ?? '—'}
+                                                    {row.issuing_authority ??
+                                                        '—'}
                                                 </div>
                                             </div>
                                         </div>
@@ -702,14 +727,17 @@ export function SpecialAchievementsTab({
                                                 </div>
                                                 <div className="truncate">
                                                     {row.order_document
-                                                        ? (row.order_document.original_name ??
-                                                            t('Attached'))
+                                                        ? (row.order_document
+                                                              .original_name ??
+                                                          t('Attached'))
                                                         : '—'}
                                                 </div>
-                                                {row.order_document?.size_bytes ? (
+                                                {row.order_document
+                                                    ?.size_bytes ? (
                                                     <div className="text-xs text-muted-foreground">
                                                         {fileSizeLabel(
-                                                            row.order_document.size_bytes,
+                                                            row.order_document
+                                                                .size_bytes,
                                                         )}
                                                     </div>
                                                 ) : null}
@@ -728,7 +756,10 @@ export function SpecialAchievementsTab({
                                             )}
                                         />
                                     ) : null}
-                                    <SpecialAchievementDialog member={member} row={row} />
+                                    <SpecialAchievementDialog
+                                        member={member}
+                                        row={row}
+                                    />
                                     <Button
                                         size="icon"
                                         variant="ghost"
@@ -747,7 +778,9 @@ export function SpecialAchievementsTab({
                                         }
                                     >
                                         <Trash2 className="size-4" />
-                                        <span className="sr-only">{t('Delete')}</span>
+                                        <span className="sr-only">
+                                            {t('Delete')}
+                                        </span>
                                     </Button>
                                 </div>
                             </div>

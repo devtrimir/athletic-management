@@ -1,5 +1,13 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Dumbbell, History, Save, Star, TrendingUp, UserRound } from 'lucide-react';
+import {
+    ArrowLeft,
+    Dumbbell,
+    History,
+    Save,
+    Star,
+    TrendingUp,
+    UserRound,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import type { ComboboxItem } from '@/components/combobox';
@@ -50,9 +58,13 @@ export default function ExternalCoachPerformanceIndex({
     performanceLevels,
 }: Props) {
     const { t } = useTranslation();
-    const [assignmentId, setAssignmentId] = useState(selectedAssignmentId ?? '');
+    const [assignmentId, setAssignmentId] = useState(
+        selectedAssignmentId ?? '',
+    );
     const [updateDate, setUpdateDate] = useState(todayIsoDate());
-    const selectedAssignment = assignments.find((assignment) => String(assignment.id) === assignmentId);
+    const selectedAssignment = assignments.find(
+        (assignment) => String(assignment.id) === assignmentId,
+    );
     const assignmentItems: ComboboxItem[] = assignments.map((assignment) => ({
         value: String(assignment.id),
         label: assignment.member.full_name,
@@ -65,12 +77,12 @@ export default function ExternalCoachPerformanceIndex({
             <Head title={t('Performance updates')} />
 
             <main className="min-h-screen overflow-x-hidden bg-muted/20">
-                <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-4 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:py-8">
+                <div className="mx-auto grid w-full max-w-6xl min-w-0 gap-4 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:py-8">
                     <section className="min-w-0 space-y-4 sm:space-y-5">
                         <header className="rounded-lg border bg-card px-4 py-4 shadow-sm sm:px-5">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-normal text-muted-foreground">
+                                    <div className="flex items-center gap-2 text-xs font-medium tracking-normal text-muted-foreground uppercase">
                                         <TrendingUp className="size-3.5" />
                                         {t('External training portal')}
                                     </div>
@@ -78,11 +90,17 @@ export default function ExternalCoachPerformanceIndex({
                                         {t('Performance updates')}
                                     </h1>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                        {t('Record training progress for assigned athletes and keep updates ready for review.')}
+                                        {t(
+                                            'Record training progress for assigned athletes and keep updates ready for review.',
+                                        )}
                                     </p>
                                 </div>
 
-                                <Button asChild variant="outline" className="w-full sm:w-auto">
+                                <Button
+                                    asChild
+                                    variant="outline"
+                                    className="w-full sm:w-auto"
+                                >
                                     <Link href="/external-coach/dashboard">
                                         <ArrowLeft className="size-4" />
                                         {t('Dashboard')}
@@ -91,21 +109,34 @@ export default function ExternalCoachPerformanceIndex({
                             </div>
                         </header>
 
-                        <SelectedAssignmentPanel assignment={selectedAssignment} />
+                        <SelectedAssignmentPanel
+                            assignment={selectedAssignment}
+                        />
 
                         <section className="hidden rounded-lg border bg-card shadow-sm lg:block">
                             <div className="flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-5">
                                 <div>
-                                    <h2 className="text-sm font-semibold">{t('Recent updates')}</h2>
-                                    <p className="text-xs text-muted-foreground">{t('Latest submitted performance notes from this portal.')}</p>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Recent updates')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Latest submitted performance notes from this portal.',
+                                        )}
+                                    </p>
                                 </div>
-                                <Badge variant="secondary">{updates.length}</Badge>
+                                <Badge variant="secondary">
+                                    {updates.length}
+                                </Badge>
                             </div>
 
                             {updates.length > 0 ? (
                                 <div className="divide-y">
                                     {updates.map((update) => (
-                                        <UpdateRow key={update.id} update={update} />
+                                        <UpdateRow
+                                            key={update.id}
+                                            update={update}
+                                        />
                                     ))}
                                 </div>
                             ) : (
@@ -113,9 +144,13 @@ export default function ExternalCoachPerformanceIndex({
                                     <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
                                         <History className="size-5" />
                                     </div>
-                                    <h3 className="mt-3 text-sm font-medium">{t('No performance updates yet')}</h3>
+                                    <h3 className="mt-3 text-sm font-medium">
+                                        {t('No performance updates yet')}
+                                    </h3>
                                     <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-                                        {t('Submitted progress updates will appear here after you save them.')}
+                                        {t(
+                                            'Submitted progress updates will appear here after you save them.',
+                                        )}
                                     </p>
                                 </div>
                             )}
@@ -130,31 +165,57 @@ export default function ExternalCoachPerformanceIndex({
                         {({ errors, processing }) => (
                             <>
                                 <div className="border-b pb-4">
-                                    <h2 className="text-sm font-semibold">{t('Submit update')}</h2>
-                                    <p className="text-xs text-muted-foreground">{t('Choose an assigned athlete and record the current training progress.')}</p>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Submit update')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Choose an assigned athlete and record the current training progress.',
+                                        )}
+                                    </p>
                                 </div>
 
                                 <div className="grid gap-2">
                                     <Label htmlFor="external_coaching_assignment_id">
                                         {t('Assigned athlete')}
                                     </Label>
-                                    <input type="hidden" name="external_coaching_assignment_id" value={assignmentId} />
+                                    <input
+                                        type="hidden"
+                                        name="external_coaching_assignment_id"
+                                        value={assignmentId}
+                                    />
                                     <Combobox
                                         id="external_coaching_assignment_id"
                                         value={assignmentId}
                                         onValueChange={setAssignmentId}
                                         items={assignmentItems}
-                                        placeholder={t('Search assigned athlete')}
-                                        searchPlaceholder={t('Search by athlete, PNO, or sport')}
-                                        emptyMessage={t('No assigned athlete found.')}
+                                        placeholder={t(
+                                            'Search assigned athlete',
+                                        )}
+                                        searchPlaceholder={t(
+                                            'Search by athlete, PNO, or sport',
+                                        )}
+                                        emptyMessage={t(
+                                            'No assigned athlete found.',
+                                        )}
                                     />
-                                    <InputError message={errors.external_coaching_assignment_id} />
+                                    <InputError
+                                        message={
+                                            errors.external_coaching_assignment_id
+                                        }
+                                    />
                                 </div>
 
                                 <div className="grid gap-4">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="update_date">{t('Date')}</Label>
-                                        <input type="hidden" name="update_date" value={updateDate} />
+                                        <Label htmlFor="update_date">
+                                            {t('Date')}
+                                        </Label>
+                                        <input
+                                            type="hidden"
+                                            name="update_date"
+                                            value={updateDate}
+                                        />
                                         <div className="grid min-w-0 gap-2">
                                             <DatePicker
                                                 id="update_date"
@@ -163,57 +224,131 @@ export default function ExternalCoachPerformanceIndex({
                                                 placeholder={t('Select date')}
                                                 className="min-w-0 flex-1"
                                             />
-                                            <Button type="button" variant="outline" onClick={() => setUpdateDate(todayIsoDate())} className="w-full">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() =>
+                                                    setUpdateDate(
+                                                        todayIsoDate(),
+                                                    )
+                                                }
+                                                className="w-full"
+                                            >
                                                 {t('Today')}
                                             </Button>
                                         </div>
-                                        <InputError message={errors.update_date} />
+                                        <InputError
+                                            message={errors.update_date}
+                                        />
                                     </div>
 
                                     <div className="grid gap-2 sm:max-w-40">
-                                        <Label htmlFor="performance_score">{t('Score')}</Label>
+                                        <Label htmlFor="performance_score">
+                                            {t('Score')}
+                                        </Label>
                                         <div className="relative">
-                                            <Input id="performance_score" name="performance_score" type="number" min="1" max="10" placeholder="1-10" className="pr-10" />
-                                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">/10</span>
+                                            <Input
+                                                id="performance_score"
+                                                name="performance_score"
+                                                type="number"
+                                                min="1"
+                                                max="10"
+                                                placeholder="1-10"
+                                                className="pr-10"
+                                            />
+                                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                                                /10
+                                            </span>
                                         </div>
-                                        <InputError message={errors.performance_score} />
+                                        <InputError
+                                            message={errors.performance_score}
+                                        />
                                     </div>
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="performance_level">{t('Performance level')}</Label>
+                                    <Label htmlFor="performance_level">
+                                        {t('Performance level')}
+                                    </Label>
                                     <Select name="performance_level">
-                                        <SelectTrigger id="performance_level" className="w-full">
-                                            <SelectValue placeholder={t('Select level')} />
+                                        <SelectTrigger
+                                            id="performance_level"
+                                            className="w-full"
+                                        >
+                                            <SelectValue
+                                                placeholder={t('Select level')}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {performanceLevels.map((level) => (
-                                                <SelectItem key={level} value={level}>
+                                                <SelectItem
+                                                    key={level}
+                                                    value={level}
+                                                >
                                                     {t(level)}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <InputError message={errors.performance_level} />
+                                    <InputError
+                                        message={errors.performance_level}
+                                    />
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="training_summary">{t('Training summary')}</Label>
-                                    <Textarea id="training_summary" name="training_summary" required rows={5} placeholder={t('What was trained today?')} />
-                                    <InputError message={errors.training_summary} />
+                                    <Label htmlFor="training_summary">
+                                        {t('Training summary')}
+                                    </Label>
+                                    <Textarea
+                                        id="training_summary"
+                                        name="training_summary"
+                                        required
+                                        rows={5}
+                                        placeholder={t(
+                                            'What was trained today?',
+                                        )}
+                                    />
+                                    <InputError
+                                        message={errors.training_summary}
+                                    />
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="improvement_notes">{t('Improvement notes')}</Label>
-                                    <Textarea id="improvement_notes" name="improvement_notes" rows={3} placeholder={t('Observed improvement, concern, or next correction')} />
-                                    <InputError message={errors.improvement_notes} />
+                                    <Label htmlFor="improvement_notes">
+                                        {t('Improvement notes')}
+                                    </Label>
+                                    <Textarea
+                                        id="improvement_notes"
+                                        name="improvement_notes"
+                                        rows={3}
+                                        placeholder={t(
+                                            'Observed improvement, concern, or next correction',
+                                        )}
+                                    />
+                                    <InputError
+                                        message={errors.improvement_notes}
+                                    />
                                 </div>
 
                                 <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t bg-card/95 py-3 backdrop-blur sm:static sm:flex-row sm:justify-end sm:bg-transparent sm:pt-4 sm:backdrop-blur-none">
-                                    <Button asChild variant="outline" className="w-full sm:w-auto">
-                                        <Link href="/external-coach/dashboard">{t('Cancel')}</Link>
+                                    <Button
+                                        asChild
+                                        variant="outline"
+                                        className="w-full sm:w-auto"
+                                    >
+                                        <Link href="/external-coach/dashboard">
+                                            {t('Cancel')}
+                                        </Link>
                                     </Button>
-                                    <Button type="submit" disabled={processing || assignments.length === 0 || assignmentId === ''} className="w-full sm:w-auto">
+                                    <Button
+                                        type="submit"
+                                        disabled={
+                                            processing ||
+                                            assignments.length === 0 ||
+                                            assignmentId === ''
+                                        }
+                                        className="w-full sm:w-auto"
+                                    >
                                         <Save className="size-4" />
                                         {t('Submit update')}
                                     </Button>
@@ -225,8 +360,14 @@ export default function ExternalCoachPerformanceIndex({
                     <section className="rounded-lg border bg-card shadow-sm lg:hidden">
                         <div className="flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-5">
                             <div>
-                                <h2 className="text-sm font-semibold">{t('Recent updates')}</h2>
-                                <p className="text-xs text-muted-foreground">{t('Latest submitted performance notes from this portal.')}</p>
+                                <h2 className="text-sm font-semibold">
+                                    {t('Recent updates')}
+                                </h2>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Latest submitted performance notes from this portal.',
+                                    )}
+                                </p>
                             </div>
                             <Badge variant="secondary">{updates.length}</Badge>
                         </div>
@@ -234,7 +375,10 @@ export default function ExternalCoachPerformanceIndex({
                         {updates.length > 0 ? (
                             <div className="divide-y">
                                 {updates.map((update) => (
-                                    <UpdateRow key={update.id} update={update} />
+                                    <UpdateRow
+                                        key={update.id}
+                                        update={update}
+                                    />
                                 ))}
                             </div>
                         ) : (
@@ -242,9 +386,13 @@ export default function ExternalCoachPerformanceIndex({
                                 <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
                                     <History className="size-5" />
                                 </div>
-                                <h3 className="mt-3 text-sm font-medium">{t('No performance updates yet')}</h3>
+                                <h3 className="mt-3 text-sm font-medium">
+                                    {t('No performance updates yet')}
+                                </h3>
                                 <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-                                    {t('Submitted progress updates will appear here after you save them.')}
+                                    {t(
+                                        'Submitted progress updates will appear here after you save them.',
+                                    )}
                                 </p>
                             </div>
                         )}
@@ -255,7 +403,11 @@ export default function ExternalCoachPerformanceIndex({
     );
 }
 
-function SelectedAssignmentPanel({ assignment }: { assignment: Assignment | undefined }) {
+function SelectedAssignmentPanel({
+    assignment,
+}: {
+    assignment: Assignment | undefined;
+}) {
     const { t } = useTranslation();
 
     return (
@@ -266,18 +418,31 @@ function SelectedAssignmentPanel({ assignment }: { assignment: Assignment | unde
                         <UserRound className="size-5" />
                     </div>
                     <div className="min-w-0">
-                        <div className="text-xs font-medium text-muted-foreground">{t('Selected athlete')}</div>
+                        <div className="text-xs font-medium text-muted-foreground">
+                            {t('Selected athlete')}
+                        </div>
                         <h2 className="mt-1 truncate text-base font-semibold">
-                            {assignment?.member.full_name ?? t('Choose an assigned athlete')}
+                            {assignment?.member.full_name ??
+                                t('Choose an assigned athlete')}
                         </h2>
                         <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                             {assignment ? (
                                 <>
-                                    {assignment.member.pno ? <span className="rounded-md border px-2 py-1">{assignment.member.pno}</span> : null}
-                                    <span className="rounded-md border px-2 py-1">{assignment.sport.name}</span>
+                                    {assignment.member.pno ? (
+                                        <span className="rounded-md border px-2 py-1">
+                                            {assignment.member.pno}
+                                        </span>
+                                    ) : null}
+                                    <span className="rounded-md border px-2 py-1">
+                                        {assignment.sport.name}
+                                    </span>
                                 </>
                             ) : (
-                                <span>{t('Use the form panel to search and select an athlete.')}</span>
+                                <span>
+                                    {t(
+                                        'Use the form panel to search and select an athlete.',
+                                    )}
+                                </span>
                             )}
                         </div>
                     </div>
@@ -285,7 +450,9 @@ function SelectedAssignmentPanel({ assignment }: { assignment: Assignment | unde
 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Dumbbell className="size-4" />
-                    {assignment ? t('Ready for update') : t('Selection required')}
+                    {assignment
+                        ? t('Ready for update')
+                        : t('Selection required')}
                 </div>
             </div>
         </section>
@@ -295,14 +462,20 @@ function SelectedAssignmentPanel({ assignment }: { assignment: Assignment | unde
 function UpdateRow({ update }: { update: Update }) {
     const { t } = useTranslation();
     const reviewBadgeClass = reviewStatusBadgeClass(update.review_status);
-    const levelBadgeClass = update.performance_level ? performanceLevelBadgeClass(update.performance_level) : '';
-    const scoreBadgeClass = performanceScoreBadgeClass(update.performance_score);
+    const levelBadgeClass = update.performance_level
+        ? performanceLevelBadgeClass(update.performance_level)
+        : '';
+    const scoreBadgeClass = performanceScoreBadgeClass(
+        update.performance_score,
+    );
 
     return (
         <article className="grid gap-3 px-4 py-4 sm:px-5 md:grid-cols-[minmax(0,1fr)_160px] md:items-center">
             <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="min-w-0 truncate font-medium">{update.member.full_name}</h3>
+                    <h3 className="min-w-0 truncate font-medium">
+                        {update.member.full_name}
+                    </h3>
                     <Badge variant="outline" className={reviewBadgeClass}>
                         {t(update.review_status)}
                     </Badge>
@@ -314,7 +487,10 @@ function UpdateRow({ update }: { update: Update }) {
                     {update.performance_level ? (
                         <>
                             <span>·</span>
-                            <Badge variant="outline" className={levelBadgeClass}>
+                            <Badge
+                                variant="outline"
+                                className={levelBadgeClass}
+                            >
                                 {t(update.performance_level)}
                             </Badge>
                         </>
@@ -329,7 +505,9 @@ function UpdateRow({ update }: { update: Update }) {
                         {update.performance_score}/10
                     </Badge>
                 ) : (
-                    <span className="text-sm text-muted-foreground">{t('No score')}</span>
+                    <span className="text-sm text-muted-foreground">
+                        {t('No score')}
+                    </span>
                 )}
             </div>
         </article>
@@ -404,7 +582,9 @@ function formatDate(value: string): string {
 
 function todayIsoDate(): string {
     const date = new Date();
-    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+    const localDate = new Date(
+        date.getTime() - date.getTimezoneOffset() * 60_000,
+    );
 
     return localDate.toISOString().slice(0, 10);
 }

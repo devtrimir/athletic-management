@@ -1,7 +1,16 @@
 import { Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, CalendarRange, CalendarSearch, FileText, FileUp } from 'lucide-react';
+import {
+    ArrowLeft,
+    CalendarRange,
+    CalendarSearch,
+    FileText,
+    FileUp,
+} from 'lucide-react';
 
-import type { store, update } from '@/actions/App/Http/Controllers/SportsCalendarController';
+import type {
+    store,
+    update,
+} from '@/actions/App/Http/Controllers/SportsCalendarController';
 import { index } from '@/actions/App/Http/Controllers/SportsCalendarController';
 import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
 import Heading from '@/components/heading';
@@ -10,7 +19,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -64,11 +79,21 @@ function fileSizeLabel(value: number | null): string | null {
     return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function SportsCalendarForm({ title, description, action, years, calendar }: Props) {
+export function SportsCalendarForm({
+    title,
+    description,
+    action,
+    years,
+    calendar,
+}: Props) {
     const { t } = useTranslation();
-    const orderedYears = [...new Set(years.map(String).sort((a, b) => Number(b) - Number(a)))];
+    const orderedYears = [
+        ...new Set(years.map(String).sort((a, b) => Number(b) - Number(a))),
+    ];
     const form = useForm<CalendarFormData>({
-        year: calendar?.year ? String(calendar.year) : String(new Date().getFullYear()),
+        year: calendar?.year
+            ? String(calendar.year)
+            : String(new Date().getFullYear()),
         competition_name: calendar?.competition_name ?? '',
         proposed_month: calendar?.proposed_month ?? '',
         proposed_month_annual: calendar?.proposed_month_annual ?? '',
@@ -94,19 +119,24 @@ export function SportsCalendarForm({ title, description, action, years, calendar
         }
 
         if (typeof (form as { submit?: unknown }).submit === 'function') {
-            (form as {
-                submit: (
-                    method: 'post' | 'put',
-                    url: string,
-                    options?: {
-                        forceFormData?: boolean;
-                    },
-                ) => void;
-            }).submit(method as 'post' | 'put', action.url, { forceFormData: true });
+            (
+                form as {
+                    submit: (
+                        method: 'post' | 'put',
+                        url: string,
+                        options?: {
+                            forceFormData?: boolean;
+                        },
+                    ) => void;
+                }
+            ).submit(method as 'post' | 'put', action.url, {
+                forceFormData: true,
+            });
         }
     }
 
-    const hasStoredPdf = calendar?.report_pdf !== null && calendar?.report_pdf !== undefined;
+    const hasStoredPdf =
+        calendar?.report_pdf !== null && calendar?.report_pdf !== undefined;
     const selectedPdfName = form.data.report_pdf?.name ?? null;
     const selectedPdfSize = form.data.report_pdf?.size ?? null;
     const shouldShowPdfInput = form.data.report_arrived;
@@ -130,9 +160,13 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                             <CalendarSearch className="size-4" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-semibold">{t('Competition details')}</h2>
+                            <h2 className="text-sm font-semibold">
+                                {t('Competition details')}
+                            </h2>
                             <p className="text-xs text-muted-foreground">
-                                {t('Set competition year, name, month and venue for annual sports events.')}
+                                {t(
+                                    'Set competition year, name, month and venue for annual sports events.',
+                                )}
                             </p>
                         </div>
                     </div>
@@ -140,7 +174,8 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                         <div className="grid gap-5 lg:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="year">
-                                    {t('Year')} <span className="text-destructive">*</span>
+                                    {t('Year')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Select
                                     value={form.data.year}
@@ -166,37 +201,52 @@ export function SportsCalendarForm({ title, description, action, years, calendar
 
                             <div className="grid gap-2">
                                 <Label htmlFor="competition_name">
-                                    {t('Competition name')} <span className="text-destructive">*</span>
+                                    {t('Competition name')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
                                     id="competition_name"
                                     value={form.data.competition_name}
                                     onChange={(event) => {
-                                        form.setData('competition_name', event.target.value);
+                                        form.setData(
+                                            'competition_name',
+                                            event.target.value,
+                                        );
                                         form.clearErrors('competition_name');
                                     }}
                                     required
                                 />
-                                <InputError message={form.errors.competition_name} />
+                                <InputError
+                                    message={form.errors.competition_name}
+                                />
                             </div>
                         </div>
 
                         <div className="grid gap-5 lg:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="proposed_month">
-                                    {t('Inter-unit / District competition month')}
+                                    {t(
+                                        'Inter-unit / District competition month',
+                                    )}
                                     <span className="text-destructive"> *</span>
                                 </Label>
                                 <Input
                                     id="proposed_month"
                                     value={form.data.proposed_month}
                                     onChange={(event) => {
-                                        form.setData('proposed_month', event.target.value);
+                                        form.setData(
+                                            'proposed_month',
+                                            event.target.value,
+                                        );
                                         form.clearErrors('proposed_month');
                                     }}
-                                    placeholder={t('Example: January, First week')}
+                                    placeholder={t(
+                                        'Example: January, First week',
+                                    )}
                                 />
-                                <InputError message={form.errors.proposed_month} />
+                                <InputError
+                                    message={form.errors.proposed_month}
+                                />
                             </div>
 
                             <div className="grid gap-2">
@@ -208,25 +258,38 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                                     id="proposed_month_annual"
                                     value={form.data.proposed_month_annual}
                                     onChange={(event) => {
-                                        form.setData('proposed_month_annual', event.target.value);
-                                        form.clearErrors('proposed_month_annual');
+                                        form.setData(
+                                            'proposed_month_annual',
+                                            event.target.value,
+                                        );
+                                        form.clearErrors(
+                                            'proposed_month_annual',
+                                        );
                                     }}
-                                    placeholder={t('Example: January, First week')}
+                                    placeholder={t(
+                                        'Example: January, First week',
+                                    )}
                                 />
-                                <InputError message={form.errors.proposed_month_annual} />
+                                <InputError
+                                    message={form.errors.proposed_month_annual}
+                                />
                             </div>
                         </div>
 
                         <div className="grid gap-2">
                             <Label htmlFor="proposed_venue">
-                                {t('Proposed venue')} <span className="text-destructive">*</span>
+                                {t('Proposed venue')}{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
                             <Textarea
                                 id="proposed_venue"
                                 rows={2}
                                 value={form.data.proposed_venue}
                                 onChange={(event) => {
-                                    form.setData('proposed_venue', event.target.value);
+                                    form.setData(
+                                        'proposed_venue',
+                                        event.target.value,
+                                    );
                                     form.clearErrors('proposed_venue');
                                 }}
                                 required
@@ -238,7 +301,10 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                             <Checkbox
                                 checked={form.data.report_arrived}
                                 onCheckedChange={(checked) => {
-                                    form.setData('report_arrived', checked === true);
+                                    form.setData(
+                                        'report_arrived',
+                                        checked === true,
+                                    );
                                     if (!checked) {
                                         form.clearErrors('report_pdf');
                                     }
@@ -248,7 +314,9 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                         </label>
                         {form.data.report_arrived ? (
                             <p className="text-sm text-muted-foreground">
-                                {t('Enable and upload the report PDF for this competition.')}
+                                {t(
+                                    'Enable and upload the report PDF for this competition.',
+                                )}
                             </p>
                         ) : null}
                     </div>
@@ -261,7 +329,9 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                                 <FileText className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-sm font-semibold">{t('Competition report PDF')}</h2>
+                                <h2 className="text-sm font-semibold">
+                                    {t('Competition report PDF')}
+                                </h2>
                                 <p className="text-xs text-muted-foreground">
                                     {t('PDF files only.')}
                                 </p>
@@ -273,11 +343,19 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0">
                                             <p className="text-sm font-medium text-foreground">
-                                                {calendar?.report_pdf?.original_name ?? calendar?.report_pdf?.name ?? t('Current report')}
+                                                {calendar?.report_pdf
+                                                    ?.original_name ??
+                                                    calendar?.report_pdf
+                                                        ?.name ??
+                                                    t('Current report')}
                                             </p>
-                                            {calendar?.report_pdf?.size_bytes ? (
+                                            {calendar?.report_pdf
+                                                ?.size_bytes ? (
                                                 <p className="text-xs text-muted-foreground">
-                                                    {fileSizeLabel(calendar.report_pdf.size_bytes)}
+                                                    {fileSizeLabel(
+                                                        calendar.report_pdf
+                                                            .size_bytes,
+                                                    )}
                                                 </p>
                                             ) : null}
                                         </div>
@@ -287,13 +365,26 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                                                     document={{
                                                         ...calendar.report_pdf,
                                                     }}
-                                                    sizeLabel={fileSizeLabel(calendar.report_pdf.size_bytes)}
+                                                    sizeLabel={fileSizeLabel(
+                                                        calendar.report_pdf
+                                                            .size_bytes,
+                                                    )}
                                                     triggerLabel={t('View')}
                                                 />
                                             ) : null}
                                             {calendar?.report_pdf ? (
-                                                <Button asChild size="sm" variant="outline">
-                                                    <a href={calendar.report_pdf.download_url} className="gap-1.5">
+                                                <Button
+                                                    asChild
+                                                    size="sm"
+                                                    variant="outline"
+                                                >
+                                                    <a
+                                                        href={
+                                                            calendar.report_pdf
+                                                                .download_url
+                                                        }
+                                                        className="gap-1.5"
+                                                    >
                                                         <CalendarRange className="size-3.5" />
                                                         {t('Download')}
                                                     </a>
@@ -309,15 +400,16 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                                     <FileUp className="size-4" />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="block break-words text-sm font-medium">
-                                        {selectedPdfName ?? t('Upload report PDF')}
+                                    <span className="block text-sm font-medium break-words">
+                                        {selectedPdfName ??
+                                            t('Upload report PDF')}
                                     </span>
                                     {selectedPdfSize ? (
-                                        <span className="mt-1 block break-words text-xs text-muted-foreground">
+                                        <span className="mt-1 block text-xs break-words text-muted-foreground">
                                             {fileSizeLabel(selectedPdfSize)}
                                         </span>
                                     ) : null}
-                                    <span className="mt-1 block break-words text-xs text-muted-foreground">
+                                    <span className="mt-1 block text-xs break-words text-muted-foreground">
                                         {t('PDF up to 10 MB.')}
                                     </span>
                                 </span>
@@ -326,7 +418,10 @@ export function SportsCalendarForm({ title, description, action, years, calendar
                                     type="file"
                                     accept="application/pdf"
                                     onChange={(event) => {
-                                        form.setData('report_pdf', event.target.files?.[0] ?? null);
+                                        form.setData(
+                                            'report_pdf',
+                                            event.target.files?.[0] ?? null,
+                                        );
                                         form.clearErrors('report_pdf');
                                     }}
                                 />

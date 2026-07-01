@@ -3,9 +3,22 @@ import TeamCloneController from '@/actions/App/Http/Controllers/TeamCloneControl
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -33,7 +46,14 @@ interface Props {
     coaches?: CoachRow[];
 }
 
-export function CloneTeamDialog({ open, onOpenChange, team, sessions, members, coaches }: Props) {
+export function CloneTeamDialog({
+    open,
+    onOpenChange,
+    team,
+    sessions,
+    members,
+    coaches,
+}: Props) {
     const { t } = useTranslation();
 
     const otherSessions = sessions.filter((s) => s.id !== team.session?.id);
@@ -49,19 +69,35 @@ export function CloneTeamDialog({ open, onOpenChange, team, sessions, members, c
     });
 
     function toggleMember(id: number, checked: boolean) {
-        setData('member_ids', checked ? [...data.member_ids, id] : data.member_ids.filter((x) => x !== id));
+        setData(
+            'member_ids',
+            checked
+                ? [...data.member_ids, id]
+                : data.member_ids.filter((x) => x !== id),
+        );
     }
 
     function toggleCoach(id: number, checked: boolean) {
-        setData('coach_ids', checked ? [...data.coach_ids, id] : data.coach_ids.filter((x) => x !== id));
+        setData(
+            'coach_ids',
+            checked
+                ? [...data.coach_ids, id]
+                : data.coach_ids.filter((x) => x !== id),
+        );
     }
 
     function selectAllMembers() {
-        setData('member_ids', (members ?? []).map((r) => r.id));
+        setData(
+            'member_ids',
+            (members ?? []).map((r) => r.id),
+        );
     }
 
     function selectAllCoaches() {
-        setData('coach_ids', (coaches ?? []).map((r) => r.id));
+        setData(
+            'coach_ids',
+            (coaches ?? []).map((r) => r.id),
+        );
     }
 
     function handleSubmit(e: React.FormEvent) {
@@ -76,8 +112,8 @@ export function CloneTeamDialog({ open, onOpenChange, team, sessions, members, c
 
     function handleOpenChange(v: boolean) {
         if (!v) {
-reset();
-}
+            reset();
+        }
 
         onOpenChange(v);
     }
@@ -89,16 +125,30 @@ reset();
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle>{t('Carry roster forward')}</DialogTitle>
-                    <DialogDescription>{t('Selected players and coaches will be copied to this team for the chosen session. Conflicts will be skipped.')}</DialogDescription>
+                    <DialogDescription>
+                        {t(
+                            'Selected players and coaches will be copied to this team for the chosen session. Conflicts will be skipped.',
+                        )}
+                    </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Target session */}
                     <div className="grid gap-2">
-                        <Label htmlFor="clone-session">{t('Target session')}</Label>
-                        <Select value={data.session_id} onValueChange={(v) => setData('session_id', v)}>
-                            <SelectTrigger id="clone-session" className="w-full">
-                                <SelectValue placeholder={t('Select session')} />
+                        <Label htmlFor="clone-session">
+                            {t('Target session')}
+                        </Label>
+                        <Select
+                            value={data.session_id}
+                            onValueChange={(v) => setData('session_id', v)}
+                        >
+                            <SelectTrigger
+                                id="clone-session"
+                                className="w-full"
+                            >
+                                <SelectValue
+                                    placeholder={t('Select session')}
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {otherSessions.map((s) => (
@@ -114,16 +164,24 @@ reset();
                     {/* Players */}
                     <div className="grid gap-2">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{t('Players')}</span>
+                            <span className="text-sm font-medium">
+                                {t('Players')}
+                            </span>
                             {loaded && (members ?? []).length > 0 && (
                                 <div className="flex gap-2">
-                                    <button type="button" className="text-xs text-primary underline-offset-2 hover:underline" onClick={selectAllMembers}>
+                                    <button
+                                        type="button"
+                                        className="text-xs text-primary underline-offset-2 hover:underline"
+                                        onClick={selectAllMembers}
+                                    >
                                         {t('Select all')}
                                     </button>
                                     <button
                                         type="button"
                                         className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                                        onClick={() => setData('member_ids', [])}
+                                        onClick={() =>
+                                            setData('member_ids', [])
+                                        }
                                     >
                                         {t('None')}
                                     </button>
@@ -138,23 +196,39 @@ reset();
                                 ))}
                             </div>
                         ) : (members ?? []).length === 0 ? (
-                            <p className="text-sm text-muted-foreground">{t('No players in this team.')}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {t('No players in this team.')}
+                            </p>
                         ) : (
-                            <div className="max-h-40 overflow-y-auto rounded border p-2 space-y-1">
+                            <div className="max-h-40 space-y-1 overflow-y-auto rounded border p-2">
                                 {(members ?? []).map((row) => (
-                                    <div key={row.id} className="flex items-center gap-2">
+                                    <div
+                                        key={row.id}
+                                        className="flex items-center gap-2"
+                                    >
                                         <Checkbox
                                             id={`clone-m-${row.id}`}
-                                            checked={data.member_ids.includes(row.id)}
-                                            onCheckedChange={(v) => toggleMember(row.id, Boolean(v))}
+                                            checked={data.member_ids.includes(
+                                                row.id,
+                                            )}
+                                            onCheckedChange={(v) =>
+                                                toggleMember(row.id, Boolean(v))
+                                            }
                                         />
-                                        <label htmlFor={`clone-m-${row.id}`} className="flex-1 cursor-pointer text-sm">
+                                        <label
+                                            htmlFor={`clone-m-${row.id}`}
+                                            className="flex-1 cursor-pointer text-sm"
+                                        >
                                             {row.member?.full_name ?? '—'}
                                             {row.member?.pno && (
-                                                <span className="ml-1.5 font-mono text-xs text-muted-foreground">{row.member.pno}</span>
+                                                <span className="ml-1.5 font-mono text-xs text-muted-foreground">
+                                                    {row.member.pno}
+                                                </span>
                                             )}
                                             {row.role && (
-                                                <span className="ml-1.5 text-xs text-muted-foreground">({t(row.role)})</span>
+                                                <span className="ml-1.5 text-xs text-muted-foreground">
+                                                    ({t(row.role)})
+                                                </span>
                                             )}
                                         </label>
                                     </div>
@@ -166,10 +240,16 @@ reset();
                     {/* Coaches */}
                     <div className="grid gap-2">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{t('Coaches')}</span>
+                            <span className="text-sm font-medium">
+                                {t('Coaches')}
+                            </span>
                             {loaded && (coaches ?? []).length > 0 && (
                                 <div className="flex gap-2">
-                                    <button type="button" className="text-xs text-primary underline-offset-2 hover:underline" onClick={selectAllCoaches}>
+                                    <button
+                                        type="button"
+                                        className="text-xs text-primary underline-offset-2 hover:underline"
+                                        onClick={selectAllCoaches}
+                                    >
                                         {t('Select all')}
                                     </button>
                                     <button
@@ -190,23 +270,39 @@ reset();
                                 ))}
                             </div>
                         ) : (coaches ?? []).length === 0 ? (
-                            <p className="text-sm text-muted-foreground">{t('No coaches in this team.')}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {t('No coaches in this team.')}
+                            </p>
                         ) : (
-                            <div className="max-h-32 overflow-y-auto rounded border p-2 space-y-1">
+                            <div className="max-h-32 space-y-1 overflow-y-auto rounded border p-2">
                                 {(coaches ?? []).map((row) => (
-                                    <div key={row.id} className="flex items-center gap-2">
+                                    <div
+                                        key={row.id}
+                                        className="flex items-center gap-2"
+                                    >
                                         <Checkbox
                                             id={`clone-c-${row.id}`}
-                                            checked={data.coach_ids.includes(row.id)}
-                                            onCheckedChange={(v) => toggleCoach(row.id, Boolean(v))}
+                                            checked={data.coach_ids.includes(
+                                                row.id,
+                                            )}
+                                            onCheckedChange={(v) =>
+                                                toggleCoach(row.id, Boolean(v))
+                                            }
                                         />
-                                        <label htmlFor={`clone-c-${row.id}`} className="flex-1 cursor-pointer text-sm">
+                                        <label
+                                            htmlFor={`clone-c-${row.id}`}
+                                            className="flex-1 cursor-pointer text-sm"
+                                        >
                                             {row.coach?.full_name ?? '—'}
                                             {row.coach?.pno && (
-                                                <span className="ml-1.5 font-mono text-xs text-muted-foreground">{row.coach.pno}</span>
+                                                <span className="ml-1.5 font-mono text-xs text-muted-foreground">
+                                                    {row.coach.pno}
+                                                </span>
                                             )}
                                             {row.role && (
-                                                <span className="ml-1.5 text-xs text-muted-foreground">({t(row.role)})</span>
+                                                <span className="ml-1.5 text-xs text-muted-foreground">
+                                                    ({t(row.role)})
+                                                </span>
                                             )}
                                         </label>
                                     </div>
@@ -216,10 +312,19 @@ reset();
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenChange(false)}
+                        >
                             {t('Cancel')}
                         </Button>
-                        <Button type="submit" size="sm" disabled={processing || !data.session_id || !loaded}>
+                        <Button
+                            type="submit"
+                            size="sm"
+                            disabled={processing || !data.session_id || !loaded}
+                        >
                             {t('Carry forward')}
                         </Button>
                     </DialogFooter>

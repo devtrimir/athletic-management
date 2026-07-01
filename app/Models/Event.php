@@ -18,6 +18,8 @@ use Illuminate\Support\Carbon;
  * @property int $tournament_id
  * @property int $sport_id
  * @property int|null $sport_event_variant_id
+ * @property string $event_type
+ * @property int|null $participants_required
  * @property string $name
  * @property string|null $discipline
  * @property string|null $weight_category
@@ -30,21 +32,33 @@ use Illuminate\Support\Carbon;
  * @property-read Sport $sport
  * @property-read Collection<int, Participation> $participations
  */
-#[Fillable([
-    'tournament_id',
-    'sport_id',
-    'sport_event_variant_id',
-    'name',
-    'discipline',
-    'weight_category',
-    'gender_class',
-    'event_source',
-    'provisional_reason',
-])]
+    #[Fillable([
+        'tournament_id',
+        'sport_id',
+        'sport_event_variant_id',
+        'event_type',
+        'participants_required',
+        'name',
+        'discipline',
+        'weight_category',
+        'gender_class',
+        'event_source',
+        'provisional_reason',
+    ])]
 class Event extends Model
 {
     /** @use HasFactory<EventFactory> */
     use HasFactory;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'participants_required' => 'integer',
+        ];
+    }
 
     /** @return BelongsTo<Tournament, $this> */
     public function tournament(): BelongsTo

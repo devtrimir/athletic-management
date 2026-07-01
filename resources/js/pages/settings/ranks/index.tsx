@@ -6,7 +6,14 @@ import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Rank = {
@@ -33,8 +40,12 @@ export default function Index({ ranks }: { ranks: Rank[] }) {
                 return true;
             }
 
-            return [rank.code, rank.name, rank.short_name ?? '', rank.cadre_type ?? '']
-                .some((value) => value.toLowerCase().includes(q));
+            return [
+                rank.code,
+                rank.name,
+                rank.short_name ?? '',
+                rank.cadre_type ?? '',
+            ].some((value) => value.toLowerCase().includes(q));
         });
     }, [ranks, query]);
 
@@ -46,7 +57,11 @@ export default function Index({ ranks }: { ranks: Rank[] }) {
 
             <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
-                    <Heading variant="small" title={t('Ranks')} description={t('Manage reference ranks')} />
+                    <Heading
+                        variant="small"
+                        title={t('Ranks')}
+                        description={t('Manage reference ranks')}
+                    />
                     <Button asChild size="sm">
                         <Link href={RankController.create.url()}>
                             <Plus className="mr-1.5 h-4 w-4" />
@@ -56,11 +71,16 @@ export default function Index({ ranks }: { ranks: Rank[] }) {
                 </div>
 
                 <div className="relative max-w-xs">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input placeholder={t('Search ranks…')} value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder={t('Search ranks…')}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        className="pl-8"
+                    />
                 </div>
 
-                <div className="rounded-xl border overflow-hidden">
+                <div className="overflow-hidden rounded-xl border">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -70,45 +90,102 @@ export default function Index({ ranks }: { ranks: Rank[] }) {
                                 <TableHead>{t('Order')}</TableHead>
                                 <TableHead>{t('Cadre')}</TableHead>
                                 <TableHead>{t('Status')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead className="w-0 text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                                        {ranks.length === 0 ? t('No ranks yet.') : t('No ranks match your search.')}
+                                    <TableCell
+                                        colSpan={7}
+                                        className="py-12 text-center text-muted-foreground"
+                                    >
+                                        {ranks.length === 0
+                                            ? t('No ranks yet.')
+                                            : t('No ranks match your search.')}
                                     </TableCell>
                                 </TableRow>
-                            ) : filtered.map((rank) => (
-                                <TableRow key={rank.id}>
-                                    <TableCell className="font-mono text-xs">{rank.code}</TableCell>
-                                    <TableCell>
-                                        <div className="font-medium">{rank.name}</div>
-                                    </TableCell>
-                                    <TableCell>{rank.short_name ?? '—'}</TableCell>
-                                    <TableCell>{rank.rank_order}</TableCell>
-                                    <TableCell>{rank.cadre_type ?? '—'}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={rank.is_active ? 'default' : 'secondary'}>{rank.is_active ? t('Active') : t('Inactive')}</Badge>
-                                        {rank.is_gazetted && <Badge variant="outline" className="ml-2">{t('Gazetted')}</Badge>}
-                                    </TableCell>
-                                    <TableCell className="w-0">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button variant="ghost" size="icon" title={t('Edit')} asChild>
-                                                <Link href={RankController.edit.url(rank.id)}><Pencil className="h-4 w-4" /></Link>
-                                            </Button>
-                                            <Form {...RankController.destroy.form(rank.id)}>
-                                                {({ processing }) => (
-                                                    <Button variant="ghost" size="icon" title={t('Delete')} className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={processing}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </Form>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                            ) : (
+                                filtered.map((rank) => (
+                                    <TableRow key={rank.id}>
+                                        <TableCell className="font-mono text-xs">
+                                            {rank.code}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="font-medium">
+                                                {rank.name}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {rank.short_name ?? '—'}
+                                        </TableCell>
+                                        <TableCell>{rank.rank_order}</TableCell>
+                                        <TableCell>
+                                            {rank.cadre_type ?? '—'}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={
+                                                    rank.is_active
+                                                        ? 'default'
+                                                        : 'secondary'
+                                                }
+                                            >
+                                                {rank.is_active
+                                                    ? t('Active')
+                                                    : t('Inactive')}
+                                            </Badge>
+                                            {rank.is_gazetted && (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="ml-2"
+                                                >
+                                                    {t('Gazetted')}
+                                                </Badge>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="w-0">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Edit')}
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={RankController.edit.url(
+                                                            rank.id,
+                                                        )}
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                                <Form
+                                                    {...RankController.destroy.form(
+                                                        rank.id,
+                                                    )}
+                                                >
+                                                    {({ processing }) => (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title={t('Delete')}
+                                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                            disabled={
+                                                                processing
+                                                            }
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
+                                                </Form>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
                 </div>

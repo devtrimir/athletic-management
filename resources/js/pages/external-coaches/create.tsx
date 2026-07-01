@@ -2,7 +2,10 @@ import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, IdCard } from 'lucide-react';
 
 import type { update } from '@/actions/App/Http/Controllers/ExternalCoachController';
-import { index, store } from '@/actions/App/Http/Controllers/ExternalCoachController';
+import {
+    index,
+    store,
+} from '@/actions/App/Http/Controllers/ExternalCoachController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -30,7 +33,9 @@ export default function ExternalCoachesCreate({ statuses }: Props) {
             <Head title={t('Create external coach')} />
             <ExternalCoachForm
                 title={t('Create external coach')}
-                description={t('Create a separate login profile for an approved external training coach.')}
+                description={t(
+                    'Create a separate login profile for an approved external training coach.',
+                )}
                 action={store()}
                 statuses={statuses}
             />
@@ -55,7 +60,13 @@ type FormProps = {
     };
 };
 
-function ExternalCoachForm({ title, description, action, statuses, coach }: FormProps) {
+function ExternalCoachForm({
+    title,
+    description,
+    action,
+    statuses,
+    coach,
+}: FormProps) {
     const { t } = useTranslation();
 
     return (
@@ -79,8 +90,14 @@ function ExternalCoachForm({ title, description, action, statuses, coach }: Form
                                     <IdCard className="size-4" />
                                 </div>
                                 <div>
-                                    <h2 className="text-sm font-semibold">{t('Coach profile')}</h2>
-                                    <p className="text-xs text-muted-foreground">{t('Identity, login, experience, and status')}</p>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Coach profile')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Identity, login, experience, and status',
+                                        )}
+                                    </p>
                                 </div>
                             </div>
 
@@ -88,52 +105,108 @@ function ExternalCoachForm({ title, description, action, statuses, coach }: Form
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
                                         <Label htmlFor="name">
-                                            {t('Name')} <span className="text-destructive">*</span>
+                                            {t('Name')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
                                         </Label>
-                                        <Input id="name" name="name" defaultValue={coach?.name} required />
+                                        <Input
+                                            id="name"
+                                            name="name"
+                                            defaultValue={coach?.name}
+                                            required
+                                        />
                                         <InputError message={errors.name} />
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="email">
-                                            {t('Email')} <span className="text-destructive">*</span>
+                                            {t('Email')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
                                         </Label>
-                                        <Input id="email" name="email" type="email" defaultValue={coach?.email} required />
+                                        <Input
+                                            id="email"
+                                            name="email"
+                                            type="email"
+                                            defaultValue={coach?.email}
+                                            required
+                                        />
                                         <InputError message={errors.email} />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="phone">{t('Phone')}</Label>
-                                        <Input id="phone" name="phone" defaultValue={coach?.phone ?? ''} />
+                                        <Label htmlFor="phone">
+                                            {t('Phone')}
+                                        </Label>
+                                        <Input
+                                            id="phone"
+                                            name="phone"
+                                            defaultValue={coach?.phone ?? ''}
+                                        />
                                         <InputError message={errors.phone} />
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="password">
-                                            {t('Password')} {!coach && <span className="text-destructive">*</span>}
+                                            {t('Password')}{' '}
+                                            {!coach && (
+                                                <span className="text-destructive">
+                                                    *
+                                                </span>
+                                            )}
                                         </Label>
-                                        <Input id="password" name="password" type="password" required={!coach} />
-                                        {coach ? <p className="text-xs text-muted-foreground">{t('Leave blank to keep the current password.')}</p> : null}
+                                        <Input
+                                            id="password"
+                                            name="password"
+                                            type="password"
+                                            required={!coach}
+                                        />
+                                        {coach ? (
+                                            <p className="text-xs text-muted-foreground">
+                                                {t(
+                                                    'Leave blank to keep the current password.',
+                                                )}
+                                            </p>
+                                        ) : null}
                                         <InputError message={errors.password} />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="experience_years">{t('Experience years')}</Label>
+                                        <Label htmlFor="experience_years">
+                                            {t('Experience years')}
+                                        </Label>
                                         <Input
                                             id="experience_years"
                                             name="experience_years"
                                             type="number"
                                             min="0"
                                             max="80"
-                                            defaultValue={coach?.experience_years ?? ''}
+                                            defaultValue={
+                                                coach?.experience_years ?? ''
+                                            }
                                         />
-                                        <InputError message={errors.experience_years} />
+                                        <InputError
+                                            message={errors.experience_years}
+                                        />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="status">{t('Status')}</Label>
-                                        <Select name="status" defaultValue={coach?.status ?? 'active'} required>
+                                        <Label htmlFor="status">
+                                            {t('Status')}
+                                        </Label>
+                                        <Select
+                                            name="status"
+                                            defaultValue={
+                                                coach?.status ?? 'active'
+                                            }
+                                            required
+                                        >
                                             <SelectTrigger id="status">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {statuses.map((status) => (
-                                                    <SelectItem key={status} value={status}>
+                                                    <SelectItem
+                                                        key={status}
+                                                        value={status}
+                                                    >
                                                         {t(status)}
                                                     </SelectItem>
                                                 ))}
@@ -145,20 +218,39 @@ function ExternalCoachForm({ title, description, action, statuses, coach }: Form
 
                                 <div className="grid gap-2">
                                     <Label htmlFor="city">{t('City')}</Label>
-                                    <Input id="city" name="city" defaultValue={coach?.city ?? ''} />
+                                    <Input
+                                        id="city"
+                                        name="city"
+                                        defaultValue={coach?.city ?? ''}
+                                    />
                                     <InputError message={errors.city} />
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="remarks">{t('Remarks')}</Label>
-                                    <Textarea id="remarks" name="remarks" rows={4} defaultValue={coach?.remarks ?? ''} />
+                                    <Label htmlFor="remarks">
+                                        {t('Remarks')}
+                                    </Label>
+                                    <Textarea
+                                        id="remarks"
+                                        name="remarks"
+                                        rows={4}
+                                        defaultValue={coach?.remarks ?? ''}
+                                    />
                                     <InputError message={errors.remarks} />
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="status_reason">{t('Status reason')}</Label>
-                                    <Textarea id="status_reason" name="status_reason" rows={3} />
-                                    <InputError message={errors.status_reason} />
+                                    <Label htmlFor="status_reason">
+                                        {t('Status reason')}
+                                    </Label>
+                                    <Textarea
+                                        id="status_reason"
+                                        name="status_reason"
+                                        rows={3}
+                                    />
+                                    <InputError
+                                        message={errors.status_reason}
+                                    />
                                 </div>
                             </div>
                         </div>

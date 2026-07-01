@@ -14,6 +14,17 @@ class UpdateEventRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('event_type') === '') {
+            $this->merge(['event_type' => null]);
+        }
+
+        if ($this->input('participants_required') === '') {
+            $this->merge(['participants_required' => null]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -27,6 +38,8 @@ class UpdateEventRequest extends FormRequest
             'sport_event_variant_id' => [Rule::requiredIf(! $isProvisional), 'nullable', 'integer', Rule::exists('sport_event_variants', 'id')],
             'sport_id' => [Rule::requiredIf($isProvisional), 'nullable', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'name' => [Rule::requiredIf($isProvisional), 'nullable', 'string', 'max:255'],
+            'event_type' => [Rule::requiredIf($isProvisional), 'nullable', Rule::in(['individual', 'team'])],
+            'participants_required' => ['nullable', 'integer', 'min:1'],
             'discipline' => ['nullable', 'string', 'max:255'],
             'weight_category' => ['nullable', 'string', 'max:100'],
             'gender_class' => [Rule::requiredIf($isProvisional), 'nullable', Rule::in(['M', 'F', 'MIXED', 'OPEN'])],

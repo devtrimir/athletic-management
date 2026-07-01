@@ -176,10 +176,12 @@ export default function TeamsIndex({
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [exportOpen, setExportOpen] = useState(false);
     const [quickViewId, setQuickViewId] = useState<number | null>(null);
-    const [quickViewSessionId, setQuickViewSessionId] = useState<string | null>(null);
-    const [quickViewSessionName, setQuickViewSessionName] = useState<string | null>(
+    const [quickViewSessionId, setQuickViewSessionId] = useState<string | null>(
         null,
     );
+    const [quickViewSessionName, setQuickViewSessionName] = useState<
+        string | null
+    >(null);
     const [quickViewHistoricalSession, setQuickViewHistoricalSession] =
         useState(false);
     const [inchargeTeam, setInchargeTeam] = useState<Team | null>(null);
@@ -318,11 +320,12 @@ export default function TeamsIndex({
     }
 
     function openQuickView(teamId: number) {
-        const sessionId = filters.session_id ??
+        const sessionId =
+            filters.session_id ??
             (selectedSessionId ? String(selectedSessionId) : null);
-        const sessionName = sessions.find(
-            (session) => String(session.id) === sessionId,
-        )?.name ?? null;
+        const sessionName =
+            sessions.find((session) => String(session.id) === sessionId)
+                ?.name ?? null;
 
         setQuickViewId(teamId);
         setQuickViewSessionId(sessionId);
@@ -346,9 +349,9 @@ export default function TeamsIndex({
         return currentIncharge(team)?.pno ?? null;
     }
 
-    const selectedSession = sessions.find(
-        (session) => String(session.id) === filters.session_id,
-    ) ?? null;
+    const selectedSession =
+        sessions.find((session) => String(session.id) === filters.session_id) ??
+        null;
     const currentSession = selectedSessionId
         ? sessions.find((session) => session.id === selectedSessionId)
         : null;
@@ -752,330 +755,377 @@ export default function TeamsIndex({
                 </div>
 
                 {/* Table */}
-                <ListingPagination paginator={teams} itemLabel={t('teams')} className="sticky top-0 z-40 shadow-sm" />
+                <ListingPagination
+                    paginator={teams}
+                    itemLabel={t('teams')}
+                    className="sticky top-0 z-40 shadow-sm"
+                />
                 <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
                     <div className="min-w-[1180px]">
                         <Table className="border-separate border-spacing-0 text-sm">
                             <TableHeader>
                                 <TableRow className="bg-muted/90 hover:bg-muted/90">
-                                <TableHead className="w-0 border-r border-b px-3 py-2">
-                                    <Checkbox
-                                        checked={
-                                            teams.data.length > 0 &&
-                                            teams.data.every((t) =>
-                                                selectedIds.has(t.id),
-                                            )
-                                                ? true
-                                                : teams.data.some((t) =>
-                                                        selectedIds.has(t.id),
-                                                    )
-                                                  ? 'indeterminate'
-                                                  : false
-                                        }
-                                        onCheckedChange={togglePage}
-                                        aria-label={t('Select all on page')}
-                                    />
-                                </TableHead>
-                                <TableHead className="w-16 border-r border-b px-3 py-2 text-center font-semibold">
-                                    {t('S.No.')}
-                                </TableHead>
-                                <TableHead className="border-r border-b px-3 py-2 font-semibold">{t('Team')}</TableHead>
-                                <TableHead className="border-r border-b px-3 py-2 font-semibold">{t('Sport')}</TableHead>
-                                <TableHead className="w-28 border-r border-b px-3 py-2 font-semibold">{t('Status')}</TableHead>
-                                <TableHead className="border-r border-b px-3 py-2 font-semibold">{t('Posting / District')}</TableHead>
-                                <TableHead className="border-r border-b px-3 py-2 font-semibold">{t('In-charge')}</TableHead>
-                                <TableHead className="border-r border-b px-3 py-2 font-semibold">{t('Players')}</TableHead>
-                                <TableHead className="border-r border-b px-3 py-2 font-semibold">{t('Staff')}</TableHead>
-                                <TableHead className="sticky right-0 z-20 w-0 border-b bg-muted/95 px-3 py-2 text-right font-semibold">
-                                    {t('Actions')}
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {teams.data.length === 0 ? (
+                                    <TableHead className="w-0 border-r border-b px-3 py-2">
+                                        <Checkbox
+                                            checked={
+                                                teams.data.length > 0 &&
+                                                teams.data.every((t) =>
+                                                    selectedIds.has(t.id),
+                                                )
+                                                    ? true
+                                                    : teams.data.some((t) =>
+                                                            selectedIds.has(
+                                                                t.id,
+                                                            ),
+                                                        )
+                                                      ? 'indeterminate'
+                                                      : false
+                                            }
+                                            onCheckedChange={togglePage}
+                                            aria-label={t('Select all on page')}
+                                        />
+                                    </TableHead>
+                                    <TableHead className="w-16 border-r border-b px-3 py-2 text-center font-semibold">
+                                        {t('S.No.')}
+                                    </TableHead>
+                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                        {t('Team')}
+                                    </TableHead>
+                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                        {t('Sport')}
+                                    </TableHead>
+                                    <TableHead className="w-28 border-r border-b px-3 py-2 font-semibold">
+                                        {t('Status')}
+                                    </TableHead>
+                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                        {t('Posting / District')}
+                                    </TableHead>
+                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                        {t('In-charge')}
+                                    </TableHead>
+                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                        {t('Players')}
+                                    </TableHead>
+                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                        {t('Staff')}
+                                    </TableHead>
+                                    <TableHead className="sticky right-0 z-20 w-0 border-b bg-muted/95 px-3 py-2 text-right font-semibold">
+                                        {t('Actions')}
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {teams.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
                                             colSpan={10}
                                             className="py-12 text-center text-muted-foreground"
                                         >
-                                        {hasActiveFilters
-                                            ? t('No teams match your filters.')
-                                            : t('No teams yet.')}
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                teams.data.map((team, index) => {
-                                    const assignedIncharge =
-                                        currentIncharge(team);
-                                    const visibleIncharge = inchargeName(team);
-                                    const serialNumber =
-                                        (teams.from ?? 1) + index;
+                                            {hasActiveFilters
+                                                ? t(
+                                                      'No teams match your filters.',
+                                                  )
+                                                : t('No teams yet.')}
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    teams.data.map((team, index) => {
+                                        const assignedIncharge =
+                                            currentIncharge(team);
+                                        const visibleIncharge =
+                                            inchargeName(team);
+                                        const serialNumber =
+                                            (teams.from ?? 1) + index;
 
-                                    return (
-                                        <TableRow
-                                            key={team.id}
-                                            className="group cursor-pointer transition-colors odd:bg-background even:bg-muted/20 hover:bg-sky-50/70 dark:hover:bg-sky-950/20"
-                                            onClick={() =>
-                                                openQuickView(team.id)
-                                            }
-                                        >
-                                            <TableCell className="w-0 border-r border-b px-3 py-2 align-top">
-                                                <Checkbox
-                                                    checked={selectedIds.has(
-                                                        team.id,
-                                                    )}
-                                                    onCheckedChange={() =>
-                                                        toggleRow(team.id)
-                                                    }
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                    aria-label={t('Select row')}
-                                                />
-                                            </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 text-center font-semibold text-muted-foreground tabular-nums align-top">
-                                                {serialNumber}
-                                            </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <div className="min-w-52">
-                                                    <div className="font-semibold text-foreground">
-                                                        {team.name}
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <div className="flex min-w-36 items-center gap-1.5 font-medium text-sky-800 dark:text-sky-200">
-                                                    <Trophy className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-300" />
-                                                    <span>
-                                                        {team.sport?.name ??
-                                                            dash()}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={
-                                                        team.session_status ===
-                                                        'active'
-                                                            ? 'border border-emerald-300 bg-emerald-100/80 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200'
-                                                            : team.session_status ===
-                                                                'carried_forward'
-                                                              ? 'border border-sky-300 bg-sky-100/80 text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200'
-                                                              : 'border border-amber-300 bg-amber-100/80 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200'
-                                                    }
-                                                >
-                                                    {t(
-                                                        team.session_status_label,
-                                                    )}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <div className="min-w-44 space-y-1.5">
-                                                    <div className="flex items-start gap-2">
-                                                        <MapPin className="mt-0.5 h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                                                        <div>
-                                                            <div className="font-medium">
-                                                                {postingPrimary(
-                                                                    team,
-                                                                ) ?? dash()}
-                                                            </div>
-                                                            {postingSecondary(
-                                                                team,
-                                                            ) && (
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    {t(
-                                                                        'District',
-                                                                    )}
-                                                                    :{' '}
-                                                                    {postingSecondary(
-                                                                        team,
-                                                                    )}
-                                                                </div>
-                                                            )}
+                                        return (
+                                            <TableRow
+                                                key={team.id}
+                                                className="group cursor-pointer transition-colors odd:bg-background even:bg-muted/20 hover:bg-sky-50/70 dark:hover:bg-sky-950/20"
+                                                onClick={() =>
+                                                    openQuickView(team.id)
+                                                }
+                                            >
+                                                <TableCell className="w-0 border-r border-b px-3 py-2 align-top">
+                                                    <Checkbox
+                                                        checked={selectedIds.has(
+                                                            team.id,
+                                                        )}
+                                                        onCheckedChange={() =>
+                                                            toggleRow(team.id)
+                                                        }
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
+                                                        aria-label={t(
+                                                            'Select row',
+                                                        )}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="border-r border-b px-3 py-2 text-center align-top font-semibold text-muted-foreground tabular-nums">
+                                                    {serialNumber}
+                                                </TableCell>
+                                                <TableCell className="border-r border-b px-3 py-2 align-top">
+                                                    <div className="min-w-52">
+                                                        <div className="font-semibold text-foreground">
+                                                            {team.name}
                                                         </div>
                                                     </div>
+                                                </TableCell>
+                                                <TableCell className="border-r border-b px-3 py-2 align-top">
+                                                    <div className="flex min-w-36 items-center gap-1.5 font-medium text-sky-800 dark:text-sky-200">
+                                                        <Trophy className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-300" />
+                                                        <span>
+                                                            {team.sport?.name ??
+                                                                dash()}
+                                                        </span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="border-r border-b px-3 py-2 align-top">
                                                     <Badge
                                                         variant="secondary"
-                                                        className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                                        className={
+                                                            team.session_status ===
+                                                            'active'
+                                                                ? 'border border-emerald-300 bg-emerald-100/80 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200'
+                                                                : team.session_status ===
+                                                                    'carried_forward'
+                                                                  ? 'border border-sky-300 bg-sky-100/80 text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200'
+                                                                  : 'border border-amber-300 bg-amber-100/80 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200'
+                                                        }
                                                     >
-                                                        {team.location_type ===
-                                                        'unit'
-                                                            ? t('Unit')
-                                                            : t('District')}
+                                                        {t(
+                                                            team.session_status_label,
+                                                        )}
                                                     </Badge>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                {visibleIncharge ? (
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        className="h-auto justify-start rounded-md px-2 py-1 text-left hover:bg-indigo-500/10"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            setInchargeTeam(
-                                                                team,
-                                                            );
-                                                        }}
-                                                    >
+                                                </TableCell>
+                                                <TableCell className="border-r border-b px-3 py-2 align-top">
+                                                    <div className="min-w-44 space-y-1.5">
                                                         <div className="flex items-start gap-2">
-                                                            <UserCheck className="mt-0.5 h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                                                            <MapPin className="mt-0.5 h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                                                             <div>
                                                                 <div className="font-medium">
-                                                                    {
-                                                                        visibleIncharge
-                                                                    }
-                                                                </div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {assignedIncharge?.designation ??
-                                                                    assignedIncharge?.rank ??
-                                                                    t(
-                                                                        'View incharge details',
-                                                                    )}
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {inchargePno(team)
-                                                                    ? `${t('PNO')}: ${inchargePno(
+                                                                    {postingPrimary(
                                                                         team,
-                                                                    )}`
-                                                                    : ''}
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {assignedIncharge?.email
-                                                                    ? `${t('Email')}: ${assignedIncharge.email}`
-                                                                    : ''}
+                                                                    ) ?? dash()}
+                                                                </div>
+                                                                {postingSecondary(
+                                                                    team,
+                                                                ) && (
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {t(
+                                                                            'District',
+                                                                        )}
+                                                                        :{' '}
+                                                                        {postingSecondary(
+                                                                            team,
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                                        >
+                                                            {team.location_type ===
+                                                            'unit'
+                                                                ? t('Unit')
+                                                                : t('District')}
+                                                        </Badge>
                                                     </div>
-                                                    </Button>
-                                                ) : (
-                                                    <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
-                                                        {t('Unassigned')}
-                                                    </span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <div className="min-w-64 space-y-1.5">
-                                                    <div className="flex flex-wrap gap-1">
-                                                        <span className="inline-flex items-center gap-1 rounded-sm border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700 tabular-nums dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
-                                                            <Users className="h-3.5 w-3.5" />
-                                                            {t('Total')}:{' '}
-                                                            {team.players_count}
+                                                </TableCell>
+                                                <TableCell className="border-r border-b px-3 py-2 align-top">
+                                                    {visibleIncharge ? (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            className="h-auto justify-start rounded-md px-2 py-1 text-left hover:bg-indigo-500/10"
+                                                            onClick={(
+                                                                event,
+                                                            ) => {
+                                                                event.stopPropagation();
+                                                                setInchargeTeam(
+                                                                    team,
+                                                                );
+                                                            }}
+                                                        >
+                                                            <div className="flex items-start gap-2">
+                                                                <UserCheck className="mt-0.5 h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                                                                <div>
+                                                                    <div className="font-medium">
+                                                                        {
+                                                                            visibleIncharge
+                                                                        }
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {assignedIncharge?.designation ??
+                                                                            assignedIncharge?.rank ??
+                                                                            t(
+                                                                                'View incharge details',
+                                                                            )}
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {inchargePno(
+                                                                            team,
+                                                                        )
+                                                                            ? `${t('PNO')}: ${inchargePno(
+                                                                                  team,
+                                                                              )}`
+                                                                            : ''}
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {assignedIncharge?.email
+                                                                            ? `${t('Email')}: ${assignedIncharge.email}`
+                                                                            : ''}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </Button>
+                                                    ) : (
+                                                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                                                            {t('Unassigned')}
                                                         </span>
-                                                        {team.removed_players_count >
-                                                            0 && (
-                                                            <span className="inline-flex items-center rounded-sm border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 tabular-nums dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-                                                                {t('Removed')}
-                                                                :{' '}
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="border-r border-b px-3 py-2 align-top">
+                                                    <div className="min-w-64 space-y-1.5">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            <span className="inline-flex items-center gap-1 rounded-sm border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700 tabular-nums dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                                                                <Users className="h-3.5 w-3.5" />
+                                                                {t('Total')}:{' '}
                                                                 {
-                                                                    team.removed_players_count
+                                                                    team.players_count
                                                                 }
                                                             </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
-                                                        <div className="rounded-sm border border-blue-200 bg-blue-50 px-2 py-1 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
-                                                            <div className="font-semibold tabular-nums">
-                                                                {t('Men')}:{' '}
-                                                                {
-                                                                    team.men_players_count
-                                                                }
-                                                            </div>
-                                                            <div className="text-[11px] tabular-nums text-blue-700/80 dark:text-blue-200/80">
-                                                                {t('GD')}:{' '}
-                                                                {
-                                                                    team.men_gd_players_count
-                                                                }{' '}
-                                                                / {t('Sports Quota')}
-                                                                :{' '}
-                                                                {
-                                                                    team.men_non_gd_players_count
-                                                                }
-                                                            </div>
-                                                        </div>
-                                                        <div className="rounded-sm border border-rose-200 bg-rose-50 px-2 py-1 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
-                                                            <div className="font-semibold tabular-nums">
-                                                                {t('Women')}:{' '}
-                                                                {
-                                                                    team.women_players_count
-                                                                }
-                                                            </div>
-                                                            <div className="text-[11px] tabular-nums text-rose-700/80 dark:text-rose-200/80">
-                                                                {t('GD')}:{' '}
-                                                                {
-                                                                    team.women_gd_players_count
-                                                                }{' '}
-                                                                / {t('Sports Quota')}
-                                                                :{' '}
-                                                                {
-                                                                    team.women_non_gd_players_count
-                                                                }
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <div className="flex min-w-40 flex-wrap gap-1">
-                                                    <span className="inline-flex items-center gap-1 rounded-sm border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 tabular-nums dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300">
-                                                        <ShieldCheck className="h-3.5 w-3.5" />
-                                                        {t('Coaches')}:{' '}
-                                                        {team.coaches_count}
-                                                    </span>
-                                                    <span className="inline-flex items-center rounded-sm border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700 tabular-nums dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300">
-                                                        {t('Captains')}:{' '}
-                                                        {team.captains_count}
-                                                    </span>
-                                                    <span className="inline-flex items-center rounded-sm border border-teal-200 bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700 tabular-nums dark:border-teal-900 dark:bg-teal-950 dark:text-teal-300">
-                                                        {t('Reserves')}:{' '}
-                                                        {team.reserves_count}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="sticky right-0 z-10 w-0 border-b bg-card px-3 py-2 align-top shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]">
-                                                <div className="flex items-center justify-end">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        title={t('Quick info')}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openQuickView(
-                                                                team.id,
-                                                            );
-                                                        }}
-                                                    >
-                                                        <Info className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        title={t('View')}
-                                                        asChild
-                                                    >
-                                                        <Link
-                                                            href={teamShowUrl(
-                                                                team.id,
+                                                            {team.removed_players_count >
+                                                                0 && (
+                                                                <span className="inline-flex items-center rounded-sm border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 tabular-nums dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+                                                                    {t(
+                                                                        'Removed',
+                                                                    )}
+                                                                    :{' '}
+                                                                    {
+                                                                        team.removed_players_count
+                                                                    }
+                                                                </span>
                                                             )}
-                                                            onClick={(event) =>
-                                                                event.stopPropagation()
+                                                        </div>
+                                                        <div className="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+                                                            <div className="rounded-sm border border-blue-200 bg-blue-50 px-2 py-1 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+                                                                <div className="font-semibold tabular-nums">
+                                                                    {t('Men')}:{' '}
+                                                                    {
+                                                                        team.men_players_count
+                                                                    }
+                                                                </div>
+                                                                <div className="text-[11px] text-blue-700/80 tabular-nums dark:text-blue-200/80">
+                                                                    {t('GD')}:{' '}
+                                                                    {
+                                                                        team.men_gd_players_count
+                                                                    }{' '}
+                                                                    /{' '}
+                                                                    {t(
+                                                                        'Sports Quota',
+                                                                    )}
+                                                                    :{' '}
+                                                                    {
+                                                                        team.men_non_gd_players_count
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-sm border border-rose-200 bg-rose-50 px-2 py-1 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
+                                                                <div className="font-semibold tabular-nums">
+                                                                    {t('Women')}
+                                                                    :{' '}
+                                                                    {
+                                                                        team.women_players_count
+                                                                    }
+                                                                </div>
+                                                                <div className="text-[11px] text-rose-700/80 tabular-nums dark:text-rose-200/80">
+                                                                    {t('GD')}:{' '}
+                                                                    {
+                                                                        team.women_gd_players_count
+                                                                    }{' '}
+                                                                    /{' '}
+                                                                    {t(
+                                                                        'Sports Quota',
+                                                                    )}
+                                                                    :{' '}
+                                                                    {
+                                                                        team.women_non_gd_players_count
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="border-r border-b px-3 py-2 align-top">
+                                                    <div className="flex min-w-40 flex-wrap gap-1">
+                                                        <span className="inline-flex items-center gap-1 rounded-sm border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 tabular-nums dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300">
+                                                            <ShieldCheck className="h-3.5 w-3.5" />
+                                                            {t('Coaches')}:{' '}
+                                                            {team.coaches_count}
+                                                        </span>
+                                                        <span className="inline-flex items-center rounded-sm border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700 tabular-nums dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300">
+                                                            {t('Captains')}:{' '}
+                                                            {
+                                                                team.captains_count
                                                             }
+                                                        </span>
+                                                        <span className="inline-flex items-center rounded-sm border border-teal-200 bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700 tabular-nums dark:border-teal-900 dark:bg-teal-950 dark:text-teal-300">
+                                                            {t('Reserves')}:{' '}
+                                                            {
+                                                                team.reserves_count
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="sticky right-0 z-10 w-0 border-b bg-card px-3 py-2 align-top shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]">
+                                                    <div className="flex items-center justify-end">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title={t(
+                                                                'Quick info',
+                                                            )}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openQuickView(
+                                                                    team.id,
+                                                                );
+                                                            }}
                                                         >
-                                                            <Eye className="h-4 w-4" />
-                                                        </Link>
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
+                                                            <Info className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title={t('View')}
+                                                            asChild
+                                                        >
+                                                            <Link
+                                                                href={teamShowUrl(
+                                                                    team.id,
+                                                                )}
+                                                                onClick={(
+                                                                    event,
+                                                                ) =>
+                                                                    event.stopPropagation()
+                                                                }
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Link>
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
+                                )}
+                            </TableBody>
+                        </Table>
                     </div>
                 </div>
-
             </div>
 
             <ExportDialog

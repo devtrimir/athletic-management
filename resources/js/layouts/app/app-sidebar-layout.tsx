@@ -3,9 +3,7 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import type { AppLayoutProps } from '@/types';
 
-export default function AppSidebarLayout({
-    children,
-}: AppLayoutProps) {
+export default function AppSidebarLayout({ children }: AppLayoutProps) {
     return (
         <AppShell variant="sidebar">
             <AppSidebar />

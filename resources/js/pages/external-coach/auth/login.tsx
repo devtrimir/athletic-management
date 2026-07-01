@@ -14,7 +14,9 @@ export default function ExternalCoachLogin() {
 
     setLayoutProps({
         title: t('External coach login'),
-        description: t('Sign in to submit assigned athlete training attendance.'),
+        description: t(
+            'Sign in to submit assigned athlete training attendance.',
+        ),
     });
 
     return (
@@ -60,7 +62,11 @@ export default function ExternalCoachLogin() {
                             <Label htmlFor="remember">{t('Remember me')}</Label>
                         </div>
 
-                        <Button type="submit" className="w-full" disabled={processing}>
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={processing}
+                        >
                             {processing && <Spinner />}
                             {t('Log in')}
                         </Button>

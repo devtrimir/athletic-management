@@ -6,8 +6,21 @@ import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 type District = {
@@ -35,7 +48,8 @@ export default function Index({ districts }: { districts: District[] }) {
                 !q ||
                 d.name.toLowerCase().includes(q) ||
                 d.code.toLowerCase().includes(q);
-            const matchesState = stateFilter === 'all' || d.state === stateFilter;
+            const matchesState =
+                stateFilter === 'all' || d.state === stateFilter;
 
             return matchesQuery && matchesState;
         });
@@ -64,7 +78,7 @@ export default function Index({ districts }: { districts: District[] }) {
 
                 <div className="flex items-center gap-3">
                     <div className="relative max-w-xs flex-1">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t('Search districts…')}
                             value={query}
@@ -73,58 +87,100 @@ export default function Index({ districts }: { districts: District[] }) {
                         />
                     </div>
                     {states.length > 1 && (
-                        <Select value={stateFilter} onValueChange={setStateFilter}>
+                        <Select
+                            value={stateFilter}
+                            onValueChange={setStateFilter}
+                        >
                             <SelectTrigger className="w-44">
                                 <SelectValue placeholder={t('State')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">{t('All states')}</SelectItem>
+                                <SelectItem value="all">
+                                    {t('All states')}
+                                </SelectItem>
                                 {states.map((s) => (
-                                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                                    <SelectItem key={s} value={s}>
+                                        {s}
+                                    </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     )}
                 </div>
 
-                <div className="rounded-xl border overflow-hidden">
+                <div className="overflow-hidden rounded-xl border">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
                                 <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('State')}</TableHead>
                                 <TableHead>{t('Code')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead className="w-0 text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
-                                        {districts.length === 0 ? t('No districts yet.') : t('No districts match your filters.')}
+                                    <TableCell
+                                        colSpan={4}
+                                        className="py-12 text-center text-muted-foreground"
+                                    >
+                                        {districts.length === 0
+                                            ? t('No districts yet.')
+                                            : t(
+                                                  'No districts match your filters.',
+                                              )}
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filtered.map((district) => (
                                     <TableRow key={district.id}>
-                                        <TableCell className="font-medium">{district.name}</TableCell>
-                                        <TableCell className="text-muted-foreground">{district.state}</TableCell>
+                                        <TableCell className="font-medium">
+                                            {district.name}
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {district.state}
+                                        </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className="font-mono">{district.code}</Badge>
+                                            <Badge
+                                                variant="outline"
+                                                className="font-mono"
+                                            >
+                                                {district.code}
+                                            </Badge>
                                         </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center justify-end gap-1">
-                                                <Button variant="ghost" size="icon" title={t('Edit')} asChild>
-                                                    <Link href={DistrictController.edit.url(district.id)}><Pencil className="h-4 w-4" /></Link>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Edit')}
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={DistrictController.edit.url(
+                                                            district.id,
+                                                        )}
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Link>
                                                 </Button>
-                                                <Form {...DistrictController.destroy.form(district.id)}>
+                                                <Form
+                                                    {...DistrictController.destroy.form(
+                                                        district.id,
+                                                    )}
+                                                >
                                                     {({ processing }) => (
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
                                                             title={t('Delete')}
                                                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                            disabled={processing}
+                                                            disabled={
+                                                                processing
+                                                            }
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>

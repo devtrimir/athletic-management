@@ -18,7 +18,7 @@ class TournamentEventPayload
     public function forStoreOrUpdate(Tournament $tournament, array $data): array
     {
         if (($data['event_mode'] ?? null) === 'official') {
-            return $this->officialPayload($tournament, (int) $data['sport_event_variant_id']);
+            return $this->officialPayload($tournament, (int) $data['sport_event_variant_id'], $data);
         }
 
         return [
@@ -27,6 +27,8 @@ class TournamentEventPayload
             'name' => (string) $data['name'],
             'discipline' => Arr::get($data, 'discipline'),
             'weight_category' => Arr::get($data, 'weight_category'),
+            'event_type' => Arr::get($data, 'event_type', 'individual'),
+            'participants_required' => Arr::get($data, 'participants_required'),
             'gender_class' => (string) $data['gender_class'],
             'event_source' => 'manual',
             'provisional_reason' => (string) $data['provisional_reason'],
@@ -36,7 +38,7 @@ class TournamentEventPayload
     /**
      * @return array<string, mixed>
      */
-    private function officialPayload(Tournament $tournament, int $variantId): array
+    private function officialPayload(Tournament $tournament, int $variantId, array $data): array
     {
         $variant = SportEventVariant::query()
             ->with([
@@ -53,9 +55,18 @@ class TournamentEventPayload
             ]);
         }
 
+        $eventType = Arr::get($data, 'event_type');
+        $participantsRequired = Arr::get($data, 'participants_required');
+
         return [
             'sport_id' => $variant->sport_id,
             'sport_event_variant_id' => $variant->id,
+            'event_type' => in_array($eventType, ['team', 'individual'], true)
+                ? $eventType
+                : ($variant->is_team_based ? 'team' : 'individual'),
+            'participants_required' => is_numeric($participantsRequired)
+                ? (int) $participantsRequired
+                : $variant->min_participants,
             'name' => $variant->sportEvent?->name ?? $variant->name,
             'discipline' => $variant->sportEvent?->discipline_type,
             'weight_category' => $variant->weightCategory?->name,

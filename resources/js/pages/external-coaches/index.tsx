@@ -46,7 +46,9 @@ export default function ExternalCoachesIndex({ externalCoaches }: Props) {
                         </p>
                     </div>
                     <Button asChild>
-                        <Link href="/external-coaches/create">{t('Create external coach')}</Link>
+                        <Link href="/external-coaches/create">
+                            {t('Create external coach')}
+                        </Link>
                     </Button>
                 </div>
 
@@ -54,7 +56,9 @@ export default function ExternalCoachesIndex({ externalCoaches }: Props) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-20">{t('S.No.')}</TableHead>
+                                <TableHead className="w-20">
+                                    {t('S.No.')}
+                                </TableHead>
                                 <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Email')}</TableHead>
                                 <TableHead>{t('Phone')}</TableHead>
@@ -66,17 +70,33 @@ export default function ExternalCoachesIndex({ externalCoaches }: Props) {
                         <TableBody>
                             {externalCoaches.data.map((coach, index) => (
                                 <TableRow key={coach.id}>
-                                    <TableCell>{(externalCoaches.from ?? 1) + index}</TableCell>
-                                    <TableCell className="font-medium">{coach.name}</TableCell>
+                                    <TableCell>
+                                        {(externalCoaches.from ?? 1) + index}
+                                    </TableCell>
+                                    <TableCell className="font-medium">
+                                        {coach.name}
+                                    </TableCell>
                                     <TableCell>{coach.email}</TableCell>
                                     <TableCell>{coach.phone ?? '-'}</TableCell>
-                                    <TableCell>{coach.experience_years ?? '-'}</TableCell>
                                     <TableCell>
-                                        <Badge variant="outline">{t(coach.status)}</Badge>
+                                        {coach.experience_years ?? '-'}
                                     </TableCell>
                                     <TableCell>
-                                        <Button asChild size="sm" variant="outline">
-                                            <Link href={`/external-coaches/${coach.id}`}>{t('View')}</Link>
+                                        <Badge variant="outline">
+                                            {t(coach.status)}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Button
+                                            asChild
+                                            size="sm"
+                                            variant="outline"
+                                        >
+                                            <Link
+                                                href={`/external-coaches/${coach.id}`}
+                                            >
+                                                {t('View')}
+                                            </Link>
                                         </Button>
                                     </TableCell>
                                 </TableRow>

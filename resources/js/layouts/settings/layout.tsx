@@ -1,5 +1,17 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BriefcaseIcon, Building2, CalendarDays, LocateIcon, Medal, Monitor, Shield, ShieldIcon, Trophy, User, Users } from 'lucide-react';
+import {
+    BriefcaseIcon,
+    Building2,
+    CalendarDays,
+    LocateIcon,
+    Medal,
+    Monitor,
+    Shield,
+    ShieldIcon,
+    Trophy,
+    User,
+    Users,
+} from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { Separator } from '@/components/ui/separator';
@@ -56,8 +68,16 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
         { title: t('Units'), href: unitsIndex(), icon: Building2 },
         { title: t('Districts'), href: districtsIndex(), icon: LocateIcon },
         { title: t('Ranks'), href: ranksIndex(), icon: ShieldIcon },
-        { title: t('Designations'), href: designationsIndex(), icon: BriefcaseIcon },
-        { title: t('Tournament Tiers'), href: tournamentTiersIndex(), icon: Medal },
+        {
+            title: t('Designations'),
+            href: designationsIndex(),
+            icon: BriefcaseIcon,
+        },
+        {
+            title: t('Tournament Tiers'),
+            href: tournamentTiersIndex(),
+            icon: Medal,
+        },
         { title: t('NIS Masters'), href: nisMastersIndex(), icon: Medal },
     ];
 
@@ -74,9 +94,12 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
             />
 
             <div className="flex flex-col lg:flex-row lg:gap-10">
-                <aside className="w-full lg:w-52 shrink-0">
-                    <nav className="flex flex-col gap-0.5" aria-label={t('Settings')}>
-                        <p className="px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <aside className="w-full shrink-0 lg:w-52">
+                    <nav
+                        className="flex flex-col gap-0.5"
+                        aria-label={t('Settings')}
+                    >
+                        <p className="px-3 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                             {t('Account')}
                         </p>
                         {accountNavItems.map((item) => (
@@ -86,7 +109,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                 isActive={isCurrentOrParentUrl(item.href)}
                             />
                         ))}
-                        <p className="mt-4 px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <p className="mt-4 px-3 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                             {t('Reference Data')}
                         </p>
                         {referenceDataNavItems.map((item) => (
@@ -98,14 +121,16 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                         ))}
                         {canManageUsers && (
                             <>
-                                <p className="mt-4 px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                <p className="mt-4 px-3 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                                     {t('Administration')}
                                 </p>
                                 {adminNavItems.map((item) => (
                                     <NavLink
                                         key={toUrl(item.href)}
                                         item={item}
-                                        isActive={isCurrentOrParentUrl(item.href)}
+                                        isActive={isCurrentOrParentUrl(
+                                            item.href,
+                                        )}
                                     />
                                 ))}
                             </>
@@ -116,9 +141,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                 <Separator className="my-6 lg:hidden" />
 
                 <div className="min-w-0 flex-1">
-                    <section className="space-y-10">
-                        {children}
-                    </section>
+                    <section className="space-y-10">{children}</section>
                 </div>
             </div>
         </div>

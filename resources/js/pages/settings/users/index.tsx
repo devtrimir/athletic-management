@@ -6,7 +6,14 @@ import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Role = {
@@ -28,14 +35,20 @@ type User = {
 
 export default function Index({ users }: { users: User[] }) {
     const { t } = useTranslation();
-    const { locale } = usePage().props as { locale: string } & Record<string, unknown>;
+    const { locale } = usePage().props as { locale: string } & Record<
+        string,
+        unknown
+    >;
     const [query, setQuery] = useState('');
 
     const filtered = useMemo(() => {
         const q = query.toLowerCase().trim();
 
         return users.filter(
-            (u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
+            (u) =>
+                !q ||
+                u.name.toLowerCase().includes(q) ||
+                u.email.toLowerCase().includes(q),
         );
     }, [users, query]);
 
@@ -61,7 +74,7 @@ export default function Index({ users }: { users: User[] }) {
                 </div>
 
                 <div className="relative max-w-xs">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t('Search users…')}
                         value={query}
@@ -78,13 +91,18 @@ export default function Index({ users }: { users: User[] }) {
                                 <TableHead>{t('Email')}</TableHead>
                                 <TableHead>{t('Roles')}</TableHead>
                                 <TableHead>{t('Status')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead className="w-0 text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                                    <TableCell
+                                        colSpan={5}
+                                        className="py-12 text-center text-muted-foreground"
+                                    >
                                         {users.length === 0
                                             ? t('No users yet.')
                                             : t('No users match your search.')}
@@ -96,8 +114,13 @@ export default function Index({ users }: { users: User[] }) {
                                         <TableCell className="font-medium">
                                             {user.name}
                                             {user.must_change_password && (
-                                                <Badge variant="outline" className="ml-2 text-xs text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700">
-                                                    {t('Password change required')}
+                                                <Badge
+                                                    variant="outline"
+                                                    className="ml-2 border-amber-200 bg-amber-50 text-xs text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
+                                                >
+                                                    {t(
+                                                        'Password change required',
+                                                    )}
                                                 </Badge>
                                             )}
                                         </TableCell>
@@ -107,8 +130,14 @@ export default function Index({ users }: { users: User[] }) {
                                         <TableCell>
                                             <div className="flex flex-wrap gap-1">
                                                 {user.roles.map((r) => (
-                                                    <Badge key={r.id} variant="secondary" className="text-xs">
-                                                        {locale === 'hi' ? r.name : r.name}
+                                                    <Badge
+                                                        key={r.id}
+                                                        variant="secondary"
+                                                        className="text-xs"
+                                                    >
+                                                        {locale === 'hi'
+                                                            ? r.name
+                                                            : r.name}
                                                     </Badge>
                                                 ))}
                                             </div>
@@ -118,28 +147,45 @@ export default function Index({ users }: { users: User[] }) {
                                                 variant="outline"
                                                 className={
                                                     user.is_active
-                                                        ? 'border-green-300 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700'
-                                                        : 'border-red-300 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700'
+                                                        ? 'border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                                        : 'border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-400'
                                                 }
                                             >
-                                                {user.is_active ? t('Active') : t('Inactive')}
+                                                {user.is_active
+                                                    ? t('Active')
+                                                    : t('Inactive')}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center justify-end gap-1">
-                                                <Button variant="ghost" size="icon" title={t('Edit')} asChild>
-                                                    <Link href={UserController.edit.url(user.id)}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Edit')}
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={UserController.edit.url(
+                                                            user.id,
+                                                        )}
+                                                    >
                                                         <Pencil className="h-4 w-4" />
                                                     </Link>
                                                 </Button>
-                                                <Form {...UserController.destroy.form(user.id)}>
+                                                <Form
+                                                    {...UserController.destroy.form(
+                                                        user.id,
+                                                    )}
+                                                >
                                                     {({ processing }) => (
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
                                                             title={t('Delete')}
                                                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                            disabled={processing}
+                                                            disabled={
+                                                                processing
+                                                            }
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>

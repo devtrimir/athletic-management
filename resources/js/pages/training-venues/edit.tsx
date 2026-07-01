@@ -19,7 +19,9 @@ export default function TrainingVenuesEdit({
             <Head title={t('Edit training venue')} />
             <TrainingVenueForm
                 title={t('Edit training venue')}
-                description={t('Update venue location, attendance radius, and availability.')}
+                description={t(
+                    'Update venue location, attendance radius, and availability.',
+                )}
                 action={update(trainingVenue)}
                 venue={trainingVenue}
                 statuses={statuses}

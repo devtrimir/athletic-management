@@ -7,9 +7,21 @@ import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 type TeamMemberRow = {
@@ -45,7 +57,13 @@ type TeamPreview = {
     coaches: TeamCoachRow[];
 };
 
-function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+function InfoRow({
+    label,
+    value,
+}: {
+    label: string;
+    value: string | null | undefined;
+}) {
     if (!value) {
         return null;
     }
@@ -66,13 +84,19 @@ function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
         return rankLabel ? `${rankLabel} ${fullName}` : fullName;
     };
 
-    const memberRows = data.members.map(
-        (m) => `<tr><td class="mono">${m.pno ?? '—'}</td><td>${formatMemberName(m)}</td><td>${t(m.role)}</td><td>${m.session_name ?? '—'}</td></tr>`,
-    ).join('');
+    const memberRows = data.members
+        .map(
+            (m) =>
+                `<tr><td class="mono">${m.pno ?? '—'}</td><td>${formatMemberName(m)}</td><td>${t(m.role)}</td><td>${m.session_name ?? '—'}</td></tr>`,
+        )
+        .join('');
 
-    const coachRows = data.coaches.map(
-        (c) => `<tr><td>${c.full_name ?? '—'}</td><td class="mono">${c.pno ?? '—'}</td><td>${c.nis_certified ? '✓' : '—'}</td><td>${t(c.role)}</td><td>${c.session_name ?? '—'}</td></tr>`,
-    ).join('');
+    const coachRows = data.coaches
+        .map(
+            (c) =>
+                `<tr><td>${c.full_name ?? '—'}</td><td class="mono">${c.pno ?? '—'}</td><td>${c.nis_certified ? '✓' : '—'}</td><td>${t(c.role)}</td><td>${c.session_name ?? '—'}</td></tr>`,
+        )
+        .join('');
 
     return `<!DOCTYPE html><html><head>
     <meta charset="utf-8"><title>${data.name}</title>
@@ -98,12 +122,20 @@ function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
     ${data.location_label ? `<div class="row"><span class="label">${t('Location')}</span><span class="val">${data.location_label}</span></div>` : ''}
     <div class="row"><span class="label">${t('Status')}</span><span class="val">${data.is_active ? t('Active') : t('Inactive')}</span></div>
     ${data.in_charge ? `<div class="row"><span class="label">${t('In-charge')}</span><span class="val">${data.in_charge}</span></div>` : ''}
-    ${data.members.length ? `<h2>${t('Players')} (${data.members.length})</h2>
+    ${
+        data.members.length
+            ? `<h2>${t('Players')} (${data.members.length})</h2>
     <table><thead><tr><th>${t('PNO')}</th><th>${t('Name')}</th><th>${t('Role')}</th><th>${t('Session')}</th></tr></thead>
-    <tbody>${memberRows}</tbody></table>` : ''}
-    ${data.coaches.length ? `<h2>${t('Coaches')} (${data.coaches.length})</h2>
+    <tbody>${memberRows}</tbody></table>`
+            : ''
+    }
+    ${
+        data.coaches.length
+            ? `<h2>${t('Coaches')} (${data.coaches.length})</h2>
     <table><thead><tr><th>${t('Name')}</th><th>${t('PNO')}</th><th>${t('NIS')}</th><th>${t('Role')}</th><th>${t('Session')}</th></tr></thead>
-    <tbody>${coachRows}</tbody></table>` : ''}
+    <tbody>${coachRows}</tbody></table>`
+            : ''
+    }
     </body></html>`;
 }
 
@@ -131,7 +163,7 @@ export function TeamQuickView({
 
         return rankLabel
             ? `${rankLabel} ${member.full_name ?? ''}`
-            : member.full_name ?? '';
+            : (member.full_name ?? '');
     }
     const { get, processing } = useHttp<Record<string, never>, TeamPreview>({});
     const selectedSessionName = sessionName ?? data?.session?.name ?? null;
@@ -155,11 +187,11 @@ export function TeamQuickView({
                     : undefined,
             }),
             {
-            onSuccess: (res) => setData(res as unknown as TeamPreview),
-            onError: () => setError(true),
+                onSuccess: (res) => setData(res as unknown as TeamPreview),
+                onError: () => setError(true),
             },
         );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, teamId, sessionId]);
 
     const handlePrint = () => {
@@ -176,13 +208,13 @@ export function TeamQuickView({
         win.document.write(buildPrintHtml(data, t));
         win.document.close();
         setTimeout(() => {
- win.focus(); win.print();
-}, 300);
+            win.focus();
+            win.print();
+        }, 300);
     };
 
-    const exportUrl = teamId !== null
-        ? exportTeamsUrl.url() + '?ids[]=' + teamId
-        : '#';
+    const exportUrl =
+        teamId !== null ? exportTeamsUrl.url() + '?ids[]=' + teamId : '#';
     const openProfileUrl =
         teamId !== null
             ? TeamController.show.url(teamId, {
@@ -191,47 +223,67 @@ export function TeamQuickView({
             : '#';
 
     return (
-        <Sheet open={open} onOpenChange={(v) => {
- if (!v) {
- onClose();
-}
-}}>
-            <SheetContent side="right" className="flex w-full flex-col sm:max-w-2xl">
+        <Sheet
+            open={open}
+            onOpenChange={(v) => {
+                if (!v) {
+                    onClose();
+                }
+            }}
+        >
+            <SheetContent
+                side="right"
+                className="flex w-full flex-col sm:max-w-2xl"
+            >
                 <SheetHeader className="border-b pb-4">
-                            {processing || !data ? (
-                                <div className="space-y-2">
-                                    <SheetTitle className="sr-only">{t('Loading…')}</SheetTitle>
-                                    <Skeleton className="h-6 w-48" />
-                                    <Skeleton className="h-4 w-32" />
-                                </div>
-                            ) : (
-                                <>
-                                    <SheetTitle className="text-lg">{data.name}</SheetTitle>
-                                    <div className="flex flex-wrap items-center gap-3 pt-1 text-sm text-muted-foreground">
-                                        {data.sport && <span>{data.sport.name}</span>}
-                                        {selectedSessionName && (
-                                            <span>· {selectedSessionName}</span>
-                                        )}
-                                        {data.location_label && (
-                                            <span>· {data.location_label}</span>
-                                        )}
-                                        <Badge
-                                            variant="secondary"
-                                            className={
-                                                hasHistoricalSession
-                                                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                                                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                                            }
-                                        >
-                                            <CalendarDays className="mr-1 h-3.5 w-3.5" />
-                                            {hasHistoricalSession
-                                                ? t('Archived session')
-                                                : t('Active session')}
-                                        </Badge>
-                                    </div>
+                    {processing || !data ? (
+                        <div className="space-y-2">
+                            <SheetTitle className="sr-only">
+                                {t('Loading…')}
+                            </SheetTitle>
+                            <Skeleton className="h-6 w-48" />
+                            <Skeleton className="h-4 w-32" />
+                        </div>
+                    ) : (
+                        <>
+                            <SheetTitle className="text-lg">
+                                {data.name}
+                            </SheetTitle>
+                            <div className="flex flex-wrap items-center gap-3 pt-1 text-sm text-muted-foreground">
+                                {data.sport && <span>{data.sport.name}</span>}
+                                {selectedSessionName && (
+                                    <span>· {selectedSessionName}</span>
+                                )}
+                                {data.location_label && (
+                                    <span>· {data.location_label}</span>
+                                )}
+                                <Badge
+                                    variant="secondary"
+                                    className={
+                                        hasHistoricalSession
+                                            ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                            : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                    }
+                                >
+                                    <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                                    {hasHistoricalSession
+                                        ? t('Archived session')
+                                        : t('Active session')}
+                                </Badge>
+                            </div>
                             <div className="flex gap-4 pt-1 text-sm">
-                                <span><span className="font-semibold">{data.players_count}</span> {t('players')}</span>
-                                <span><span className="font-semibold">{data.coaches_count}</span> {t('coaches')}</span>
+                                <span>
+                                    <span className="font-semibold">
+                                        {data.players_count}
+                                    </span>{' '}
+                                    {t('players')}
+                                </span>
+                                <span>
+                                    <span className="font-semibold">
+                                        {data.coaches_count}
+                                    </span>{' '}
+                                    {t('coaches')}
+                                </span>
                             </div>
                         </>
                     )}
@@ -240,49 +292,81 @@ export function TeamQuickView({
                 <div className="flex-1 overflow-y-auto px-1">
                     {processing && (
                         <div className="space-y-3 py-4">
-                            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-4 w-full" />)}
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <Skeleton key={i} className="h-4 w-full" />
+                            ))}
                         </div>
                     )}
 
                     {error && (
-                        <p className="py-8 text-center text-sm text-destructive">{t('Could not load details.')}</p>
+                        <p className="py-8 text-center text-sm text-destructive">
+                            {t('Could not load details.')}
+                        </p>
                     )}
 
                     {data && (
                         <div className="py-2">
                             <div className="border-b py-4">
-                                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('Team info')}</h3>
-                                <InfoRow label={t('In-charge')} value={data.in_charge} />
-                                <InfoRow label={t('Location')} value={data.location_label} />
+                                <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                    {t('Team info')}
+                                </h3>
+                                <InfoRow
+                                    label={t('In-charge')}
+                                    value={data.in_charge}
+                                />
+                                <InfoRow
+                                    label={t('Location')}
+                                    value={data.location_label}
+                                />
                                 <InfoRow
                                     label={t('Status')}
-                                    value={data.is_active ? t('Active') : t('Inactive')}
+                                    value={
+                                        data.is_active
+                                            ? t('Active')
+                                            : t('Inactive')
+                                    }
                                 />
                             </div>
 
                             {data.members.length > 0 && (
                                 <div className="border-b py-4 last:border-0">
-                                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                                         {t('Players')} ({data.members.length})
                                     </h3>
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>{t('PNO')}</TableHead>
-                                                        <TableHead>{t('Name')}</TableHead>
-                                                        <TableHead>{t('Role')}</TableHead>
-                                                        <TableHead>{t('Session')}</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {data.members.map((m, i) => (
-                                                        <TableRow key={i}>
-                                                            <TableCell className="font-mono text-xs">{m.pno ?? '—'}</TableCell>
-                                                            <TableCell className="font-medium">{memberNameWithRank(m)}</TableCell>
-                                                            <TableCell className="text-xs">{t(m.role)}</TableCell>
-                                                            <TableCell className="text-xs">{m.session_name ?? '—'}</TableCell>
-                                                        </TableRow>
-                                                    ))}
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>
+                                                    {t('PNO')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Name')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Role')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Session')}
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {data.members.map((m, i) => (
+                                                <TableRow key={i}>
+                                                    <TableCell className="font-mono text-xs">
+                                                        {m.pno ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {memberNameWithRank(m)}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">
+                                                        {t(m.role)}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">
+                                                        {m.session_name ?? '—'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
                                         </TableBody>
                                     </Table>
                                 </div>
@@ -290,27 +374,49 @@ export function TeamQuickView({
 
                             {data.coaches.length > 0 && (
                                 <div className="py-4">
-                                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                                         {t('Coaches')} ({data.coaches.length})
                                     </h3>
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t('Name')}</TableHead>
-                                                <TableHead>{t('PNO')}</TableHead>
-                                                <TableHead>{t('NIS')}</TableHead>
-                                                <TableHead>{t('Role')}</TableHead>
-                                                <TableHead>{t('Session')}</TableHead>
+                                                <TableHead>
+                                                    {t('Name')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('PNO')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('NIS')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Role')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Session')}
+                                                </TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {data.coaches.map((c, i) => (
                                                 <TableRow key={i}>
-                                                    <TableCell className="font-medium">{c.full_name ?? '—'}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{c.pno ?? '—'}</TableCell>
-                                                    <TableCell className="text-xs">{c.nis_certified ? '✓' : '—'}</TableCell>
-                                                    <TableCell className="text-xs">{t(c.role)}</TableCell>
-                                                    <TableCell className="text-xs">{c.session_name ?? '—'}</TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {c.full_name ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-xs">
+                                                        {c.pno ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">
+                                                        {c.nis_certified
+                                                            ? '✓'
+                                                            : '—'}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">
+                                                        {t(c.role)}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">
+                                                        {c.session_name ?? '—'}
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -322,12 +428,21 @@ export function TeamQuickView({
                 </div>
 
                 <div className="flex items-center gap-2 border-t pt-4">
-                    <Button variant="outline" size="sm" onClick={() => {
- window.open(exportUrl, '_blank');
-}}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            window.open(exportUrl, '_blank');
+                        }}
+                    >
                         {t('Export')}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handlePrint} disabled={!data}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrint}
+                        disabled={!data}
+                    >
                         <Printer className="mr-1.5 h-4 w-4" />
                         {t('Print')}
                     </Button>

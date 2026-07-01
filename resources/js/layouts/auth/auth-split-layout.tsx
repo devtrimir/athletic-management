@@ -14,12 +14,15 @@ export default function AuthSplitLayout({
         <div className="relative grid h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0">
             {/* Left brand panel */}
             <div
-                className="relative hidden h-full flex-col p-10 text-white lg:flex dark:border-r overflow-hidden"
-                style={{ background: 'linear-gradient(160deg, #0b1e6b 0%, #152a8a 45%, #0a1650 100%)' }}
+                className="relative hidden h-full flex-col overflow-hidden p-10 text-white lg:flex dark:border-r"
+                style={{
+                    background:
+                        'linear-gradient(160deg, #0b1e6b 0%, #152a8a 45%, #0a1650 100%)',
+                }}
             >
                 {/* Gold radial glows */}
                 <div
-                    className="absolute inset-0 pointer-events-none"
+                    className="pointer-events-none absolute inset-0"
                     style={{
                         backgroundImage:
                             'radial-gradient(ellipse at 15% 85%, rgba(200,150,40,0.18) 0%, transparent 55%), radial-gradient(ellipse at 85% 15%, rgba(200,150,40,0.12) 0%, transparent 50%)',
@@ -32,17 +35,20 @@ export default function AuthSplitLayout({
                         {/* Gold ring around logo */}
                         <div
                             className="absolute -inset-2 rounded-full opacity-60"
-                            style={{ background: 'conic-gradient(from 0deg, #c8962b, #f0c55a, #c8962b, #8a6010, #c8962b)' }}
+                            style={{
+                                background:
+                                    'conic-gradient(from 0deg, #c8962b, #f0c55a, #c8962b, #8a6010, #c8962b)',
+                            }}
                         />
                         <img
                             src="/logo.jpg"
                             alt="UP Police Sports Control Board"
-                            className="relative w-44 h-44 rounded-full object-cover ring-4 ring-white/20 shadow-2xl"
+                            className="relative h-44 w-44 rounded-full object-cover shadow-2xl ring-4 ring-white/20"
                         />
                     </div>
 
-                    <div className="text-center space-y-1">
-                        <h1 className="text-3xl font-bold tracking-widest uppercase text-white">
+                    <div className="space-y-1 text-center">
+                        <h1 className="text-3xl font-bold tracking-widest text-white uppercase">
                             UP Police
                         </h1>
                         <h2
@@ -53,10 +59,14 @@ export default function AuthSplitLayout({
                         </h2>
                         <div
                             className="mx-auto my-3 h-px w-24 opacity-50"
-                            style={{ background: 'linear-gradient(to right, transparent, #c8962b, transparent)' }}
+                            style={{
+                                background:
+                                    'linear-gradient(to right, transparent, #c8962b, transparent)',
+                            }}
                         />
-                        <p className="text-sm leading-relaxed text-blue-200 max-w-xs mx-auto">
-                            Athlete, coach, team &amp; tournament management system for the Uttar Pradesh Police organisation.
+                        <p className="mx-auto max-w-xs text-sm leading-relaxed text-blue-200">
+                            Athlete, coach, team &amp; tournament management
+                            system for the Uttar Pradesh Police organisation.
                         </p>
                     </div>
                 </div>
@@ -64,7 +74,7 @@ export default function AuthSplitLayout({
                 {/* Bottom site name */}
                 <Link
                     href={home()}
-                    className="relative z-20 flex items-center text-sm text-blue-300 hover:text-white transition-colors"
+                    className="relative z-20 flex items-center text-sm text-blue-300 transition-colors hover:text-white"
                 >
                     {name}
                 </Link>
@@ -72,18 +82,18 @@ export default function AuthSplitLayout({
 
             {/* Right form panel */}
             <div className="relative w-full lg:p-8">
-                <div className="absolute right-4 top-4 z-10">
+                <div className="absolute top-4 right-4 z-10">
                     <LocaleSwitcher />
                 </div>
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
                     {/* Mobile: logo */}
                     <div className="flex flex-col items-center gap-3 lg:hidden">
-	                        <img
-	                            src="/logo.jpg"
-	                            alt="UP Police Sports Control Board"
-	                            className="h-16 w-16 rounded-full object-cover ring-2 ring-[#0b1e6b]"
-	                        />
-                        <span className="text-sm font-semibold tracking-wider uppercase text-primary">
+                        <img
+                            src="/logo.jpg"
+                            alt="UP Police Sports Control Board"
+                            className="h-16 w-16 rounded-full object-cover ring-2 ring-[#0b1e6b]"
+                        />
+                        <span className="text-sm font-semibold tracking-wider text-primary uppercase">
                             UP Police Sports Control Board
                         </span>
                     </div>

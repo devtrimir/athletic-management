@@ -6,7 +6,14 @@ import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Tier = {
@@ -57,7 +64,7 @@ export default function Index({ tiers }: { tiers: Tier[] }) {
 
                 <div className="flex items-center gap-3">
                     <div className="relative max-w-xs flex-1">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t('Search tiers…')}
                             value={query}
@@ -67,7 +74,7 @@ export default function Index({ tiers }: { tiers: Tier[] }) {
                     </div>
                 </div>
 
-                <div className="rounded-xl border overflow-hidden">
+                <div className="overflow-hidden rounded-xl border">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -75,38 +82,71 @@ export default function Index({ tiers }: { tiers: Tier[] }) {
                                 <TableHead>{t('Label (Hindi)')}</TableHead>
                                 <TableHead>{t('Label (English)')}</TableHead>
                                 <TableHead>{t('Weight')}</TableHead>
-                                <TableHead className="w-0 text-right">{t('Actions')}</TableHead>
+                                <TableHead className="w-0 text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                                        {tiers.length === 0 ? t('No tournament tiers yet.') : t('No tiers match your search.')}
+                                    <TableCell
+                                        colSpan={5}
+                                        className="py-12 text-center text-muted-foreground"
+                                    >
+                                        {tiers.length === 0
+                                            ? t('No tournament tiers yet.')
+                                            : t('No tiers match your search.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filtered.map((tier) => (
                                     <TableRow key={tier.id}>
                                         <TableCell>
-                                            <Badge variant="outline" className="font-mono">{tier.code}</Badge>
+                                            <Badge
+                                                variant="outline"
+                                                className="font-mono"
+                                            >
+                                                {tier.code}
+                                            </Badge>
                                         </TableCell>
-                                        <TableCell className="font-medium">{tier.label_hi}</TableCell>
+                                        <TableCell className="font-medium">
+                                            {tier.label_hi}
+                                        </TableCell>
                                         <TableCell>{tier.label_en}</TableCell>
-                                        <TableCell className="tabular-nums text-muted-foreground">{tier.weight}</TableCell>
+                                        <TableCell className="text-muted-foreground tabular-nums">
+                                            {tier.weight}
+                                        </TableCell>
                                         <TableCell className="w-0">
                                             <div className="flex items-center justify-end gap-1">
-                                                <Button variant="ghost" size="icon" title={t('Edit')} asChild>
-                                                    <Link href={TournamentTierController.edit.url(tier.id)}><Pencil className="h-4 w-4" /></Link>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Edit')}
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={TournamentTierController.edit.url(
+                                                            tier.id,
+                                                        )}
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Link>
                                                 </Button>
-                                                <Form {...TournamentTierController.destroy.form(tier.id)}>
+                                                <Form
+                                                    {...TournamentTierController.destroy.form(
+                                                        tier.id,
+                                                    )}
+                                                >
                                                     {({ processing }) => (
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
                                                             title={t('Delete')}
                                                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                            disabled={processing}
+                                                            disabled={
+                                                                processing
+                                                            }
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>

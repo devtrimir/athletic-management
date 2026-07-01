@@ -1,19 +1,55 @@
 import { Head, Link, router, setLayoutProps, usePage } from '@inertiajs/react';
-import { CalendarDays, Download, Eye, Info, MapPin, Medal, Plus, Search, Trophy, Users, X } from 'lucide-react';
+import {
+    CalendarDays,
+    Download,
+    Eye,
+    Info,
+    MapPin,
+    Medal,
+    Plus,
+    Search,
+    Trophy,
+    Users,
+    X,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { create as createTournament, index as tournamentsIndex, show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import {
+    create as createTournament,
+    index as tournamentsIndex,
+    show as showTournament,
+} from '@/actions/App/Http/Controllers/TournamentController';
 import { index as exportTournamentsUrl } from '@/actions/App/Http/Controllers/TournamentExportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
@@ -62,7 +98,12 @@ type PaginatedTournaments = {
     to: number | null;
 };
 
-type Filters = { q?: string; session_id?: string; tier_id?: string; sport_id?: string };
+type Filters = {
+    q?: string;
+    session_id?: string;
+    tier_id?: string;
+    sport_id?: string;
+};
 
 export default function TournamentsIndex({
     tournaments,
@@ -85,15 +126,22 @@ export default function TournamentsIndex({
     const { t } = useTranslation();
 
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-    const [quickOverviewTournament, setQuickOverviewTournament] = useState<Tournament | null>(null);
+    const [quickOverviewTournament, setQuickOverviewTournament] =
+        useState<Tournament | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
-    const [selectedColumns, setSelectedColumns] = useState<string[]>(ALL_COLUMNS.map((c) => c.key));
+    const [selectedColumns, setSelectedColumns] = useState<string[]>(
+        ALL_COLUMNS.map((c) => c.key),
+    );
 
     setLayoutProps({
         breadcrumbs: [{ title: t('Tournaments') }],
     });
-    const sessionDefaultValue = selectedSessionId ? String(selectedSessionId) : 'all';
-    const defaultSessionFilter = defaultSessionId ? String(defaultSessionId) : undefined;
+    const sessionDefaultValue = selectedSessionId
+        ? String(selectedSessionId)
+        : 'all';
+    const defaultSessionFilter = defaultSessionId
+        ? String(defaultSessionId)
+        : undefined;
 
     function parseDateValue(value: string): Date | null {
         if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -125,7 +173,11 @@ export default function TournamentsIndex({
     }
 
     function dateRange(tournament: Tournament): string {
-        if (tournament.date_from && tournament.date_to && tournament.date_from !== tournament.date_to) {
+        if (
+            tournament.date_from &&
+            tournament.date_to &&
+            tournament.date_from !== tournament.date_to
+        ) {
             return `${formatDisplayDate(tournament.date_from)} - ${formatDisplayDate(tournament.date_to)}`;
         }
 
@@ -136,8 +188,12 @@ export default function TournamentsIndex({
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const from = tournament.date_from ? parseDateValue(tournament.date_from) : null;
-        const to = tournament.date_to ? parseDateValue(tournament.date_to) : from;
+        const from = tournament.date_from
+            ? parseDateValue(tournament.date_from)
+            : null;
+        const to = tournament.date_to
+            ? parseDateValue(tournament.date_to)
+            : from;
 
         if (!from && !to) {
             return t('Date pending');
@@ -169,38 +225,44 @@ export default function TournamentsIndex({
             const clean: Record<string, string> = {};
 
             if (merged.q) {
-clean['filter[q]'] = merged.q;
-}
+                clean['filter[q]'] = merged.q;
+            }
 
             if (merged.session_id) {
-clean['filter[session_id]'] = merged.session_id;
-}
+                clean['filter[session_id]'] = merged.session_id;
+            }
 
             if (merged.tier_id) {
-clean['filter[tier_id]'] = merged.tier_id;
-}
+                clean['filter[tier_id]'] = merged.tier_id;
+            }
 
             if (merged.sport_id) {
-clean['filter[sport_id]'] = merged.sport_id;
-}
+                clean['filter[sport_id]'] = merged.sport_id;
+            }
 
-            router.get(tournamentsIndex.url(), clean, { preserveState: true, replace: true });
+            router.get(tournamentsIndex.url(), clean, {
+                preserveState: true,
+                replace: true,
+            });
         },
         [query, filters.session_id, filters.tier_id, filters.sport_id],
     );
 
     useEffect(() => {
         if (debounceRef.current) {
-clearTimeout(debounceRef.current);
-}
+            clearTimeout(debounceRef.current);
+        }
 
-        debounceRef.current = setTimeout(() => applyFilters({ q: query || undefined }), 400);
+        debounceRef.current = setTimeout(
+            () => applyFilters({ q: query || undefined }),
+            400,
+        );
 
         return () => {
- if (debounceRef.current) {
-clearTimeout(debounceRef.current);
-}
-};
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
@@ -209,10 +271,10 @@ clearTimeout(debounceRef.current);
             const next = new Set(prev);
 
             if (next.has(id)) {
- next.delete(id);
-} else {
- next.add(id);
-}
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
 
             return next;
         });
@@ -226,10 +288,10 @@ clearTimeout(debounceRef.current);
 
             for (const id of pageIds) {
                 if (allSelected) {
- next.delete(id);
-} else {
- next.add(id);
-}
+                    next.delete(id);
+                } else {
+                    next.add(id);
+                }
             }
 
             return next;
@@ -241,29 +303,29 @@ clearTimeout(debounceRef.current);
 
         if (selectedIds.size > 0) {
             for (const id of selectedIds) {
- params.append('ids[]', String(id));
-}
+                params.append('ids[]', String(id));
+            }
         } else {
             if (filters.q) {
-params.append('filter[q]', filters.q);
-}
+                params.append('filter[q]', filters.q);
+            }
 
             if (filters.session_id) {
-params.append('filter[session_id]', filters.session_id);
-}
+                params.append('filter[session_id]', filters.session_id);
+            }
 
             if (filters.tier_id) {
-params.append('filter[tier_id]', filters.tier_id);
-}
+                params.append('filter[tier_id]', filters.tier_id);
+            }
 
             if (filters.sport_id) {
-params.append('filter[sport_id]', filters.sport_id);
-}
+                params.append('filter[sport_id]', filters.sport_id);
+            }
         }
 
         for (const col of selectedColumns) {
- params.append('columns[]', col);
-}
+            params.append('columns[]', col);
+        }
 
         return exportTournamentsUrl.url() + '?' + params.toString();
     }
@@ -281,12 +343,23 @@ params.append('filter[sport_id]', filters.sport_id);
 
             <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
-                    <Heading variant="small" title={t('Tournaments')} description={t('Manage tournaments')} />
+                    <Heading
+                        variant="small"
+                        title={t('Tournaments')}
+                        description={t('Manage tournaments')}
+                    />
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExportOpen(true)}
+                        >
                             <Download className="mr-1.5 h-4 w-4" />
                             {selectedIds.size > 0
-                                ? t('Export :n selected').replace(':n', String(selectedIds.size))
+                                ? t('Export :n selected').replace(
+                                      ':n',
+                                      String(selectedIds.size),
+                                  )
                                 : t('Export tournaments')}
                         </Button>
                         <Button asChild size="sm">
@@ -301,7 +374,7 @@ params.append('filter[sport_id]', filters.sport_id);
                 {/* Filter bar */}
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="relative max-w-xs flex-1">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t('Search tournaments…')}
                             value={query}
@@ -311,43 +384,70 @@ params.append('filter[sport_id]', filters.sport_id);
                     </div>
                     <Select
                         value={filters.session_id ?? sessionDefaultValue}
-                        onValueChange={(v) => applyFilters({ session_id: v === 'all' ? undefined : v })}
+                        onValueChange={(v) =>
+                            applyFilters({
+                                session_id: v === 'all' ? undefined : v,
+                            })
+                        }
                     >
                         <SelectTrigger className="w-44">
                             <SelectValue placeholder={t('All sessions')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{t('All sessions')}</SelectItem>
+                            <SelectItem value="all">
+                                {t('All sessions')}
+                            </SelectItem>
                             {sessions.map((s) => (
-                                <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                                <SelectItem key={s.id} value={String(s.id)}>
+                                    {s.name}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                     <Select
                         value={filters.tier_id ?? 'all'}
-                        onValueChange={(v) => applyFilters({ tier_id: v === 'all' ? undefined : v })}
+                        onValueChange={(v) =>
+                            applyFilters({
+                                tier_id: v === 'all' ? undefined : v,
+                            })
+                        }
                     >
                         <SelectTrigger className="w-40">
                             <SelectValue placeholder={t('All tiers')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{t('All tiers')}</SelectItem>
+                            <SelectItem value="all">
+                                {t('All tiers')}
+                            </SelectItem>
                             {tiers.map((tier) => (
-                                <SelectItem key={tier.id} value={String(tier.id)}>{tier.label}</SelectItem>
+                                <SelectItem
+                                    key={tier.id}
+                                    value={String(tier.id)}
+                                >
+                                    {tier.label}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                     <Select
                         value={filters.sport_id ?? 'all'}
-                        onValueChange={(v) => applyFilters({ sport_id: v === 'all' ? undefined : v })}
+                        onValueChange={(v) =>
+                            applyFilters({
+                                sport_id: v === 'all' ? undefined : v,
+                            })
+                        }
                     >
                         <SelectTrigger className="w-44">
                             <SelectValue placeholder={t('All sports')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{t('All sports')}</SelectItem>
+                            <SelectItem value="all">
+                                {t('All sports')}
+                            </SelectItem>
                             {sports.map((sp) => (
-                                <SelectItem key={sp.id} value={String(sp.id)}>{sp.name}</SelectItem>
+                                <SelectItem key={sp.id} value={String(sp.id)}>
+                                    {sp.name}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -357,7 +457,11 @@ params.append('filter[sport_id]', filters.sport_id);
                             size="sm"
                             onClick={() => {
                                 setQuery('');
-                                router.get(tournamentsIndex.url(), {}, { preserveState: false, replace: true });
+                                router.get(
+                                    tournamentsIndex.url(),
+                                    {},
+                                    { preserveState: false, replace: true },
+                                );
                             }}
                         >
                             <X className="mr-1.5 h-4 w-4" />
@@ -367,7 +471,11 @@ params.append('filter[sport_id]', filters.sport_id);
                 </div>
 
                 {/* Table */}
-                <ListingPagination paginator={tournaments} itemLabel={t('tournaments')} className="sticky top-0 z-40 shadow-sm" />
+                <ListingPagination
+                    paginator={tournaments}
+                    itemLabel={t('tournaments')}
+                    className="sticky top-0 z-40 shadow-sm"
+                />
                 <div className="overflow-x-auto rounded-xl border bg-card">
                     <Table>
                         <TableHeader>
@@ -375,9 +483,14 @@ params.append('filter[sport_id]', filters.sport_id);
                                 <TableHead className="w-0">
                                     <Checkbox
                                         checked={
-                                            tournaments.data.length > 0 && tournaments.data.every((t_) => selectedIds.has(t_.id))
+                                            tournaments.data.length > 0 &&
+                                            tournaments.data.every((t_) =>
+                                                selectedIds.has(t_.id),
+                                            )
                                                 ? true
-                                                : tournaments.data.some((t_) => selectedIds.has(t_.id))
+                                                : tournaments.data.some((t_) =>
+                                                        selectedIds.has(t_.id),
+                                                    )
                                                   ? 'indeterminate'
                                                   : false
                                         }
@@ -385,7 +498,9 @@ params.append('filter[sport_id]', filters.sport_id);
                                         aria-label={t('Select all on page')}
                                     />
                                 </TableHead>
-                                <TableHead className="w-12">{t('S.No.')}</TableHead>
+                                <TableHead className="w-12">
+                                    {t('S.No.')}
+                                </TableHead>
                                 <TableHead>{t('Name')}</TableHead>
                                 <TableHead>{t('Session')}</TableHead>
                                 <TableHead>{t('Tier')}</TableHead>
@@ -393,19 +508,36 @@ params.append('filter[sport_id]', filters.sport_id);
                                 <TableHead>{t('Venue')}</TableHead>
                                 <TableHead>{t('Dates')}</TableHead>
                                 <TableHead>{t('Status')}</TableHead>
-                                <TableHead className="text-right">{t('Events')}</TableHead>
-                                <TableHead className="text-right">{t('Participants')}</TableHead>
-                                <TableHead className="text-right">{t('Teams')}</TableHead>
-                                <TableHead className="text-right">{t('Medals')}</TableHead>
+                                <TableHead className="text-right">
+                                    {t('Events')}
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    {t('Participants')}
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    {t('Teams')}
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    {t('Medals')}
+                                </TableHead>
                                 <TableHead>{t('Created')}</TableHead>
-                                <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">{t('Actions')}</TableHead>
+                                <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                        {tournaments.data.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={14} className="py-12 text-center text-muted-foreground">
-                                        {hasActive ? t('No tournaments match your filters.') : t('No tournaments yet.')}
+                            {tournaments.data.length === 0 ? (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={14}
+                                        className="py-12 text-center text-muted-foreground"
+                                    >
+                                        {hasActive
+                                            ? t(
+                                                  'No tournaments match your filters.',
+                                              )
+                                            : t('No tournaments yet.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -414,20 +546,30 @@ params.append('filter[sport_id]', filters.sport_id);
                                         <TableCell className="w-0">
                                             <Checkbox
                                                 checked={selectedIds.has(t_.id)}
-                                                onCheckedChange={() => toggleRow(t_.id)}
+                                                onCheckedChange={() =>
+                                                    toggleRow(t_.id)
+                                                }
                                                 aria-label={t('Select row')}
                                             />
                                         </TableCell>
                                         <TableCell className="w-12 text-xs text-muted-foreground tabular-nums">
-                                            {(typeof tournaments.from === 'number' ? tournaments.from : 1) + index}
+                                            {(typeof tournaments.from ===
+                                            'number'
+                                                ? tournaments.from
+                                                : 1) + index}
                                         </TableCell>
                                         <TableCell className="font-medium">
-                                            <div className="flex items-center gap-2">
+                                            <Link
+                                                href={showTournament.url(t_.id)}
+                                                className="inline-flex items-center gap-2 hover:underline"
+                                            >
                                                 <Trophy className="h-4 w-4 text-blue-500" />
                                                 <span>{t_.name}</span>
-                                            </div>
+                                            </Link>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">{t_.session?.name ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {t_.session?.name ?? '—'}
+                                        </TableCell>
                                         <TableCell>
                                             {t_.tier ? (
                                                 <Badge
@@ -437,10 +579,14 @@ params.append('filter[sport_id]', filters.sport_id);
                                                     {t_.tier.label}
                                                 </Badge>
                                             ) : (
-                                                <span className="select-none text-border">—</span>
+                                                <span className="text-border select-none">
+                                                    —
+                                                </span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">{t_.sport?.name ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {t_.sport?.name ?? '—'}
+                                        </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             <div className="flex items-center gap-2">
                                                 <MapPin className="h-3.5 w-3.5 text-rose-500" />
@@ -454,35 +600,56 @@ params.append('filter[sport_id]', filters.sport_id);
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline">{tournamentStatus(t_)}</Badge>
+                                            <Badge variant="outline">
+                                                {tournamentStatus(t_)}
+                                            </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right tabular-nums">{t_.events_count}</TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {t_.events_count}
+                                        </TableCell>
                                         <TableCell className="text-right tabular-nums">
                                             <span className="inline-flex items-center justify-end gap-1">
                                                 <Users className="h-3.5 w-3.5 text-muted-foreground" />
                                                 {t_.participants_count}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="text-right tabular-nums">{t_.teams_count}</TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {t_.teams_count}
+                                        </TableCell>
                                         <TableCell className="text-right tabular-nums">
                                             <span className="inline-flex items-center justify-end gap-1">
                                                 <Medal className="h-3.5 w-3.5 text-amber-500" />
                                                 {t_.medals_count}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">{formatDisplayDate(t_.created_at)}</TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {formatDisplayDate(t_.created_at)}
+                                        </TableCell>
                                         <TableCell className="sticky right-0 z-10 w-0 bg-card">
                                             <div className="flex justify-end gap-1">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     title={t('Quick overview')}
-                                                    onClick={() => setQuickOverviewTournament(t_)}
+                                                    onClick={() =>
+                                                        setQuickOverviewTournament(
+                                                            t_,
+                                                        )
+                                                    }
                                                 >
                                                     <Info className="h-4 w-4 text-amber-600" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" title={t('View')} asChild>
-                                                    <Link href={showTournament.url(t_.id)}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('View')}
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={showTournament.url(
+                                                            t_.id,
+                                                        )}
+                                                    >
                                                         <Eye className="h-4 w-4 text-sky-600" />
                                                     </Link>
                                                 </Button>
@@ -494,7 +661,6 @@ params.append('filter[sport_id]', filters.sport_id);
                         </TableBody>
                     </Table>
                 </div>
-
             </div>
 
             <ExportDialog
@@ -511,7 +677,9 @@ params.append('filter[sport_id]', filters.sport_id);
             <QuickOverviewDialog
                 open={quickOverviewTournament !== null}
                 tournament={quickOverviewTournament}
-                onOpenChange={(open) => !open && setQuickOverviewTournament(null)}
+                onOpenChange={(open) =>
+                    !open && setQuickOverviewTournament(null)
+                }
                 formatDisplayDate={formatDisplayDate}
                 t={t}
             />
@@ -545,48 +713,92 @@ function QuickOverviewDialog({
                 </DialogHeader>
                 <div className="grid gap-2 text-sm">
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Session')}</span>
-                        <span className="font-medium">{tournament.session?.name ?? '—'}</span>
+                        <span className="text-muted-foreground">
+                            {t('Session')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.session?.name ?? '—'}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Tier')}</span>
-                        <span className="font-medium">{tournament.tier?.label ?? '—'}</span>
+                        <span className="text-muted-foreground">
+                            {t('Tier')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.tier?.label ?? '—'}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Sport')}</span>
-                        <span className="font-medium">{tournament.sport?.name ?? '—'}</span>
+                        <span className="text-muted-foreground">
+                            {t('Sport')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.sport?.name ?? '—'}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Venue')}</span>
-                        <span className="font-medium">{tournament.venue ?? '—'}</span>
+                        <span className="text-muted-foreground">
+                            {t('Venue')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.venue ?? '—'}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Date from')}</span>
-                        <span className="font-medium">{formatDisplayDate(tournament.date_from)}</span>
+                        <span className="text-muted-foreground">
+                            {t('Date from')}
+                        </span>
+                        <span className="font-medium">
+                            {formatDisplayDate(tournament.date_from)}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Date to')}</span>
-                        <span className="font-medium">{formatDisplayDate(tournament.date_to)}</span>
+                        <span className="text-muted-foreground">
+                            {t('Date to')}
+                        </span>
+                        <span className="font-medium">
+                            {formatDisplayDate(tournament.date_to)}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Events')}</span>
-                        <span className="font-medium">{tournament.events_count}</span>
+                        <span className="text-muted-foreground">
+                            {t('Events')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.events_count}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Participants')}</span>
-                        <span className="font-medium">{tournament.participants_count}</span>
+                        <span className="text-muted-foreground">
+                            {t('Participants')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.participants_count}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Teams')}</span>
-                        <span className="font-medium">{tournament.teams_count}</span>
+                        <span className="text-muted-foreground">
+                            {t('Teams')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.teams_count}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Medals')}</span>
-                        <span className="font-medium">{tournament.medals_count}</span>
+                        <span className="text-muted-foreground">
+                            {t('Medals')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.medals_count}
+                        </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                        <span className="text-muted-foreground">{t('Created')}</span>
-                        <span className="font-medium">{formatDisplayDate(tournament.created_at)}</span>
+                        <span className="text-muted-foreground">
+                            {t('Created')}
+                        </span>
+                        <span className="font-medium">
+                            {formatDisplayDate(tournament.created_at)}
+                        </span>
                     </div>
                 </div>
             </DialogContent>
@@ -620,15 +832,26 @@ function ExportDialog({
                     <DialogTitle>{t('Export tournaments')}</DialogTitle>
                     <DialogDescription>
                         {selectedIds.size > 0
-                            ? t('Exporting :n selected tournaments.').replace(':n', String(selectedIds.size))
-                            : t('Exporting all :count tournaments.').replace(':count', String(tournaments.total))}
+                            ? t('Exporting :n selected tournaments.').replace(
+                                  ':n',
+                                  String(selectedIds.size),
+                              )
+                            : t('Exporting all :count tournaments.').replace(
+                                  ':count',
+                                  String(tournaments.total),
+                              )}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-2">
-                    <p className="mb-3 text-sm font-medium">{t('Select columns to export')}</p>
+                    <p className="mb-3 text-sm font-medium">
+                        {t('Select columns to export')}
+                    </p>
                     <div className="grid grid-cols-2 gap-2">
                         {ALL_COLUMNS.map((col) => (
-                            <div key={col.key} className="flex items-center gap-2">
+                            <div
+                                key={col.key}
+                                className="flex items-center gap-2"
+                            >
                                 <Checkbox
                                     id={`col-${col.key}`}
                                     checked={selectedColumns.includes(col.key)}
@@ -636,17 +859,24 @@ function ExportDialog({
                                         setSelectedColumns((prev) =>
                                             checked
                                                 ? [...prev, col.key]
-                                                : prev.filter((k) => k !== col.key),
+                                                : prev.filter(
+                                                      (k) => k !== col.key,
+                                                  ),
                                         )
                                     }
                                 />
-                                <Label htmlFor={`col-${col.key}`}>{t(col.label)}</Label>
+                                <Label htmlFor={`col-${col.key}`}>
+                                    {t(col.label)}
+                                </Label>
                             </div>
                         ))}
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                    >
                         {t('Cancel')}
                     </Button>
                     <Button

@@ -7,16 +7,57 @@ import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachExportController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 
-type CertificationItem = { id: number; name: string; certificate_type: string | null; issuer: string | null; issued_at: string | null; expired_at: string | null; attachment_path: string | null; metadata: Record<string, unknown> | null };
-type SportItem = { id: number; name: string; is_primary: boolean; level: string | null; effective_from: string | null; effective_to: string | null; notes: string | null };
-type AssignmentHistoryItem = { id: number; role: string; team_name: string | null; session_name: string | null; is_current: boolean; assigned_at: string | null; removed_at: string | null; notes: string | null };
+type CertificationItem = {
+    id: number;
+    name: string;
+    certificate_type: string | null;
+    issuer: string | null;
+    issued_at: string | null;
+    expired_at: string | null;
+    attachment_path: string | null;
+    metadata: Record<string, unknown> | null;
+};
+type SportItem = {
+    id: number;
+    name: string;
+    is_primary: boolean;
+    level: string | null;
+    effective_from: string | null;
+    effective_to: string | null;
+    notes: string | null;
+};
+type AssignmentHistoryItem = {
+    id: number;
+    role: string;
+    team_name: string | null;
+    session_name: string | null;
+    is_current: boolean;
+    assigned_at: string | null;
+    removed_at: string | null;
+    notes: string | null;
+};
 
-function genderLabel(gender: string | null, t: (key: string) => string): string {
+function genderLabel(
+    gender: string | null,
+    t: (key: string) => string,
+): string {
     switch (gender) {
         case 'M':
             return t('Male');
@@ -50,16 +91,30 @@ type CoachPreview = {
     assignment_history: AssignmentHistoryItem[];
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+    title,
+    children,
+}: {
+    title: string;
+    children: React.ReactNode;
+}) {
     return (
         <div className="border-b py-4 last:border-0">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+            <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                {title}
+            </h3>
             {children}
         </div>
     );
 }
 
-function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+function InfoRow({
+    label,
+    value,
+}: {
+    label: string;
+    value: string | null | undefined;
+}) {
     if (!value) {
         return null;
     }
@@ -74,18 +129,29 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 
 function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     const row = (label: string, value: string | null | undefined) =>
-        value ? `<div class="row"><span class="label">${label}</span><span class="val">${value}</span></div>` : '';
+        value
+            ? `<div class="row"><span class="label">${label}</span><span class="val">${value}</span></div>`
+            : '';
 
     const certificationRows = data.certifications
-        .map((c) => `<tr><td>${c.name}</td><td>${c.certificate_type ?? ''}</td><td>${c.issuer ?? ''}</td><td>${c.issued_at ?? ''}</td><td>${c.expired_at ?? ''}</td></tr>`)
+        .map(
+            (c) =>
+                `<tr><td>${c.name}</td><td>${c.certificate_type ?? ''}</td><td>${c.issuer ?? ''}</td><td>${c.issued_at ?? ''}</td><td>${c.expired_at ?? ''}</td></tr>`,
+        )
         .join('');
 
     const sportRows = data.sports
-        .map((s) => `<tr><td>${s.name}</td><td>${s.level ?? ''}</td><td>${s.is_primary ? t('Primary') : t('Secondary')}</td><td>${s.effective_from ?? ''}</td><td>${s.effective_to ?? ''}</td></tr>`)
+        .map(
+            (s) =>
+                `<tr><td>${s.name}</td><td>${s.level ?? ''}</td><td>${s.is_primary ? t('Primary') : t('Secondary')}</td><td>${s.effective_from ?? ''}</td><td>${s.effective_to ?? ''}</td></tr>`,
+        )
         .join('');
 
     const assignmentRows = data.assignment_history
-        .map((a) => `<tr><td>${a.role}</td><td>${a.team_name ?? ''}</td><td>${a.session_name ?? ''}</td><td>${a.is_current ? t('Current') : t('Historical')}</td><td>${a.assigned_at ?? ''}</td><td>${a.removed_at ?? ''}</td></tr>`)
+        .map(
+            (a) =>
+                `<tr><td>${a.role}</td><td>${a.team_name ?? ''}</td><td>${a.session_name ?? ''}</td><td>${a.is_current ? t('Current') : t('Historical')}</td><td>${a.assigned_at ?? ''}</td><td>${a.removed_at ?? ''}</td></tr>`,
+        )
         .join('');
 
     return `<!DOCTYPE html><html><head>
@@ -117,23 +183,45 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     ${row(t('Gender'), genderLabel(data.gender, t) || null)}
     ${row(t('Address'), data.address)}
     ${row(t('Bio'), data.bio)}
-    ${data.certifications.length ? `<h2>${t('Certifications')}</h2>
+    ${
+        data.certifications.length
+            ? `<h2>${t('Certifications')}</h2>
     <table><thead><tr><th>${t('Name')}</th><th>${t('Type')}</th><th>${t('Issuer')}</th><th>${t('Issued')}</th><th>${t('Expired')}</th></tr></thead>
-    <tbody>${certificationRows}</tbody></table>` : ''}
-    ${data.sports.length ? `<h2>${t('Sports')}</h2>
+    <tbody>${certificationRows}</tbody></table>`
+            : ''
+    }
+    ${
+        data.sports.length
+            ? `<h2>${t('Sports')}</h2>
     <table><thead><tr><th>${t('Sport')}</th><th>${t('Level')}</th><th>${t('Primary')}</th><th>${t('From')}</th><th>${t('To')}</th></tr></thead>
-    <tbody>${sportRows}</tbody></table>` : ''}
-    ${data.assignment_history.length ? `<h2>${t('Assignment History')}</h2>
+    <tbody>${sportRows}</tbody></table>`
+            : ''
+    }
+    ${
+        data.assignment_history.length
+            ? `<h2>${t('Assignment History')}</h2>
     <table><thead><tr><th>${t('Role')}</th><th>${t('Team')}</th><th>${t('Session')}</th><th>${t('Current')}</th><th>${t('Assigned')}</th><th>${t('Removed')}</th></tr></thead>
-    <tbody>${assignmentRows}</tbody></table>` : ''}
+    <tbody>${assignmentRows}</tbody></table>`
+            : ''
+    }
     </body></html>`;
 }
 
-export function CoachQuickView({ coachId, open, onClose }: { coachId: number | null; open: boolean; onClose: () => void }) {
+export function CoachQuickView({
+    coachId,
+    open,
+    onClose,
+}: {
+    coachId: number | null;
+    open: boolean;
+    onClose: () => void;
+}) {
     const { t } = useTranslation();
     const [data, setData] = useState<CoachPreview | null>(null);
     const [error, setError] = useState(false);
-    const { get, processing } = useHttp<Record<string, never>, CoachPreview>({});
+    const { get, processing } = useHttp<Record<string, never>, CoachPreview>(
+        {},
+    );
 
     useEffect(() => {
         if (!open || coachId === null) {
@@ -148,7 +236,7 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
             onSuccess: (res) => setData(res as unknown as CoachPreview),
             onError: () => setError(true),
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, coachId]);
 
     const handlePrint = () => {
@@ -170,7 +258,8 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
         }, 300);
     };
 
-    const exportUrl = coachId !== null ? exportCoachesUrl.url() + '?ids[]=' + coachId : '#';
+    const exportUrl =
+        coachId !== null ? exportCoachesUrl.url() + '?ids[]=' + coachId : '#';
 
     return (
         <Sheet
@@ -181,28 +270,62 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                 }
             }}
         >
-            <SheetContent side="right" className="flex w-full flex-col sm:max-w-2xl">
+            <SheetContent
+                side="right"
+                className="flex w-full flex-col sm:max-w-2xl"
+            >
                 <SheetHeader className="border-b pb-4">
                     {processing || !data ? (
                         <div className="space-y-2">
-                            <SheetTitle className="sr-only">{t('Loading…')}</SheetTitle>
+                            <SheetTitle className="sr-only">
+                                {t('Loading…')}
+                            </SheetTitle>
                             <Skeleton className="h-6 w-48" />
                             <Skeleton className="h-4 w-32" />
                         </div>
                     ) : (
                         <>
-                            <SheetTitle className="text-lg">{data.full_name}</SheetTitle>
+                            <SheetTitle className="text-lg">
+                                {data.full_name}
+                            </SheetTitle>
                             <div className="flex flex-wrap items-center gap-2 pt-1">
                                 {data.display_name ? (
-                                    <span className="text-xs text-muted-foreground">{data.display_name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        {data.display_name}
+                                    </span>
                                 ) : null}
-                                {data.pno && <span className="font-mono text-xs text-muted-foreground">{data.pno}</span>}
-                                {data.designation && <span className="text-xs text-muted-foreground">{data.designation}</span>}
-                                <Badge variant={data.nis_certified ? 'default' : 'secondary'} className="ml-auto">
-                                    {data.nis_certified ? t('NIS Certified') : t('Not NIS Certified')}
+                                {data.pno && (
+                                    <span className="font-mono text-xs text-muted-foreground">
+                                        {data.pno}
+                                    </span>
+                                )}
+                                {data.designation && (
+                                    <span className="text-xs text-muted-foreground">
+                                        {data.designation}
+                                    </span>
+                                )}
+                                <Badge
+                                    variant={
+                                        data.nis_certified
+                                            ? 'default'
+                                            : 'secondary'
+                                    }
+                                    className="ml-auto"
+                                >
+                                    {data.nis_certified
+                                        ? t('NIS Certified')
+                                        : t('Not NIS Certified')}
                                 </Badge>
-                                <Badge variant={data.team_activity_status === 'active' ? 'default' : 'outline'}>
-                                    {data.team_activity_status === 'active' ? t('Active') : t('Inactive')}
+                                <Badge
+                                    variant={
+                                        data.team_activity_status === 'active'
+                                            ? 'default'
+                                            : 'outline'
+                                    }
+                                >
+                                    {data.team_activity_status === 'active'
+                                        ? t('Active')
+                                        : t('Inactive')}
                                 </Badge>
                                 {data.coach_status && (
                                     <Badge variant="outline">
@@ -217,22 +340,41 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                 <div className="flex-1 overflow-y-auto px-1">
                     {processing && (
                         <div className="space-y-3 py-4">
-                            {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-4 w-full" />)}
+                            {[1, 2, 3, 4, 5, 6].map((i) => (
+                                <Skeleton key={i} className="h-4 w-full" />
+                            ))}
                         </div>
                     )}
 
                     {error && (
-                        <p className="py-8 text-center text-sm text-destructive">{t('Could not load details.')}</p>
+                        <p className="py-8 text-center text-sm text-destructive">
+                            {t('Could not load details.')}
+                        </p>
                     )}
 
                     {data && (
                         <div className="py-2">
                             <Section title={t('Profile')}>
-                                <InfoRow label={t('Display name')} value={data.display_name} />
-                                <InfoRow label={t('Designation')} value={data.designation} />
-                                <InfoRow label={t('Email')} value={data.email} />
-                                <InfoRow label={t('Gender')} value={genderLabel(data.gender, t) || null} />
-                                <InfoRow label={t('Date of birth')} value={data.date_of_birth} />
+                                <InfoRow
+                                    label={t('Display name')}
+                                    value={data.display_name}
+                                />
+                                <InfoRow
+                                    label={t('Designation')}
+                                    value={data.designation}
+                                />
+                                <InfoRow
+                                    label={t('Email')}
+                                    value={data.email}
+                                />
+                                <InfoRow
+                                    label={t('Gender')}
+                                    value={genderLabel(data.gender, t) || null}
+                                />
+                                <InfoRow
+                                    label={t('Date of birth')}
+                                    value={data.date_of_birth}
+                                />
                                 <InfoRow
                                     label={t('Team status')}
                                     value={
@@ -241,13 +383,26 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                                             : t('Inactive')
                                     }
                                 />
-                                <InfoRow label={t('Profile status')} value={data.coach_status ? t(data.coach_status) : null} />
-                                <InfoRow label={t('Address')} value={data.address} />
+                                <InfoRow
+                                    label={t('Profile status')}
+                                    value={
+                                        data.coach_status
+                                            ? t(data.coach_status)
+                                            : null
+                                    }
+                                />
+                                <InfoRow
+                                    label={t('Address')}
+                                    value={data.address}
+                                />
                                 <InfoRow label={t('Bio')} value={data.bio} />
                             </Section>
 
                             <Section title={t('Contact')}>
-                                <InfoRow label={t('Mobile')} value={data.mobile} />
+                                <InfoRow
+                                    label={t('Mobile')}
+                                    value={data.mobile}
+                                />
                             </Section>
 
                             {data.certifications.length > 0 && (
@@ -255,23 +410,51 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t('Name')}</TableHead>
-                                                <TableHead>{t('Type')}</TableHead>
-                                                <TableHead>{t('Issuer')}</TableHead>
-                                                <TableHead>{t('Issued')}</TableHead>
-                                                <TableHead>{t('Expired')}</TableHead>
+                                                <TableHead>
+                                                    {t('Name')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Type')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Issuer')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Issued')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Expired')}
+                                                </TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {data.certifications.map((certification) => (
-                                                <TableRow key={certification.id}>
-                                                    <TableCell>{certification.name}</TableCell>
-                                                    <TableCell>{certification.certificate_type ?? ''}</TableCell>
-                                                    <TableCell>{certification.issuer ?? ''}</TableCell>
-                                                    <TableCell>{certification.issued_at ?? ''}</TableCell>
-                                                    <TableCell>{certification.expired_at ?? ''}</TableCell>
-                                                </TableRow>
-                                            ))}
+                                            {data.certifications.map(
+                                                (certification) => (
+                                                    <TableRow
+                                                        key={certification.id}
+                                                    >
+                                                        <TableCell>
+                                                            {certification.name}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.certificate_type ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.issuer ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.issued_at ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {certification.expired_at ??
+                                                                ''}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )}
                                         </TableBody>
                                     </Table>
                                 </Section>
@@ -282,21 +465,43 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t('Sport')}</TableHead>
-                                                <TableHead>{t('Primary')}</TableHead>
-                                                <TableHead>{t('Level')}</TableHead>
-                                                <TableHead>{t('From')}</TableHead>
+                                                <TableHead>
+                                                    {t('Sport')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Primary')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Level')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('From')}
+                                                </TableHead>
                                                 <TableHead>{t('To')}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {data.sports.map((sport) => (
                                                 <TableRow key={sport.id}>
-                                                    <TableCell>{sport.name}</TableCell>
-                                                    <TableCell>{sport.is_primary ? t('Yes') : t('No')}</TableCell>
-                                                    <TableCell>{sport.level ?? ''}</TableCell>
-                                                    <TableCell>{sport.effective_from ?? ''}</TableCell>
-                                                    <TableCell>{sport.effective_to ?? ''}</TableCell>
+                                                    <TableCell>
+                                                        {sport.name}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {sport.is_primary
+                                                            ? t('Yes')
+                                                            : t('No')}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {sport.level ?? ''}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {sport.effective_from ??
+                                                            ''}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {sport.effective_to ??
+                                                            ''}
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -309,27 +514,66 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t('Role')}</TableHead>
-                                                <TableHead>{t('Team')}</TableHead>
-                                                <TableHead>{t('Session')}</TableHead>
-                                                <TableHead>{t('Current')}</TableHead>
-                                                <TableHead>{t('Assigned')}</TableHead>
-                                                <TableHead>{t('Removed')}</TableHead>
-                                                <TableHead>{t('Notes')}</TableHead>
+                                                <TableHead>
+                                                    {t('Role')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Team')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Session')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Current')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Assigned')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Removed')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Notes')}
+                                                </TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {data.assignment_history.map((assignment) => (
-                                                <TableRow key={assignment.id}>
-                                                    <TableCell>{assignment.role}</TableCell>
-                                                    <TableCell>{assignment.team_name ?? ''}</TableCell>
-                                                    <TableCell>{assignment.session_name ?? ''}</TableCell>
-                                                    <TableCell>{assignment.is_current ? t('Yes') : t('No')}</TableCell>
-                                                    <TableCell>{assignment.assigned_at ?? ''}</TableCell>
-                                                    <TableCell>{assignment.removed_at ?? ''}</TableCell>
-                                                    <TableCell>{assignment.notes ?? ''}</TableCell>
-                                                </TableRow>
-                                            ))}
+                                            {data.assignment_history.map(
+                                                (assignment) => (
+                                                    <TableRow
+                                                        key={assignment.id}
+                                                    >
+                                                        <TableCell>
+                                                            {assignment.role}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {assignment.team_name ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {assignment.session_name ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {assignment.is_current
+                                                                ? t('Yes')
+                                                                : t('No')}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {assignment.assigned_at ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {assignment.removed_at ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {assignment.notes ??
+                                                                ''}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )}
                                         </TableBody>
                                     </Table>
                                 </Section>
@@ -348,7 +592,12 @@ export function CoachQuickView({ coachId, open, onClose }: { coachId: number | n
                     >
                         {t('Export')}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handlePrint} disabled={!data}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrint}
+                        disabled={!data}
+                    >
                         <Printer className="mr-1.5 h-4 w-4" />
                         {t('Print')}
                     </Button>

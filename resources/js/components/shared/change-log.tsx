@@ -1,14 +1,44 @@
-import { AlignLeft, Check, ChevronDown, GitBranch, LayoutList, Search, X } from 'lucide-react';
+import {
+    AlignLeft,
+    Check,
+    ChevronDown,
+    GitBranch,
+    LayoutList,
+    Search,
+    X,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useTranslation } from '@/hooks/use-translation';
 
-export type AuditChange = { field: string; old: string | null; new: string | null };
-export type AuditEntry = { id: number; action: string; subject: string; at: string; by: string | null; changes: AuditChange[] };
+export type AuditChange = {
+    field: string;
+    old: string | null;
+    new: string | null;
+};
+export type AuditEntry = {
+    id: number;
+    action: string;
+    subject: string;
+    at: string;
+    by: string | null;
+    changes: AuditChange[];
+};
 
 // ── Internal filter pill ──────────────────────────────────────────────────────
 
@@ -42,20 +72,26 @@ function FilterPill({
                     {isActive && (
                         <>
                             <span className="text-primary/50">·</span>
-                            <span className="max-w-24 truncate font-semibold">{activeLabel}</span>
+                            <span className="max-w-24 truncate font-semibold">
+                                {activeLabel}
+                            </span>
                             <span
                                 role="button"
                                 tabIndex={0}
                                 aria-label={`Clear ${label}`}
                                 className="ml-0.5 flex size-4 items-center justify-center rounded-sm opacity-60 hover:opacity-100"
                                 onClick={(e) => {
- e.stopPropagation(); onClear(); setOpen(false);
-}}
+                                    e.stopPropagation();
+                                    onClear();
+                                    setOpen(false);
+                                }}
                                 onKeyDown={(e) => {
- if (e.key === 'Enter' || e.key === ' ') {
- e.stopPropagation(); onClear(); setOpen(false);
-}
-}}
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.stopPropagation();
+                                        onClear();
+                                        setOpen(false);
+                                    }
+                                }}
                             >
                                 <X className="size-3" />
                             </span>
@@ -87,9 +123,16 @@ function OptionList({
                     key={opt.value}
                     type="button"
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
-                    onClick={() => onSelect(value === opt.value ? undefined : opt.value)}
+                    onClick={() =>
+                        onSelect(value === opt.value ? undefined : opt.value)
+                    }
                 >
-                    <Check className={['size-3.5 shrink-0', value === opt.value ? 'opacity-100' : 'opacity-0'].join(' ')} />
+                    <Check
+                        className={[
+                            'size-3.5 shrink-0',
+                            value === opt.value ? 'opacity-100' : 'opacity-0',
+                        ].join(' ')}
+                    />
                     {opt.label}
                 </button>
             ))}
@@ -97,7 +140,9 @@ function OptionList({
     );
 }
 
-function getPeriodStart(selected: 'month' | 'quarter' | 'half_year' | 'year' | undefined): Date | null {
+function getPeriodStart(
+    selected: 'month' | 'quarter' | 'half_year' | 'year' | undefined,
+): Date | null {
     if (!selected) {
         return null;
     }
@@ -106,13 +151,29 @@ function getPeriodStart(selected: 'month' | 'quarter' | 'half_year' | 'year' | u
 
     switch (selected) {
         case 'month':
-            return new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+            return new Date(
+                now.getFullYear(),
+                now.getMonth() - 1,
+                now.getDate(),
+            );
         case 'quarter':
-            return new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+            return new Date(
+                now.getFullYear(),
+                now.getMonth() - 3,
+                now.getDate(),
+            );
         case 'half_year':
-            return new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+            return new Date(
+                now.getFullYear(),
+                now.getMonth() - 6,
+                now.getDate(),
+            );
         case 'year':
-            return new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+            return new Date(
+                now.getFullYear() - 1,
+                now.getMonth(),
+                now.getDate(),
+            );
         default:
             return null;
     }
@@ -131,9 +192,16 @@ interface ChangeLogProps {
     endpoint?: string;
 }
 
-export function ChangeLog({ entries, primaryEntity, storageKey, endpoint }: ChangeLogProps) {
+export function ChangeLog({
+    entries,
+    primaryEntity,
+    storageKey,
+    endpoint,
+}: ChangeLogProps) {
     const { t } = useTranslation();
-    const [remoteEntries, setRemoteEntries] = useState<AuditEntry[] | undefined>(undefined);
+    const [remoteEntries, setRemoteEntries] = useState<
+        AuditEntry[] | undefined
+    >(undefined);
     const [hasMore, setHasMore] = useState(false);
     const [page, setPage] = useState(1);
     const [perPage] = useState(25);
@@ -141,17 +209,23 @@ export function ChangeLog({ entries, primaryEntity, storageKey, endpoint }: Chan
 
     const [view, setView] = useState<'timeline' | 'table' | 'compact'>(() => {
         if (typeof window === 'undefined') {
-return 'timeline';
-}
+            return 'timeline';
+        }
 
         const stored = localStorage.getItem(storageKey);
 
-        return stored === 'timeline' || stored === 'table' || stored === 'compact' ? stored : 'timeline';
+        return stored === 'timeline' ||
+            stored === 'table' ||
+            stored === 'compact'
+            ? stored
+            : 'timeline';
     });
-    const [search, setSearch]   = useState('');
-    const [year, setYear]       = useState<string | undefined>(undefined);
-    const [period, setPeriod]   = useState<'month' | 'quarter' | 'half_year' | 'year' | undefined>(undefined);
-    const [action, setAction]   = useState<string | undefined>(undefined);
+    const [search, setSearch] = useState('');
+    const [year, setYear] = useState<string | undefined>(undefined);
+    const [period, setPeriod] = useState<
+        'month' | 'quarter' | 'half_year' | 'year' | undefined
+    >(undefined);
+    const [action, setAction] = useState<string | undefined>(undefined);
     const [subject, setSubject] = useState<string | undefined>(undefined);
 
     useEffect(() => {
@@ -163,14 +237,19 @@ return 'timeline';
 
         fetch(`${endpoint}?page=1&per_page=${perPage}`)
             .then((response) => response.json())
-            .then((payload: { data: AuditEntry[]; meta?: { has_more: boolean } }) => {
-                if (!alive) {
-                    return;
-                }
+            .then(
+                (payload: {
+                    data: AuditEntry[];
+                    meta?: { has_more: boolean };
+                }) => {
+                    if (!alive) {
+                        return;
+                    }
 
-                setRemoteEntries(payload.data ?? []);
-                setHasMore(payload.meta?.has_more ?? false);
-            })
+                    setRemoteEntries(payload.data ?? []);
+                    setHasMore(payload.meta?.has_more ?? false);
+                },
+            )
             .catch(() => {
                 if (!alive) {
                     return;
@@ -189,41 +268,55 @@ return 'timeline';
 
     const yearOptions = useMemo(() => {
         if (!sourceEntries) {
-return [];
-}
+            return [];
+        }
 
-        const years = [...new Set(sourceEntries.map((e) => new Date(e.at).getFullYear().toString()))].sort().reverse();
+        const years = [
+            ...new Set(
+                sourceEntries.map((e) =>
+                    new Date(e.at).getFullYear().toString(),
+                ),
+            ),
+        ]
+            .sort()
+            .reverse();
 
         return years.map((y) => ({ value: y, label: y }));
     }, [sourceEntries]);
 
     const actionOptions = useMemo(() => {
         if (!sourceEntries) {
-return [];
-}
+            return [];
+        }
 
-        return [...new Set(sourceEntries.map((e) => e.action))].map((a) => ({ value: a, label: t(a) }));
+        return [...new Set(sourceEntries.map((e) => e.action))].map((a) => ({
+            value: a,
+            label: t(a),
+        }));
     }, [sourceEntries, t]);
 
     const subjectOptions = useMemo(() => {
         if (!sourceEntries) {
-return [];
-}
+            return [];
+        }
 
-        return [...new Set(sourceEntries.map((e) => e.subject))].map((s) => ({ value: s, label: t(s) }));
+        return [...new Set(sourceEntries.map((e) => e.subject))].map((s) => ({
+            value: s,
+            label: t(s),
+        }));
     }, [sourceEntries, t]);
 
     const visible = useMemo(() => {
         if (!sourceEntries) {
-return [];
-}
+            return [];
+        }
 
         return sourceEntries.filter((entry) => {
             const entryDate = new Date(entry.at);
 
-            if (year    && new Date(entry.at).getFullYear().toString() !== year)  {
-return false;
-}
+            if (year && new Date(entry.at).getFullYear().toString() !== year) {
+                return false;
+            }
 
             const periodStart = getPeriodStart(period);
 
@@ -231,17 +324,17 @@ return false;
                 return false;
             }
 
-            if (action  && entry.action  !== action)  {
-return false;
-}
+            if (action && entry.action !== action) {
+                return false;
+            }
 
             if (subject && entry.subject !== subject) {
-return false;
-}
+                return false;
+            }
 
             if (search) {
                 const q = search.toLowerCase();
-                const inBy      = entry.by?.toLowerCase().includes(q) ?? false;
+                const inBy = entry.by?.toLowerCase().includes(q) ?? false;
                 const inSubject = entry.subject.toLowerCase().includes(q);
                 const inChanges = entry.changes.some(
                     (ch) =>
@@ -251,8 +344,8 @@ return false;
                 );
 
                 if (!inBy && !inSubject && !inChanges) {
-return false;
-}
+                    return false;
+                }
             }
 
             return true;
@@ -263,11 +356,14 @@ return false;
 
     const summary = useMemo(() => {
         const total = visible.length;
-        const byAction = visible.reduce<Record<string, number>>((acc, entry) => {
-            acc[entry.action] = (acc[entry.action] ?? 0) + 1;
+        const byAction = visible.reduce<Record<string, number>>(
+            (acc, entry) => {
+                acc[entry.action] = (acc[entry.action] ?? 0) + 1;
 
-            return acc;
-        }, {});
+                return acc;
+            },
+            {},
+        );
 
         return { total, byAction };
     }, [visible]);
@@ -276,7 +372,9 @@ return false;
         const groups = new Map<string, AuditEntry[]>();
 
         for (const entry of visible) {
-            const key = new Date(entry.at).toLocaleDateString('hi-IN', { dateStyle: 'long' });
+            const key = new Date(entry.at).toLocaleDateString('hi-IN', {
+                dateStyle: 'long',
+            });
             const current = groups.get(key) ?? [];
             current.push(entry);
             groups.set(key, current);
@@ -289,104 +387,153 @@ return false;
         <>
             <div className="sticky top-0 z-10 mb-4 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
-                <div className="relative">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder={t('Search changes…')}
-                        className="h-8 w-48 pl-7 text-xs"
-                    />
-                </div>
+                    <div className="relative">
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder={t('Search changes…')}
+                            className="h-8 w-48 pl-7 text-xs"
+                        />
+                    </div>
 
-                <FilterPill label={t('Year')} activeLabel={year} onClear={() => setYear(undefined)}>
-                    <OptionList options={yearOptions} value={year} onSelect={setYear} />
-                </FilterPill>
-
-                <FilterPill
-                    label={t('Period')}
-                    activeLabel={period ? t(period === 'month' ? 'Last one month' : period === 'quarter' ? 'Last quarter' : period === 'half_year' ? 'Last half year' : 'Last year') : undefined}
-                    onClear={() => setPeriod(undefined)}
-                >
-                    <OptionList
-                        options={[
-                            { value: 'month', label: t('Last one month') },
-                            { value: 'quarter', label: t('Last quarter') },
-                            { value: 'half_year', label: t('Last half year') },
-                            { value: 'year', label: t('Last year') },
-                        ]}
-                        value={period}
-                        onSelect={(v) => setPeriod(v as typeof period)}
-                    />
-                </FilterPill>
-
-                <FilterPill
-                    label={t('Action')}
-                    activeLabel={action ? t(action) : undefined}
-                    onClear={() => setAction(undefined)}
-                >
-                    <OptionList options={actionOptions} value={action} onSelect={setAction} />
-                </FilterPill>
-
-                <FilterPill
-                    label={t('Subject')}
-                    activeLabel={subject ? t(subject) : undefined}
-                    onClear={() => setSubject(undefined)}
-                >
-                    <OptionList options={subjectOptions} value={subject} onSelect={setSubject} />
-                </FilterPill>
-
-                {anyFilter && (
-                    <button
-                        type="button"
-                        className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                            setSearch('');
-                            setYear(undefined);
-                            setPeriod(undefined);
-                            setAction(undefined);
-                            setSubject(undefined);
-                        }}
+                    <FilterPill
+                        label={t('Year')}
+                        activeLabel={year}
+                        onClear={() => setYear(undefined)}
                     >
-                        {t('Clear filters')}
-                    </button>
-                )}
+                        <OptionList
+                            options={yearOptions}
+                            value={year}
+                            onSelect={setYear}
+                        />
+                    </FilterPill>
 
-                <div className="ml-auto flex items-center gap-3">
+                    <FilterPill
+                        label={t('Period')}
+                        activeLabel={
+                            period
+                                ? t(
+                                      period === 'month'
+                                          ? 'Last one month'
+                                          : period === 'quarter'
+                                            ? 'Last quarter'
+                                            : period === 'half_year'
+                                              ? 'Last half year'
+                                              : 'Last year',
+                                  )
+                                : undefined
+                        }
+                        onClear={() => setPeriod(undefined)}
+                    >
+                        <OptionList
+                            options={[
+                                { value: 'month', label: t('Last one month') },
+                                { value: 'quarter', label: t('Last quarter') },
+                                {
+                                    value: 'half_year',
+                                    label: t('Last half year'),
+                                },
+                                { value: 'year', label: t('Last year') },
+                            ]}
+                            value={period}
+                            onSelect={(v) => setPeriod(v as typeof period)}
+                        />
+                    </FilterPill>
+
+                    <FilterPill
+                        label={t('Action')}
+                        activeLabel={action ? t(action) : undefined}
+                        onClear={() => setAction(undefined)}
+                    >
+                        <OptionList
+                            options={actionOptions}
+                            value={action}
+                            onSelect={setAction}
+                        />
+                    </FilterPill>
+
+                    <FilterPill
+                        label={t('Subject')}
+                        activeLabel={subject ? t(subject) : undefined}
+                        onClear={() => setSubject(undefined)}
+                    >
+                        <OptionList
+                            options={subjectOptions}
+                            value={subject}
+                            onSelect={setSubject}
+                        />
+                    </FilterPill>
+
                     {anyFilter && (
-                        <span className="text-xs text-muted-foreground">
-                            {visible.length} {t('results')}
-                        </span>
+                        <button
+                            type="button"
+                            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                                setSearch('');
+                                setYear(undefined);
+                                setPeriod(undefined);
+                                setAction(undefined);
+                                setSubject(undefined);
+                            }}
+                        >
+                            {t('Clear filters')}
+                        </button>
                     )}
-                    <ToggleGroup
-                        type="single"
-                        value={view}
-                        onValueChange={(v) => {
-                            if (v === 'timeline' || v === 'table' || v === 'compact') {
-                                setView(v);
-                                localStorage.setItem(storageKey, v);
-                            }
-                        }}
-                        variant="outline"
-                        size="sm"
-                    >
-                        <ToggleGroupItem value="timeline" aria-label={t('Timeline')}>
-                            <GitBranch className="size-3.5" />
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="table" aria-label={t('Table')}>
-                            <LayoutList className="size-3.5" />
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="compact" aria-label={t('Compact')}>
-                            <AlignLeft className="size-3.5" />
-                        </ToggleGroupItem>
-                    </ToggleGroup>
-                </div>
+
+                    <div className="ml-auto flex items-center gap-3">
+                        {anyFilter && (
+                            <span className="text-xs text-muted-foreground">
+                                {visible.length} {t('results')}
+                            </span>
+                        )}
+                        <ToggleGroup
+                            type="single"
+                            value={view}
+                            onValueChange={(v) => {
+                                if (
+                                    v === 'timeline' ||
+                                    v === 'table' ||
+                                    v === 'compact'
+                                ) {
+                                    setView(v);
+                                    localStorage.setItem(storageKey, v);
+                                }
+                            }}
+                            variant="outline"
+                            size="sm"
+                        >
+                            <ToggleGroupItem
+                                value="timeline"
+                                aria-label={t('Timeline')}
+                            >
+                                <GitBranch className="size-3.5" />
+                            </ToggleGroupItem>
+                            <ToggleGroupItem
+                                value="table"
+                                aria-label={t('Table')}
+                            >
+                                <LayoutList className="size-3.5" />
+                            </ToggleGroupItem>
+                            <ToggleGroupItem
+                                value="compact"
+                                aria-label={t('Compact')}
+                            >
+                                <AlignLeft className="size-3.5" />
+                            </ToggleGroupItem>
+                        </ToggleGroup>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    <span className="rounded-md border bg-background px-2 py-1">{summary.total} {t('records')}</span>
+                    <span className="rounded-md border bg-background px-2 py-1">
+                        {summary.total} {t('records')}
+                    </span>
                     {Object.entries(summary.byAction).map(([key, count]) => (
-                        <span key={key} className="rounded-md border bg-background px-2 py-1">
+                        <span
+                            key={key}
+                            className="rounded-md border bg-background px-2 py-1"
+                        >
                             {t(key)}: {count}
                         </span>
                     ))}
@@ -400,12 +547,24 @@ return false;
                                 const nextPage = page + 1;
                                 setPage(nextPage);
                                 setLoadingMore(true);
-                                fetch(`${endpoint}?page=${nextPage}&per_page=${perPage}`)
+                                fetch(
+                                    `${endpoint}?page=${nextPage}&per_page=${perPage}`,
+                                )
                                     .then((response) => response.json())
-                                    .then((payload: { data: AuditEntry[]; meta?: { has_more: boolean } }) => {
-                                        setRemoteEntries((current) => [...(current ?? []), ...(payload.data ?? [])]);
-                                        setHasMore(payload.meta?.has_more ?? false);
-                                    })
+                                    .then(
+                                        (payload: {
+                                            data: AuditEntry[];
+                                            meta?: { has_more: boolean };
+                                        }) => {
+                                            setRemoteEntries((current) => [
+                                                ...(current ?? []),
+                                                ...(payload.data ?? []),
+                                            ]);
+                                            setHasMore(
+                                                payload.meta?.has_more ?? false,
+                                            );
+                                        },
+                                    )
                                     .finally(() => setLoadingMore(false));
                             }}
                             disabled={loadingMore}
@@ -419,53 +578,90 @@ return false;
             {/* Content */}
             {visible.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
-                    {anyFilter ? t('No changes match filters.') : t('No changes recorded yet.')}
+                    {anyFilter
+                        ? t('No changes match filters.')
+                        : t('No changes recorded yet.')}
                 </p>
             ) : view === 'table' ? (
                 <div className="rounded-xl border bg-card">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-40">{t('Date / Time')}</TableHead>
-                                <TableHead className="w-32">{t('User')}</TableHead>
-                                <TableHead className="w-28">{t('Action')}</TableHead>
-                                <TableHead className="w-28">{t('Subject')}</TableHead>
+                                <TableHead className="w-40">
+                                    {t('Date / Time')}
+                                </TableHead>
+                                <TableHead className="w-32">
+                                    {t('User')}
+                                </TableHead>
+                                <TableHead className="w-28">
+                                    {t('Action')}
+                                </TableHead>
+                                <TableHead className="w-28">
+                                    {t('Subject')}
+                                </TableHead>
                                 <TableHead>{t('Changes')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {visible.map((entry) => (
                                 <TableRow key={entry.id}>
-                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                        {new Date(entry.at).toLocaleString('hi-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                    <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                                        {new Date(entry.at).toLocaleString(
+                                            'hi-IN',
+                                            {
+                                                dateStyle: 'medium',
+                                                timeStyle: 'short',
+                                            },
+                                        )}
                                     </TableCell>
-                                    <TableCell className="text-xs">{entry.by ?? '—'}</TableCell>
+                                    <TableCell className="text-xs">
+                                        {entry.by ?? '—'}
+                                    </TableCell>
                                     <TableCell>
-                                        <Badge variant="outline" className="text-xs capitalize">
+                                        <Badge
+                                            variant="outline"
+                                            className="text-xs capitalize"
+                                        >
                                             {t(entry.action)}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
                                         {entry.subject !== primaryEntity ? (
-                                            <Badge variant="secondary" className="text-xs">
+                                            <Badge
+                                                variant="secondary"
+                                                className="text-xs"
+                                            >
                                                 {t(entry.subject)}
                                             </Badge>
-                                        ) : '—'}
+                                        ) : (
+                                            '—'
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-xs">
-                                        {entry.changes.length === 0 ? '—' : (
+                                        {entry.changes.length === 0 ? (
+                                            '—'
+                                        ) : (
                                             <ul className="space-y-0.5">
                                                 {entry.changes.map((ch, i) => (
                                                     <li key={i}>
-                                                        <span className="font-medium">{t(ch.field)}:</span>{' '}
+                                                        <span className="font-medium">
+                                                            {t(ch.field)}:
+                                                        </span>{' '}
                                                         {ch.old !== null ? (
                                                             <>
-                                                                <span className="line-through text-muted-foreground">{ch.old}</span>
+                                                                <span className="text-muted-foreground line-through">
+                                                                    {ch.old}
+                                                                </span>
                                                                 {' → '}
-                                                                <span>{ch.new ?? '—'}</span>
+                                                                <span>
+                                                                    {ch.new ??
+                                                                        '—'}
+                                                                </span>
                                                             </>
                                                         ) : (
-                                                            <span>{ch.new ?? '—'}</span>
+                                                            <span>
+                                                                {ch.new ?? '—'}
+                                                            </span>
                                                         )}
                                                     </li>
                                                 ))}
@@ -480,18 +676,30 @@ return false;
             ) : view === 'compact' ? (
                 <ol className="divide-y rounded-xl border bg-card">
                     {visible.map((entry) => (
-                        <li key={entry.id} className="flex items-center gap-3 px-4 py-2.5">
+                        <li
+                            key={entry.id}
+                            className="flex items-center gap-3 px-4 py-2.5"
+                        >
                             <time className="w-36 shrink-0 text-xs text-muted-foreground">
-                                {new Date(entry.at).toLocaleString('hi-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                {new Date(entry.at).toLocaleString('hi-IN', {
+                                    dateStyle: 'medium',
+                                    timeStyle: 'short',
+                                })}
                             </time>
                             <span className="hidden w-28 shrink-0 truncate text-xs text-muted-foreground sm:block">
                                 {entry.by ?? ''}
                             </span>
-                            <Badge variant="outline" className="shrink-0 text-xs capitalize">
+                            <Badge
+                                variant="outline"
+                                className="shrink-0 text-xs capitalize"
+                            >
                                 {t(entry.action)}
                             </Badge>
                             {entry.subject !== primaryEntity && (
-                                <Badge variant="secondary" className="shrink-0 text-xs">
+                                <Badge
+                                    variant="secondary"
+                                    className="shrink-0 text-xs"
+                                >
                                     {t(entry.subject)}
                                 </Badge>
                             )}
@@ -507,46 +715,77 @@ return false;
                 /* timeline (default) */
                 <div className="space-y-6">
                     {groupedByDate.map(([dateLabel, items]) => (
-                        <section key={dateLabel} className="rounded-xl border bg-card">
-                            <div className="border-b px-4 py-2 text-xs font-medium text-muted-foreground">{dateLabel}</div>
+                        <section
+                            key={dateLabel}
+                            className="rounded-xl border bg-card"
+                        >
+                            <div className="border-b px-4 py-2 text-xs font-medium text-muted-foreground">
+                                {dateLabel}
+                            </div>
                             <ol className="relative ml-3 space-y-6 border-l border-border py-4">
                                 {items.map((entry) => (
                                     <li key={entry.id} className="ms-6">
-                            <span className="absolute -start-2 flex h-4 w-4 items-center justify-center rounded-full bg-muted ring-2 ring-background" />
-                            <div className="mb-1 flex items-center gap-2">
-                                <time className="text-xs text-muted-foreground">
-                                    {new Date(entry.at).toLocaleString('hi-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                                </time>
-                                {entry.by && (
-                                    <span className="text-xs text-muted-foreground">— {entry.by}</span>
-                                )}
-                                <Badge variant="outline" className="text-xs capitalize">
-                                    {t(entry.action)}
-                                </Badge>
-                                {entry.subject !== primaryEntity && (
-                                    <Badge variant="secondary" className="text-xs">
-                                        {t(entry.subject)}
-                                    </Badge>
-                                )}
-                            </div>
-                            {entry.changes.length > 0 && (
-                                <ul className="mt-1 space-y-1">
-                                    {entry.changes.map((ch, i) => (
-                                        <li key={i} className="text-sm">
-                                            <span className="font-medium">{t(ch.field)}:</span>{' '}
-                                            {ch.old !== null ? (
-                                                <>
-                                                    <span className="line-through text-muted-foreground">{ch.old}</span>
-                                                    {' → '}
-                                                    <span className="text-foreground">{ch.new ?? '—'}</span>
-                                                </>
-                                            ) : (
-                                                <span className="text-foreground">{ch.new ?? '—'}</span>
+                                        <span className="absolute -start-2 flex h-4 w-4 items-center justify-center rounded-full bg-muted ring-2 ring-background" />
+                                        <div className="mb-1 flex items-center gap-2">
+                                            <time className="text-xs text-muted-foreground">
+                                                {new Date(
+                                                    entry.at,
+                                                ).toLocaleString('hi-IN', {
+                                                    dateStyle: 'medium',
+                                                    timeStyle: 'short',
+                                                })}
+                                            </time>
+                                            {entry.by && (
+                                                <span className="text-xs text-muted-foreground">
+                                                    — {entry.by}
+                                                </span>
                                             )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
+                                            <Badge
+                                                variant="outline"
+                                                className="text-xs capitalize"
+                                            >
+                                                {t(entry.action)}
+                                            </Badge>
+                                            {entry.subject !==
+                                                primaryEntity && (
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="text-xs"
+                                                >
+                                                    {t(entry.subject)}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        {entry.changes.length > 0 && (
+                                            <ul className="mt-1 space-y-1">
+                                                {entry.changes.map((ch, i) => (
+                                                    <li
+                                                        key={i}
+                                                        className="text-sm"
+                                                    >
+                                                        <span className="font-medium">
+                                                            {t(ch.field)}:
+                                                        </span>{' '}
+                                                        {ch.old !== null ? (
+                                                            <>
+                                                                <span className="text-muted-foreground line-through">
+                                                                    {ch.old}
+                                                                </span>
+                                                                {' → '}
+                                                                <span className="text-foreground">
+                                                                    {ch.new ??
+                                                                        '—'}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-foreground">
+                                                                {ch.new ?? '—'}
+                                                            </span>
+                                                        )}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
                                     </li>
                                 ))}
                             </ol>

@@ -35,7 +35,9 @@ type Props = {
 export function MembersMultiSelect({ value, onValueChange, className }: Props) {
     const { t } = useTranslation();
     const [results, setResults] = useState<MemberOption[]>([]);
-    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+        undefined,
+    );
     const { get, cancel, processing } = useHttp<
         Record<string, never>,
         SearchResponse

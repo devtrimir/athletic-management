@@ -16,6 +16,7 @@ use App\Support\Tournaments\TournamentProfileData;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -112,9 +113,15 @@ class TournamentController extends Controller
         Gate::authorize('create', Tournament::class);
 
         $data = $request->validated();
+        $sportIds = $this->requestedSportIds($request, $data);
         $data['organization_id'] = (int) $request->user()->organization_id;
+        $data = Arr::except($data, ['sport_ids']);
+        $data['sport_id'] = $sportIds[0] ?? null;
 
         $tournament = Tournament::create($data);
+        if (! empty($sportIds)) {
+            $tournament->sports()->sync($sportIds);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Tournament created.')]);
 
@@ -136,7 +143,7 @@ class TournamentController extends Controller
 
         return Inertia::render('tournaments/edit', array_merge(
             $this->formOptions($orgId),
-            ['tournament' => $tournament->load(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name'])],
+            ['tournament' => $tournament->load(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name', 'sports:id,name'])],
         ));
     }
 
@@ -144,7 +151,20 @@ class TournamentController extends Controller
     {
         Gate::authorize('update', $tournament);
 
-        $tournament->update($request->validated());
+        $data = $request->validated();
+        $sportIds = $this->requestedSportIds($request, $data);
+
+        $hasSportSelection = $request->has('sport_ids') || $request->has('sport_id');
+        if ($hasSportSelection) {
+            $data['sport_id'] = $sportIds[0] ?? null;
+        }
+
+        $data = Arr::except($data, ['sport_ids']);
+        $tournament->update($data);
+
+        if ($hasSportSelection) {
+            $tournament->sports()->sync($sportIds);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Tournament updated.')]);
 
@@ -180,5 +200,23 @@ class TournamentController extends Controller
                 ->orderByDesc('weight')
                 ->get(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return list<int>
+     */
+    private function requestedSportIds(Request $request, array $validated): array
+    {
+        $rawIds = $request->has('sport_ids')
+            ? ($validated['sport_ids'] ?? [])
+            : ($request->has('sport_id') ? [$validated['sport_id'] ?? null] : []);
+
+        $sportIds = array_values(array_unique(array_map(
+            'intval',
+            array_filter((array) $rawIds, static fn (int|string|null $id): bool => (string) $id !== ''),
+        )));
+
+        return array_values(array_filter($sportIds, static fn (int $id): bool => $id > 0));
     }
 }

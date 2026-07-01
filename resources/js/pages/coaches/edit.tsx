@@ -281,423 +281,350 @@ export default function CoachesEdit({
                         </div>
 
                         <div className="space-y-5 p-6">
-                                    <div className="flex items-center gap-3 border-b pb-4">
-                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                            <IdCard className="h-4 w-4" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-sm font-semibold">
-                                                {t('Coach details')}
-                                            </h3>
-                                            <p className="text-xs text-muted-foreground">
-                                                {t(
-                                                    'Identity, contact, and service profile',
-                                                )}
-                                            </p>
-                                        </div>
-                                    </div>
+                            <div className="flex items-center gap-3 border-b pb-4">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <IdCard className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-semibold">
+                                        {t('Coach details')}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Identity, contact, and service profile',
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
 
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="full_name">
-                                                {t('Name')}{' '}
-                                                <span className="text-destructive">
-                                                    *
-                                                </span>
-                                            </Label>
-                                            <Input
-                                                id="full_name"
-                                                value={data.full_name}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        'full_name',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                maxLength={255}
-                                                required
-                                            />
-                                            <InputError
-                                                message={errors.full_name}
-                                            />
-                                        </div>
-
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="pno">
-                                                {t('PNO')}
-                                            </Label>
-                                            <Input
-                                                id="pno"
-                                                value={data.pno}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        'pno',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                maxLength={20}
-                                                className="font-mono"
-                                            />
-                                            <InputError message={errors.pno} />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="mobile">
-                                                {t('Mobile')}
-                                            </Label>
-                                            <Input
-                                                id="mobile"
-                                                value={data.mobile}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        'mobile',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                maxLength={20}
-                                            />
-                                            <InputError
-                                                message={errors.mobile}
-                                            />
-                                        </div>
-
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="blood_group">
-                                                {t('Blood group')}
-                                            </Label>
-                                            <Combobox
-                                                id="blood_group"
-                                                value={data.blood_group}
-                                                onValueChange={(v) =>
-                                                    setData('blood_group', v)
-                                                }
-                                                items={bloodGroupItems}
-                                                placeholder={t(
-                                                    'Select blood group',
-                                                )}
-                                                searchPlaceholder={t(
-                                                    'Search blood groups…',
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="unit_id">
-                                                {t('Unit')}
-                                            </Label>
-                                            <Combobox
-                                                id="unit_id"
-                                                value={data.unit_id}
-                                                onValueChange={(v) => {
-                                                    setData('unit_id', v);
-                                                    const selected = units.find(
-                                                        (unit) =>
-                                                            String(unit.id) ===
-                                                            v,
-                                                    );
-                                                    const district =
-                                                        districts.find(
-                                                            (item) =>
-                                                                item.id ===
-                                                                selected?.district_id,
-                                                        );
-                                                    setData(
-                                                        'district_id',
-                                                        district
-                                                            ? String(
-                                                                  district.id,
-                                                              )
-                                                            : '',
-                                                    );
-                                                }}
-                                                items={unitItems}
-                                                placeholder={t('Select unit')}
-                                                searchPlaceholder={t(
-                                                    'Search units…',
-                                                )}
-                                            />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="district_id">
-                                                {t('District')}
-                                            </Label>
-                                            <Combobox
-                                                id="district_id"
-                                                value={data.district_id}
-                                                onValueChange={(v) =>
-                                                    setData('district_id', v)
-                                                }
-                                                items={districtItems}
-                                                placeholder={t(
-                                                    'Select district',
-                                                )}
-                                                searchPlaceholder={t(
-                                                    'Search districts…',
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="rank_master_id">
-                                                {t('Rank')}
-                                            </Label>
-                                            <Combobox
-                                                id="rank_master_id"
-                                                value={data.rank_master_id}
-                                                onValueChange={(v) =>
-                                                    setData('rank_master_id', v)
-                                                }
-                                                items={rankItems}
-                                                placeholder={t('Select rank')}
-                                                searchPlaceholder={t(
-                                                    'Search ranks…',
-                                                )}
-                                            />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="designation_master_id">
-                                                {t('Designation')}
-                                            </Label>
-                                            <Combobox
-                                                id="designation_master_id"
-                                                value={
-                                                    data.designation_master_id
-                                                }
-                                                onValueChange={(v) =>
-                                                    setData(
-                                                        'designation_master_id',
-                                                        v,
-                                                    )
-                                                }
-                                                items={designationItems}
-                                                placeholder={t(
-                                                    'Select designation',
-                                                )}
-                                                searchPlaceholder={t(
-                                                    'Search designations…',
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="tier_master_id">
-                                                {t('Tier / level')}
-                                            </Label>
-                                            <Combobox
-                                                id="tier_master_id"
-                                                value={data.tier_master_id}
-                                                onValueChange={(v) =>
-                                                    setData('tier_master_id', v)
-                                                }
-                                                items={tierItems}
-                                                placeholder={t(
-                                                    'Select tier / level',
-                                                )}
-                                                searchPlaceholder={t(
-                                                    'Search tiers…',
-                                                )}
-                                            />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="nis_master_id">
-                                                {t('NIS info')}
-                                            </Label>
-                                            <Combobox
-                                                id="nis_master_id"
-                                                value={data.nis_master_id}
-                                                onValueChange={(v) =>
-                                                    setData('nis_master_id', v)
-                                                }
-                                                items={nisItems}
-                                                placeholder={t(
-                                                    'Select NIS info',
-                                                )}
-                                                searchPlaceholder={t(
-                                                    'Search NIS info…',
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="email">
-                                                {t('Email')}
-                                            </Label>
-                                            <Input
-                                                id="email"
-                                                value={data.email}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        'email',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                maxLength={255}
-                                                type="email"
-                                            />
-                                            <InputError
-                                                message={errors.email}
-                                            />
-                                        </div>
-
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="coach_status">
-                                                {t('Status')}
-                                            </Label>
-                                            <Select
-                                                value={data.coach_status}
-                                                onValueChange={(v) =>
-                                                    setData('coach_status', v)
-                                                }
-                                            >
-                                                <SelectTrigger
-                                                    id="coach_status"
-                                                    className="w-full"
-                                                >
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select status',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {coachStatuses.map(
-                                                        (status) => (
-                                                            <SelectItem
-                                                                key={status}
-                                                                value={status}
-                                                            >
-                                                                {t(status)}
-                                                            </SelectItem>
-                                                        ),
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={errors.coach_status}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="gender">
-                                                {t('Gender')}
-                                            </Label>
-                                            <Select
-                                                value={data.gender}
-                                                onValueChange={(v) =>
-                                                    setData('gender', v)
-                                                }
-                                            >
-                                                <SelectTrigger
-                                                    id="gender"
-                                                    className="w-full"
-                                                >
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select gender',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {genders.map((value) => (
-                                                        <SelectItem
-                                                            key={value}
-                                                            value={value}
-                                                        >
-                                                            {GENDER_OPTIONS.find(
-                                                                (option) =>
-                                                                    option.value ===
-                                                                    value,
-                                                            )?.label ?? value}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={errors.gender}
-                                            />
-                                        </div>
-
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="date_of_birth">
-                                                {t('Date of birth')}
-                                            </Label>
-                                            <DatePicker
-                                                id="date_of_birth"
-                                                value={data.date_of_birth}
-                                                onChange={(value) =>
-                                                    setData(
-                                                        'date_of_birth',
-                                                        value,
-                                                    )
-                                                }
-                                            />
-                                            <InputError
-                                                message={errors.date_of_birth}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="address">
-                                            {t('Address')}
-                                        </Label>
-                                        <Textarea
-                                            id="address"
-                                            value={data.address}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'address',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            rows={3}
-                                        />
-                                        <InputError message={errors.address} />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="bio">{t('Bio')}</Label>
-                                        <Textarea
-                                            id="bio"
-                                            value={data.bio}
-                                            onChange={(e) =>
-                                                setData('bio', e.target.value)
-                                            }
-                                            rows={3}
-                                        />
-                                        <InputError message={errors.bio} />
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <Checkbox
-                                            id="nis_certified"
-                                            checked={data.nis_certified}
-                                            onCheckedChange={(checked) =>
-                                                setData(
-                                                    'nis_certified',
-                                                    !!checked,
-                                                )
-                                            }
-                                        />
-                                        <Label htmlFor="nis_certified">
-                                            {t('NIS certified')}
-                                        </Label>
-                                    </div>
-                                    <InputError
-                                        message={errors.nis_certified}
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="full_name">
+                                        {t('Name')}{' '}
+                                        <span className="text-destructive">
+                                            *
+                                        </span>
+                                    </Label>
+                                    <Input
+                                        id="full_name"
+                                        value={data.full_name}
+                                        onChange={(e) =>
+                                            setData('full_name', e.target.value)
+                                        }
+                                        maxLength={255}
+                                        required
                                     />
+                                    <InputError message={errors.full_name} />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="pno">{t('PNO')}</Label>
+                                    <Input
+                                        id="pno"
+                                        value={data.pno}
+                                        onChange={(e) =>
+                                            setData('pno', e.target.value)
+                                        }
+                                        maxLength={20}
+                                        className="font-mono"
+                                    />
+                                    <InputError message={errors.pno} />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="mobile">
+                                        {t('Mobile')}
+                                    </Label>
+                                    <Input
+                                        id="mobile"
+                                        value={data.mobile}
+                                        onChange={(e) =>
+                                            setData('mobile', e.target.value)
+                                        }
+                                        maxLength={20}
+                                    />
+                                    <InputError message={errors.mobile} />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="blood_group">
+                                        {t('Blood group')}
+                                    </Label>
+                                    <Combobox
+                                        id="blood_group"
+                                        value={data.blood_group}
+                                        onValueChange={(v) =>
+                                            setData('blood_group', v)
+                                        }
+                                        items={bloodGroupItems}
+                                        placeholder={t('Select blood group')}
+                                        searchPlaceholder={t(
+                                            'Search blood groups…',
+                                        )}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="unit_id">{t('Unit')}</Label>
+                                    <Combobox
+                                        id="unit_id"
+                                        value={data.unit_id}
+                                        onValueChange={(v) => {
+                                            setData('unit_id', v);
+                                            const selected = units.find(
+                                                (unit) => String(unit.id) === v,
+                                            );
+                                            const district = districts.find(
+                                                (item) =>
+                                                    item.id ===
+                                                    selected?.district_id,
+                                            );
+                                            setData(
+                                                'district_id',
+                                                district
+                                                    ? String(district.id)
+                                                    : '',
+                                            );
+                                        }}
+                                        items={unitItems}
+                                        placeholder={t('Select unit')}
+                                        searchPlaceholder={t('Search units…')}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="district_id">
+                                        {t('District')}
+                                    </Label>
+                                    <Combobox
+                                        id="district_id"
+                                        value={data.district_id}
+                                        onValueChange={(v) =>
+                                            setData('district_id', v)
+                                        }
+                                        items={districtItems}
+                                        placeholder={t('Select district')}
+                                        searchPlaceholder={t(
+                                            'Search districts…',
+                                        )}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="rank_master_id">
+                                        {t('Rank')}
+                                    </Label>
+                                    <Combobox
+                                        id="rank_master_id"
+                                        value={data.rank_master_id}
+                                        onValueChange={(v) =>
+                                            setData('rank_master_id', v)
+                                        }
+                                        items={rankItems}
+                                        placeholder={t('Select rank')}
+                                        searchPlaceholder={t('Search ranks…')}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="designation_master_id">
+                                        {t('Designation')}
+                                    </Label>
+                                    <Combobox
+                                        id="designation_master_id"
+                                        value={data.designation_master_id}
+                                        onValueChange={(v) =>
+                                            setData('designation_master_id', v)
+                                        }
+                                        items={designationItems}
+                                        placeholder={t('Select designation')}
+                                        searchPlaceholder={t(
+                                            'Search designations…',
+                                        )}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="tier_master_id">
+                                        {t('Tier / level')}
+                                    </Label>
+                                    <Combobox
+                                        id="tier_master_id"
+                                        value={data.tier_master_id}
+                                        onValueChange={(v) =>
+                                            setData('tier_master_id', v)
+                                        }
+                                        items={tierItems}
+                                        placeholder={t('Select tier / level')}
+                                        searchPlaceholder={t('Search tiers…')}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="nis_master_id">
+                                        {t('NIS info')}
+                                    </Label>
+                                    <Combobox
+                                        id="nis_master_id"
+                                        value={data.nis_master_id}
+                                        onValueChange={(v) =>
+                                            setData('nis_master_id', v)
+                                        }
+                                        items={nisItems}
+                                        placeholder={t('Select NIS info')}
+                                        searchPlaceholder={t(
+                                            'Search NIS info…',
+                                        )}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="email">{t('Email')}</Label>
+                                    <Input
+                                        id="email"
+                                        value={data.email}
+                                        onChange={(e) =>
+                                            setData('email', e.target.value)
+                                        }
+                                        maxLength={255}
+                                        type="email"
+                                    />
+                                    <InputError message={errors.email} />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="coach_status">
+                                        {t('Status')}
+                                    </Label>
+                                    <Select
+                                        value={data.coach_status}
+                                        onValueChange={(v) =>
+                                            setData('coach_status', v)
+                                        }
+                                    >
+                                        <SelectTrigger
+                                            id="coach_status"
+                                            className="w-full"
+                                        >
+                                            <SelectValue
+                                                placeholder={t('Select status')}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {coachStatuses.map((status) => (
+                                                <SelectItem
+                                                    key={status}
+                                                    value={status}
+                                                >
+                                                    {t(status)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.coach_status} />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="gender">
+                                        {t('Gender')}
+                                    </Label>
+                                    <Select
+                                        value={data.gender}
+                                        onValueChange={(v) =>
+                                            setData('gender', v)
+                                        }
+                                    >
+                                        <SelectTrigger
+                                            id="gender"
+                                            className="w-full"
+                                        >
+                                            <SelectValue
+                                                placeholder={t('Select gender')}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {genders.map((value) => (
+                                                <SelectItem
+                                                    key={value}
+                                                    value={value}
+                                                >
+                                                    {GENDER_OPTIONS.find(
+                                                        (option) =>
+                                                            option.value ===
+                                                            value,
+                                                    )?.label ?? value}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.gender} />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="date_of_birth">
+                                        {t('Date of birth')}
+                                    </Label>
+                                    <DatePicker
+                                        id="date_of_birth"
+                                        value={data.date_of_birth}
+                                        onChange={(value) =>
+                                            setData('date_of_birth', value)
+                                        }
+                                    />
+                                    <InputError
+                                        message={errors.date_of_birth}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="address">{t('Address')}</Label>
+                                <Textarea
+                                    id="address"
+                                    value={data.address}
+                                    onChange={(e) =>
+                                        setData('address', e.target.value)
+                                    }
+                                    rows={3}
+                                />
+                                <InputError message={errors.address} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="bio">{t('Bio')}</Label>
+                                <Textarea
+                                    id="bio"
+                                    value={data.bio}
+                                    onChange={(e) =>
+                                        setData('bio', e.target.value)
+                                    }
+                                    rows={3}
+                                />
+                                <InputError message={errors.bio} />
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <Checkbox
+                                    id="nis_certified"
+                                    checked={data.nis_certified}
+                                    onCheckedChange={(checked) =>
+                                        setData('nis_certified', !!checked)
+                                    }
+                                />
+                                <Label htmlFor="nis_certified">
+                                    {t('NIS certified')}
+                                </Label>
+                            </div>
+                            <InputError message={errors.nis_certified} />
                         </div>
                     </div>
 
@@ -720,7 +647,6 @@ export default function CoachesEdit({
                     </div>
                 </form>
             </div>
-
         </>
     );
 }

@@ -7,7 +7,13 @@ import { useTranslation } from '@/hooks/use-translation';
 import { InchargeForm } from './form';
 import type { MasterOption } from './form';
 
-export default function InchargesCreate({ ranks, designations }: { ranks: MasterOption[]; designations: MasterOption[] }) {
+export default function InchargesCreate({
+    ranks,
+    designations,
+}: {
+    ranks: MasterOption[];
+    designations: MasterOption[];
+}) {
     const { t } = useTranslation();
 
     return (
@@ -15,7 +21,12 @@ export default function InchargesCreate({ ranks, designations }: { ranks: Master
             <Head title={t('Add team prabhari')} />
             <div className="space-y-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Heading title={t('Add team prabhari')} description={t('Create a compact team prabhari profile.')} />
+                    <Heading
+                        title={t('Add team prabhari')}
+                        description={t(
+                            'Create a compact team prabhari profile.',
+                        )}
+                    />
                     <Button asChild variant="outline">
                         <Link href={InchargeController.index.url()}>
                             <ArrowLeft className="size-4" />
@@ -30,5 +41,7 @@ export default function InchargesCreate({ ranks, designations }: { ranks: Master
 }
 
 InchargesCreate.layout = {
-    breadcrumbs: [{ title: 'Team Prabhari', href: InchargeController.index.url() }],
+    breadcrumbs: [
+        { title: 'Team Prabhari', href: InchargeController.index.url() },
+    ],
 };

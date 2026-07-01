@@ -19,7 +19,9 @@ export default function SportsCalendarsEdit({
             <Head title={t('Edit sports calendar')} />
             <SportsCalendarForm
                 title={t('Edit sports calendar')}
-                description={t('Update competition details and report status for the 2026 calendar.')}
+                description={t(
+                    'Update competition details and report status for the 2026 calendar.',
+                )}
                 action={update(calendar)}
                 years={years}
                 calendar={calendar}

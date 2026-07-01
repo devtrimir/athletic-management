@@ -36,12 +36,18 @@ function cleanPaginationLabel(label: string): string {
         .replace(/<\/?[^>]+(>|$)/g, '');
 }
 
-export function ListingPagination({ paginator, itemLabel = 'records', rowsPerPage, className }: ListingPaginationProps) {
+export function ListingPagination({
+    paginator,
+    itemLabel = 'records',
+    rowsPerPage,
+    className,
+}: ListingPaginationProps) {
     const hasMultiplePages = (paginator.last_page ?? 1) > 1;
     const showControls = hasMultiplePages || rowsPerPage !== undefined;
-    const summary = paginator.from !== null
-        ? `Showing ${paginator.from}-${paginator.to ?? paginator.from} of ${paginator.total} ${itemLabel}`
-        : `Showing 0 of ${paginator.total} ${itemLabel}`;
+    const summary =
+        paginator.from !== null
+            ? `Showing ${paginator.from}-${paginator.to ?? paginator.from} of ${paginator.total} ${itemLabel}`
+            : `Showing 0 of ${paginator.total} ${itemLabel}`;
 
     if (!showControls && paginator.total === 0) {
         return null;
@@ -82,7 +88,10 @@ export function ListingPagination({ paginator, itemLabel = 'records', rowsPerPag
             </div>
 
             {hasMultiplePages && (
-                <nav aria-label="Pagination" className="flex max-w-full items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+                <nav
+                    aria-label="Pagination"
+                    className="flex max-w-full items-center gap-1 overflow-x-auto pb-1 sm:pb-0"
+                >
                     {paginator.links.map((link, index) => (
                         <Button
                             key={`${link.label}-${index}`}
@@ -92,7 +101,11 @@ export function ListingPagination({ paginator, itemLabel = 'records', rowsPerPag
                             disabled={!link.url}
                             onClick={() => {
                                 if (link.url) {
-                                    router.get(link.url, {}, { preserveState: true });
+                                    router.get(
+                                        link.url,
+                                        {},
+                                        { preserveState: true },
+                                    );
                                 }
                             }}
                         >

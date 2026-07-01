@@ -1,5 +1,6 @@
 import { Head, Link, router, setLayoutProps, useForm } from '@inertiajs/react';
 import {
+    ArrowLeft,
     CalendarDays,
     Dumbbell,
     Eye,
@@ -14,7 +15,7 @@ import {
     Users,
     X,
 } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
     destroy as destroyEvent,
     store as storeEvent,
@@ -86,12 +87,30 @@ type EventRow = {
     weight_category: string | null;
     gender_class: string;
     sport_event_variant_id: number | null;
-    event_source: string;
+    event_type: 'individual' | 'team';
+    participants_required: number | null;
+    event_source: 'manual' | 'official' | 'provisional';
     provisional_reason: string | null;
     participations_count: number;
     can_update_structure: boolean;
     teams_count: number;
     medals_count: number;
+    medals_by_type: {
+        gold: number;
+        silver: number;
+        bronze: number;
+        merit: number;
+    };
+    single_participant: {
+        id: number;
+        full_name: string;
+        pno: string | null;
+    } | null;
+    participant_previews: {
+        players: Array<{ id: number; full_name: string; pno: string | null }>;
+        more_players: Array<{ id: number; full_name: string; pno: string | null }>;
+        total_players: number;
+    };
     sport: { id: number; name: string } | null;
 };
 
@@ -122,6 +141,44 @@ type EventFilters = {
     sport_id?: string | null;
     gender_class?: string | null;
     participation_status?: string | null;
+    event_type?: 'individual' | 'team' | null;
+};
+
+type EventSummarySport = {
+    id: number;
+    name: string;
+    events_count: number;
+    participants_count: number;
+};
+
+type EventSummary = {
+    sports: EventSummarySport[];
+    team_events: number;
+    individual_events: number;
+    team_medals: number;
+    individual_medals: number;
+    medal_counts: {
+        GOLD: number;
+        SILVER: number;
+        BRONZE: number;
+        MERIT: number;
+    };
+    total_events: number;
+};
+
+const EMPTY_EVENT_SUMMARY: EventSummary = {
+    sports: [],
+    team_events: 0,
+    individual_events: 0,
+    team_medals: 0,
+    individual_medals: 0,
+    medal_counts: {
+        GOLD: 0,
+        SILVER: 0,
+        BRONZE: 0,
+        MERIT: 0,
+    },
+    total_events: 0,
 };
 
 type EventForm = {
@@ -130,6 +187,8 @@ type EventForm = {
     sport_event_variant_ids: string[];
     sport_id: string;
     name: string;
+    event_type: 'individual' | 'team' | '';
+    participants_required: string;
     discipline: string;
     weight_category: string;
     gender_class: string;
@@ -148,6 +207,44 @@ function genderClassLabel(value: string, t: (key: string) => string): string {
     return t(
         GENDER_CLASS_LABELS[value as keyof typeof GENDER_CLASS_LABELS] ?? value,
     );
+}
+
+function sanitizeEventDetail(value?: string | null): string {
+    return (value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+function normalizeOfficialEventDetail(value: string): string {
+    const text = sanitizeEventDetail(value)
+        .replace(/,/g, ' / ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+    const parts = text.split('/').map((part) => part.trim()).filter(Boolean);
+    const firstPart = parts.length > 0 ? parts[0] : '';
+    return firstPart
+        .replace(/^(?:powerlifting|weightlifting)\s+(?:total|total\s+points)\s*:?\s*/i, '')
+        .replace(/^(?:official|provisional)\s*:?\s*/i, '')
+        .trim();
+}
+
+function eventSubtitle(
+    event: EventRow,
+    t: (key: string) => string,
+): { title: string; fallbackName?: string } {
+    const name = sanitizeEventDetail(event.name);
+    const discipline = sanitizeEventDetail(event.discipline);
+    const weight = sanitizeEventDetail(event.weight_category);
+
+    if (event.event_source !== 'official') {
+        return { title: name || t('Event') };
+    }
+
+    const officialTitle = weight || normalizeOfficialEventDetail(discipline);
+    if (officialTitle) {
+        return { title: officialTitle };
+    }
+
+    return { title: name || t('Event') };
 }
 
 function eventBadgeClass(kind: 'sport' | 'class' | 'count' | 'detail'): string {
@@ -185,10 +282,13 @@ function eventVariantOption(variant: EventVariant, t: (key: string) => string) {
     );
     const details = [
         variant.gender_label ?? genderClassLabel(variant.gender_class, t),
+        `${t('Event type')}: ${
+            variant.is_team_based ? t('Team') : t('Individual')
+        }`,
         variant.result_type,
         variant.measurement_symbol ?? variant.measurement_unit,
         participantText !== '—'
-            ? `${t('Participants')}: ${participantText}`
+            ? `${t('Player limit')}: ${participantText}`
             : null,
         variant.substitute_allowed
             ? `${t('Substitutes')}: ${variant.substitute_limit ?? t('Allowed')}`
@@ -221,6 +321,7 @@ function EventFormFields({
     idPrefix,
     allowMultipleOfficial = false,
     existingVariantIds = [],
+    showParticipantsField = true,
 }: {
     data: EventForm;
     setData: (values: Partial<EventForm>) => void;
@@ -232,6 +333,7 @@ function EventFormFields({
     idPrefix: string;
     allowMultipleOfficial?: boolean;
     existingVariantIds?: number[];
+    showParticipantsField?: boolean;
 }) {
     const { t } = useTranslation();
     const [variantSearch, setVariantSearch] = useState('');
@@ -298,14 +400,26 @@ function EventFormFields({
         const variant = eventVariants.find((item) => String(item.id) === value);
 
         if (variant) {
-            setData({
+            const updates: Partial<EventForm> = {
                 sport_event_variant_id: value,
                 sport_id: String(variant.sport_id),
                 name: variant.name,
                 discipline: variant.discipline ?? '',
                 weight_category: variant.weight_category ?? '',
                 gender_class: variant.gender_class,
-            });
+            };
+
+            if (data.event_type === '') {
+                updates.event_type = variant.is_team_based ? 'team' : 'individual';
+            }
+
+            if (data.participants_required === '') {
+                updates.participants_required = variant.min_participants
+                    ? String(variant.min_participants)
+                    : '';
+            }
+
+            setData(updates);
         } else {
             setData({ sport_event_variant_id: value });
         }
@@ -332,6 +446,18 @@ function EventFormFields({
             updates.discipline = variant.discipline ?? '';
             updates.weight_category = variant.weight_category ?? '';
             updates.gender_class = variant.gender_class;
+
+            if (data.event_type === '') {
+                updates.event_type = variant.is_team_based
+                    ? 'team'
+                    : 'individual';
+            }
+
+            if (data.participants_required === '') {
+                updates.participants_required = variant.min_participants
+                    ? String(variant.min_participants)
+                    : '';
+            }
         }
 
         setData(updates);
@@ -351,11 +477,27 @@ function EventFormFields({
         }
 
         if (selectedVariant) {
+            const variantTeamMode = selectedVariant.is_team_based
+                ? 'team'
+                : 'individual';
+
             updates.sport_id = String(selectedVariant.sport_id);
             updates.name = selectedVariant.name;
             updates.discipline = selectedVariant.discipline ?? '';
             updates.weight_category = selectedVariant.weight_category ?? '';
             updates.gender_class = selectedVariant.gender_class;
+            if (updates.event_type === '' || data.event_type === '') {
+                updates.event_type = variantTeamMode;
+            }
+
+            if (
+                updates.participants_required === '' ||
+                data.participants_required === ''
+            ) {
+                updates.participants_required = selectedVariant.min_participants
+                    ? String(selectedVariant.min_participants)
+                    : '';
+            }
         }
 
         setData(updates);
@@ -404,6 +546,56 @@ function EventFormFields({
                 />
                 <InputError message={errors.sport_id} />
             </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}_event_type`}>
+                    {t('Event type')}{' '}
+                    {data.event_mode === 'provisional' ? (
+                        <span className="text-destructive">*</span>
+                    ) : null}
+                </Label>
+                <Select
+                    value={data.event_type}
+                    onValueChange={(value) =>
+                        setData({
+                            event_type:
+                                value === 'team' ? 'team' : 'individual',
+                        })
+                    }
+                >
+                    <SelectTrigger id={`${idPrefix}_event_type`}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="individual">
+                            {t('Individual')}
+                        </SelectItem>
+                        <SelectItem value="team">{t('Team')}</SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError message={errors.event_type} />
+            </div>
+
+            {showParticipantsField ? (
+                <div className="grid gap-2">
+                    <Label htmlFor={`${idPrefix}_participants_required`}>
+                        {t('Participants per entry')}
+                    </Label>
+                    <Input
+                        id={`${idPrefix}_participants_required`}
+                        type="number"
+                        min={1}
+                        value={data.participants_required}
+                        onChange={(e) =>
+                            setData({
+                                participants_required: e.target.value,
+                            })
+                        }
+                        placeholder={t('Optional')}
+                    />
+                    <InputError message={errors.participants_required} />
+                </div>
+            ) : null}
 
             {data.event_mode === 'official' ? (
                 <div className="grid gap-2 sm:col-span-2">
@@ -485,17 +677,26 @@ function EventFormFields({
                                                                 .join(' / ')}
                                                         </span>
                                                         <span className="block text-xs text-muted-foreground">
-                                                            {[
-                                                                variant.gender_label ??
-                                                                    genderClassLabel(
-                                                                        variant.gender_class,
-                                                                        t,
-                                                                    ),
-                                                                variant.format,
-                                                                variant.result_type,
-                                                            ]
-                                                                .filter(Boolean)
-                                                                .join(' · ')}
+                                                                {[
+                                                                    variant.gender_label ??
+                                                                        genderClassLabel(
+                                                                            variant.gender_class,
+                                                                            t,
+                                                                        ),
+                                                                    `${t('Event type')}: ${
+                                                                variant.is_team_based
+                                                                    ? t('Team')
+                                                                    : t('Individual')
+                                                            }`,
+                                                            variant.format,
+                                                            variant.result_type,
+                                                            `${t('Player limit')}: ${participantRange(
+                                                                variant.min_participants,
+                                                                variant.max_participants,
+                                                            )}`,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' · ')}
                                                         </span>
                                                     </span>
                                                 </label>
@@ -564,26 +765,26 @@ function EventFormFields({
                                     {variant.label}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                    {[
-                                        variant.gender_label ??
-                                            genderClassLabel(
-                                                variant.gender_class,
-                                                t,
-                                            ),
-                                        variant.format,
-                                        variant.result_type,
-                                        participantRange(
-                                            variant.min_participants,
-                                            variant.max_participants,
-                                        ) !== '—'
-                                            ? `${t('Participants')}: ${participantRange(
-                                                  variant.min_participants,
-                                                  variant.max_participants,
-                                              )}`
-                                            : null,
-                                    ]
-                                        .filter(Boolean)
-                                        .join(' · ')}
+                                {[
+                                    variant.gender_label ??
+                                        genderClassLabel(
+                                            variant.gender_class,
+                                            t,
+                                        ),
+                                    `${t('Event type')}: ${
+                                        variant.is_team_based
+                                            ? t('Team')
+                                            : t('Individual')
+                                    }`,
+                                    variant.format,
+                                    variant.result_type,
+                                    `${t('Player limit')}: ${participantRange(
+                                        variant.min_participants,
+                                        variant.max_participants,
+                                    )}`,
+                                ]
+                                    .filter(Boolean)
+                                    .join(' · ')}
                                 </div>
                             </div>
                         ))}
@@ -609,6 +810,12 @@ function EventFormFields({
                                 )}
                         </span>
                         <span>
+                            {t('Event type')}:{' '}
+                            {selectedVariant.is_team_based
+                                ? t('Team')
+                                : t('Individual')}
+                        </span>
+                        <span>
                             {t('Format')}: {selectedVariant.format ?? '—'}
                         </span>
                         <span>
@@ -616,7 +823,7 @@ function EventFormFields({
                             {selectedVariant.result_type ?? '—'}
                         </span>
                         <span>
-                            {t('Participants')}:{' '}
+                            {t('Player limit')}:{' '}
                             {participantRange(
                                 selectedVariant.min_participants,
                                 selectedVariant.max_participants,
@@ -769,11 +976,25 @@ function AddEventDialog({
             sport_event_variant_ids: [],
             sport_id: tournament.sport ? String(tournament.sport.id) : '',
             name: '',
+            event_type: 'individual',
+            participants_required: '',
             discipline: '',
             weight_category: '',
             gender_class: 'M',
             provisional_reason: '',
         });
+    const bodyRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        bodyRef.current?.scrollTo({
+            top: 0,
+            behavior: 'auto',
+        });
+    }, [open]);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -794,25 +1015,31 @@ function AddEventDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden">
                 <DialogHeader>
                     <DialogTitle>{t('Add event')}</DialogTitle>
                     <DialogDescription>
                         {t('Add a new event to this tournament.')}
                     </DialogDescription>
                 </DialogHeader>
-                <form id="add-event-form" onSubmit={handleSubmit}>
-                    <EventFormFields
-                        data={data}
-                        setData={updateFields}
-                        errors={errors}
-                        sports={sports}
-                        eventVariants={eventVariants}
-                        idPrefix="add_ev"
-                        allowMultipleOfficial
-                        existingVariantIds={existingVariantIds}
-                    />
-                </form>
+                <div
+                    ref={bodyRef}
+                    className="max-h-[calc(90vh-11rem)] overflow-y-auto pr-1"
+                >
+                    <form id="add-event-form" onSubmit={handleSubmit}>
+                        <EventFormFields
+                            data={data}
+                            setData={updateFields}
+                            errors={errors}
+                            sports={sports}
+                            eventVariants={eventVariants}
+                            idPrefix="add_ev"
+                            allowMultipleOfficial
+                            existingVariantIds={existingVariantIds}
+                            showParticipantsField={false}
+                        />
+                    </form>
+                </div>
                 <DialogFooter>
                     <Button
                         variant="outline"
@@ -863,6 +1090,10 @@ function EditEventDialog({
             sport_event_variant_ids: [],
             sport_id: event?.sport ? String(event.sport.id) : '',
             name: event?.name ?? '',
+            event_type: event?.event_type ?? 'individual',
+            participants_required: event?.participants_required
+                ? String(event.participants_required)
+                : '',
             discipline: event?.discipline ?? '',
             weight_category: event?.weight_category ?? '',
             gender_class: event?.gender_class ?? 'M',
@@ -988,6 +1219,8 @@ function ConfirmDeleteDialog({
 // ---------------------------------------------------------------------------
 export default function TournamentsShow({
     tournament,
+    eventSummary,
+    event_summary,
     activeTab,
     sports,
     eventVariants = [],
@@ -995,6 +1228,8 @@ export default function TournamentsShow({
     events,
 }: {
     tournament: Tournament;
+    eventSummary?: EventSummary;
+    event_summary?: EventSummary;
     activeTab: 'overview' | 'events';
     sports: Sport[];
     eventVariants?: EventVariant[];
@@ -1007,6 +1242,9 @@ export default function TournamentsShow({
     const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
     const [deletingEvent, setDeletingEvent] = useState<EventRow | null>(null);
     const [deleteTournamentOpen, setDeleteTournamentOpen] = useState(false);
+    const [expandedEventPlayers, setExpandedEventPlayers] = useState<
+        Record<number, boolean>
+    >({});
 
     const { delete: deleteEventForm, processing: deletingEventProcessing } =
         useForm({});
@@ -1014,6 +1252,7 @@ export default function TournamentsShow({
         delete: deleteTournamentForm,
         processing: deletingTournamentProcessing,
     } = useForm({});
+    const summary = eventSummary ?? event_summary ?? EMPTY_EVENT_SUMMARY;
 
     function handleDeleteEvent() {
         if (!deletingEvent) {
@@ -1037,12 +1276,20 @@ export default function TournamentsShow({
         });
     }
 
+    function toggleEventPlayers(eventId: number) {
+        setExpandedEventPlayers((prev) => ({
+            ...prev,
+            [eventId]: !prev[eventId],
+        }));
+    }
+
     function applyEventFilters(patch: Partial<EventFilters>) {
         const merged: EventFilters = {
             q: eventFilters.q ?? null,
             sport_id: eventFilters.sport_id ?? null,
             gender_class: eventFilters.gender_class ?? null,
             participation_status: eventFilters.participation_status ?? null,
+            event_type: eventFilters.event_type ?? null,
             ...patch,
         };
         const query: Record<string, string> = {};
@@ -1087,17 +1334,6 @@ export default function TournamentsShow({
             { title: tournament.name },
         ],
     });
-
-    const detail = (label: string, value: React.ReactNode) => (
-        <div className="grid gap-1">
-            <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {label}
-            </dt>
-            <dd className="text-sm">
-                {value ?? <span className="text-muted-foreground">—</span>}
-            </dd>
-        </div>
-    );
 
     function parseDateValue(value: string | null): Date | null {
         if (!value) {
@@ -1192,31 +1428,259 @@ export default function TournamentsShow({
                 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200',
         },
     ];
+    const headerMetaCards = [
+        {
+            label: t('Schedule'),
+            value: dateRange(),
+            icon: CalendarDays,
+        },
+        {
+            label: t('Venue'),
+            value: tournament.venue ?? '—',
+            icon: MapPin,
+        },
+        {
+            label: t('Session'),
+            value: tournament.session?.name ?? '—',
+            icon: Trophy,
+        },
+        {
+            label: t('Tier'),
+            value: tournament.tier?.label ?? '—',
+            icon: Info,
+        },
+        ...(tournament.sport
+            ? [
+                  {
+                      label: t('Sport'),
+                      value: tournament.sport.name,
+                      icon: Dumbbell,
+                  },
+              ]
+            : []),
+    ];
+    const compactSports = Array.from(
+        summary.sports
+            .reduce((sports, sport) => {
+                const existing = sports.get(sport.id);
+
+                if (existing) {
+                    existing.events_count += sport.events_count;
+                    existing.participants_count += sport.participants_count;
+
+                    return sports;
+                }
+
+                sports.set(sport.id, { ...sport });
+
+                return sports;
+            }, new Map<number, EventSummarySport>())
+            .values(),
+    ).sort(
+        (left, right) =>
+            right.participants_count - left.participants_count ||
+            right.events_count - left.events_count ||
+            left.name.localeCompare(right.name),
+    );
+    const totalSportParticipants = compactSports.reduce(
+        (total, sport) => total + sport.participants_count,
+        0,
+    );
+    const topSportByParticipants = compactSports[0] ?? null;
+    const topSportByEvents =
+        [...compactSports].sort(
+            (left, right) =>
+                right.events_count - left.events_count ||
+                right.participants_count - left.participants_count ||
+                left.name.localeCompare(right.name),
+        )[0] ?? null;
+    const dominantEventModeLabel =
+        summary.team_events === 0 && summary.individual_events === 0
+            ? t('No events yet.')
+            : summary.team_events === summary.individual_events
+              ? t('Balanced split')
+              : summary.team_events > summary.individual_events
+                ? t('Mostly team')
+                : t('Mostly individual');
+    const dominantMedalModeLabel =
+        summary.team_medals === 0 && summary.individual_medals === 0
+            ? t('No medals yet.')
+            : summary.team_medals === summary.individual_medals
+              ? t('Balanced medals')
+              : summary.team_medals > summary.individual_medals
+                ? t('Mostly team medals')
+                : t('Mostly individual medals');
+    const detailEventItems = [
+        {
+            label: t('Team events'),
+            value: summary.team_events,
+        },
+        {
+            label: t('Individual events'),
+            value: summary.individual_events,
+        },
+        ...(summary.total_events !== tournament.events_count
+            ? [
+                  {
+                      label: t('Detailed events'),
+                      value: summary.total_events,
+                  },
+              ]
+            : []),
+    ];
+    const detailParticipationItems = [
+        {
+            label: t('Sports'),
+            value: compactSports.length,
+        },
+        ...(totalSportParticipants !== tournament.participants_count
+            ? [
+                  {
+                      label: t('Detailed participants'),
+                      value: totalSportParticipants,
+                  },
+              ]
+            : []),
+    ];
+    const detailMedalItems = [
+        {
+            label: t('Individual medals'),
+            value: summary.individual_medals,
+        },
+        {
+            label: t('Team medals'),
+            value: summary.team_medals,
+        },
+        ...(summary.individual_medals + summary.team_medals !==
+        tournament.medals_count
+            ? [
+                  {
+                      label: t('Detailed medals'),
+                      value: summary.individual_medals + summary.team_medals,
+                  },
+              ]
+            : []),
+    ];
+    const supportingDetails = [
+        {
+            label: t('Date from'),
+            value: formatDate(tournament.date_from),
+        },
+        {
+            label: t('Date to'),
+            value: formatDate(tournament.date_to),
+        },
+        {
+            label: t('Created'),
+            value: (
+                <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                    {formatDate(tournament.created_at)}
+                </span>
+            ),
+        },
+        {
+            label: t('Raw date text'),
+            value: tournament.raw_date_text,
+        },
+    ];
+    const snapshotItems = [
+        ...headerMetaCards.map((item) => ({
+            label: item.label,
+            value: item.value,
+        })),
+        ...supportingDetails,
+    ];
+    const medalPositionItems = [
+        {
+            label: t('Gold'),
+            value:
+                Object.entries(summary.medal_counts).find(
+                    ([type]) => type.toLowerCase() === 'gold',
+                )?.[1] ?? 0,
+        },
+        {
+            label: t('Silver'),
+            value:
+                Object.entries(summary.medal_counts).find(
+                    ([type]) => type.toLowerCase() === 'silver',
+                )?.[1] ?? 0,
+        },
+        {
+            label: t('Bronze'),
+            value:
+                Object.entries(summary.medal_counts).find(
+                    ([type]) => type.toLowerCase() === 'bronze',
+                )?.[1] ?? 0,
+        },
+        {
+            label: t('Merit'),
+            value:
+                Object.entries(summary.medal_counts).find(
+                    ([type]) => type.toLowerCase() === 'merit',
+                )?.[1] ?? 0,
+        },
+    ];
     const hasEventFilters = !!(
         eventFilters.q ||
         eventFilters.sport_id ||
         eventFilters.gender_class ||
-        eventFilters.participation_status
+        eventFilters.participation_status ||
+        eventFilters.event_type
     );
+    const eventTableColSpan = 12;
     const eventGroups = Array.from(
         (events ?? [])
             .reduce((groups, event) => {
                 const sportKey = event.sport
                     ? String(event.sport.id)
                     : 'unknown';
+                const medals = event.medals_by_type ?? {
+                    gold: 0,
+                    silver: 0,
+                    bronze: 0,
+                    merit: 0,
+                };
 
                 if (!groups.has(sportKey)) {
                     groups.set(sportKey, {
                         sportKey,
                         sportName: event.sport?.name ?? t('Unknown sport'),
                         events: [],
+                        totalMedals: 0,
+                        goldMedals: 0,
+                        silverMedals: 0,
+                        bronzeMedals: 0,
+                        meritMedals: 0,
                     });
                 }
 
-                groups.get(sportKey)?.events.push(event);
+                const group = groups.get(sportKey);
+
+                if (group) {
+                    group.events.push(event);
+                    group.totalMedals +=
+                        (medals.gold ?? 0) +
+                        (medals.silver ?? 0) +
+                        (medals.bronze ?? 0) +
+                        (medals.merit ?? 0);
+                    group.goldMedals += medals.gold ?? 0;
+                    group.silverMedals += medals.silver ?? 0;
+                    group.bronzeMedals += medals.bronze ?? 0;
+                    group.meritMedals += medals.merit ?? 0;
+                }
 
                 return groups;
-            }, new Map<string, { sportKey: string; sportName: string; events: EventRow[] }>())
+            }, new Map<string, {
+                sportKey: string;
+                sportName: string;
+                events: EventRow[];
+                totalMedals: number;
+                goldMedals: number;
+                silverMedals: number;
+                bronzeMedals: number;
+                meritMedals: number;
+            }>())
             .values(),
     );
     let eventSerialNumber = 0;
@@ -1226,89 +1690,40 @@ export default function TournamentsShow({
             <Head title={tournament.name} />
 
             <div className="space-y-6">
-                <section className="relative overflow-hidden rounded-2xl border bg-card shadow-sm">
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-slate-200 dark:bg-slate-700" />
-                    <div className="relative grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]">
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    {tournament.tier ? (
-                                        <Badge variant="secondary">
-                                            {tournament.tier.label}
-                                        </Badge>
-                                    ) : null}
-                                    {tournament.session ? (
-                                        <Badge variant="outline">
-                                            {tournament.session.name}
-                                        </Badge>
-                                    ) : null}
-                                    <Badge variant="outline">
-                                        {tournamentStatus()}
-                                    </Badge>
-                                </div>
-                                <h1 className="text-2xl font-bold tracking-tight">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={tournamentsIndex.url()}>
+                                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                                {t('Back')}
+                            </Link>
+                        </Button>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
                                     {tournament.name}
                                 </h1>
-                                <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-                                    <span className="inline-flex items-center gap-1.5">
-                                        <CalendarDays className="h-4 w-4" />
-                                        {dateRange()}
-                                    </span>
-                                    <span className="inline-flex items-center gap-1.5">
-                                        <MapPin className="h-4 w-4" />
-                                        {tournament.venue ?? '—'}
-                                    </span>
-                                    {tournament.sport ? (
-                                        <span className="inline-flex items-center gap-1.5">
-                                            <Dumbbell className="h-4 w-4" />
-                                            {tournament.sport.name}
-                                        </span>
-                                    ) : null}
-                                </div>
+                                <Badge variant="outline">
+                                    {tournamentStatus()}
+                                </Badge>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link
-                                        href={editTournament.url(tournament.id)}
-                                    >
-                                        {t('Edit')}
-                                    </Link>
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() =>
-                                        setDeleteTournamentOpen(true)
-                                    }
-                                >
-                                    {t('Delete')}
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            {overviewCards.map((card) => {
-                                const Icon = card.icon;
-
-                                return (
-                                    <div
-                                        key={card.label}
-                                        className={`rounded-lg border p-3 ${card.className}`}
-                                    >
-                                        <div className="flex items-center justify-between gap-3">
-                                            <p className="text-xs font-medium tracking-wide uppercase opacity-90">
-                                                {card.label}
-                                            </p>
-                                            <Icon className="h-4 w-4" />
-                                        </div>
-                                        <p className="mt-2 text-xl font-semibold tabular-nums">
-                                            {card.value}
-                                        </p>
-                                    </div>
-                                );
-                            })}
                         </div>
                     </div>
-                </section>
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={editTournament.url(tournament.id)}>
+                                {t('Edit')}
+                            </Link>
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleteTournamentOpen(true)}
+                        >
+                            {t('Delete')}
+                        </Button>
+                    </div>
+                </div>
 
                 <Tabs value={activeTab}>
                     <TabsList>
@@ -1333,48 +1748,360 @@ export default function TournamentsShow({
                     {/* Overview */}
                     <TabsContent value="overview">
                         <div className="space-y-4">
-                            <div className="rounded-xl border bg-card p-6">
-                                <Heading
-                                    variant="small"
-                                    title={t('Tournament details')}
-                                />
-                                <dl className="mt-4 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3">
-                                    {detail(t('Status'), tournamentStatus())}
-                                    {detail(t('Dates'), dateRange())}
-                                    {detail(t('Tier'), tournament.tier?.label)}
-                                    {detail(
-                                        t('Session'),
-                                        tournament.session?.name,
-                                    )}
-                                    {detail(t('Sport'), tournament.sport?.name)}
-                                    {detail(
-                                        t('Venue'),
-                                        <span className="inline-flex items-center gap-1.5">
-                                            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                                            {tournament.venue ?? '—'}
-                                        </span>,
-                                    )}
-                                    {detail(
-                                        t('Date from'),
-                                        formatDate(tournament.date_from),
-                                    )}
-                                    {detail(
-                                        t('Date to'),
-                                        formatDate(tournament.date_to),
-                                    )}
-                                    {detail(
-                                        t('Created'),
-                                        <span className="inline-flex items-center gap-1.5">
-                                            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                                            {formatDate(tournament.created_at)}
-                                        </span>,
-                                    )}
-                                    {detail(
-                                        t('Raw date text'),
-                                        tournament.raw_date_text,
-                                    )}
-                                </dl>
-                            </div>
+                            <section className="space-y-3">
+                                <div>
+                                    <Heading
+                                        variant="small"
+                                        title={t('Overview')}
+                                    />
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {t(
+                                            'Plain operational summary with facts, counts, medal split, and sport activity.',
+                                        )}
+                                    </p>
+                                </div>
+
+                                <div className="overflow-hidden rounded-lg border">
+                                    <div className="border-b bg-muted/15 px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {t('Tournament details')}
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full table-fixed text-sm">
+                                            <tbody className="divide-y">
+                                                {Array.from({
+                                                    length: Math.ceil(
+                                                        snapshotItems.length /
+                                                            2,
+                                                    ),
+                                                }).map((_, rowIndex) => {
+                                                    const row =
+                                                        snapshotItems.slice(
+                                                            rowIndex * 2,
+                                                            rowIndex * 2 + 2,
+                                                        );
+
+                                                    return (
+                                                        <tr
+                                                            key={`snapshot-${rowIndex}`}
+                                                            className="align-top"
+                                                        >
+                                                            {row.map((item) => (
+                                                                <Fragment
+                                                                    key={
+                                                                        item.label
+                                                                    }
+                                                                >
+                                                                    <th className="w-32 bg-muted/20 px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:w-40">
+                                                                        {
+                                                                            item.label
+                                                                        }
+                                                                    </th>
+                                                                    <td className="px-2.5 py-2 text-sm font-medium">
+                                                                        {item.value ?? (
+                                                                            <span className="text-muted-foreground">
+                                                                                —
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                </Fragment>
+                                                            ))}
+                                                            {row.length ===
+                                                            1 ? (
+                                                                <>
+                                                                    <th className="w-32 bg-muted/20 px-2.5 py-2 sm:w-40" />
+                                                                    <td className="px-2.5 py-2" />
+                                                                </>
+                                                            ) : null}
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-hidden rounded-lg border">
+                                    <div className="border-b bg-muted/15 px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {t('Core counts')}
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full table-fixed text-sm">
+                                            <thead className="bg-muted/20">
+                                                <tr>
+                                                    {overviewCards.map(
+                                                        (item) => (
+                                                            <th
+                                                                key={item.label}
+                                                                className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase"
+                                                            >
+                                                                {item.label}
+                                                            </th>
+                                                        ),
+                                                    )}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr className="border-t">
+                                                    {overviewCards.map(
+                                                        (item) => (
+                                                            <td
+                                                                key={item.label}
+                                                                className="px-2.5 py-2 text-base font-semibold tabular-nums"
+                                                            >
+                                                                {item.value}
+                                                            </td>
+                                                        ),
+                                                    )}
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-hidden rounded-lg border">
+                                    <div className="border-b bg-muted/15 px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {t('Operational breakdown')}
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full text-sm">
+                                            <thead className="bg-muted/20">
+                                                <tr>
+                                                    <th className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                        {t('Area')}
+                                                    </th>
+                                                    <th className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                        {t('Summary')}
+                                                    </th>
+                                                    <th className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                        {t('Insight')}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                <tr className="align-top">
+                                                    <th className="px-2.5 py-2 text-left font-medium">
+                                                        {t('Event breakdown')}
+                                                    </th>
+                                                    <td className="px-2.5 py-2">
+                                                        <div className="space-y-1">
+                                                            {detailEventItems.map(
+                                                                (item) => (
+                                                                    <div
+                                                                        key={
+                                                                            item.label
+                                                                        }
+                                                                        className="flex flex-wrap items-center justify-between gap-2"
+                                                                    >
+                                                                        <span className="text-muted-foreground">
+                                                                            {
+                                                                                item.label
+                                                                            }
+                                                                        </span>
+                                                                        <span className="font-semibold tabular-nums">
+                                                                            {
+                                                                                item.value
+                                                                            }
+                                                                        </span>
+                                                                    </div>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-2.5 py-2 text-sm">
+                                                        {dominantEventModeLabel}
+                                                    </td>
+                                                </tr>
+                                                <tr className="align-top">
+                                                    <th className="px-2.5 py-2 text-left font-medium">
+                                                        {t(
+                                                            'Participation breakdown',
+                                                        )}
+                                                    </th>
+                                                    <td className="px-2.5 py-2">
+                                                        <div className="space-y-1">
+                                                            {detailParticipationItems.map(
+                                                                (item) => (
+                                                                    <div
+                                                                        key={
+                                                                            item.label
+                                                                        }
+                                                                        className="flex flex-wrap items-center justify-between gap-2"
+                                                                    >
+                                                                        <span className="text-muted-foreground">
+                                                                            {
+                                                                                item.label
+                                                                            }
+                                                                        </span>
+                                                                        <span className="font-semibold tabular-nums">
+                                                                            {
+                                                                                item.value
+                                                                            }
+                                                                        </span>
+                                                                    </div>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-2.5 py-2">
+                                                        <div className="space-y-1 text-sm">
+                                                            <div>
+                                                                <span className="font-medium">
+                                                                    {t(
+                                                                        'Top sport by participants',
+                                                                    )}
+                                                                    :
+                                                                </span>{' '}
+                                                                {topSportByParticipants
+                                                                    ? `${topSportByParticipants.name} (${topSportByParticipants.participants_count})`
+                                                                    : '—'}
+                                                            </div>
+                                                            <div>
+                                                                <span className="font-medium">
+                                                                    {t(
+                                                                        'Top sport by events',
+                                                                    )}
+                                                                    :
+                                                                </span>{' '}
+                                                                {topSportByEvents
+                                                                    ? `${topSportByEvents.name} (${topSportByEvents.events_count})`
+                                                                    : '—'}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr className="align-top">
+                                                    <th className="px-2.5 py-2 text-left font-medium">
+                                                        {t('Medal breakdown')}
+                                                    </th>
+                                                    <td className="px-2.5 py-2">
+                                                        <div className="space-y-1">
+                                                            {detailMedalItems.map(
+                                                                (item) => (
+                                                                    <div
+                                                                        key={
+                                                                            item.label
+                                                                        }
+                                                                        className="flex flex-wrap items-center justify-between gap-2"
+                                                                    >
+                                                                        <span className="text-muted-foreground">
+                                                                            {
+                                                                                item.label
+                                                                            }
+                                                                        </span>
+                                                                        <span className="font-semibold tabular-nums">
+                                                                            {
+                                                                                item.value
+                                                                            }
+                                                                        </span>
+                                                                    </div>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-2.5 py-2 text-sm">
+                                                        {dominantMedalModeLabel}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-hidden rounded-lg border">
+                                    <div className="border-b bg-muted/15 px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {t('Medal positions')}
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full table-fixed text-sm">
+                                            <thead className="bg-muted/20">
+                                                <tr>
+                                                    {medalPositionItems.map(
+                                                        (item) => (
+                                                            <th
+                                                                key={item.label}
+                                                                className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase"
+                                                            >
+                                                                {item.label}
+                                                            </th>
+                                                        ),
+                                                    )}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr className="border-t">
+                                                    {medalPositionItems.map(
+                                                        (item) => (
+                                                            <td
+                                                                key={item.label}
+                                                                className="px-2.5 py-2 text-base font-semibold tabular-nums"
+                                                            >
+                                                                {item.value}
+                                                            </td>
+                                                        ),
+                                                    )}
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-hidden rounded-lg border">
+                                    <div className="border-b bg-muted/15 px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {t('Players by sport')}
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full text-sm">
+                                            <thead className="bg-muted/20">
+                                                <tr>
+                                                    <th className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                        {t('Sport')}
+                                                    </th>
+                                                    <th className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                        {t('Participants')}
+                                                    </th>
+                                                    <th className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                        {t('Events')}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {compactSports.length === 0 ? (
+                                                    <tr>
+                                                        <td
+                                                            colSpan={3}
+                                                            className="px-2.5 py-3 text-sm text-muted-foreground"
+                                                        >
+                                                            {t(
+                                                                'No events yet.',
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    compactSports.map(
+                                                        (sport) => (
+                                                            <tr key={sport.id}>
+                                                                <td className="px-2.5 py-2 font-medium">
+                                                                    {sport.name}
+                                                                </td>
+                                                                <td className="px-2.5 py-2 tabular-nums">
+                                                                    {
+                                                                        sport.participants_count
+                                                                    }
+                                                                </td>
+                                                                <td className="px-2.5 py-2 tabular-nums">
+                                                                    {
+                                                                        sport.events_count
+                                                                    }
+                                                                </td>
+                                                            </tr>
+                                                        ),
+                                                    )
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </section>
                         </div>
                     </TabsContent>
 
@@ -1540,6 +2267,41 @@ export default function TournamentsShow({
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                            <Select
+                                                value={
+                                                    eventFilters.event_type ??
+                                                    'all'
+                                                }
+                                                onValueChange={(value) =>
+                                                    applyEventFilters({
+                                                        event_type:
+                                                            value === 'all'
+                                                                ? null
+                                                                : (value as
+                                                                      | 'individual'
+                                                                      | 'team'),
+                                                    })
+                                                }
+                                            >
+                                                <SelectTrigger className="w-40">
+                                                    <SelectValue
+                                                        placeholder={t(
+                                                            'All event types',
+                                                        )}
+                                                    />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">
+                                                        {t('All event types')}
+                                                    </SelectItem>
+                                                    <SelectItem value="individual">
+                                                        {t('Individual')}
+                                                    </SelectItem>
+                                                    <SelectItem value="team">
+                                                        {t('Team')}
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                             {hasEventFilters ? (
                                                 <Button
                                                     type="button"
@@ -1562,25 +2324,40 @@ export default function TournamentsShow({
                                     </div>
                                     <div className="overflow-x-auto">
                                         <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="w-16">
-                                                        {t('S.No.')}
+                                                                            <TableHeader>
+                                                                                <TableRow>
+                                                                                    <TableHead className="w-16">
+                                                                                        {t('S.No.')}
+                                                                                    </TableHead>
+                                                                                    <TableHead>
+                                                                                        {t('Event details')}
+                                                                                    </TableHead>
+                                                                                    <TableHead>
+                                                                                        {t('Player')}
+                                                                                    </TableHead>
+                                                                                    <TableHead className="w-16 text-right">
+                                                                                        {t('Gold')}
+                                                                                    </TableHead>
+                                                    <TableHead className="w-16 text-right">
+                                                        {t('Silver')}
+                                                    </TableHead>
+                                                    <TableHead className="w-16 text-right">
+                                                        {t('Bronze')}
+                                                    </TableHead>
+                                                    <TableHead className="w-16 text-right">
+                                                        {t('Merit')}
+                                                    </TableHead>
+                                                    <TableHead className="w-16 text-right">
+                                                        {t('Total')}
                                                     </TableHead>
                                                     <TableHead>
-                                                        {t('Event details')}
+                                                        {t('Gender')}
                                                     </TableHead>
                                                     <TableHead>
-                                                        {t('Classification')}
+                                                        {t('Type')}
                                                     </TableHead>
                                                     <TableHead className="text-right">
                                                         {t('Participations')}
-                                                    </TableHead>
-                                                    <TableHead className="text-right">
-                                                        {t('Teams')}
-                                                    </TableHead>
-                                                    <TableHead className="text-right">
-                                                        {t('Medals')}
                                                     </TableHead>
                                                     <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
                                                         {t('Actions')}
@@ -1588,12 +2365,12 @@ export default function TournamentsShow({
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {(events ?? []).length === 0 ? (
-                                                    <TableRow>
-                                                        <TableCell
-                                                            colSpan={7}
-                                                            className="py-12 text-center text-muted-foreground"
-                                                        >
+                                                                                {(events ?? []).length === 0 ? (
+                                                                                <TableRow>
+                                                                                        <TableCell
+                                                                                            colSpan={eventTableColSpan}
+                                                                                            className="py-12 text-center text-muted-foreground"
+                                                                                        >
                                                             {hasEventFilters
                                                                 ? t(
                                                                       'No events match your filters.',
@@ -1614,94 +2391,241 @@ export default function TournamentsShow({
                                                                 >
                                                                     <TableRow className="bg-muted/50 hover:bg-muted/50">
                                                                         <TableCell
-                                                                            colSpan={
-                                                                                7
-                                                                            }
+                                                                            colSpan={eventTableColSpan}
                                                                             className="py-2.5 font-medium"
                                                                         >
-                                                                            <div className="flex items-center justify-between gap-3">
-                                                                                <span>
+                                                                            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                                                                                <span className="text-sm font-semibold">
                                                                                     {
                                                                                         group.sportName
                                                                                     }
-                                                                                </span>
-                                                                                <span className="text-xs font-normal text-muted-foreground">
-                                                                                    {
-                                                                                        group
-                                                                                            .events
-                                                                                            .length
-                                                                                    }{' '}
-                                                                                    {t(
-                                                                                        'events',
-                                                                                    )}
-                                                                                </span>
-                                                                            </div>
-                                                                        </TableCell>
-                                                                    </TableRow>
+                                                                                    <span className="ml-2 text-sm font-semibold text-muted-foreground">
+                                                                                        (
+                                                                                        {
+                                                                                            group
+                                                                                                .events
+                                                                                                .length
+                                                                                        }{' '}
+                                                                                        {t(
+                                                                                            'events',
+                                                                                        )}
+                                                                                        )
+                                                                                    </span>
+                                                                                    </span>
+                                                                                    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                                                                                        <span className="inline-flex items-center gap-1">
+                                                                                            <Medal className="h-3.5 w-3.5 text-amber-500" />
+                                                                                            {
+                                                                                                group
+                                                                                                    .totalMedals
+                                                                                            }{' '}
+                                                                                            {t(
+                                                                                                'medals',
+                                                                                            )}
+                                                                                        </span>
+                                                                                        <span>
+                                                                                            {t(
+                                                                                                'Gold',
+                                                                                            )}
+                                                                                            :{' '}
+                                                                                            {
+                                                                                                group
+                                                                                                    .goldMedals
+                                                                                            }
+                                                                                        </span>
+                                                                                        <span>
+                                                                                            {t(
+                                                                                                'Silver',
+                                                                                            )}
+                                                                                            :{' '}
+                                                                                            {
+                                                                                                group
+                                                                                                    .silverMedals
+                                                                                            }
+                                                                                        </span>
+                                                                                        <span>
+                                                                                            {t(
+                                                                                                'Bronze',
+                                                                                            )}
+                                                                                            :{' '}
+                                                                                            {
+                                                                                                group
+                                                                                                    .bronzeMedals
+                                                                                            }
+                                                                                        </span>
+                                                                                        <span>
+                                                                                            {t(
+                                                                                                'Merit',
+                                                                                            )}
+                                                                                            :{' '}
+                                                                                            {
+                                                                                                group
+                                                                                                    .meritMedals
+                                                                                            }
+                                                                                        </span>
+                                                                                    </span>
+                                                                                </div>
+                                                                                </TableCell>
+                                                                            </TableRow>
                                                                     {group.events.map(
-                                                                        (
+                                                                        (                                                                 
                                                                             ev,
                                                                         ) => {
                                                                             eventSerialNumber += 1;
+                                                                            const label =
+                                                                                eventSubtitle(
+                                                                                    ev,
+                                                                                    t,
+                                                                                );
+                                                                            const participantPreviews = {
+                                                                                players: [],
+                                                                                more_players: [],
+                                                                                total_players: 0,
+                                                                                ...ev.participant_previews,
+                                                                            };
+                                                                            const allPlayers = [
+                                                                                ...participantPreviews.players,
+                                                                                ...participantPreviews.more_players,
+                                                                            ];
+                                                                            const isPlayersExpanded =
+                                                                                !!expandedEventPlayers[
+                                                                                    ev.id
+                                                                                ];
 
                                                                             return (
-                                                                                <TableRow
-                                                                                    key={
-                                                                                        ev.id
-                                                                                    }
+                                                                                <Fragment
+                                                                                    key={`event-${ev.id}`}
                                                                                 >
+                                                                                    <TableRow>
                                                                                     <TableCell className="w-16 text-xs text-muted-foreground tabular-nums">
                                                                                         {
                                                                                             eventSerialNumber
                                                                                         }
                                                                                     </TableCell>
                                                                                     <TableCell>
-                                                                                        <div className="space-y-1">
+                                                                                        <div className="space-y-0.5">
                                                                                             <Link
                                                                                                 href={showEvent.url(
                                                                                                     {
                                                                                                         tournament:
                                                                                                             tournament.id,
-                                                                                                        event: ev.id,
+                                                                                                        event:
+                                                                                                            ev.id,
                                                                                                     },
                                                                                                 )}
                                                                                                 className="font-medium hover:underline"
                                                                                             >
                                                                                                 {
-                                                                                                    ev.name
+                                                                                                    label
+                                                                                                        .title
                                                                                                 }
                                                                                             </Link>
-                                                                                            <div className="flex flex-wrap gap-1.5">
-                                                                                                {ev.discipline ? (
-                                                                                                    <span
-                                                                                                        className={eventBadgeClass(
-                                                                                                            'detail',
-                                                                                                        )}
-                                                                                                    >
-                                                                                                        {
-                                                                                                            ev.discipline
-                                                                                                        }
-                                                                                                    </span>
-                                                                                                ) : null}
-                                                                                                {ev.weight_category ? (
-                                                                                                    <span
-                                                                                                        className={eventBadgeClass(
-                                                                                                            'detail',
-                                                                                                        )}
-                                                                                                    >
-                                                                                                        {
-                                                                                                            ev.weight_category
-                                                                                                        }
-                                                                                                    </span>
-                                                                                                ) : null}
-                                                                                                {!ev.discipline &&
-                                                                                                !ev.weight_category ? (
-                                                                                                    <span className="text-xs text-muted-foreground">
-                                                                                                        —
-                                                                                                    </span>
-                                                                                                ) : null}
+                                                                                            {label.fallbackName ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {
+                                                                                                        label
+                                                                                                            .fallbackName
+                                                                                                    }
+                                                                                                </p>
+                                                                                            ) : null}
                                                                                             </div>
-                                                                                        </div>
+                                                                                        </TableCell>
+                                                                                        <TableCell>
+                                                                                            {participantPreviews.total_players > 0 ? (
+                                                                                                <div className="space-y-2">
+                                                                                                    {participantPreviews
+                                                                                                        .total_players > 1 ? (
+                                                                                                        <button
+                                                                                                            type="button"
+                                                                                                            onClick={() =>
+                                                                                                                toggleEventPlayers(
+                                                                                                                    ev.id,
+                                                                                                                )
+                                                                                                            }
+                                                                                                            aria-expanded={
+                                                                                                                isPlayersExpanded
+                                                                                                            }
+                                                                                                            className="text-xs font-medium text-muted-foreground underline underline-offset-2"
+                                                                                                        >
+                                                                                                            {isPlayersExpanded
+                                                                                                                ? t(
+                                                                                                                      'Hide players',
+                                                                                                                  )
+                                                                                                                : `${t(
+                                                                                                                      'Show players',
+                                                                                                                  )} (${participantPreviews.total_players})`}
+                                                                                                        </button>
+                                                                                                    ) : (
+                                                                                                        participantPreviews.players.map(
+                                                                                                            (
+                                                                                                                player,
+                                                                                                            ) => (
+                                                                                                                <div
+                                                                                                                    key={
+                                                                                                                        player.id
+                                                                                                                    }
+                                                                                                                    className="space-y-0.5"
+                                                                                                                >
+                                                                                                                    <div className="text-sm font-medium text-foreground">
+                                                                                                                        {
+                                                                                                                            player
+                                                                                                                                .full_name
+                                                                                                                        }
+                                                                                                                    </div>
+                                                                                                                    <div className="text-xs text-muted-foreground">
+                                                                                                                        {player.pno ??
+                                                                                                                            '—'}
+                                                                                                                    </div>
+                                                                                                                </div>
+                                                                                                            ),
+                                                                                                        )
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            ) : null}
+                                                                                        </TableCell>
+                                                                                        <TableCell className="text-right tabular-nums">
+                                                                                            <span className="text-amber-600">
+                                                                                                {
+                                                                                                ev
+                                                                                                    .medals_by_type
+                                                                                                    ?.gold ?? 0
+                                                                                            }
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right tabular-nums">
+                                                                                        <span>
+                                                                                            {
+                                                                                                ev
+                                                                                                    .medals_by_type
+                                                                                                    ?.silver ?? 0
+                                                                                            }
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right tabular-nums">
+                                                                                        <span>
+                                                                                            {
+                                                                                                ev
+                                                                                                    .medals_by_type
+                                                                                                    ?.bronze ?? 0
+                                                                                            }
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right tabular-nums">
+                                                                                        <span className="text-emerald-700 dark:text-emerald-300">
+                                                                                            {
+                                                                                                ev
+                                                                                                    .medals_by_type
+                                                                                                    ?.merit ?? 0
+                                                                                            }
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right tabular-nums">
+                                                                                        <span className="font-semibold">
+                                                                                            {
+                                                                                                ev
+                                                                                                    .medals_count
+                                                                                            }
+                                                                                        </span>
                                                                                     </TableCell>
                                                                                     <TableCell>
                                                                                         <span
@@ -1717,6 +2641,22 @@ export default function TournamentsShow({
                                                                                             )}
                                                                                         </span>
                                                                                     </TableCell>
+                                                                                        <TableCell>
+                                                                                            <span
+                                                                                                className={eventBadgeClass(
+                                                                                                    'detail',
+                                                                                                )}
+                                                                                            >
+                                                                                            {ev.event_type ===
+                                                                                            'team'
+                                                                                                ? t(
+                                                                                                      'Team',
+                                                                                                  )
+                                                                                                : t(
+                                                                                                      'Individual',
+                                                                                                  )}
+                                                                                            </span>
+                                                                                        </TableCell>
                                                                                     <TableCell className="text-right">
                                                                                         <span
                                                                                             className={eventBadgeClass(
@@ -1729,20 +2669,7 @@ export default function TournamentsShow({
                                                                                             }
                                                                                         </span>
                                                                                     </TableCell>
-                                                                                    <TableCell className="text-right tabular-nums">
-                                                                                        {
-                                                                                            ev.teams_count
-                                                                                        }
-                                                                                    </TableCell>
-                                                                                    <TableCell className="text-right tabular-nums">
-                                                                                        <span className="inline-flex items-center justify-end gap-1">
-                                                                                            <Medal className="h-3.5 w-3.5 text-amber-500" />
-                                                                                            {
-                                                                                                ev.medals_count
-                                                                                            }
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="sticky right-0 z-10 w-0 bg-card">
+                                                                                        <TableCell className="sticky right-0 z-10 w-0 bg-card">
                                                                                         <div className="flex items-center justify-end gap-1">
                                                                                             <Button
                                                                                                 variant="ghost"
@@ -1815,7 +2742,66 @@ export default function TournamentsShow({
                                                                                             </Button>
                                                                                         </div>
                                                                                     </TableCell>
-                                                                                </TableRow>
+                                                                                    </TableRow>
+                                                                                    {isPlayersExpanded &&
+                                                                                        participantPreviews
+                                                                                            .total_players >
+                                                                                        1 ? (
+                                                                                        <TableRow>
+                                                                                            <TableCell
+                                                                                                colSpan={
+                                                                                                    eventTableColSpan
+                                                                                                }
+                                                                                            >
+                                                                                                <div className="ml-8 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900">
+                                                                                                    <div className="text-xs font-medium text-muted-foreground">
+                                                                                                        {t('Players')}
+                                                                                                    </div>
+                                                                                                    <Table className="w-full text-xs">
+                                                                                                        <TableHeader>
+                                                                                                            <TableRow>
+                                                                                                                <TableHead className="h-7 px-2 py-1">
+                                                                                                                    {t(
+                                                                                                                        'Player',
+                                                                                                                    )}
+                                                                                                                </TableHead>
+                                                                                                                <TableHead className="h-7 px-2 py-1">
+                                                                                                                    {t(
+                                                                                                                        'PNo',
+                                                                                                                    )}
+                                                                                                                </TableHead>
+                                                                                                            </TableRow>
+                                                                                                        </TableHeader>
+                                                                                                        <TableBody>
+                                                                                                            {allPlayers.map(
+                                                                                                                (
+                                                                                                                    player,
+                                                                                                                ) => (
+                                                                                                                    <TableRow
+                                                                                                                        key={
+                                                                                                                            player.id
+                                                                                                                        }
+                                                                                                                    >
+                                                                                                                        <TableCell className="px-2 py-1 text-sm text-foreground">
+                                                                                                                            {
+                                                                                                                                player
+                                                                                                                                    .full_name
+                                                                                                                            }
+                                                                                                                        </TableCell>
+                                                                                                                        <TableCell className="px-2 py-1 text-xs text-muted-foreground">
+                                                                                                                            {player.pno ??
+                                                                                                                                '—'}
+                                                                                                                        </TableCell>
+                                                                                                                    </TableRow>
+                                                                                                                ),
+                                                                                                            )}
+                                                                                                        </TableBody>
+                                                                                                    </Table>
+                                                                                                </div>
+                                                                                            </TableCell>
+                                                                                        </TableRow>
+                                                                                    ) : null}
+                                                                                </Fragment>
                                                                             );
                                                                         },
                                                                     )}

@@ -1,9 +1,18 @@
 import { Link, useForm } from '@inertiajs/react';
 import { format, isValid, parse } from 'date-fns';
-import { ArrowLeft, CalendarCheck, Download, FileCheck2, Upload } from 'lucide-react';
+import {
+    ArrowLeft,
+    CalendarCheck,
+    Download,
+    FileCheck2,
+    Upload,
+} from 'lucide-react';
 import { useState } from 'react';
 
-import type { store, update } from '@/actions/App/Http/Controllers/ExternalCoachingAssignmentController';
+import type {
+    store,
+    update,
+} from '@/actions/App/Http/Controllers/ExternalCoachingAssignmentController';
 import { index } from '@/actions/App/Http/Controllers/ExternalCoachingAssignmentController';
 import { Combobox } from '@/components/combobox';
 import type { ComboboxItem } from '@/components/combobox';
@@ -16,13 +25,24 @@ import { ConfidentialDocumentPreview } from '@/components/shared/confidential-do
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
 type Option = { id: number; name: string };
-type CoachOption = { id: number; name: string; email: string | null; phone: string | null };
+type CoachOption = {
+    id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+};
 
 export type Assignment = {
     id: number;
@@ -83,7 +103,15 @@ type AssignmentFormData = {
     remarks: string;
 };
 
-const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const DAYS = [
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+];
 
 function fileSizeLabel(value: number | null): string | null {
     if (!value) {
@@ -97,14 +125,19 @@ function fileSizeLabel(value: number | null): string | null {
     return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function fieldError(errors: Partial<Record<keyof AssignmentFormData | string, string>>, field: string): string | undefined {
+function fieldError(
+    errors: Partial<Record<keyof AssignmentFormData | string, string>>,
+    field: string,
+): string | undefined {
     return errors[field];
 }
 
 function parsedYmd(value: string): string | null {
     const trimmed = value.trim();
 
-    const datetimeMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s].+)?$/);
+    const datetimeMatch = trimmed.match(
+        /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s].+)?$/,
+    );
 
     if (datetimeMatch !== null) {
         const candidate = `${datetimeMatch[1]}-${datetimeMatch[2].padStart(2, '0')}-${datetimeMatch[3].padStart(2, '0')}`;
@@ -174,7 +207,9 @@ export function AssignmentForm({
     assignment,
 }: Props) {
     const { t } = useTranslation();
-    const [selectedMember, setSelectedMember] = useState<MemberOption | null>(assignment?.member ?? null);
+    const [selectedMember, setSelectedMember] = useState<MemberOption | null>(
+        assignment?.member ?? null,
+    );
     const coachItems: ComboboxItem[] = externalCoaches.map((coach) => ({
         value: String(coach.id),
         label: coach.name,
@@ -193,8 +228,12 @@ export function AssignmentForm({
     }));
     const form = useForm<AssignmentFormData>({
         member_id: assignment?.member_id ? String(assignment.member_id) : '',
-        external_coach_id: assignment?.external_coach_id ? String(assignment.external_coach_id) : '',
-        training_venue_id: assignment?.training_venue_id ? String(assignment.training_venue_id) : '',
+        external_coach_id: assignment?.external_coach_id
+            ? String(assignment.external_coach_id)
+            : '',
+        training_venue_id: assignment?.training_venue_id
+            ? String(assignment.training_venue_id)
+            : '',
         sport_id: assignment?.sport_id ? String(assignment.sport_id) : '',
         start_date: assignment?.start_date ?? '',
         end_date: assignment?.end_date ?? '',
@@ -202,7 +241,8 @@ export function AssignmentForm({
         training_start_time: assignment?.training_start_time ?? '',
         training_end_time: assignment?.training_end_time ?? '',
         attendance_mode: assignment?.attendance_mode ?? 'single_mark',
-        permission_reference_number: assignment?.permission_reference_number ?? '',
+        permission_reference_number:
+            assignment?.permission_reference_number ?? '',
         permission_document: null,
         status: assignment?.status ?? 'draft',
         cancellation_reason: assignment?.cancellation_reason ?? '',
@@ -215,22 +255,38 @@ export function AssignmentForm({
 
         form.clearErrors('start_date', 'end_date');
 
-        const normalizedStartDate = normalizeDateForSubmit(form.data.start_date);
+        const normalizedStartDate = normalizeDateForSubmit(
+            form.data.start_date,
+        );
         const normalizedEndDate = normalizeDateForSubmit(form.data.end_date);
-        const validationErrors: Partial<Record<'start_date' | 'end_date', string>> = {};
+        const validationErrors: Partial<
+            Record<'start_date' | 'end_date', string>
+        > = {};
 
         if (!normalizedStartDate) {
-            validationErrors.start_date = t('The start date field is required.');
+            validationErrors.start_date = t(
+                'The start date field is required.',
+            );
         } else if (!isYmdDate(normalizedStartDate)) {
-            validationErrors.start_date = t('The start date must match the format Y-m-d.');
+            validationErrors.start_date = t(
+                'The start date must match the format Y-m-d.',
+            );
         }
 
         if (!normalizedEndDate) {
             validationErrors.end_date = t('The end date field is required.');
         } else if (!isYmdDate(normalizedEndDate)) {
-            validationErrors.end_date = t('The end date must match the format Y-m-d.');
-        } else if (normalizedStartDate && isYmdDate(normalizedStartDate) && normalizedEndDate < normalizedStartDate) {
-            validationErrors.end_date = t('The end date must be on or after the start date.');
+            validationErrors.end_date = t(
+                'The end date must match the format Y-m-d.',
+            );
+        } else if (
+            normalizedStartDate &&
+            isYmdDate(normalizedStartDate) &&
+            normalizedEndDate < normalizedStartDate
+        ) {
+            validationErrors.end_date = t(
+                'The end date must be on or after the start date.',
+            );
         }
 
         if (Object.keys(validationErrors).length > 0) {
@@ -266,15 +322,19 @@ export function AssignmentForm({
         }
 
         if (typeof (form as { submit?: unknown }).submit === 'function') {
-            (form as {
-                submit: (
-                    method: 'post' | 'put' | 'patch',
-                    url: string,
-                    options?: {
-                        forceFormData?: boolean;
-                    },
-                ) => void;
-            }).submit(method as 'post' | 'put' | 'patch', action.url, { forceFormData: true });
+            (
+                form as {
+                    submit: (
+                        method: 'post' | 'put' | 'patch',
+                        url: string,
+                        options?: {
+                            forceFormData?: boolean;
+                        },
+                    ) => void;
+                }
+            ).submit(method as 'post' | 'put' | 'patch', action.url, {
+                forceFormData: true,
+            });
         }
     }
 
@@ -288,13 +348,18 @@ export function AssignmentForm({
         form.setData(
             'training_days',
             form.data.training_days.includes(day)
-                ? form.data.training_days.filter((selectedDay) => selectedDay !== day)
+                ? form.data.training_days.filter(
+                      (selectedDay) => selectedDay !== day,
+                  )
                 : [...form.data.training_days, day],
         );
         form.clearErrors('training_days');
     }
 
-    const selectedDocumentName = form.data.permission_document?.name ?? assignment?.permission_document?.name ?? null;
+    const selectedDocumentName =
+        form.data.permission_document?.name ??
+        assignment?.permission_document?.name ??
+        null;
     const selectedDocumentSize = form.data.permission_document?.size ?? null;
     const storedPermissionDocument = assignment?.permission_document;
 
@@ -317,8 +382,14 @@ export function AssignmentForm({
                             <CalendarCheck className="size-4" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-semibold">{t('Assignment details')}</h2>
-                            <p className="text-xs text-muted-foreground">{t('Search by PNO or name, then set coach, venue, sport, and schedule.')}</p>
+                            <h2 className="text-sm font-semibold">
+                                {t('Assignment details')}
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                {t(
+                                    'Search by PNO or name, then set coach, venue, sport, and schedule.',
+                                )}
+                            </p>
                         </div>
                     </div>
 
@@ -326,59 +397,90 @@ export function AssignmentForm({
                         <div className="grid gap-5 lg:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="member_id">
-                                    {t('Member')} <span className="text-destructive">*</span>
+                                    {t('Member')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <MemberPicker
                                     id="member_id"
                                     value={selectedMember}
                                     onChange={setMember}
-                                    placeholder={t('Search by PNO or member name')}
+                                    placeholder={t(
+                                        'Search by PNO or member name',
+                                    )}
                                     extraFilters={{ current_status: 'ACTIVE' }}
                                 />
-                                <InputError message={fieldError(form.errors, 'member_id')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'member_id',
+                                    )}
+                                />
                             </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="external_coach_id">
-                                    {t('External coach')} <span className="text-destructive">*</span>
+                                    {t('External coach')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Combobox
                                     id="external_coach_id"
                                     value={form.data.external_coach_id}
                                     onValueChange={(value) => {
-                                        form.setData('external_coach_id', value);
+                                        form.setData(
+                                            'external_coach_id',
+                                            value,
+                                        );
                                         form.clearErrors('external_coach_id');
                                     }}
                                     items={coachItems}
                                     placeholder={t('Search coach')}
-                                    searchPlaceholder={t('Search by coach name, email, or phone')}
+                                    searchPlaceholder={t(
+                                        'Search by coach name, email, or phone',
+                                    )}
                                     emptyMessage={t('No coach found.')}
                                 />
-                                <InputError message={fieldError(form.errors, 'external_coach_id')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'external_coach_id',
+                                    )}
+                                />
                             </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="training_venue_id">
-                                    {t('Training venue')} <span className="text-destructive">*</span>
+                                    {t('Training venue')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Combobox
                                     id="training_venue_id"
                                     value={form.data.training_venue_id}
                                     onValueChange={(value) => {
-                                        form.setData('training_venue_id', value);
+                                        form.setData(
+                                            'training_venue_id',
+                                            value,
+                                        );
                                         form.clearErrors('training_venue_id');
                                     }}
                                     items={venueItems}
                                     placeholder={t('Search venue')}
-                                    searchPlaceholder={t('Search by venue name')}
+                                    searchPlaceholder={t(
+                                        'Search by venue name',
+                                    )}
                                     emptyMessage={t('No venue found.')}
                                 />
-                                <InputError message={fieldError(form.errors, 'training_venue_id')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'training_venue_id',
+                                    )}
+                                />
                             </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="sport_id">
-                                    {t('Sport')} <span className="text-destructive">*</span>
+                                    {t('Sport')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Combobox
                                     id="sport_id"
@@ -389,17 +491,25 @@ export function AssignmentForm({
                                     }}
                                     items={sportItems}
                                     placeholder={t('Search sport')}
-                                    searchPlaceholder={t('Search by sport name')}
+                                    searchPlaceholder={t(
+                                        'Search by sport name',
+                                    )}
                                     emptyMessage={t('No sport found.')}
                                 />
-                                <InputError message={fieldError(form.errors, 'sport_id')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'sport_id',
+                                    )}
+                                />
                             </div>
                         </div>
 
                         <div className="grid gap-5 lg:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="start_date">
-                                    {t('Start date')} <span className="text-destructive">*</span>
+                                    {t('Start date')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <DatePicker
                                     id="start_date"
@@ -410,11 +520,17 @@ export function AssignmentForm({
                                     }}
                                     placeholder={t('Select start date')}
                                 />
-                                <InputError message={fieldError(form.errors, 'start_date')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'start_date',
+                                    )}
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="end_date">
-                                    {t('End date')} <span className="text-destructive">*</span>
+                                    {t('End date')}{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <DatePicker
                                     id="end_date"
@@ -426,33 +542,58 @@ export function AssignmentForm({
                                     minDate={form.data.start_date}
                                     placeholder={t('Select end date')}
                                 />
-                                <InputError message={fieldError(form.errors, 'end_date')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'end_date',
+                                    )}
+                                />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="training_start_time">{t('Start time')}</Label>
+                                <Label htmlFor="training_start_time">
+                                    {t('Start time')}
+                                </Label>
                                 <Input
                                     id="training_start_time"
                                     type="time"
                                     value={form.data.training_start_time}
                                     onChange={(event) => {
-                                        form.setData('training_start_time', event.target.value);
+                                        form.setData(
+                                            'training_start_time',
+                                            event.target.value,
+                                        );
                                         form.clearErrors('training_start_time');
                                     }}
                                 />
-                                <InputError message={fieldError(form.errors, 'training_start_time')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'training_start_time',
+                                    )}
+                                />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="training_end_time">{t('End time')}</Label>
+                                <Label htmlFor="training_end_time">
+                                    {t('End time')}
+                                </Label>
                                 <Input
                                     id="training_end_time"
                                     type="time"
                                     value={form.data.training_end_time}
                                     onChange={(event) => {
-                                        form.setData('training_end_time', event.target.value);
+                                        form.setData(
+                                            'training_end_time',
+                                            event.target.value,
+                                        );
                                         form.clearErrors('training_end_time');
                                     }}
                                 />
-                                <InputError message={fieldError(form.errors, 'training_end_time')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'training_end_time',
+                                    )}
+                                />
                             </div>
                         </div>
 
@@ -464,25 +605,37 @@ export function AssignmentForm({
                                         key={day}
                                         className={cn(
                                             'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
-                                            form.data.training_days.includes(day) && 'border-primary/40 bg-primary/8 text-primary',
+                                            form.data.training_days.includes(
+                                                day,
+                                            ) &&
+                                                'border-primary/40 bg-primary/8 text-primary',
                                         )}
                                     >
                                         <input
                                             type="checkbox"
                                             className="size-4"
-                                            checked={form.data.training_days.includes(day)}
+                                            checked={form.data.training_days.includes(
+                                                day,
+                                            )}
                                             onChange={() => toggleDay(day)}
                                         />
                                         <span>{t(day)}</span>
                                     </label>
                                 ))}
                             </div>
-                            <InputError message={fieldError(form.errors, 'training_days')} />
+                            <InputError
+                                message={fieldError(
+                                    form.errors,
+                                    'training_days',
+                                )}
+                            />
                         </div>
 
                         <div className="grid gap-5 lg:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="attendance_mode">{t('Attendance mode')}</Label>
+                                <Label htmlFor="attendance_mode">
+                                    {t('Attendance mode')}
+                                </Label>
                                 <Select
                                     value={form.data.attendance_mode}
                                     onValueChange={(value) => {
@@ -502,7 +655,12 @@ export function AssignmentForm({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <InputError message={fieldError(form.errors, 'attendance_mode')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'attendance_mode',
+                                    )}
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="status">{t('Status')}</Label>
@@ -519,13 +677,18 @@ export function AssignmentForm({
                                     </SelectTrigger>
                                     <SelectContent>
                                         {statuses.map((status) => (
-                                            <SelectItem key={status} value={status}>
+                                            <SelectItem
+                                                key={status}
+                                                value={status}
+                                            >
                                                 {t(status)}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <InputError message={fieldError(form.errors, 'status')} />
+                                <InputError
+                                    message={fieldError(form.errors, 'status')}
+                                />
                             </div>
                         </div>
                     </div>
@@ -537,36 +700,63 @@ export function AssignmentForm({
                             <FileCheck2 className="size-4" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-semibold">{t('Permission document')}</h2>
-                            <p className="text-xs text-muted-foreground">{t('Upload the permission order or approval document. Files are stored privately.')}</p>
+                            <h2 className="text-sm font-semibold">
+                                {t('Permission document')}
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                {t(
+                                    'Upload the permission order or approval document. Files are stored privately.',
+                                )}
+                            </p>
                         </div>
                     </div>
                     <div className="space-y-5 p-6">
                         <div className="grid gap-5 lg:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="permission_reference_number">{t('Permission reference')}</Label>
+                                <Label htmlFor="permission_reference_number">
+                                    {t('Permission reference')}
+                                </Label>
                                 <Input
                                     id="permission_reference_number"
-                                    value={form.data.permission_reference_number}
+                                    value={
+                                        form.data.permission_reference_number
+                                    }
                                     onChange={(event) => {
-                                        form.setData('permission_reference_number', event.target.value);
-                                        form.clearErrors('permission_reference_number');
+                                        form.setData(
+                                            'permission_reference_number',
+                                            event.target.value,
+                                        );
+                                        form.clearErrors(
+                                            'permission_reference_number',
+                                        );
                                     }}
                                 />
-                                <InputError message={fieldError(form.errors, 'permission_reference_number')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'permission_reference_number',
+                                    )}
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label>{t('Document file')}</Label>
-                                {storedPermissionDocument && form.data.permission_document === null ? (
+                                {storedPermissionDocument &&
+                                form.data.permission_document === null ? (
                                     <div className="rounded-lg border bg-muted/30 px-3 py-2">
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0">
                                                 <p className="text-sm font-medium text-foreground">
-                                                    {storedPermissionDocument.original_name ?? storedPermissionDocument.name ?? t('Document attached')}
+                                                    {storedPermissionDocument.original_name ??
+                                                        storedPermissionDocument.name ??
+                                                        t('Document attached')}
                                                 </p>
-                                                {fileSizeLabel(storedPermissionDocument.size_bytes) ? (
+                                                {fileSizeLabel(
+                                                    storedPermissionDocument.size_bytes,
+                                                ) ? (
                                                     <p className="text-xs text-muted-foreground">
-                                                        {fileSizeLabel(storedPermissionDocument.size_bytes)}
+                                                        {fileSizeLabel(
+                                                            storedPermissionDocument.size_bytes,
+                                                        )}
                                                     </p>
                                                 ) : null}
                                             </div>
@@ -575,11 +765,22 @@ export function AssignmentForm({
                                                     document={{
                                                         ...storedPermissionDocument,
                                                     }}
-                                                    sizeLabel={fileSizeLabel(storedPermissionDocument.size_bytes)}
+                                                    sizeLabel={fileSizeLabel(
+                                                        storedPermissionDocument.size_bytes,
+                                                    )}
                                                     triggerLabel={t('View')}
                                                 />
-                                                <Button asChild size="sm" variant="outline">
-                                                    <a href={storedPermissionDocument.download_url} className="gap-1.5">
+                                                <Button
+                                                    asChild
+                                                    size="sm"
+                                                    variant="outline"
+                                                >
+                                                    <a
+                                                        href={
+                                                            storedPermissionDocument.download_url
+                                                        }
+                                                        className="gap-1.5"
+                                                    >
                                                         <Download className="size-3.5" />
                                                         {t('Download')}
                                                     </a>
@@ -593,25 +794,35 @@ export function AssignmentForm({
                                         <Upload className="size-4" />
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                    <span className="block break-words text-sm font-medium">
-                                        {selectedDocumentName ?? t('Upload permission document')}
-                                    </span>
-                                    {selectedDocumentSize ? (
-                                        <span className="mt-1 block break-words text-xs text-muted-foreground">
-                                            {fileSizeLabel(selectedDocumentSize)}
+                                        <span className="block text-sm font-medium break-words">
+                                            {selectedDocumentName ??
+                                                t('Upload permission document')}
                                         </span>
-                                    ) : null}
-                                    <span className="mt-1 block break-words text-xs text-muted-foreground">
-                                        {t('PDF, JPG, PNG, or WEBP up to 5 MB.')}
+                                        {selectedDocumentSize ? (
+                                            <span className="mt-1 block text-xs break-words text-muted-foreground">
+                                                {fileSizeLabel(
+                                                    selectedDocumentSize,
+                                                )}
+                                            </span>
+                                        ) : null}
+                                        <span className="mt-1 block text-xs break-words text-muted-foreground">
+                                            {t(
+                                                'PDF, JPG, PNG, or WEBP up to 5 MB.',
+                                            )}
+                                        </span>
                                     </span>
-                                </span>
                                     <Input
                                         className="sr-only"
                                         type="file"
                                         accept="application/pdf,image/jpeg,image/png,image/webp"
                                         onChange={(event) => {
-                                            form.setData('permission_document', event.target.files?.[0] ?? null);
-                                            form.clearErrors('permission_document');
+                                            form.setData(
+                                                'permission_document',
+                                                event.target.files?.[0] ?? null,
+                                            );
+                                            form.clearErrors(
+                                                'permission_document',
+                                            );
                                         }}
                                     />
                                 </label>
@@ -619,11 +830,18 @@ export function AssignmentForm({
                                     <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                                         <div
                                             className="h-full rounded-full bg-primary transition-all"
-                                            style={{ width: `${form.progress.percentage ?? 0}%` }}
+                                            style={{
+                                                width: `${form.progress.percentage ?? 0}%`,
+                                            }}
                                         />
                                     </div>
                                 ) : null}
-                                <InputError message={fieldError(form.errors, 'permission_document')} />
+                                <InputError
+                                    message={fieldError(
+                                        form.errors,
+                                        'permission_document',
+                                    )}
+                                />
                             </div>
                         </div>
 
@@ -638,7 +856,9 @@ export function AssignmentForm({
                                     form.clearErrors('remarks');
                                 }}
                             />
-                            <InputError message={fieldError(form.errors, 'remarks')} />
+                            <InputError
+                                message={fieldError(form.errors, 'remarks')}
+                            />
                         </div>
                     </div>
                 </div>

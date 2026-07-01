@@ -174,11 +174,7 @@ function inchargeLabel(incharge: InchargeOption): string {
     return [incharge.full_name, incharge.pno].filter(Boolean).join(' · ');
 }
 
-function InchargeSnapshot({
-    incharge,
-}: {
-    incharge: InchargeOption;
-}) {
+function InchargeSnapshot({ incharge }: { incharge: InchargeOption }) {
     const { t } = useTranslation();
 
     return (
@@ -311,7 +307,6 @@ export function TeamInchargePanel({
             removal_reason: '',
             remarks: '',
         });
-
     };
 
     const closeAssign = () => {
@@ -384,7 +379,11 @@ export function TeamInchargePanel({
                 setAssignServerErrors(
                     Object.keys(nextErrors).length > 0
                         ? nextErrors
-                        : { team: t('Unable to save the team prabhari record.') },
+                        : {
+                              team: t(
+                                  'Unable to save the team prabhari record.',
+                              ),
+                          },
                 );
                 setDialogMode('assign');
             },
@@ -417,7 +416,11 @@ export function TeamInchargePanel({
                 setChangeServerErrors(
                     Object.keys(nextErrors).length > 0
                         ? nextErrors
-                        : { team: t('Unable to save the team prabhari record.') },
+                        : {
+                              team: t(
+                                  'Unable to save the team prabhari record.',
+                              ),
+                          },
                 );
                 setDialogMode('change');
             },
@@ -450,7 +453,11 @@ export function TeamInchargePanel({
                 setRemoveServerErrors(
                     Object.keys(nextErrors).length > 0
                         ? nextErrors
-                        : { team: t('Unable to save the team prabhari record.') },
+                        : {
+                              team: t(
+                                  'Unable to save the team prabhari record.',
+                              ),
+                          },
                 );
                 setDialogMode('remove');
             },
@@ -784,7 +791,9 @@ export function TeamInchargePanel({
                             />
                         </div>
                         {selectedAssignIncharge ? (
-                            <InchargeSnapshot incharge={selectedAssignIncharge} />
+                            <InchargeSnapshot
+                                incharge={selectedAssignIncharge}
+                            />
                         ) : null}
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
@@ -891,7 +900,9 @@ export function TeamInchargePanel({
                     <DialogHeader>
                         <DialogTitle>{t('Change team prabhari')}</DialogTitle>
                         <DialogDescription>
-                            {t('Update this team prabhari record and keep history.')}
+                            {t(
+                                'Update this team prabhari record and keep history.',
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <form className="space-y-5" onSubmit={handleChangeSubmit}>
@@ -931,7 +942,9 @@ export function TeamInchargePanel({
                             />
                         </div>
                         {selectedChangeIncharge ? (
-                            <InchargeSnapshot incharge={selectedChangeIncharge} />
+                            <InchargeSnapshot
+                                incharge={selectedChangeIncharge}
+                            />
                         ) : null}
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
@@ -1100,10 +1113,7 @@ export function TeamInchargePanel({
                                     id="remove-removed-at"
                                     value={removeForm.data.removed_at}
                                     onChange={(value) => {
-                                        removeForm.setData(
-                                            'removed_at',
-                                            value,
-                                        );
+                                        removeForm.setData('removed_at', value);
                                         removeForm.clearErrors('removed_at');
                                     }}
                                     placeholder={t('Select date')}
