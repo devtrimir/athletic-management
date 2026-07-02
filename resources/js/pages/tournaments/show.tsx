@@ -2,6 +2,7 @@ import { Head, Link, router, setLayoutProps, useForm } from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarDays,
+    FileDown,
     Dumbbell,
     Eye,
     Info,
@@ -10,6 +11,7 @@ import {
     Pencil,
     Plus,
     Search,
+    Printer,
     Trash2,
     Trophy,
     Users,
@@ -28,6 +30,10 @@ import {
     index as tournamentsIndex,
     show as showTournament,
 } from '@/actions/App/Http/Controllers/TournamentController';
+import {
+    eventsReport,
+    eventsExport,
+} from '@/actions/App/Http/Controllers/TournamentExportController';
 import { events as tournamentEvents } from '@/actions/App/Http/Controllers/TournamentProfileTabController';
 import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
@@ -108,7 +114,11 @@ type EventRow = {
     } | null;
     participant_previews: {
         players: Array<{ id: number; full_name: string; pno: string | null }>;
-        more_players: Array<{ id: number; full_name: string; pno: string | null }>;
+        more_players: Array<{
+            id: number;
+            full_name: string;
+            pno: string | null;
+        }>;
         total_players: number;
     };
     sport: { id: number; name: string } | null;
@@ -142,6 +152,12 @@ type EventFilters = {
     gender?: string | null;
     participation_status?: string | null;
     event_type?: 'individual' | 'team' | null;
+    report_type?:
+        | 'detail'
+        | 'summary'
+        | 'medal_log'
+        | 'sport_medal_log'
+        | null;
 };
 
 type EventSummarySport = {
@@ -219,10 +235,16 @@ function normalizeOfficialEventDetail(value: string): string {
         .replace(/\s{2,}/g, ' ')
         .trim();
 
-    const parts = text.split('/').map((part) => part.trim()).filter(Boolean);
+    const parts = text
+        .split('/')
+        .map((part) => part.trim())
+        .filter(Boolean);
     const firstPart = parts.length > 0 ? parts[0] : '';
     return firstPart
-        .replace(/^(?:powerlifting|weightlifting)\s+(?:total|total\s+points)\s*:?\s*/i, '')
+        .replace(
+            /^(?:powerlifting|weightlifting)\s+(?:total|total\s+points)\s*:?\s*/i,
+            '',
+        )
         .replace(/^(?:official|provisional)\s*:?\s*/i, '')
         .trim();
 }
@@ -410,7 +432,9 @@ function EventFormFields({
             };
 
             if (data.event_type === '') {
-                updates.event_type = variant.is_team_based ? 'team' : 'individual';
+                updates.event_type = variant.is_team_based
+                    ? 'team'
+                    : 'individual';
             }
 
             if (data.participants_required === '') {
@@ -677,26 +701,30 @@ function EventFormFields({
                                                                 .join(' / ')}
                                                         </span>
                                                         <span className="block text-xs text-muted-foreground">
-                                                                {[
-                                                                    variant.gender_label ??
-                                                                        genderClassLabel(
-                                                                            variant.gender_class,
-                                                                            t,
-                                                                        ),
-                                                                    `${t('Event type')}: ${
-                                                                variant.is_team_based
-                                                                    ? t('Team')
-                                                                    : t('Individual')
-                                                            }`,
-                                                            variant.format,
-                                                            variant.result_type,
-                                                            `${t('Player limit')}: ${participantRange(
-                                                                variant.min_participants,
-                                                                variant.max_participants,
-                                                            )}`,
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' · ')}
+                                                            {[
+                                                                variant.gender_label ??
+                                                                    genderClassLabel(
+                                                                        variant.gender_class,
+                                                                        t,
+                                                                    ),
+                                                                `${t('Event type')}: ${
+                                                                    variant.is_team_based
+                                                                        ? t(
+                                                                              'Team',
+                                                                          )
+                                                                        : t(
+                                                                              'Individual',
+                                                                          )
+                                                                }`,
+                                                                variant.format,
+                                                                variant.result_type,
+                                                                `${t('Player limit')}: ${participantRange(
+                                                                    variant.min_participants,
+                                                                    variant.max_participants,
+                                                                )}`,
+                                                            ]
+                                                                .filter(Boolean)
+                                                                .join(' · ')}
                                                         </span>
                                                     </span>
                                                 </label>
@@ -765,26 +793,26 @@ function EventFormFields({
                                     {variant.label}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                {[
-                                    variant.gender_label ??
-                                        genderClassLabel(
-                                            variant.gender_class,
-                                            t,
-                                        ),
-                                    `${t('Event type')}: ${
-                                        variant.is_team_based
-                                            ? t('Team')
-                                            : t('Individual')
-                                    }`,
-                                    variant.format,
-                                    variant.result_type,
-                                    `${t('Player limit')}: ${participantRange(
-                                        variant.min_participants,
-                                        variant.max_participants,
-                                    )}`,
-                                ]
-                                    .filter(Boolean)
-                                    .join(' · ')}
+                                    {[
+                                        variant.gender_label ??
+                                            genderClassLabel(
+                                                variant.gender_class,
+                                                t,
+                                            ),
+                                        `${t('Event type')}: ${
+                                            variant.is_team_based
+                                                ? t('Team')
+                                                : t('Individual')
+                                        }`,
+                                        variant.format,
+                                        variant.result_type,
+                                        `${t('Player limit')}: ${participantRange(
+                                            variant.min_participants,
+                                            variant.max_participants,
+                                        )}`,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' · ')}
                                 </div>
                             </div>
                         ))}
@@ -1015,7 +1043,7 @@ function AddEventDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden">
+            <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>{t('Add event')}</DialogTitle>
                     <DialogDescription>
@@ -1283,23 +1311,33 @@ export default function TournamentsShow({
         }));
     }
 
-    function applyEventFilters(patch: Partial<EventFilters>) {
+    function buildEventFilterQuery(
+        overrides: Partial<EventFilters> = {},
+    ): Record<string, string> {
         const merged: EventFilters = {
-            q: eventFilters.q ?? null,
-            sport_id: eventFilters.sport_id ?? null,
-            gender: eventFilters.gender ?? null,
-            participation_status: eventFilters.participation_status ?? null,
-            event_type: eventFilters.event_type ?? null,
-            ...patch,
+            q: overrides.q ?? eventFilters.q ?? null,
+            sport_id: overrides.sport_id ?? eventFilters.sport_id ?? null,
+            gender: overrides.gender ?? eventFilters.gender ?? null,
+            participation_status:
+                overrides.participation_status ??
+                eventFilters.participation_status ??
+                null,
+            event_type: overrides.event_type ?? eventFilters.event_type ?? null,
+            report_type: overrides.report_type ?? null,
         };
         const query: Record<string, string> = {};
 
         for (const [key, value] of Object.entries(merged)) {
             if (value) {
-                query[`filter[${key}]`] = value;
+                query[`filter[${key}]`] = String(value);
             }
         }
 
+        return query;
+    }
+
+    function applyEventFilters(patch: Partial<EventFilters>) {
+        const query = buildEventFilterQuery(patch);
         router.get(tournamentEvents.url(tournament.id), query, {
             preserveScroll: true,
             preserveState: true,
@@ -1326,6 +1364,27 @@ export default function TournamentsShow({
         applyEventFilters({
             q: String(formData.get('q') ?? '').trim() || null,
         });
+    }
+
+    function handleEventsReportPrint(
+        reportType: 'detail' | 'summary' | 'medal_log' | 'sport_medal_log',
+    ) {
+        const url = eventsReport.url(tournament.id, {
+            query:
+                reportType === 'detail'
+                    ? buildEventFilterQuery()
+                    : buildEventFilterQuery({ report_type: reportType }),
+        });
+
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    function handleEventsReportExport(reportType: 'detail' | 'summary') {
+        const url = eventsExport.url(tournament.id, {
+            query: buildEventFilterQuery({ report_type: reportType }),
+        });
+
+        window.location.href = url;
     }
 
     setLayoutProps({
@@ -1672,56 +1731,62 @@ export default function TournamentsShow({
     const eventTableColSpan = 12;
     const eventGroups = Array.from(
         (events ?? [])
-            .reduce((groups, event) => {
-                const sportKey = event.sport
-                    ? String(event.sport.id)
-                    : 'unknown';
-                const medals = event.medals_by_type ?? {
-                    gold: 0,
-                    silver: 0,
-                    bronze: 0,
-                    merit: 0,
-                };
+            .reduce(
+                (groups, event) => {
+                    const sportKey = event.sport
+                        ? String(event.sport.id)
+                        : 'unknown';
+                    const medals = event.medals_by_type ?? {
+                        gold: 0,
+                        silver: 0,
+                        bronze: 0,
+                        merit: 0,
+                    };
 
-                if (!groups.has(sportKey)) {
-                    groups.set(sportKey, {
-                        sportKey,
-                        sportName: event.sport?.name ?? t('Unknown sport'),
-                        events: [],
-                        totalMedals: 0,
-                        goldMedals: 0,
-                        silverMedals: 0,
-                        bronzeMedals: 0,
-                        meritMedals: 0,
-                    });
-                }
+                    if (!groups.has(sportKey)) {
+                        groups.set(sportKey, {
+                            sportKey,
+                            sportName: event.sport?.name ?? t('Unknown sport'),
+                            events: [],
+                            totalMedals: 0,
+                            goldMedals: 0,
+                            silverMedals: 0,
+                            bronzeMedals: 0,
+                            meritMedals: 0,
+                        });
+                    }
 
-                const group = groups.get(sportKey);
+                    const group = groups.get(sportKey);
 
-                if (group) {
-                    group.events.push(event);
-                    group.totalMedals +=
-                        (medals.gold ?? 0) +
-                        (medals.silver ?? 0) +
-                        (medals.bronze ?? 0) +
-                        (medals.merit ?? 0);
-                    group.goldMedals += medals.gold ?? 0;
-                    group.silverMedals += medals.silver ?? 0;
-                    group.bronzeMedals += medals.bronze ?? 0;
-                    group.meritMedals += medals.merit ?? 0;
-                }
+                    if (group) {
+                        group.events.push(event);
+                        group.totalMedals +=
+                            (medals.gold ?? 0) +
+                            (medals.silver ?? 0) +
+                            (medals.bronze ?? 0) +
+                            (medals.merit ?? 0);
+                        group.goldMedals += medals.gold ?? 0;
+                        group.silverMedals += medals.silver ?? 0;
+                        group.bronzeMedals += medals.bronze ?? 0;
+                        group.meritMedals += medals.merit ?? 0;
+                    }
 
-                return groups;
-            }, new Map<string, {
-                sportKey: string;
-                sportName: string;
-                events: EventRow[];
-                totalMedals: number;
-                goldMedals: number;
-                silverMedals: number;
-                bronzeMedals: number;
-                meritMedals: number;
-            }>())
+                    return groups;
+                },
+                new Map<
+                    string,
+                    {
+                        sportKey: string;
+                        sportName: string;
+                        events: EventRow[];
+                        totalMedals: number;
+                        goldMedals: number;
+                        silverMedals: number;
+                        bronzeMedals: number;
+                        meritMedals: number;
+                    }
+                >(),
+            )
             .values(),
     );
     let eventSerialNumber = 0;
@@ -2181,15 +2246,91 @@ export default function TournamentsShow({
                                                     )}
                                                 </p>
                                             </div>
-                                            <Button
-                                                size="sm"
-                                                onClick={() =>
-                                                    setAddEventOpen(true)
-                                                }
-                                            >
-                                                <Plus className="mr-1.5 h-4 w-4" />
-                                                {t('Add event')}
-                                            </Button>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleEventsReportPrint(
+                                                            'detail',
+                                                        )
+                                                    }
+                                                >
+                                                    <Printer className="mr-1.5 h-4 w-4" />
+                                                    {t('Print detail report')}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleEventsReportPrint(
+                                                            'summary',
+                                                        )
+                                                    }
+                                                >
+                                                    <Printer className="mr-1.5 h-4 w-4" />
+                                                    {t('Print summary report')}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleEventsReportPrint(
+                                                            'medal_log',
+                                                        )
+                                                    }
+                                                >
+                                                    <Printer className="mr-1.5 h-4 w-4" />
+                                                    {t('Print medal log')}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleEventsReportPrint(
+                                                            'sport_medal_log',
+                                                        )
+                                                    }
+                                                >
+                                                    <Printer className="mr-1.5 h-4 w-4" />
+                                                    {t('Print sport medal log')}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleEventsReportExport(
+                                                            'detail',
+                                                        )
+                                                    }
+                                                >
+                                                    <FileDown className="mr-1.5 h-4 w-4" />
+                                                    {t('Export detail (Excel)')}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleEventsReportExport(
+                                                            'summary',
+                                                        )
+                                                    }
+                                                >
+                                                    <FileDown className="mr-1.5 h-4 w-4" />
+                                                    {t(
+                                                        'Export summary (Excel)',
+                                                    )}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        setAddEventOpen(true)
+                                                    }
+                                                >
+                                                    <Plus className="mr-1.5 h-4 w-4" />
+                                                    {t('Add event')}
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="grid gap-3 border-b p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
@@ -2382,20 +2523,20 @@ export default function TournamentsShow({
                                     </div>
                                     <div className="overflow-x-auto">
                                         <Table>
-                                                                            <TableHeader>
-                                                                                <TableRow>
-                                                                                    <TableHead className="w-16">
-                                                                                        {t('S.No.')}
-                                                                                    </TableHead>
-                                                                                    <TableHead>
-                                                                                        {t('Event details')}
-                                                                                    </TableHead>
-                                                                                    <TableHead>
-                                                                                        {t('Player')}
-                                                                                    </TableHead>
-                                                                                    <TableHead className="w-16 text-right">
-                                                                                        {t('Gold')}
-                                                                                    </TableHead>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-16">
+                                                        {t('S.No.')}
+                                                    </TableHead>
+                                                    <TableHead>
+                                                        {t('Event details')}
+                                                    </TableHead>
+                                                    <TableHead>
+                                                        {t('Player')}
+                                                    </TableHead>
+                                                    <TableHead className="w-16 text-right">
+                                                        {t('Gold')}
+                                                    </TableHead>
                                                     <TableHead className="w-16 text-right">
                                                         {t('Silver')}
                                                     </TableHead>
@@ -2423,12 +2564,14 @@ export default function TournamentsShow({
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                                                {(events ?? []).length === 0 ? (
-                                                                                <TableRow>
-                                                                                        <TableCell
-                                                                                            colSpan={eventTableColSpan}
-                                                                                            className="py-12 text-center text-muted-foreground"
-                                                                                        >
+                                                {(events ?? []).length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell
+                                                            colSpan={
+                                                                eventTableColSpan
+                                                            }
+                                                            className="py-12 text-center text-muted-foreground"
+                                                        >
                                                             {hasEventFilters
                                                                 ? t(
                                                                       'No events match your filters.',
@@ -2449,7 +2592,9 @@ export default function TournamentsShow({
                                                                 >
                                                                     <TableRow className="bg-muted/50 hover:bg-muted/50">
                                                                         <TableCell
-                                                                            colSpan={eventTableColSpan}
+                                                                            colSpan={
+                                                                                eventTableColSpan
+                                                                            }
                                                                             className="py-2.5 font-medium"
                                                                         >
                                                                             <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -2467,66 +2612,66 @@ export default function TournamentsShow({
                                                                                         {t(
                                                                                             'events',
                                                                                         )}
+
                                                                                         )
                                                                                     </span>
+                                                                                </span>
+                                                                                <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                                                                                    <span className="inline-flex items-center gap-1">
+                                                                                        <Medal className="h-3.5 w-3.5 text-amber-500" />
+                                                                                        {
+                                                                                            group.totalMedals
+                                                                                        }{' '}
+                                                                                        {t(
+                                                                                            'medals',
+                                                                                        )}
                                                                                     </span>
-                                                                                    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                                                                                        <span className="inline-flex items-center gap-1">
-                                                                                            <Medal className="h-3.5 w-3.5 text-amber-500" />
-                                                                                            {
-                                                                                                group
-                                                                                                    .totalMedals
-                                                                                            }{' '}
-                                                                                            {t(
-                                                                                                'medals',
-                                                                                            )}
-                                                                                        </span>
-                                                                                        <span>
-                                                                                            {t(
-                                                                                                'Gold',
-                                                                                            )}
-                                                                                            :{' '}
-                                                                                            {
-                                                                                                group
-                                                                                                    .goldMedals
-                                                                                            }
-                                                                                        </span>
-                                                                                        <span>
-                                                                                            {t(
-                                                                                                'Silver',
-                                                                                            )}
-                                                                                            :{' '}
-                                                                                            {
-                                                                                                group
-                                                                                                    .silverMedals
-                                                                                            }
-                                                                                        </span>
-                                                                                        <span>
-                                                                                            {t(
-                                                                                                'Bronze',
-                                                                                            )}
-                                                                                            :{' '}
-                                                                                            {
-                                                                                                group
-                                                                                                    .bronzeMedals
-                                                                                            }
-                                                                                        </span>
-                                                                                        <span>
-                                                                                            {t(
-                                                                                                'Merit',
-                                                                                            )}
-                                                                                            :{' '}
-                                                                                            {
-                                                                                                group
-                                                                                                    .meritMedals
-                                                                                            }
-                                                                                        </span>
+                                                                                    <span>
+                                                                                        {t(
+                                                                                            'Gold',
+                                                                                        )}
+
+                                                                                        :{' '}
+                                                                                        {
+                                                                                            group.goldMedals
+                                                                                        }
                                                                                     </span>
-                                                                                </div>
-                                                                                </TableCell>
-                                                                            </TableRow>
+                                                                                    <span>
+                                                                                        {t(
+                                                                                            'Silver',
+                                                                                        )}
+
+                                                                                        :{' '}
+                                                                                        {
+                                                                                            group.silverMedals
+                                                                                        }
+                                                                                    </span>
+                                                                                    <span>
+                                                                                        {t(
+                                                                                            'Bronze',
+                                                                                        )}
+
+                                                                                        :{' '}
+                                                                                        {
+                                                                                            group.bronzeMedals
+                                                                                        }
+                                                                                    </span>
+                                                                                    <span>
+                                                                                        {t(
+                                                                                            'Merit',
+                                                                                        )}
+
+                                                                                        :{' '}
+                                                                                        {
+                                                                                            group.meritMedals
+                                                                                        }
+                                                                                    </span>
+                                                                                </span>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
                                                                     {group.events.map(
-                                                                        (                                                                 
+                                                                        (
                                                                             ev,
                                                                         ) => {
                                                                             eventSerialNumber += 1;
@@ -2535,64 +2680,83 @@ export default function TournamentsShow({
                                                                                     ev,
                                                                                     t,
                                                                                 );
-                                                                            const participantPreviews = {
-                                                                                players: [],
-                                                                                more_players: [],
-                                                                                total_players: 0,
-                                                                                ...ev.participant_previews,
-                                                                            };
-                                                                            const allPlayers = [
-                                                                                ...participantPreviews.players,
-                                                                                ...participantPreviews.more_players,
-                                                                            ];
+                                                                            const participantPreviews =
+                                                                                {
+                                                                                    players:
+                                                                                        [],
+                                                                                    more_players:
+                                                                                        [],
+                                                                                    total_players: 0,
+                                                                                    ...ev.participant_previews,
+                                                                                };
+                                                                            const allPlayers =
+                                                                                [
+                                                                                    ...participantPreviews.players,
+                                                                                    ...participantPreviews.more_players,
+                                                                                ];
                                                                             const isPlayersExpanded =
                                                                                 !!expandedEventPlayers[
-                                                                                    ev.id
+                                                                                    ev
+                                                                                        .id
                                                                                 ];
+                                                                            const singlePlayer =
+                                                                                allPlayers[0] ??
+                                                                                null;
 
                                                                             return (
                                                                                 <Fragment
                                                                                     key={`event-${ev.id}`}
                                                                                 >
                                                                                     <TableRow>
-                                                                                    <TableCell className="w-16 text-xs text-muted-foreground tabular-nums">
-                                                                                        {
-                                                                                            eventSerialNumber
-                                                                                        }
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-0.5">
-                                                                                            <Link
-                                                                                                href={showEvent.url(
+                                                                                        <TableCell className="w-16 text-xs text-muted-foreground tabular-nums">
+                                                                                            {
+                                                                                                eventSerialNumber
+                                                                                            }
+                                                                                        </TableCell>
+                                                                                        <TableCell>
+                                                                                            <div className="space-y-0.5">
+                                                                                                <Link
+                                                                                                    href={showEvent.url(
+                                                                                                        {
+                                                                                                            tournament:
+                                                                                                                tournament.id,
+                                                                                                            event: ev.id,
+                                                                                                        },
+                                                                                                    )}
+                                                                                                    className="font-medium hover:underline"
+                                                                                                >
                                                                                                     {
-                                                                                                        tournament:
-                                                                                                            tournament.id,
-                                                                                                        event:
-                                                                                                            ev.id,
-                                                                                                    },
-                                                                                                )}
-                                                                                                className="font-medium hover:underline"
-                                                                                            >
-                                                                                                {
-                                                                                                    label
-                                                                                                        .title
-                                                                                                }
-                                                                                            </Link>
-                                                                                            {label.fallbackName ? (
-                                                                                                <p className="text-xs text-muted-foreground">
-                                                                                                    {
-                                                                                                        label
-                                                                                                            .fallbackName
+                                                                                                        label.title
                                                                                                     }
-                                                                                                </p>
-                                                                                            ) : null}
+                                                                                                </Link>
+                                                                                                {label.fallbackName ? (
+                                                                                                    <p className="text-xs text-muted-foreground">
+                                                                                                        {
+                                                                                                            label.fallbackName
+                                                                                                        }
+                                                                                                    </p>
+                                                                                                ) : null}
                                                                                             </div>
                                                                                         </TableCell>
                                                                                         <TableCell>
-                                                                                            {participantPreviews.total_players > 0 ? (
+                                                                                            {participantPreviews.total_players >
+                                                                                            0 ? (
                                                                                                 <div className="space-y-2">
-                                                                                                    {participantPreviews
-                                                                                                        .total_players > 1 ? (
+                                                                                                    {participantPreviews.total_players ===
+                                                                                                        1 &&
+                                                                                                    singlePlayer ? (
+                                                                                                        <div className="space-y-0.5">
+                                                                                                            <div className="text-sm font-medium text-foreground">
+                                                                                                                {
+                                                                                                                    singlePlayer.full_name
+                                                                                                                }
+                                                                                                            </div>
+                                                                                                            <div className="text-xs text-muted-foreground">
+                                                                                                                {singlePlayer.pno ??
+                                                                                                                    '—'}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    ) : (
                                                                                                         <button
                                                                                                             type="button"
                                                                                                             onClick={() =>
@@ -2613,197 +2777,167 @@ export default function TournamentsShow({
                                                                                                                       'Show players',
                                                                                                                   )} (${participantPreviews.total_players})`}
                                                                                                         </button>
-                                                                                                    ) : (
-                                                                                                        participantPreviews.players.map(
-                                                                                                            (
-                                                                                                                player,
-                                                                                                            ) => (
-                                                                                                                <div
-                                                                                                                    key={
-                                                                                                                        player.id
-                                                                                                                    }
-                                                                                                                    className="space-y-0.5"
-                                                                                                                >
-                                                                                                                    <div className="text-sm font-medium text-foreground">
-                                                                                                                        {
-                                                                                                                            player
-                                                                                                                                .full_name
-                                                                                                                        }
-                                                                                                                    </div>
-                                                                                                                    <div className="text-xs text-muted-foreground">
-                                                                                                                        {player.pno ??
-                                                                                                                            '—'}
-                                                                                                                    </div>
-                                                                                                                </div>
-                                                                                                            ),
-                                                                                                        )
                                                                                                     )}
                                                                                                 </div>
                                                                                             ) : null}
                                                                                         </TableCell>
                                                                                         <TableCell className="text-right tabular-nums">
                                                                                             <span className="text-amber-600">
+                                                                                                {ev
+                                                                                                    .medals_by_type
+                                                                                                    ?.gold ??
+                                                                                                    0}
+                                                                                            </span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="text-right tabular-nums">
+                                                                                            <span>
+                                                                                                {ev
+                                                                                                    .medals_by_type
+                                                                                                    ?.silver ??
+                                                                                                    0}
+                                                                                            </span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="text-right tabular-nums">
+                                                                                            <span>
+                                                                                                {ev
+                                                                                                    .medals_by_type
+                                                                                                    ?.bronze ??
+                                                                                                    0}
+                                                                                            </span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="text-right tabular-nums">
+                                                                                            <span className="text-emerald-700 dark:text-emerald-300">
+                                                                                                {ev
+                                                                                                    .medals_by_type
+                                                                                                    ?.merit ??
+                                                                                                    0}
+                                                                                            </span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="text-right tabular-nums">
+                                                                                            <span className="font-semibold">
                                                                                                 {
-                                                                                                ev
-                                                                                                    .medals_by_type
-                                                                                                    ?.gold ?? 0
-                                                                                            }
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="text-right tabular-nums">
-                                                                                        <span>
-                                                                                            {
-                                                                                                ev
-                                                                                                    .medals_by_type
-                                                                                                    ?.silver ?? 0
-                                                                                            }
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="text-right tabular-nums">
-                                                                                        <span>
-                                                                                            {
-                                                                                                ev
-                                                                                                    .medals_by_type
-                                                                                                    ?.bronze ?? 0
-                                                                                            }
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="text-right tabular-nums">
-                                                                                        <span className="text-emerald-700 dark:text-emerald-300">
-                                                                                            {
-                                                                                                ev
-                                                                                                    .medals_by_type
-                                                                                                    ?.merit ?? 0
-                                                                                            }
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="text-right tabular-nums">
-                                                                                        <span className="font-semibold">
-                                                                                            {
-                                                                                                ev
-                                                                                                    .medals_count
-                                                                                            }
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <span
-                                                                                            className={eventBadgeClass(
-                                                                                                'class',
-                                                                                            )}
-                                                                                        >
-                                                                                            {t(
-                                                                                                genderClassLabel(
-                                                                                                    ev.gender_class,
-                                                                                                    t,
-                                                                                                ),
-                                                                                            )}
-                                                                                        </span>
-                                                                                    </TableCell>
+                                                                                                    ev.medals_count
+                                                                                                }
+                                                                                            </span>
+                                                                                        </TableCell>
+                                                                                        <TableCell>
+                                                                                            <span
+                                                                                                className={eventBadgeClass(
+                                                                                                    'class',
+                                                                                                )}
+                                                                                            >
+                                                                                                {t(
+                                                                                                    genderClassLabel(
+                                                                                                        ev.gender_class,
+                                                                                                        t,
+                                                                                                    ),
+                                                                                                )}
+                                                                                            </span>
+                                                                                        </TableCell>
                                                                                         <TableCell>
                                                                                             <span
                                                                                                 className={eventBadgeClass(
                                                                                                     'detail',
                                                                                                 )}
                                                                                             >
-                                                                                            {ev.event_type ===
-                                                                                            'team'
-                                                                                                ? t(
-                                                                                                      'Team',
-                                                                                                  )
-                                                                                                : t(
-                                                                                                      'Individual',
-                                                                                                  )}
+                                                                                                {ev.event_type ===
+                                                                                                'team'
+                                                                                                    ? t(
+                                                                                                          'Team',
+                                                                                                      )
+                                                                                                    : t(
+                                                                                                          'Individual',
+                                                                                                      )}
                                                                                             </span>
                                                                                         </TableCell>
-                                                                                    <TableCell className="text-right">
-                                                                                        <span
-                                                                                            className={eventBadgeClass(
-                                                                                                'count',
-                                                                                            )}
-                                                                                        >
-                                                                                            <Users className="h-3.5 w-3.5" />
-                                                                                            {
-                                                                                                ev.participations_count
-                                                                                            }
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                        <TableCell className="sticky right-0 z-10 w-0 bg-card">
-                                                                                        <div className="flex items-center justify-end gap-1">
-                                                                                            <Button
-                                                                                                variant="ghost"
-                                                                                                size="icon"
-                                                                                                title={t(
-                                                                                                    'View',
+                                                                                        <TableCell className="text-right">
+                                                                                            <span
+                                                                                                className={eventBadgeClass(
+                                                                                                    'count',
                                                                                                 )}
-                                                                                                asChild
                                                                                             >
-                                                                                                <Link
-                                                                                                    href={showEvent.url(
-                                                                                                        {
-                                                                                                            tournament:
-                                                                                                                tournament.id,
-                                                                                                            event: ev.id,
-                                                                                                        },
+                                                                                                <Users className="h-3.5 w-3.5" />
+                                                                                                {
+                                                                                                    ev.participations_count
+                                                                                                }
+                                                                                            </span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="sticky right-0 z-10 w-0 bg-card">
+                                                                                            <div className="flex items-center justify-end gap-1">
+                                                                                                <Button
+                                                                                                    variant="ghost"
+                                                                                                    size="icon"
+                                                                                                    title={t(
+                                                                                                        'View',
                                                                                                     )}
+                                                                                                    asChild
                                                                                                 >
-                                                                                                    <Eye className="h-4 w-4 text-sky-600" />
+                                                                                                    <Link
+                                                                                                        href={showEvent.url(
+                                                                                                            {
+                                                                                                                tournament:
+                                                                                                                    tournament.id,
+                                                                                                                event: ev.id,
+                                                                                                            },
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        <Eye className="h-4 w-4 text-sky-600" />
+                                                                                                        <span className="sr-only">
+                                                                                                            {t(
+                                                                                                                'View',
+                                                                                                            )}
+                                                                                                        </span>
+                                                                                                    </Link>
+                                                                                                </Button>
+                                                                                                <Button
+                                                                                                    variant="ghost"
+                                                                                                    size="icon"
+                                                                                                    title={t(
+                                                                                                        ev.can_update_structure
+                                                                                                            ? 'Edit event'
+                                                                                                            : 'Event cannot be edited after participants are added',
+                                                                                                    )}
+                                                                                                    disabled={
+                                                                                                        !ev.can_update_structure
+                                                                                                    }
+                                                                                                    onClick={() =>
+                                                                                                        setEditingEvent(
+                                                                                                            ev,
+                                                                                                        )
+                                                                                                    }
+                                                                                                >
+                                                                                                    <Pencil className="h-4 w-4 text-amber-600" />
                                                                                                     <span className="sr-only">
                                                                                                         {t(
-                                                                                                            'View',
+                                                                                                            'Edit event',
                                                                                                         )}
                                                                                                     </span>
-                                                                                                </Link>
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                variant="ghost"
-                                                                                                size="icon"
-                                                                                                title={t(
-                                                                                                    ev.can_update_structure
-                                                                                                        ? 'Edit event'
-                                                                                                        : 'Event cannot be edited after participants are added',
-                                                                                                )}
-                                                                                                disabled={
-                                                                                                    !ev.can_update_structure
-                                                                                                }
-                                                                                                onClick={() =>
-                                                                                                    setEditingEvent(
-                                                                                                        ev,
-                                                                                                    )
-                                                                                                }
-                                                                                            >
-                                                                                                <Pencil className="h-4 w-4 text-amber-600" />
-                                                                                                <span className="sr-only">
-                                                                                                    {t(
-                                                                                                        'Edit event',
-                                                                                                    )}
-                                                                                                </span>
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                variant="ghost"
-                                                                                                size="icon"
-                                                                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                                                title={t(
-                                                                                                    'Delete event',
-                                                                                                )}
-                                                                                                onClick={() =>
-                                                                                                    setDeletingEvent(
-                                                                                                        ev,
-                                                                                                    )
-                                                                                                }
-                                                                                            >
-                                                                                                <Trash2 className="h-4 w-4" />
-                                                                                                <span className="sr-only">
-                                                                                                    {t(
+                                                                                                </Button>
+                                                                                                <Button
+                                                                                                    variant="ghost"
+                                                                                                    size="icon"
+                                                                                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                                                    title={t(
                                                                                                         'Delete event',
                                                                                                     )}
-                                                                                                </span>
-                                                                                            </Button>
-                                                                                        </div>
-                                                                                    </TableCell>
+                                                                                                    onClick={() =>
+                                                                                                        setDeletingEvent(
+                                                                                                            ev,
+                                                                                                        )
+                                                                                                    }
+                                                                                                >
+                                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                                    <span className="sr-only">
+                                                                                                        {t(
+                                                                                                            'Delete event',
+                                                                                                        )}
+                                                                                                    </span>
+                                                                                                </Button>
+                                                                                            </div>
+                                                                                        </TableCell>
                                                                                     </TableRow>
                                                                                     {isPlayersExpanded &&
-                                                                                        participantPreviews
-                                                                                            .total_players >
+                                                                                    participantPreviews.total_players >
                                                                                         1 ? (
                                                                                         <TableRow>
                                                                                             <TableCell
@@ -2813,17 +2947,19 @@ export default function TournamentsShow({
                                                                                             >
                                                                                                 <div className="ml-8 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900">
                                                                                                     <div className="text-xs font-medium text-muted-foreground">
-                                                                                                        {t('Players')}
+                                                                                                        {t(
+                                                                                                            'Players',
+                                                                                                        )}
                                                                                                     </div>
                                                                                                     <Table className="w-full text-xs">
                                                                                                         <TableHeader>
                                                                                                             <TableRow>
-                                                                                                                <TableHead className="h-7 px-2 py-1">
+                                                                                                                <TableHead className="h-7 w-2/3 px-2 py-1">
                                                                                                                     {t(
                                                                                                                         'Player',
                                                                                                                     )}
                                                                                                                 </TableHead>
-                                                                                                                <TableHead className="h-7 px-2 py-1">
+                                                                                                                <TableHead className="h-7 w-40 px-2 py-1">
                                                                                                                     {t(
                                                                                                                         'PNo',
                                                                                                                     )}
@@ -2842,11 +2978,10 @@ export default function TournamentsShow({
                                                                                                                     >
                                                                                                                         <TableCell className="px-2 py-1 text-sm text-foreground">
                                                                                                                             {
-                                                                                                                                player
-                                                                                                                                    .full_name
+                                                                                                                                player.full_name
                                                                                                                             }
                                                                                                                         </TableCell>
-                                                                                                                        <TableCell className="px-2 py-1 text-xs text-muted-foreground">
+                                                                                                                        <TableCell className="w-40 px-2 py-1 text-xs text-muted-foreground">
                                                                                                                             {player.pno ??
                                                                                                                                 '—'}
                                                                                                                         </TableCell>

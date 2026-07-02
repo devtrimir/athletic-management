@@ -139,6 +139,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('teams/{team}/changelog', [TeamProfileTabController::class, 'changelog'])->name('teams.changelog');
     Route::resource('teams', TeamController::class)->except(['destroy']);
     Route::get('tournaments/export', [TournamentExportController::class, 'index'])->name('tournaments.export');
+    Route::get('tournaments/{tournament}/events/report', [TournamentExportController::class, 'eventsReport'])->name('tournaments.events.report');
+    Route::get('tournaments/{tournament}/events/export', [TournamentExportController::class, 'eventsExport'])->name('tournaments.events.export');
     Route::get('tournaments/{tournament}/events', [TournamentProfileTabController::class, 'events'])->name('tournaments.events');
     Route::resource('tournaments', TournamentController::class);
     Route::get('sports-calendars/{sports_calendar}/report', [SportsCalendarController::class, 'report'])->name('sports-calendars.report');

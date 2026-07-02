@@ -6,8 +6,10 @@ import {
     Info,
     MapPin,
     Medal,
+    FileDown,
     Plus,
     Search,
+    Printer,
     Trophy,
     Users,
     X,
@@ -19,7 +21,11 @@ import {
     index as tournamentsIndex,
     show as showTournament,
 } from '@/actions/App/Http/Controllers/TournamentController';
-import { index as exportTournamentsUrl } from '@/actions/App/Http/Controllers/TournamentExportController';
+import {
+    eventsExport,
+    eventsReport,
+    index as exportTournamentsUrl,
+} from '@/actions/App/Http/Controllers/TournamentExportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
@@ -265,6 +271,15 @@ export default function TournamentsIndex({
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
+
+    function handleTournamentReportPrint(tournamentId: number) {
+        const url = eventsReport.url(tournamentId);
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    function handleTournamentReportExport(tournamentId: number) {
+        window.location.href = eventsExport.url(tournamentId);
+    }
 
     function toggleRow(id: number) {
         setSelectedIds((prev) => {
@@ -627,6 +642,30 @@ export default function TournamentsIndex({
                                         </TableCell>
                                         <TableCell className="sticky right-0 z-10 w-0 bg-card">
                                             <div className="flex justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Print report')}
+                                                    onClick={() =>
+                                                        handleTournamentReportPrint(
+                                                            t_.id,
+                                                        )
+                                                    }
+                                                >
+                                                    <Printer className="h-4 w-4 text-emerald-600" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={t('Excel export')}
+                                                    onClick={() =>
+                                                        handleTournamentReportExport(
+                                                            t_.id,
+                                                        )
+                                                    }
+                                                >
+                                                    <FileDown className="h-4 w-4 text-blue-600" />
+                                                </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
