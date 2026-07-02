@@ -7,6 +7,7 @@ namespace App\Exports;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
@@ -15,12 +16,13 @@ use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class ReportExport implements FromCollection, ShouldAutoSize, WithEvents, WithHeadings, WithStyles, WithTitle
+class ReportExport implements FromCollection, ShouldAutoSize, WithColumnWidths, WithEvents, WithHeadings, WithStyles, WithTitle
 {
     /**
      * @param  array<int, string>  $headings
      * @param  array<int, array<int, string>>  $headerRows
      * @param  array<int, string>  $mergeRanges
+     * @param  array<string, int|float>  $columnWidths
      */
     public function __construct(
         private readonly Collection $rows,
@@ -28,6 +30,7 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithEvents, WithHe
         private readonly string $title,
         private readonly array $headerRows = [],
         private readonly array $mergeRanges = [],
+        private readonly array $columnWidths = [],
     ) {}
 
     public function collection(): Collection
@@ -94,6 +97,14 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithEvents, WithHe
     public function mergeRanges(): array
     {
         return $this->mergeRanges;
+    }
+
+    /**
+     * @return array<string, int|float>
+     */
+    public function columnWidths(): array
+    {
+        return $this->columnWidths;
     }
 
     /**
