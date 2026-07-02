@@ -1012,14 +1012,15 @@ export default function MembersEdit({
                                                     className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2"
                                                 >
                                                     <div className="grid gap-2">
-                                                        <Label>
+                                                        <Label
+                                                            htmlFor={`playable_sport_${index}`}
+                                                        >
                                                             {t('Sport')}
                                                         </Label>
-                                                        <Select
+                                                        <Combobox
+                                                            id={`playable_sport_${index}`}
                                                             value={row.sport_id}
-                                                            onValueChange={(
-                                                                v,
-                                                            ) =>
+                                                            onValueChange={(v) =>
                                                                 setData(
                                                                     'playable_sports',
                                                                     data.playable_sports.map(
@@ -1032,40 +1033,27 @@ export default function MembersEdit({
                                                                                 ? {
                                                                                       ...item,
                                                                                       sport_id:
-                                                                                          v,
+                                                                                          v ?? '',
                                                                                   }
                                                                                 : item,
                                                                     ),
                                                                 )
                                                             }
-                                                        >
-                                                            <SelectTrigger className="w-full">
-                                                                <SelectValue
-                                                                    placeholder={t(
-                                                                        'Select sport',
-                                                                    )}
-                                                                />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {sports.map(
-                                                                    (s) => (
-                                                                        <SelectItem
-                                                                            key={
-                                                                                s.id
-                                                                            }
-                                                                            value={String(
-                                                                                s.id,
-                                                                            )}
-                                                                        >
-                                                                            {locale ===
-                                                                            'en'
-                                                                                ? s.name
-                                                                                : s.name}
-                                                                        </SelectItem>
+                                                            items={sports.map(
+                                                                (sport) => ({
+                                                                    value: String(
+                                                                        sport.id,
                                                                     ),
-                                                                )}
-                                                            </SelectContent>
-                                                        </Select>
+                                                                    label: sport.name,
+                                                                }),
+                                                            )}
+                                                            placeholder={t(
+                                                                'Select sport',
+                                                            )}
+                                                            searchPlaceholder={t(
+                                                                'Search sports…',
+                                                            )}
+                                                        />
                                                     </div>
                                                     <div className="grid gap-2">
                                                         <Label>
