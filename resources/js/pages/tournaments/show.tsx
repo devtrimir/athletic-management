@@ -139,7 +139,7 @@ type EventVariant = {
 type EventFilters = {
     q?: string | null;
     sport_id?: string | null;
-    gender_class?: string | null;
+    gender?: string | null;
     participation_status?: string | null;
     event_type?: 'individual' | 'team' | null;
 };
@@ -856,7 +856,7 @@ function EventFormFields({
 
                     <div className="grid gap-2">
                         <Label htmlFor={`${idPrefix}_gender_class`}>
-                            {t('Gender class')}{' '}
+                            {t('Gender')}{' '}
                             <span className="text-destructive">*</span>
                         </Label>
                         <Select
@@ -1287,7 +1287,7 @@ export default function TournamentsShow({
         const merged: EventFilters = {
             q: eventFilters.q ?? null,
             sport_id: eventFilters.sport_id ?? null,
-            gender_class: eventFilters.gender_class ?? null,
+            gender: eventFilters.gender ?? null,
             participation_status: eventFilters.participation_status ?? null,
             event_type: eventFilters.event_type ?? null,
             ...patch,
@@ -1561,6 +1561,47 @@ export default function TournamentsShow({
               ]
             : []),
     ];
+    const eventOverviewCards = [
+        {
+            label: t('Events'),
+            value: summary.total_events,
+            icon: Trophy,
+        },
+        {
+            label: t('Sports'),
+            value: summary.sports.length,
+            icon: Dumbbell,
+        },
+        {
+            label: t('Medals'),
+            value:
+                summary.medal_counts.GOLD +
+                summary.medal_counts.SILVER +
+                summary.medal_counts.BRONZE +
+                summary.medal_counts.MERIT,
+            icon: Medal,
+        },
+        {
+            label: t('Individual medals'),
+            value: summary.individual_medals,
+            icon: Medal,
+        },
+        {
+            label: t('Team medals'),
+            value: summary.team_medals,
+            icon: Medal,
+        },
+        {
+            label: t('Individual events'),
+            value: summary.individual_events,
+            icon: Users,
+        },
+        {
+            label: t('Team events'),
+            value: summary.team_events,
+            icon: Users,
+        },
+    ];
     const supportingDetails = [
         {
             label: t('Date from'),
@@ -1624,7 +1665,7 @@ export default function TournamentsShow({
     const hasEventFilters = !!(
         eventFilters.q ||
         eventFilters.sport_id ||
-        eventFilters.gender_class ||
+        eventFilters.gender ||
         eventFilters.participation_status ||
         eventFilters.event_type
     );
@@ -2109,6 +2150,24 @@ export default function TournamentsShow({
                     <TabsContent value="events" className="space-y-4">
                         {activeTab === 'events' ? (
                             <>
+                                <section className="overflow-x-auto">
+                                    <div className="flex min-w-max gap-2 pb-1">
+                                        {eventOverviewCards.map((item) => (
+                                            <div
+                                                key={item.label}
+                                                className="rounded-lg border bg-card p-2"
+                                            >
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <item.icon className="h-3.5 w-3.5" />
+                                                    <span>{item.label}</span>
+                                                </div>
+                                                <p className="mt-1 text-xs font-semibold">
+                                                    {item.value}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
                                 <section className="overflow-hidden rounded-xl border bg-card">
                                     <div className="border-b bg-muted/30 px-4 py-3">
                                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2190,12 +2249,11 @@ export default function TournamentsShow({
                                             </Select>
                                             <Select
                                                 value={
-                                                    eventFilters.gender_class ??
-                                                    'all'
+                                                    eventFilters.gender ?? 'all'
                                                 }
                                                 onValueChange={(value) =>
                                                     applyEventFilters({
-                                                        gender_class:
+                                                        gender:
                                                             value === 'all'
                                                                 ? null
                                                                 : value,
@@ -2205,13 +2263,13 @@ export default function TournamentsShow({
                                                 <SelectTrigger className="w-40">
                                                     <SelectValue
                                                         placeholder={t(
-                                                            'All classes',
+                                                            'All genders',
                                                         )}
                                                     />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="all">
-                                                        {t('All classes')}
+                                                        {t('All genders')}
                                                     </SelectItem>
                                                     {GENDER_CLASSES.map(
                                                         (genderClass) => (
@@ -2357,7 +2415,7 @@ export default function TournamentsShow({
                                                         {t('Type')}
                                                     </TableHead>
                                                     <TableHead className="text-right">
-                                                        {t('Participations')}
+                                                        {t('Participants')}
                                                     </TableHead>
                                                     <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
                                                         {t('Actions')}

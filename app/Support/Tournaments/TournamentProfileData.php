@@ -257,7 +257,7 @@ class TournamentProfileData
      * @return Collection<int, array<string, mixed>>
      */
     /**
-     * @param  array{q: string|null, sport_id: string|null, gender_class: string|null, participation_status: string|null}  $filters
+     * @param  array{q: string|null, sport_id: string|null, gender: string|null, participation_status: string|null}  $filters
      * @return Collection<int, array<string, mixed>>
      */
     private function eventsPayload(Tournament $tournament, array $filters)
@@ -271,7 +271,7 @@ class TournamentProfileData
                 });
             })
             ->when($filters['sport_id'], fn (Builder $query, string $sportId): Builder => $query->where('sport_id', (int) $sportId))
-            ->when($filters['gender_class'], fn (Builder $query, string $genderClass): Builder => $query->where('gender_class', $genderClass))
+            ->when($filters['gender'], fn (Builder $query, string $gender): Builder => $query->where('gender_class', $gender))
             ->when($filters['event_type'], fn (Builder $query, string $eventType): Builder => $query->where('event_type', $eventType))
             ->when(
                 $filters['participation_status'] === 'with',
@@ -691,20 +691,20 @@ class TournamentProfileData
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return array{q: string|null, sport_id: string|null, gender_class: string|null, participation_status: string|null, event_type: string|null}
+     * @return array{q: string|null, sport_id: string|null, gender: string|null, participation_status: string|null, event_type: string|null}
      */
     private function eventFilters(array $filters): array
     {
         $q = trim((string) Arr::get($filters, 'q', ''));
         $sportId = Arr::get($filters, 'sport_id');
-        $genderClass = Arr::get($filters, 'gender_class');
+        $genderClass = Arr::get($filters, 'gender', Arr::get($filters, 'gender_class'));
         $participationStatus = Arr::get($filters, 'participation_status');
         $eventType = Arr::get($filters, 'event_type');
 
         return [
             'q' => $q !== '' ? $q : null,
             'sport_id' => is_numeric($sportId) ? (string) $sportId : null,
-            'gender_class' => in_array($genderClass, ['M', 'F', 'MIXED', 'OPEN'], true) ? (string) $genderClass : null,
+            'gender' => in_array($genderClass, ['M', 'F', 'MIXED', 'OPEN'], true) ? (string) $genderClass : null,
             'participation_status' => in_array($participationStatus, ['with', 'without'], true) ? (string) $participationStatus : null,
             'event_type' => in_array($eventType, ['individual', 'team'], true) ? (string) $eventType : null,
         ];

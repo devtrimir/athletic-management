@@ -100,6 +100,19 @@ class MemberController extends Controller
             ->paginate(min((int) ($request->query('per_page', 25)), 100))
             ->withQueryString();
 
+        $members->getCollection()->transform(function (Member $member): array {
+            return array_merge($member->toArray(), [
+                'playable_sports' => $member->playableSports->map(fn ($sport): array => [
+                    'id' => $sport->id,
+                    'name' => $sport->name,
+                    'role' => $sport->pivot?->role,
+                    'position' => $sport->pivot?->position,
+                    'sport_event' => $sport->pivot?->sport_event,
+                    'notes' => $sport->pivot?->notes,
+                ])->values()->all(),
+            ]);
+        });
+
         $statusScope = $this->statusScopeFromFilters($filters);
 
         return Inertia::render('members/index', [

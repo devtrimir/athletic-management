@@ -57,13 +57,12 @@ import { useTranslation } from '@/hooks/use-translation';
 const ALL_COLUMNS = [
     { key: 'serial_no', label: 'S.No.' },
     { key: 'name', label: 'Team Name' },
-    { key: 'sport', label: 'Sport' },
-    { key: 'posting', label: 'Posting / District' },
+    { key: 'posting', label: 'Location' },
     { key: 'location_type', label: 'Location Type' },
     { key: 'district', label: 'District' },
     { key: 'unit', label: 'Unit' },
     { key: 'is_active', label: 'Status' },
-    { key: 'in_charge', label: 'In-Charge' },
+    { key: 'in_charge', label: 'Team Prabhari' },
     { key: 'incharge_pno', label: 'In-Charge PNO' },
     { key: 'incharge_rank', label: 'In-Charge Rank' },
     { key: 'incharge_designation', label: 'In-Charge Designation' },
@@ -124,7 +123,6 @@ type Team = {
     captains_count: number;
     reserves_count: number;
     coaches_count: number;
-    sport: { id: number; name: string } | null;
     session: { id: number; name: string } | null;
     district: { id: number; name: string } | null;
     unit: { id: number; name: string } | null;
@@ -383,10 +381,6 @@ export default function TeamsIndex({
     ): string {
         if (column === 'serial_no') {
             return String(serialNumber);
-        }
-
-        if (column === 'sport') {
-            return team.sport?.name ?? '';
         }
 
         if (column === 'posting') {
@@ -791,17 +785,14 @@ export default function TeamsIndex({
                                     <TableHead className="border-r border-b px-3 py-2 font-semibold">
                                         {t('Team')}
                                     </TableHead>
-                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
-                                        {t('Sport')}
-                                    </TableHead>
                                     <TableHead className="w-28 border-r border-b px-3 py-2 font-semibold">
                                         {t('Status')}
                                     </TableHead>
                                     <TableHead className="border-r border-b px-3 py-2 font-semibold">
-                                        {t('Posting / District')}
+                                        {t('Location')}
                                     </TableHead>
                                     <TableHead className="border-r border-b px-3 py-2 font-semibold">
-                                        {t('In-charge')}
+                                        {t('Team Prabhari')}
                                     </TableHead>
                                     <TableHead className="border-r border-b px-3 py-2 font-semibold">
                                         {t('Players')}
@@ -818,7 +809,7 @@ export default function TeamsIndex({
                                 {teams.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={10}
+                                            colSpan={9}
                                             className="py-12 text-center text-muted-foreground"
                                         >
                                             {hasActiveFilters
@@ -869,15 +860,6 @@ export default function TeamsIndex({
                                                         <div className="font-semibold text-foreground">
                                                             {team.name}
                                                         </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                    <div className="flex min-w-36 items-center gap-1.5 font-medium text-sky-800 dark:text-sky-200">
-                                                        <Trophy className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-300" />
-                                                        <span>
-                                                            {team.sport?.name ??
-                                                                dash()}
-                                                        </span>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="border-r border-b px-3 py-2 align-top">
