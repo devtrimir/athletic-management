@@ -25,6 +25,8 @@ class TournamentExportController extends Controller
 
     private const EVENT_REPORT_TYPE_MEDAL_LOG = 'medal_log';
 
+    private const EVENT_REPORT_TYPE_SPORT_MEDAL_LOG = 'sport_medal_log';
+
     private const EVENT_REPORT_TYPE_SUMMARY = 'summary';
 
     /** @var array<string, string> */
@@ -141,25 +143,57 @@ class TournamentExportController extends Controller
         $reportType = $this->resolveEventReportType($filters['report_type'] ?? null);
         $payload = $this->eventReportPayload($tournament, $filters, $reportType);
         $summary = $payload['summary'];
-        $rows = match ($reportType) {
-            self::EVENT_REPORT_TYPE_SUMMARY => $payload['sportRows']->map(
+        $metaRows = $this->buildEventsReportMetaRows(
+            $tournament,
+            $filters,
+            $summary,
+            $reportType,
+        );
+        $dataStartRow = count($metaRows) + 2;
+        $mergeRanges = [];
+        $rowStyles = [];
+
+        if ($reportType === self::EVENT_REPORT_TYPE_SUMMARY) {
+            $rows = $payload['sportRows']->map(
                 static fn (array $sport): array => [
                     'name' => (string) ($sport['name'] ?? ''),
                     'events_count' => (int) ($sport['events_count'] ?? 0),
                     'participants_count' => (int) ($sport['participants_count'] ?? 0),
                 ],
-            )->values(),
-            self::EVENT_REPORT_TYPE_MEDAL_LOG => $this->eventRowsForMedalLogExport($payload['events']),
-            default => $this->eventRowsForDetailExport($payload['events']),
-        };
+            )->values();
+        } elseif ($reportType === self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG) {
+            $layout = $this->eventRowsForSportMedalLogExport($payload['events'], $summary, $dataStartRow);
+            $rows = $layout['rows'];
+            $mergeRanges = $layout['mergeRanges'];
+            $rowStyles = $layout['rowStyles'];
+        } elseif ($reportType === self::EVENT_REPORT_TYPE_MEDAL_LOG) {
+            $layout = $this->eventRowsForMedalLogExport($payload['events'], $summary, $dataStartRow);
+            $rows = $layout['rows'];
+            $mergeRanges = $layout['mergeRanges'];
+            $rowStyles = $layout['rowStyles'];
+        } else {
+            $layout = $this->eventRowsForDetailExport($payload['events'], $summary, $dataStartRow);
+            $rows = $layout['rows'];
+            $mergeRanges = $layout['mergeRanges'];
+            $rowStyles = $layout['rowStyles'];
+        }
         $headings = match ($reportType) {
             self::EVENT_REPORT_TYPE_SUMMARY => [
                 __('Sport'),
                 __('Events'),
                 __('Participants'),
             ],
-            self::EVENT_REPORT_TYPE_MEDAL_LOG => [
+            self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG => [
+                __('S No'),
                 __('Sport'),
+                __('Gold'),
+                __('Silver'),
+                __('Bronze'),
+                __('Merit'),
+                __('Total Medals'),
+            ],
+            self::EVENT_REPORT_TYPE_MEDAL_LOG => [
+                __('Event S No'),
                 __('Event'),
                 __('Gender'),
                 __('Type'),
@@ -170,9 +204,10 @@ class TournamentExportController extends Controller
                 __('Total Medals'),
             ],
             default => [
-                __('Sport'),
+                __('Event S No'),
                 __('Event'),
-                __('Players'),
+                __('PNO'),
+                __('Player Name'),
                 __('Gender'),
                 __('Type'),
                 __('Participants'),
@@ -184,20 +219,15 @@ class TournamentExportController extends Controller
             ],
         };
 
-        $metaRows = $this->buildEventsReportMetaRows(
-            $tournament,
-            $filters,
-            $summary,
-            $reportType,
-        );
-
         return Excel::download(
             new ReportExport(
                 $rows,
                 $headings,
                 $tournament->name.' - '.__('Event Report'),
                 $metaRows,
+                $mergeRanges,
                 columnWidths: $this->eventReportColumnWidths($reportType),
+                rowStyles: $rowStyles,
             ),
             'tournament-events-'.now()->format('Y-m-d').'.xlsx',
         );
@@ -216,32 +246,45 @@ class TournamentExportController extends Controller
             ];
         }
 
+        if ($reportType === self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG) {
+            return [
+                'A' => 8,
+                'B' => 30,
+                'C' => 10,
+                'D' => 10,
+                'E' => 10,
+                'F' => 10,
+                'G' => 12,
+            ];
+        }
+
         if ($reportType === self::EVENT_REPORT_TYPE_MEDAL_LOG) {
             return [
-                'A' => 16,
-                'B' => 14,
-                'C' => 12,
-                'D' => 8,
-                'E' => 9,
-                'F' => 9,
-                'G' => 9,
+                'A' => 9,
+                'B' => 31,
+                'C' => 13,
+                'D' => 6,
+                'E' => 8,
+                'F' => 8,
+                'G' => 8,
                 'H' => 9,
-                'I' => 12,
+                'I' => 11,
             ];
         }
 
         return [
-            'A' => 16,
-            'B' => 14,
-            'C' => 31,
+            'A' => 9,
+            'B' => 19,
+            'C' => 9,
             'D' => 14,
             'E' => 8,
-            'F' => 15,
-            'G' => 9,
-            'H' => 9,
-            'I' => 9,
-            'J' => 9,
-            'K' => 10,
+            'F' => 6,
+            'G' => 10,
+            'H' => 6,
+            'I' => 6,
+            'J' => 6,
+            'K' => 6,
+            'L' => 8,
         ];
     }
 
@@ -477,6 +520,13 @@ class TournamentExportController extends Controller
         return [
             'name' => $name,
             'pno' => $pno,
+            'rank' => trim((string) ($player['rank'] ?? '')),
+            'posting_location' => trim((string) (
+                $player['posting_location']
+                ?? data_get($player, 'current_unit.name')
+                ?? data_get($player, 'posting_district.name')
+                ?? ''
+            )),
         ];
     }
 
@@ -599,7 +649,7 @@ class TournamentExportController extends Controller
                 })->values();
 
                 if ($normalized->isNotEmpty()) {
-                    $rows[] = '<tr class="sport-row"><th class="num">'.($groupIndex + 1).'</th><th colspan="11"><span>'.$sportName.'</span>'.$this->sportMedalSummaryHtml($events).'</th></tr>';
+                    $rows[] = '<tr class="sport-row"><th class="num">'.($groupIndex + 1).'</th><th colspan="13"><span>'.$sportName.'</span>'.$this->sportMedalSummaryHtml($events).'</th></tr>';
                 }
 
                 $eventIndex = 0;
@@ -630,14 +680,18 @@ class TournamentExportController extends Controller
                         }
 
                         $pno = e((string) ($player['pno'] ?? ''));
+                        $rank = e((string) ($player['rank'] ?? ''));
                         $name = e((string) ($player['name'] ?? ''));
+                        $postingLocation = e((string) ($player['posting_location'] ?? ''));
 
                         if ($playerIndex === 0) {
                             $rows[] = '<tr>'
                                 .'<td class="num"'.$span.'>'.($eventIndex + 1).'</td>'
                                 .'<td'.$span.'>'.e((string) $event['title']).'</td>'
                                 .'<td>'.$pno.'</td>'
+                                .'<td>'.$rank.'</td>'
                                 .'<td>'.$name.'</td>'
+                                .'<td>'.$postingLocation.'</td>'
                                 .'<td'.$span.'>'.$eventGender.'</td>'
                                 .'<td'.$span.'>'.$eventType.'</td>'
                                 .'<td class="num"'.$span.'>'.$participants.'</td>'
@@ -649,9 +703,11 @@ class TournamentExportController extends Controller
                                 .'</tr>';
                         } else {
                             $rows[] = sprintf(
-                                '<tr><td>%s</td><td>%s</td></tr>',
+                                '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
                                 $pno,
+                                $rank,
                                 $name,
+                                $postingLocation,
                             );
                         }
 
@@ -699,6 +755,28 @@ class TournamentExportController extends Controller
                 return $rows;
             })->implode('');
 
+        $sportMedalRowsHtml = $eventGroups
+            ->map(function (array $group, int $groupIndex): string {
+                $events = collect($group['events'] ?? [])->values();
+                if ($events->isEmpty()) {
+                    return '';
+                }
+
+                $totals = $this->sportMedalTotals($events);
+
+                return '<tr>'
+                    .'<td class="num">'.($groupIndex + 1).'</td>'
+                    .'<td>'.e((string) ($group['sport_name'] ?? __('Unknown sport'))).'</td>'
+                    .'<td class="num">'.$totals['gold'].'</td>'
+                    .'<td class="num">'.$totals['silver'].'</td>'
+                    .'<td class="num">'.$totals['bronze'].'</td>'
+                    .'<td class="num">'.$totals['merit'].'</td>'
+                    .'<td class="num">'.$totals['total'].'</td>'
+                    .'</tr>';
+            })
+            ->filter()
+            ->implode('');
+
         $summaryRows = $sportRows
             ->map(
                 static fn (array $sport): string => sprintf(
@@ -711,21 +789,25 @@ class TournamentExportController extends Controller
             ->implode('');
         $tableBody = match ($reportType) {
             self::EVENT_REPORT_TYPE_SUMMARY => $summaryRows === '' ? '<tr><td colspan="3">'.e(__('No sport totals available.')).'</td></tr>' : $summaryRows,
+            self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG => $sportMedalRowsHtml === '' ? '<tr><td colspan="7">'.e(__('No sport medal data available.')).'</td></tr>' : $sportMedalRowsHtml,
             self::EVENT_REPORT_TYPE_MEDAL_LOG => $medalRowsHtml === '' ? '<tr><td colspan="9">'.e(__('No medal data available.')).'</td></tr>' : $medalRowsHtml,
-            default => $eventRowsHtml === '' ? '<tr><td colspan="12">'.e(__('No event data available.')).'</td></tr>' : $eventRowsHtml,
+            default => $eventRowsHtml === '' ? '<tr><td colspan="14">'.e(__('No event data available.')).'</td></tr>' : $eventRowsHtml,
         };
         $detailMode = $reportType === self::EVENT_REPORT_TYPE_DETAIL;
         $medalLogMode = $reportType === self::EVENT_REPORT_TYPE_MEDAL_LOG;
+        $sportMedalLogMode = $reportType === self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG;
 
         $metricRows = [
             ...$this->eventReportSummaryRows($summary),
             [__('Mode'), match ($reportType) {
                 self::EVENT_REPORT_TYPE_SUMMARY => __('Sport-wise'),
+                self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG => __('Sport medal log'),
                 self::EVENT_REPORT_TYPE_MEDAL_LOG => __('Medal log'),
                 default => __('Event-wise'),
             }],
             [__('Note'), match ($reportType) {
                 self::EVENT_REPORT_TYPE_SUMMARY => __('Table shows sport-wise totals.'),
+                self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG => __('Table shows sport-wise medal totals only.'),
                 self::EVENT_REPORT_TYPE_MEDAL_LOG => __('Table shows event-wise medal counts only.'),
                 default => __('Table shows event-wise medal and participant rows.'),
             },
@@ -748,7 +830,7 @@ class TournamentExportController extends Controller
         $bronzeTotal = (int) ($summary['medal_counts']['BRONZE'] ?? 0);
         $meritTotal = (int) ($summary['medal_counts']['MERIT'] ?? 0);
         $totalMedals = $goldTotal + $silverTotal + $bronzeTotal + $meritTotal;
-        $detailTotalsRow = '<tr class="total-row"><th colspan="6">'.__('Total').'</th>'
+        $detailTotalsRow = '<tr class="total-row"><th colspan="8">'.__('Total').'</th>'
             .'<th class="num">'.(int) ($summary['total_participants'] ?? 0).'</th>'
             .'<th class="num">'.$goldTotal.'</th>'
             .'<th class="num">'.$silverTotal.'</th>'
@@ -763,19 +845,28 @@ class TournamentExportController extends Controller
             .'<th class="num">'.$meritTotal.'</th>'
             .'<th class="num">'.$totalMedals.'</th>'
             .'</tr>';
+        $sportMedalTotalsRow = '<tr class="total-row"><th colspan="2">'.__('Total').'</th>'
+            .'<th class="num">'.$goldTotal.'</th>'
+            .'<th class="num">'.$silverTotal.'</th>'
+            .'<th class="num">'.$bronzeTotal.'</th>'
+            .'<th class="num">'.$meritTotal.'</th>'
+            .'<th class="num">'.$totalMedals.'</th>'
+            .'</tr>';
         $detailReportColgroup = '<colgroup>'
-            .'<col style="width:5%">'
-            .'<col style="width:19%">'
-            .'<col style="width:9%">'
-            .'<col style="width:14%">'
-            .'<col style="width:8%">'
             .'<col style="width:4%">'
+            .'<col style="width:13%">'
             .'<col style="width:10%">'
-            .'<col style="width:6%">'
-            .'<col style="width:6%">'
-            .'<col style="width:6%">'
-            .'<col style="width:6%">'
+            .'<col style="width:9%">'
+            .'<col style="width:11%">'
+            .'<col style="width:9%">'
+            .'<col style="width:7%">'
+            .'<col style="width:4%">'
             .'<col style="width:8%">'
+            .'<col style="width:5%">'
+            .'<col style="width:5%">'
+            .'<col style="width:5%">'
+            .'<col style="width:5%">'
+            .'<col style="width:5%">'
             .'</colgroup>';
         $medalReportColgroup = '<colgroup>'
             .'<col style="width:6%">'
@@ -788,11 +879,20 @@ class TournamentExportController extends Controller
             .'<col style="width:9%">'
             .'<col style="width:11%">'
             .'</colgroup>';
+        $sportMedalReportColgroup = '<colgroup>'
+            .'<col style="width:6%">'
+            .'<col style="width:44%">'
+            .'<col style="width:10%">'
+            .'<col style="width:10%">'
+            .'<col style="width:10%">'
+            .'<col style="width:10%">'
+            .'<col style="width:10%">'
+            .'</colgroup>';
 
         $detailReportHead = '<thead><tr>'
             .'<th rowspan="2">'.__('Event S No').'</th>'
             .'<th rowspan="2">'.__('Event').'</th>'
-            .'<th colspan="2">'.__('Player').'</th>'
+            .'<th colspan="4">'.__('Player').'</th>'
             .'<th rowspan="2">'.__('Gender').'</th>'
             .'<th rowspan="2">'.__('Type').'</th>'
             .'<th rowspan="2">'.__('Participants').'</th>'
@@ -801,7 +901,7 @@ class TournamentExportController extends Controller
             .'<th rowspan="2">'.__('Bronze').'</th>'
             .'<th rowspan="2">'.__('Merit').'</th>'
             .'<th rowspan="2">'.__('Total Medals').'</th>'
-            .'</tr><tr><th>'.__('PNO').'</th><th>'.__('Player Name').'</th></tr></thead>';
+            .'</tr><tr><th>'.__('PNO').'</th><th>'.__('Rank').'</th><th>'.__('Player Name').'</th><th>'.__('Posting / District').'</th></tr></thead>';
         $medalReportHead = '<thead><tr>'
             .'<th>'.__('Event S No').'</th>'
             .'<th>'.__('Event').'</th>'
@@ -813,6 +913,40 @@ class TournamentExportController extends Controller
             .'<th>'.__('Merit').'</th>'
             .'<th>'.__('Total Medals').'</th>'
             .'</tr></thead>';
+        $sportMedalReportHead = '<thead><tr>'
+            .'<th>'.__('S No').'</th>'
+            .'<th>'.__('Sport').'</th>'
+            .'<th>'.__('Gold').'</th>'
+            .'<th>'.__('Silver').'</th>'
+            .'<th>'.__('Bronze').'</th>'
+            .'<th>'.__('Merit').'</th>'
+            .'<th>'.__('Total Medals').'</th>'
+            .'</tr></thead>';
+        $reportTableHtml = match (true) {
+            $detailMode => '<h2>'.__('Event-wise medals and participants').'</h2>'
+                .'<p class="muted">'.__('This table shows event-wise medal and participant rows for the active filters.').'</p>'
+                .'<table class="event-table">'.$detailReportColgroup.$detailReportHead.'<tbody>'
+                .$tableBody
+                .$detailTotalsRow
+                .'</tbody></table>',
+            $medalLogMode => '<h2>'.__('Medal log').'</h2>'
+                .'<p class="muted">'.__('This table shows event-wise medal counts only.').'</p>'
+                .'<table class="event-table">'.$medalReportColgroup.$medalReportHead.'<tbody>'
+                .$tableBody
+                .$medalTotalsRow
+                .'</tbody></table>',
+            $sportMedalLogMode => '<h2>'.__('Sport medal log').'</h2>'
+                .'<p class="muted">'.__('This table shows sport-wise medal totals only.').'</p>'
+                .'<table class="event-table">'.$sportMedalReportColgroup.$sportMedalReportHead.'<tbody>'
+                .$tableBody
+                .$sportMedalTotalsRow
+                .'</tbody></table>',
+            default => '<h2>'.__('Sport-wise totals').'</h2>'
+                .'<p class="muted">'.__('This table shows sport-wise totals for the active filters.').'</p>'
+                .'<table class="summary-table"><thead><tr><th>'.__('Sport').'</th><th>'.__('Events').'</th><th>'.__('Participants').'</th></tr></thead><tbody>'
+                .$tableBody
+                .'</tbody></table>',
+        };
 
         return '<!DOCTYPE html><html><head>'
             .'<meta charset="utf-8">'
@@ -830,25 +964,7 @@ class TournamentExportController extends Controller
                     .'<table class="summary-table"><thead><tr><th>'.__('Metric').'</th><th>'.__('Value').'</th></tr></thead><tbody>'
                     .$metricRowsHtml
                     .'</tbody></table>'
-            .($detailMode
-                ? '<h2>'.__('Event-wise medals and participants').'</h2>'
-                    .'<p class="muted">'.__('This table shows event-wise medal and participant rows for the active filters.').'</p>'
-                    .'<table class="event-table">'.$detailReportColgroup.$detailReportHead.'<tbody>'
-                    .$tableBody
-                    .$detailTotalsRow
-                    .'</tbody></table>'
-                : ($medalLogMode
-                    ? '<h2>'.__('Medal log').'</h2>'
-                        .'<p class="muted">'.__('This table shows event-wise medal counts only.').'</p>'
-                        .'<table class="event-table">'.$medalReportColgroup.$medalReportHead.'<tbody>'
-                        .$tableBody
-                        .$medalTotalsRow
-                        .'</tbody></table>'
-                    : '<h2>'.__('Sport-wise totals').'</h2>'
-                    .'<p class="muted">'.__('This table shows sport-wise totals for the active filters.').'</p>'
-                    .'<table class="summary-table"><thead><tr><th>'.__('Sport').'</th><th>'.__('Events').'</th><th>'.__('Participants').'</th></tr></thead><tbody>'
-                    .$tableBody
-                    .'</tbody></table>'))
+            .$reportTableHtml
             .'<script>window.onload=function(){window.print();}</script>'
         .'</body></html>';
     }
@@ -858,24 +974,91 @@ class TournamentExportController extends Controller
      */
     private function sportMedalSummaryHtml(Collection $events): string
     {
+        $totals = $this->sportMedalTotals($events);
+
+        return sprintf(
+            '<span class="sport-medals">%s %d | %s %d | %s %d | %s %d | %s %d</span>',
+            e(__('Gold')),
+            $totals['gold'],
+            e(__('Silver')),
+            $totals['silver'],
+            e(__('Bronze')),
+            $totals['bronze'],
+            e(__('Merit')),
+            $totals['merit'],
+            e(__('Total')),
+            $totals['total'],
+        );
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $events
+     * @return array{gold: int, silver: int, bronze: int, merit: int, total: int}
+     */
+    private function sportMedalTotals(Collection $events): array
+    {
         $gold = $events->sum(static fn ($event): int => is_array($event) ? (int) ($event['gold'] ?? 0) : 0);
         $silver = $events->sum(static fn ($event): int => is_array($event) ? (int) ($event['silver'] ?? 0) : 0);
         $bronze = $events->sum(static fn ($event): int => is_array($event) ? (int) ($event['bronze'] ?? 0) : 0);
         $merit = $events->sum(static fn ($event): int => is_array($event) ? (int) ($event['merit'] ?? 0) : 0);
 
+        return [
+            'gold' => $gold,
+            'silver' => $silver,
+            'bronze' => $bronze,
+            'merit' => $merit,
+            'total' => $gold + $silver + $bronze + $merit,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $events
+     */
+    private function sportMedalSummaryText(Collection $events): string
+    {
+        $totals = $this->sportMedalTotals($events);
+
         return sprintf(
-            '<span class="sport-medals">%s %d | %s %d | %s %d | %s %d | %s %d</span>',
-            e(__('Gold')),
-            $gold,
-            e(__('Silver')),
-            $silver,
-            e(__('Bronze')),
-            $bronze,
-            e(__('Merit')),
-            $merit,
-            e(__('Total')),
-            $gold + $silver + $bronze + $merit,
+            '%s %d | %s %d | %s %d | %s %d | %s %d',
+            __('Gold'),
+            $totals['gold'],
+            __('Silver'),
+            $totals['silver'],
+            __('Bronze'),
+            $totals['bronze'],
+            __('Merit'),
+            $totals['merit'],
+            __('Total'),
+            $totals['total'],
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function eventReportSportRowStyle(): array
+    {
+        return [
+            'font' => ['bold' => true],
+            'fill' => [
+                'fillType' => 'solid',
+                'startColor' => ['argb' => 'FFE9EEF5'],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function eventReportTotalRowStyle(): array
+    {
+        return [
+            'font' => ['bold' => true],
+            'fill' => [
+                'fillType' => 'solid',
+                'startColor' => ['argb' => 'FFE7E7E7'],
+            ],
+        ];
     }
 
     /**
@@ -1033,80 +1216,244 @@ class TournamentExportController extends Controller
 
     /**
      * @param  Collection<int, array<string, mixed>>  $rows
-     * @return Collection<int, array<string, mixed>>
+     * @param  array<string, mixed>  $summary
+     * @return array{rows: Collection<int, array<int, mixed>>, mergeRanges: array<int, string>, rowStyles: array<int, array<string, mixed>>}
      */
-    private function eventRowsForDetailExport(Collection $rows): Collection
+    private function eventRowsForDetailExport(Collection $rows, array $summary, int $dataStartRow): array
     {
-        $grouped = $this->groupEventRowsBySport($rows);
+        $result = [];
+        $mergeRanges = [];
+        $rowStyles = [];
 
-        $formatted = $grouped->flatMap(function (array $group): array {
-            $events = $group['events'] ?? [];
-            $index = 0;
-            $result = [];
+        foreach ($this->groupEventRowsBySport($rows)->values() as $groupIndex => $group) {
+            if (! is_array($group)) {
+                continue;
+            }
 
-            foreach ($events as $event) {
+            $events = collect($group['events'] ?? [])->values();
+            if ($events->isEmpty()) {
+                continue;
+            }
+
+            $sportRow = $dataStartRow + count($result);
+            $result[] = [
+                $groupIndex + 1,
+                (string) ($group['sport_name'] ?? __('Unknown sport')),
+                '',
+                '',
+                '',
+                '',
+                '',
+                $this->sportMedalSummaryText($events),
+                '',
+                '',
+                '',
+                '',
+            ];
+            $mergeRanges[] = "B{$sportRow}:G{$sportRow}";
+            $mergeRanges[] = "H{$sportRow}:L{$sportRow}";
+            $rowStyles[$sportRow] = $this->eventReportSportRowStyle();
+
+            foreach ($events as $eventIndex => $event) {
+                if (! is_array($event)) {
+                    continue;
+                }
+
+                $players = $this->eventPlayerRows($event);
+                if ($players === []) {
+                    $players = [['name' => '', 'pno' => '']];
+                }
+
+                foreach ($players as $playerIndex => $player) {
+                    if (! is_array($player)) {
+                        continue;
+                    }
+
+                    $isFirstPlayer = $playerIndex === 0;
+                    $result[] = [
+                        $isFirstPlayer ? $eventIndex + 1 : '',
+                        $isFirstPlayer ? (string) ($event['title'] ?? '') : '',
+                        (string) ($player['pno'] ?? ''),
+                        (string) ($player['name'] ?? ''),
+                        $isFirstPlayer ? (string) ($event['gender'] ?? '') : '',
+                        $isFirstPlayer ? (string) ($event['type'] ?? '') : '',
+                        $isFirstPlayer ? (int) ($event['participants'] ?? 0) : '',
+                        $isFirstPlayer ? (int) ($event['gold'] ?? 0) : '',
+                        $isFirstPlayer ? (int) ($event['silver'] ?? 0) : '',
+                        $isFirstPlayer ? (int) ($event['bronze'] ?? 0) : '',
+                        $isFirstPlayer ? (int) ($event['merit'] ?? 0) : '',
+                        $isFirstPlayer ? (int) ($event['total_medals'] ?? 0) : '',
+                    ];
+                }
+            }
+        }
+
+        $goldTotal = (int) ($summary['medal_counts']['GOLD'] ?? 0);
+        $silverTotal = (int) ($summary['medal_counts']['SILVER'] ?? 0);
+        $bronzeTotal = (int) ($summary['medal_counts']['BRONZE'] ?? 0);
+        $meritTotal = (int) ($summary['medal_counts']['MERIT'] ?? 0);
+        $totalRow = $dataStartRow + count($result);
+        $result[] = [
+            __('Total'),
+            '',
+            '',
+            '',
+            '',
+            '',
+            (int) ($summary['total_participants'] ?? 0),
+            $goldTotal,
+            $silverTotal,
+            $bronzeTotal,
+            $meritTotal,
+            $goldTotal + $silverTotal + $bronzeTotal + $meritTotal,
+        ];
+        $mergeRanges[] = "A{$totalRow}:F{$totalRow}";
+        $rowStyles[$totalRow] = $this->eventReportTotalRowStyle();
+
+        return [
+            'rows' => collect($result),
+            'mergeRanges' => $mergeRanges,
+            'rowStyles' => $rowStyles,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @param  array<string, mixed>  $summary
+     * @return array{rows: Collection<int, array<int, mixed>>, mergeRanges: array<int, string>, rowStyles: array<int, array<string, mixed>>}
+     */
+    private function eventRowsForMedalLogExport(Collection $rows, array $summary, int $dataStartRow): array
+    {
+        $result = [];
+        $mergeRanges = [];
+        $rowStyles = [];
+
+        foreach ($this->groupEventRowsBySport($rows)->values() as $groupIndex => $group) {
+            if (! is_array($group)) {
+                continue;
+            }
+
+            $events = collect($group['events'] ?? [])->values();
+            if ($events->isEmpty()) {
+                continue;
+            }
+
+            $sportRow = $dataStartRow + count($result);
+            $result[] = [
+                $groupIndex + 1,
+                (string) ($group['sport_name'] ?? __('Unknown sport')),
+                '',
+                '',
+                $this->sportMedalSummaryText($events),
+                '',
+                '',
+                '',
+                '',
+            ];
+            $mergeRanges[] = "B{$sportRow}:D{$sportRow}";
+            $mergeRanges[] = "E{$sportRow}:I{$sportRow}";
+            $rowStyles[$sportRow] = $this->eventReportSportRowStyle();
+
+            foreach ($events as $eventIndex => $event) {
                 if (! is_array($event)) {
                     continue;
                 }
 
                 $result[] = [
-                    'sport' => $index === 0 ? (string) ($group['sport_name'] ?? __('Unknown sport')) : '',
-                    'event' => (string) ($event['title'] ?? ''),
-                    'players' => (string) ($event['players'] ?? ''),
-                    'gender' => (string) ($event['gender'] ?? ''),
-                    'type' => (string) ($event['type'] ?? ''),
-                    'participants' => (int) ($event['participants'] ?? 0),
-                    'gold' => (int) ($event['gold'] ?? 0),
-                    'silver' => (int) ($event['silver'] ?? 0),
-                    'bronze' => (int) ($event['bronze'] ?? 0),
-                    'merit' => (int) ($event['merit'] ?? 0),
-                    'total_medals' => (int) ($event['total_medals'] ?? 0),
+                    $eventIndex + 1,
+                    (string) ($event['title'] ?? ''),
+                    (string) ($event['gender'] ?? ''),
+                    (string) ($event['type'] ?? ''),
+                    (int) ($event['gold'] ?? 0),
+                    (int) ($event['silver'] ?? 0),
+                    (int) ($event['bronze'] ?? 0),
+                    (int) ($event['merit'] ?? 0),
+                    (int) ($event['total_medals'] ?? 0),
                 ];
-
-                $index++;
             }
+        }
 
-            return $result;
-        })->values();
+        $goldTotal = (int) ($summary['medal_counts']['GOLD'] ?? 0);
+        $silverTotal = (int) ($summary['medal_counts']['SILVER'] ?? 0);
+        $bronzeTotal = (int) ($summary['medal_counts']['BRONZE'] ?? 0);
+        $meritTotal = (int) ($summary['medal_counts']['MERIT'] ?? 0);
+        $totalRow = $dataStartRow + count($result);
+        $result[] = [
+            __('Total'),
+            '',
+            '',
+            '',
+            $goldTotal,
+            $silverTotal,
+            $bronzeTotal,
+            $meritTotal,
+            $goldTotal + $silverTotal + $bronzeTotal + $meritTotal,
+        ];
+        $mergeRanges[] = "A{$totalRow}:D{$totalRow}";
+        $rowStyles[$totalRow] = $this->eventReportTotalRowStyle();
 
-        return $formatted;
+        return [
+            'rows' => collect($result),
+            'mergeRanges' => $mergeRanges,
+            'rowStyles' => $rowStyles,
+        ];
     }
 
     /**
      * @param  Collection<int, array<string, mixed>>  $rows
-     * @return Collection<int, array<string, mixed>>
+     * @param  array<string, mixed>  $summary
+     * @return array{rows: Collection<int, array<int, mixed>>, mergeRanges: array<int, string>, rowStyles: array<int, array<string, mixed>>}
      */
-    private function eventRowsForMedalLogExport(Collection $rows): Collection
+    private function eventRowsForSportMedalLogExport(Collection $rows, array $summary, int $dataStartRow): array
     {
-        return $this->groupEventRowsBySport($rows)
-            ->flatMap(function (array $group): array {
-                $events = $group['events'] ?? [];
-                $index = 0;
-                $result = [];
+        $result = [];
+        $mergeRanges = [];
+        $rowStyles = [];
 
-                foreach ($events as $event) {
-                    if (! is_array($event)) {
-                        continue;
-                    }
+        foreach ($this->groupEventRowsBySport($rows)->values() as $groupIndex => $group) {
+            if (! is_array($group)) {
+                continue;
+            }
 
-                    $result[] = [
-                        'sport' => $index === 0 ? (string) ($group['sport_name'] ?? __('Unknown sport')) : '',
-                        'event' => (string) ($event['title'] ?? ''),
-                        'gender' => (string) ($event['gender'] ?? ''),
-                        'type' => (string) ($event['type'] ?? ''),
-                        'gold' => (int) ($event['gold'] ?? 0),
-                        'silver' => (int) ($event['silver'] ?? 0),
-                        'bronze' => (int) ($event['bronze'] ?? 0),
-                        'merit' => (int) ($event['merit'] ?? 0),
-                        'total_medals' => (int) ($event['total_medals'] ?? 0),
-                    ];
+            $events = collect($group['events'] ?? [])->values();
+            if ($events->isEmpty()) {
+                continue;
+            }
 
-                    $index++;
-                }
+            $totals = $this->sportMedalTotals($events);
+            $result[] = [
+                $groupIndex + 1,
+                (string) ($group['sport_name'] ?? __('Unknown sport')),
+                $totals['gold'],
+                $totals['silver'],
+                $totals['bronze'],
+                $totals['merit'],
+                $totals['total'],
+            ];
+        }
 
-                return $result;
-            })
-            ->values();
+        $goldTotal = (int) ($summary['medal_counts']['GOLD'] ?? 0);
+        $silverTotal = (int) ($summary['medal_counts']['SILVER'] ?? 0);
+        $bronzeTotal = (int) ($summary['medal_counts']['BRONZE'] ?? 0);
+        $meritTotal = (int) ($summary['medal_counts']['MERIT'] ?? 0);
+        $totalRow = $dataStartRow + count($result);
+        $result[] = [
+            __('Total'),
+            '',
+            $goldTotal,
+            $silverTotal,
+            $bronzeTotal,
+            $meritTotal,
+            $goldTotal + $silverTotal + $bronzeTotal + $meritTotal,
+        ];
+        $mergeRanges[] = "A{$totalRow}:B{$totalRow}";
+        $rowStyles[$totalRow] = $this->eventReportTotalRowStyle();
+
+        return [
+            'rows' => collect($result),
+            'mergeRanges' => $mergeRanges,
+            'rowStyles' => $rowStyles,
+        ];
     }
 
     /**
@@ -1355,6 +1702,7 @@ class TournamentExportController extends Controller
         return match ($type) {
             self::EVENT_REPORT_TYPE_SUMMARY => self::EVENT_REPORT_TYPE_SUMMARY,
             self::EVENT_REPORT_TYPE_MEDAL_LOG => self::EVENT_REPORT_TYPE_MEDAL_LOG,
+            self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG => self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG,
             default => self::EVENT_REPORT_TYPE_DETAIL,
         };
     }

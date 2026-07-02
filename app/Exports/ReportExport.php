@@ -23,6 +23,7 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithColumnWidths, 
      * @param  array<int, array<int, string>>  $headerRows
      * @param  array<int, string>  $mergeRanges
      * @param  array<string, int|float>  $columnWidths
+     * @param  array<int, array<string, mixed>>  $rowStyles
      */
     public function __construct(
         private readonly Collection $rows,
@@ -31,6 +32,7 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithColumnWidths, 
         private readonly array $headerRows = [],
         private readonly array $mergeRanges = [],
         private readonly array $columnWidths = [],
+        private readonly array $rowStyles = [],
     ) {}
 
     public function collection(): Collection
@@ -138,10 +140,14 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithColumnWidths, 
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
             ];
             $styles[count($this->headerRows) + 1] = ['font' => ['bold' => true]];
-
-            return $styles;
+        } else {
+            $styles[1] = ['font' => ['bold' => true]];
         }
 
-        return [1 => ['font' => ['bold' => true]]];
+        foreach ($this->rowStyles as $rowNumber => $style) {
+            $styles[(int) $rowNumber] = $style;
+        }
+
+        return $styles;
     }
 }

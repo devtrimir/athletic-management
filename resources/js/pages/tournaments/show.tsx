@@ -152,7 +152,12 @@ type EventFilters = {
     gender?: string | null;
     participation_status?: string | null;
     event_type?: 'individual' | 'team' | null;
-    report_type?: 'detail' | 'summary' | 'medal_log' | null;
+    report_type?:
+        | 'detail'
+        | 'summary'
+        | 'medal_log'
+        | 'sport_medal_log'
+        | null;
 };
 
 type EventSummarySport = {
@@ -1362,7 +1367,7 @@ export default function TournamentsShow({
     }
 
     function handleEventsReportPrint(
-        reportType: 'detail' | 'summary' | 'medal_log',
+        reportType: 'detail' | 'summary' | 'medal_log' | 'sport_medal_log',
     ) {
         const url = eventsReport.url(tournament.id, {
             query:
@@ -2277,6 +2282,18 @@ export default function TournamentsShow({
                                                 >
                                                     <Printer className="mr-1.5 h-4 w-4" />
                                                     {t('Print medal log')}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleEventsReportPrint(
+                                                            'sport_medal_log',
+                                                        )
+                                                    }
+                                                >
+                                                    <Printer className="mr-1.5 h-4 w-4" />
+                                                    {t('Print sport medal log')}
                                                 </Button>
                                                 <Button
                                                     size="sm"

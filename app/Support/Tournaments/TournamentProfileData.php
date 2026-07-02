@@ -504,7 +504,8 @@ class TournamentProfileData
         }
 
         $membersById = Member::query()
-            ->select(['id', 'full_name', 'pno'])
+            ->select(['id', 'full_name', 'pno', 'rank', 'current_unit_id', 'posting_district_id'])
+            ->with(['currentUnit:id,name', 'postingDistrict:id,name'])
             ->whereIn('id', $singleMemberIds)
             ->get()
             ->keyBy('id');
@@ -517,9 +518,7 @@ class TournamentProfileData
             }
 
             $result[(int) $eventId] = [
-                'id' => (int) $member->id,
-                'full_name' => $member->full_name,
-                'pno' => $member->pno,
+                ...$this->memberPlayerPreview($member),
             ];
         }
 
@@ -534,9 +533,7 @@ class TournamentProfileData
             }
 
             $result[$eventId] = [
-                'id' => (int) $member->id,
-                'full_name' => $member->full_name,
-                'pno' => $member->pno,
+                ...$this->memberPlayerPreview($member),
             ];
         }
 
@@ -596,7 +593,8 @@ class TournamentProfileData
             ->all();
 
         $membersById = Member::query()
-            ->select(['id', 'full_name', 'pno'])
+            ->select(['id', 'full_name', 'pno', 'rank', 'current_unit_id', 'posting_district_id'])
+            ->with(['currentUnit:id,name', 'postingDistrict:id,name'])
             ->whereIn('id', $allMemberIds)
             ->get()
             ->keyBy('id');
@@ -610,11 +608,7 @@ class TournamentProfileData
                     continue;
                 }
 
-                $players[] = [
-                    'id' => (int) $member->id,
-                    'full_name' => $member->full_name,
-                    'pno' => $member->pno,
-                ];
+                $players[] = $this->memberPlayerPreview($member);
             }
 
             usort($players, static fn (array $a, array $b): int => strcmp(
@@ -630,6 +624,20 @@ class TournamentProfileData
         }
 
         return $result;
+    }
+
+    /**
+     * @return array{id: int, full_name: string, pno: string|null, rank: string|null, posting_location: string|null}
+     */
+    private function memberPlayerPreview(Member $member): array
+    {
+        return [
+            'id' => (int) $member->id,
+            'full_name' => $member->full_name,
+            'pno' => $member->pno,
+            'rank' => $member->rank,
+            'posting_location' => $member->currentUnit?->name ?? $member->postingDistrict?->name,
+        ];
     }
 
     /**
