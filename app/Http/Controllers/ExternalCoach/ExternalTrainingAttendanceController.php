@@ -108,7 +108,7 @@ class ExternalTrainingAttendanceController extends Controller
             'submitted_photo_uploaded_at' => $file === null ? null : $submittedAt,
             'submitted_photo_width' => $imageSize === false ? null : $imageSize[0],
             'submitted_photo_height' => $imageSize === false ? null : $imageSize[1],
-            'submitted_photo_source' => $file === null ? null : ($validated['submitted_photo_source'] ?? null),
+            'submitted_photo_source' => $file === null ? null : 'camera',
             'venue_latitude_snapshot' => $venue->latitude,
             'venue_longitude_snapshot' => $venue->longitude,
             'allowed_radius_meters_snapshot' => $venue->allowed_radius_meters,
