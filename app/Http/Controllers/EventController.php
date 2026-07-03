@@ -7,11 +7,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Events\StoreEventRequest;
 use App\Http\Requests\Events\UpdateEventRequest;
 use App\Models\Event;
+use App\Models\Member;
+use App\Models\Participation;
 use App\Models\Sport;
 use App\Models\Team;
 use App\Models\TeamMember;
-use App\Models\Member;
-use App\Models\Participation;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Services\Tournaments\TournamentEventPayload;
@@ -117,9 +117,15 @@ class EventController extends Controller
             ],
             'participantCandidates' => Inertia::defer(fn () => $this->participantCandidates($tournament, $event)),
             'participations' => Inertia::defer(function () use ($event): array {
+                $playableSport = fn ($query) => $query
+                    ->select(['sports.id', 'sports.name'])
+                    ->where('sports.id', $event->sport_id)
+                    ->withPivot(['role', 'position', 'sport_event']);
                 $participations = $event->participations()
                     ->with([
-                        'member:id,full_name,pno,photo_path',
+                        'member' => fn ($query) => $query
+                            ->select(['id', 'full_name', 'pno', 'photo_path'])
+                            ->with(['playableSports' => $playableSport]),
                         'team:id,name',
                         'achievement',
                     ])
@@ -136,6 +142,7 @@ class EventController extends Controller
 
                 $lineupMembersById = Member::query()
                     ->select(['id', 'full_name', 'pno', 'photo_path'])
+                    ->with(['playableSports' => $playableSport])
                     ->whereIn('id', $lineupMemberIds)
                     ->get()
                     ->keyBy('id');
@@ -150,6 +157,7 @@ class EventController extends Controller
                             'full_name' => $p->member->full_name,
                             'pno' => $p->member->pno,
                             'photo_path' => $p->member->photo_path,
+                            'sport_profile' => $this->memberSportProfile($p->member),
                         ] : null,
                         'team' => $p->team ? [
                             'id' => $p->team->id,
@@ -158,11 +166,12 @@ class EventController extends Controller
                         'lineup_members' => array_values(
                             array_filter(
                                 array_map(
-                                        fn (int $memberId): ?array => $lineupMembersById->has($memberId) ? [
-                                        'id' => $lineupMembersById[$memberId]->id,
-                                        'full_name' => $lineupMembersById[$memberId]->full_name,
-                                        'pno' => $lineupMembersById[$memberId]->pno,
-                                        'photo_path' => $lineupMembersById[$memberId]->photo_path,
+                                    fn (int $memberId): ?array => $lineupMembersById->has($memberId) ? [
+                                        'id' => $lineupMembersById->get($memberId)->id,
+                                        'full_name' => $lineupMembersById->get($memberId)->full_name,
+                                        'pno' => $lineupMembersById->get($memberId)->pno,
+                                        'photo_path' => $lineupMembersById->get($memberId)->photo_path,
+                                        'sport_profile' => $this->memberSportProfile($lineupMembersById->get($memberId)),
                                     ] : null,
                                     array_map('intval', (array) ($p->lineup_member_ids ?? [])),
                                 ),
@@ -178,6 +187,25 @@ class EventController extends Controller
                     ->all();
             }),
         ]);
+    }
+
+    /**
+     * @return array{sport_event: string|null, role: string|null, position: string|null}|null
+     */
+    private function memberSportProfile(?Member $member): ?array
+    {
+        $sport = $member?->relationLoaded('playableSports') ? $member->playableSports->first() : null;
+        if ($sport === null) {
+            return null;
+        }
+
+        $profile = [
+            'sport_event' => filled($sport->pivot?->sport_event) ? (string) $sport->pivot->sport_event : null,
+            'role' => filled($sport->pivot?->role) ? (string) $sport->pivot->role : null,
+            'position' => filled($sport->pivot?->position) ? (string) $sport->pivot->position : null,
+        ];
+
+        return collect($profile)->filter()->isEmpty() ? null : $profile;
     }
 
     /**

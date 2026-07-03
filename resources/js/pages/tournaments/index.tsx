@@ -26,6 +26,7 @@ import {
     eventsReport,
     index as exportTournamentsUrl,
 } from '@/actions/App/Http/Controllers/TournamentExportController';
+import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
@@ -41,13 +42,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -88,9 +82,15 @@ type Tournament = {
     participants_count: number;
     teams_count: number;
     medals_count: number;
+    team_medals_count: number;
+    gold_medals_count: number;
+    silver_medals_count: number;
+    bronze_medals_count: number;
+    merit_medals_count: number;
     session: Session | null;
     tier: { id: number; code: string; label: string } | null;
     sport: Sport | null;
+    sports?: Sport[];
 };
 
 type PaginationLink = { url: string | null; label: string; active: boolean };
@@ -110,6 +110,20 @@ type Filters = {
     tier_id?: string;
     sport_id?: string;
 };
+
+function tournamentSports(tournament: Tournament): Sport[] {
+    const sportsById = new Map<number, Sport>();
+
+    for (const sport of tournament.sports ?? []) {
+        sportsById.set(sport.id, sport);
+    }
+
+    if (tournament.sport) {
+        sportsById.set(tournament.sport.id, tournament.sport);
+    }
+
+    return Array.from(sportsById.values());
+}
 
 export default function TournamentsIndex({
     tournaments,
@@ -351,6 +365,28 @@ export default function TournamentsIndex({
         filters.sport_id ||
         (filters.session_id && filters.session_id !== defaultSessionFilter)
     );
+    const sessionItems = [
+        { value: 'all', label: t('All sessions') },
+        ...sessions.map((session) => ({
+            value: String(session.id),
+            label: session.name,
+        })),
+    ];
+    const tierItems = [
+        { value: 'all', label: t('All tiers') },
+        ...tiers.map((tier) => ({
+            value: String(tier.id),
+            label: tier.label,
+            description: tier.code,
+        })),
+    ];
+    const sportItems = [
+        { value: 'all', label: t('All sports') },
+        ...sports.map((sport) => ({
+            value: String(sport.id),
+            label: sport.name,
+        })),
+    ];
 
     return (
         <>
@@ -397,75 +433,46 @@ export default function TournamentsIndex({
                             className="pl-8"
                         />
                     </div>
-                    <Select
+                    <Combobox
                         value={filters.session_id ?? sessionDefaultValue}
                         onValueChange={(v) =>
                             applyFilters({
-                                session_id: v === 'all' ? undefined : v,
+                                session_id:
+                                    !v || v === 'all' ? undefined : v,
                             })
                         }
-                    >
-                        <SelectTrigger className="w-44">
-                            <SelectValue placeholder={t('All sessions')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">
-                                {t('All sessions')}
-                            </SelectItem>
-                            {sessions.map((s) => (
-                                <SelectItem key={s.id} value={String(s.id)}>
-                                    {s.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select
+                        items={sessionItems}
+                        placeholder={t('All sessions')}
+                        searchPlaceholder={t('Search sessions…')}
+                        emptyMessage={t('No sessions found.')}
+                        className="w-44"
+                    />
+                    <Combobox
                         value={filters.tier_id ?? 'all'}
                         onValueChange={(v) =>
                             applyFilters({
-                                tier_id: v === 'all' ? undefined : v,
+                                tier_id: !v || v === 'all' ? undefined : v,
                             })
                         }
-                    >
-                        <SelectTrigger className="w-40">
-                            <SelectValue placeholder={t('All tiers')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">
-                                {t('All tiers')}
-                            </SelectItem>
-                            {tiers.map((tier) => (
-                                <SelectItem
-                                    key={tier.id}
-                                    value={String(tier.id)}
-                                >
-                                    {tier.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select
+                        items={tierItems}
+                        placeholder={t('All tiers')}
+                        searchPlaceholder={t('Search tiers…')}
+                        emptyMessage={t('No tiers found.')}
+                        className="w-40"
+                    />
+                    <Combobox
                         value={filters.sport_id ?? 'all'}
                         onValueChange={(v) =>
                             applyFilters({
-                                sport_id: v === 'all' ? undefined : v,
+                                sport_id: !v || v === 'all' ? undefined : v,
                             })
                         }
-                    >
-                        <SelectTrigger className="w-44">
-                            <SelectValue placeholder={t('All sports')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">
-                                {t('All sports')}
-                            </SelectItem>
-                            {sports.map((sp) => (
-                                <SelectItem key={sp.id} value={String(sp.id)}>
-                                    {sp.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        items={sportItems}
+                        placeholder={t('All sports')}
+                        searchPlaceholder={t('Search sports…')}
+                        emptyMessage={t('No sports found.')}
+                        className="w-44"
+                    />
                     {hasActive && (
                         <Button
                             variant="ghost"
@@ -491,11 +498,11 @@ export default function TournamentsIndex({
                     itemLabel={t('tournaments')}
                     className="sticky top-0 z-40 shadow-sm"
                 />
-                <div className="overflow-x-auto rounded-xl border bg-card">
-                    <Table>
+                <div className="max-w-full overflow-x-auto rounded-xl border bg-card">
+                    <Table className="min-w-[1700px] table-fixed text-[12px] leading-tight [&_td]:px-2 [&_td]:py-2 [&_th]:h-9 [&_th]:px-2 [&_th]:text-[11px] [&_th]:tracking-wide [&_th]:whitespace-nowrap">
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead className="w-0">
+                                <TableHead className="w-10">
                                     <Checkbox
                                         checked={
                                             tournaments.data.length > 0 &&
@@ -516,27 +523,58 @@ export default function TournamentsIndex({
                                 <TableHead className="w-12">
                                     {t('S.No.')}
                                 </TableHead>
-                                <TableHead>{t('Name')}</TableHead>
-                                <TableHead>{t('Session')}</TableHead>
-                                <TableHead>{t('Tier')}</TableHead>
-                                <TableHead>{t('Sport')}</TableHead>
-                                <TableHead>{t('Venue')}</TableHead>
-                                <TableHead>{t('Dates')}</TableHead>
-                                <TableHead>{t('Status')}</TableHead>
-                                <TableHead className="text-right">
+                                <TableHead className="w-[260px]">
+                                    {t('Name')}
+                                </TableHead>
+                                <TableHead className="w-[150px]">
+                                    {t('Session')}
+                                </TableHead>
+                                <TableHead className="w-[110px]">
+                                    {t('Tier')}
+                                </TableHead>
+                                <TableHead className="w-[170px]">
+                                    {t('Sport')}
+                                </TableHead>
+                                <TableHead className="w-[170px]">
+                                    {t('Venue')}
+                                </TableHead>
+                                <TableHead className="w-[170px]">
+                                    {t('Dates')}
+                                </TableHead>
+                                <TableHead className="w-[105px]">
+                                    {t('Status')}
+                                </TableHead>
+                                <TableHead className="w-16 text-right">
                                     {t('Events')}
                                 </TableHead>
-                                <TableHead className="text-right">
+                                <TableHead className="w-20 text-right">
                                     {t('Participants')}
                                 </TableHead>
-                                <TableHead className="text-right">
+                                <TableHead className="w-16 text-right">
                                     {t('Teams')}
                                 </TableHead>
-                                <TableHead className="text-right">
+                                <TableHead className="w-20 text-right">
+                                    {t('Team Medals')}
+                                </TableHead>
+                                <TableHead className="w-14 text-right">
+                                    {t('Gold')}
+                                </TableHead>
+                                <TableHead className="w-14 text-right">
+                                    {t('Silver')}
+                                </TableHead>
+                                <TableHead className="w-14 text-right">
+                                    {t('Bronze')}
+                                </TableHead>
+                                <TableHead className="w-14 text-right">
+                                    {t('Merit')}
+                                </TableHead>
+                                <TableHead className="w-16 text-right">
                                     {t('Medals')}
                                 </TableHead>
-                                <TableHead>{t('Created')}</TableHead>
-                                <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
+                                <TableHead className="w-[110px]">
+                                    {t('Created')}
+                                </TableHead>
+                                <TableHead className="sticky right-0 z-20 w-[136px] bg-card text-right">
                                     {t('Actions')}
                                 </TableHead>
                             </TableRow>
@@ -545,7 +583,7 @@ export default function TournamentsIndex({
                             {tournaments.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={14}
+                                        colSpan={20}
                                         className="py-12 text-center text-muted-foreground"
                                     >
                                         {hasActive
@@ -558,7 +596,7 @@ export default function TournamentsIndex({
                             ) : (
                                 tournaments.data.map((t_, index) => (
                                     <TableRow key={t_.id}>
-                                        <TableCell className="w-0">
+                                        <TableCell className="w-10">
                                             <Checkbox
                                                 checked={selectedIds.has(t_.id)}
                                                 onCheckedChange={() =>
@@ -573,17 +611,25 @@ export default function TournamentsIndex({
                                                 ? tournaments.from
                                                 : 1) + index}
                                         </TableCell>
-                                        <TableCell className="font-medium">
+                                        <TableCell className="w-[260px] max-w-[260px] overflow-hidden font-medium">
                                             <Link
                                                 href={showTournament.url(t_.id)}
-                                                className="inline-flex items-center gap-2 hover:underline"
+                                                className="flex w-full min-w-0 items-center gap-2 hover:underline"
+                                                title={t_.name}
                                             >
-                                                <Trophy className="h-4 w-4 text-blue-500" />
-                                                <span>{t_.name}</span>
+                                                <Trophy className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                                                <span className="truncate">
+                                                    {t_.name}
+                                                </span>
                                             </Link>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {t_.session?.name ?? '—'}
+                                        <TableCell className="max-w-[150px] text-muted-foreground">
+                                            <span
+                                                className="block truncate"
+                                                title={t_.session?.name}
+                                            >
+                                                {t_.session?.name ?? '—'}
+                                            </span>
                                         </TableCell>
                                         <TableCell>
                                             {t_.tier ? (
@@ -599,18 +645,65 @@ export default function TournamentsIndex({
                                                 </span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {t_.sport?.name ?? '—'}
+                                        <TableCell className="max-w-[170px] text-muted-foreground">
+                                            {(() => {
+                                                const sportsList =
+                                                    tournamentSports(t_);
+                                                const title = sportsList
+                                                    .map((sport) => sport.name)
+                                                    .join(', ');
+
+                                                return sportsList.length > 0 ? (
+                                                    <div
+                                                        className="flex min-w-0 flex-wrap gap-1"
+                                                        title={title}
+                                                    >
+                                                        {sportsList
+                                                            .slice(0, 2)
+                                                            .map((sport) => (
+                                                                <Badge
+                                                                    key={
+                                                                        sport.id
+                                                                    }
+                                                                    variant="outline"
+                                                                    className="max-w-[74px] truncate border-sky-200 bg-sky-50 px-1.5 py-0 text-[10px] font-medium text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300"
+                                                                >
+                                                                    {sport.name}
+                                                                </Badge>
+                                                            ))}
+                                                        {sportsList.length >
+                                                            2 && (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="px-1.5 py-0 text-[10px]"
+                                                            >
+                                                                +
+                                                                {sportsList.length -
+                                                                    2}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-border select-none">
+                                                        —
+                                                    </span>
+                                                );
+                                            })()}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            <div className="flex items-center gap-2">
-                                                <MapPin className="h-3.5 w-3.5 text-rose-500" />
-                                                <span>{t_.venue ?? '—'}</span>
+                                        <TableCell className="max-w-[170px] text-muted-foreground">
+                                            <div
+                                                className="flex min-w-0 items-center gap-1.5"
+                                                title={t_.venue ?? undefined}
+                                            >
+                                                <MapPin className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                                                <span className="truncate">
+                                                    {t_.venue ?? '—'}
+                                                </span>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            <div className="flex items-center gap-2">
-                                                <CalendarDays className="h-3.5 w-3.5 text-sky-500" />
+                                            <div className="flex items-center gap-1.5">
+                                                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-sky-500" />
                                                 <span>{dateRange(t_)}</span>
                                             </div>
                                         </TableCell>
@@ -632,6 +725,21 @@ export default function TournamentsIndex({
                                             {t_.teams_count}
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">
+                                            {t_.team_medals_count}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium text-amber-700 tabular-nums dark:text-amber-300">
+                                            {t_.gold_medals_count}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium text-slate-600 tabular-nums dark:text-slate-300">
+                                            {t_.silver_medals_count}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium text-orange-700 tabular-nums dark:text-orange-300">
+                                            {t_.bronze_medals_count}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium text-emerald-700 tabular-nums dark:text-emerald-300">
+                                            {t_.merit_medals_count}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
                                             <span className="inline-flex items-center justify-end gap-1">
                                                 <Medal className="h-3.5 w-3.5 text-amber-500" />
                                                 {t_.medals_count}
@@ -640,11 +748,12 @@ export default function TournamentsIndex({
                                         <TableCell className="text-muted-foreground">
                                             {formatDisplayDate(t_.created_at)}
                                         </TableCell>
-                                        <TableCell className="sticky right-0 z-10 w-0 bg-card">
-                                            <div className="flex justify-end gap-1">
+                                        <TableCell className="sticky right-0 z-10 w-[136px] bg-card">
+                                            <div className="flex justify-end gap-0.5">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
+                                                    className="h-8 w-8"
                                                     title={t('Print report')}
                                                     onClick={() =>
                                                         handleTournamentReportPrint(
@@ -657,6 +766,7 @@ export default function TournamentsIndex({
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
+                                                    className="h-8 w-8"
                                                     title={t('Excel export')}
                                                     onClick={() =>
                                                         handleTournamentReportExport(
@@ -669,6 +779,7 @@ export default function TournamentsIndex({
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
+                                                    className="h-8 w-8"
                                                     title={t('Quick overview')}
                                                     onClick={() =>
                                                         setQuickOverviewTournament(
@@ -681,6 +792,7 @@ export default function TournamentsIndex({
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
+                                                    className="h-8 w-8"
                                                     title={t('View')}
                                                     asChild
                                                 >
@@ -743,6 +855,8 @@ function QuickOverviewDialog({
         return null;
     }
 
+    const sports = tournamentSports(tournament);
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
@@ -772,7 +886,9 @@ function QuickOverviewDialog({
                             {t('Sport')}
                         </span>
                         <span className="font-medium">
-                            {tournament.sport?.name ?? '—'}
+                            {sports.length > 0
+                                ? sports.map((sport) => sport.name).join(', ')
+                                : '—'}
                         </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
@@ -821,6 +937,46 @@ function QuickOverviewDialog({
                         </span>
                         <span className="font-medium">
                             {tournament.teams_count}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">
+                            {t('Team Medals')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.team_medals_count}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">
+                            {t('Gold')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.gold_medals_count}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">
+                            {t('Silver')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.silver_medals_count}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">
+                            {t('Bronze')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.bronze_medals_count}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <span className="text-muted-foreground">
+                            {t('Merit')}
+                        </span>
+                        <span className="font-medium">
+                            {tournament.merit_medals_count}
                         </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">

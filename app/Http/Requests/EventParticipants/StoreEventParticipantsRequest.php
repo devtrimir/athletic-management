@@ -34,7 +34,7 @@ class StoreEventParticipantsRequest extends FormRequest
                 'nullable',
                 'integer',
                 Rule::exists('members', 'id')->where('organization_id', $orgId),
-                Rule::distinct(),
+                'distinct',
             ],
             'participants.*.team_id' => [
                 Rule::requiredIf($eventType === 'team'),
@@ -93,11 +93,13 @@ class StoreEventParticipantsRequest extends FormRequest
                     if ($eventType === 'team') {
                         if ($teamId <= 0) {
                             $validator->errors()->add("participants.{$index}.team_id", __('Team is required for team events.'));
+
                             continue;
                         }
 
                         if (in_array($teamId, $usedTeamIds, true)) {
                             $validator->errors()->add("participants.{$index}.team_id", __('Each team can be added only once.'));
+
                             continue;
                         }
 
@@ -107,15 +109,8 @@ class StoreEventParticipantsRequest extends FormRequest
 
                         if (count($playerIds) === 0) {
                             $validator->errors()->add("participants.{$index}.player_ids", __('Choose at least one player for team lineup.'));
-                            continue;
-                        }
 
-                        if ($requiredCount !== null && count($playerIds) !== (int) $requiredCount) {
-                            $validator->errors()->add("participants.{$index}.player_ids", __('Each team must have exactly :count participants.')->replace(':count', (string) $requiredCount));
-                        } elseif ($requiredCount === null && $variantMin > 0 && count($playerIds) < $variantMin) {
-                            $validator->errors()->add("participants.{$index}.player_ids", __('Each team must have at least :count participants.')->replace(':count', (string) $variantMin));
-                        } elseif ($variantMax > 0 && count($playerIds) > $variantMax) {
-                            $validator->errors()->add("participants.{$index}.player_ids", __('Each team cannot exceed :count participants.')->replace(':count', (string) $variantMax));
+                            continue;
                         }
 
                         $activePlayerIds = TeamMember::query()
@@ -135,6 +130,7 @@ class StoreEventParticipantsRequest extends FormRequest
                     } else {
                         if ($memberId <= 0) {
                             $validator->errors()->add("participants.{$index}.member_id", __('Member is required for individual events.'));
+
                             continue;
                         }
 

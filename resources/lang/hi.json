@@ -1256,5 +1256,18 @@
     "All": "सभी",
     "Year": "वर्ष",
     "Print": "प्रिंट",
+    "Event / Level": "स्पर्धा / स्तर",
+    "Event / Role / Position": "स्पर्धा / भूमिका / स्थान",
+    "No districts found.": "कोई जिला नहीं मिला।",
+    "No locations found.": "कोई स्थान नहीं मिला।",
+    "No tiers found.": "कोई स्तर नहीं मिला।",
+    "No units found.": "कोई इकाई नहीं मिली।",
+    "Playable Event": "खेलने योग्य स्पर्धा",
+    "Role": "भूमिका",
+    "Search districts…": "जिले खोजें…",
+    "Search locations…": "स्थान खोजें…",
+    "Search units…": "इकाइयाँ खोजें…",
+    "Team Medals": "टीम पदक",
+    "Merit": "मेरिट",
     "users": "उपयोगकर्ता"
 }

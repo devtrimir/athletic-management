@@ -21,6 +21,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
+import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { TeamQuickView } from '@/components/teams/team-quick-view';
@@ -37,13 +38,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -535,6 +529,36 @@ export default function TeamsIndex({
         filters.unit_id ||
         filters.location_type
     );
+    const sessionItems = sessions.map((session) => ({
+        value: String(session.id),
+        label: session.name,
+    }));
+    const sportItems = [
+        { value: 'all', label: t('All sports') },
+        ...sports.map((sport) => ({
+            value: String(sport.id),
+            label: sport.name,
+        })),
+    ];
+    const locationTypeItems = [
+        { value: 'all', label: t('All locations') },
+        { value: 'unit', label: t('Unit') },
+        { value: 'district', label: t('District') },
+    ];
+    const districtItems = [
+        { value: 'all', label: t('All districts') },
+        ...districts.map((district) => ({
+            value: String(district.id),
+            label: district.name,
+        })),
+    ];
+    const unitItems = [
+        { value: 'all', label: t('All units') },
+        ...units.map((unit) => ({
+            value: String(unit.id),
+            label: unit.name,
+        })),
+    ];
 
     return (
         <>
@@ -548,29 +572,24 @@ export default function TeamsIndex({
                         description={t('Manage teams')}
                     />
                     <div className="flex flex-wrap justify-end gap-2">
-                        <Select
+                        <Combobox
                             value={
                                 filters.session_id ??
                                 (selectedSessionId
                                     ? String(selectedSessionId)
                                     : '')
                             }
-                            onValueChange={(v) =>
-                                applyFilters({ session_id: v }, false)
-                            }
-                        >
-                            <SelectTrigger className="w-48">
-                                <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                                <SelectValue placeholder={t('Session')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {sessions.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>
-                                        {s.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onValueChange={(value) => {
+                                if (value) {
+                                    applyFilters({ session_id: value }, false);
+                                }
+                            }}
+                            items={sessionItems}
+                            placeholder={t('Session')}
+                            searchPlaceholder={t('Search sessions…')}
+                            emptyMessage={t('No sessions found.')}
+                            className="w-48"
+                        />
                         <Button
                             variant="outline"
                             size="sm"
@@ -631,99 +650,64 @@ export default function TeamsIndex({
                         />
                     </div>
 
-                    <Select
+                    <Combobox
                         value={filters.sport_id ?? 'all'}
                         onValueChange={(v) =>
                             applyFilters({
-                                sport_id: v === 'all' ? undefined : v,
+                                sport_id:
+                                    !v || v === 'all' ? undefined : v,
                             })
                         }
-                    >
-                        <SelectTrigger className="w-44">
-                            <SelectValue placeholder={t('All sports')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">
-                                {t('All sports')}
-                            </SelectItem>
-                            {sports.map((s) => (
-                                <SelectItem key={s.id} value={String(s.id)}>
-                                    {s.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        items={sportItems}
+                        placeholder={t('All sports')}
+                        searchPlaceholder={t('Search sports…')}
+                        emptyMessage={t('No sports found.')}
+                        className="w-44"
+                    />
 
-                    <Select
+                    <Combobox
                         value={filters.location_type ?? 'all'}
                         onValueChange={(v) =>
                             applyFilters({
-                                location_type: v === 'all' ? undefined : v,
+                                location_type:
+                                    !v || v === 'all' ? undefined : v,
                             })
                         }
-                    >
-                        <SelectTrigger className="w-44">
-                            <SelectValue placeholder={t('All locations')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">
-                                {t('All locations')}
-                            </SelectItem>
-                            <SelectItem value="unit">{t('Unit')}</SelectItem>
-                            <SelectItem value="district">
-                                {t('District')}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                        items={locationTypeItems}
+                        placeholder={t('All locations')}
+                        searchPlaceholder={t('Search locations…')}
+                        emptyMessage={t('No locations found.')}
+                        className="w-44"
+                    />
 
-                    <Select
+                    <Combobox
                         value={filters.district_id ?? 'all'}
                         onValueChange={(v) =>
                             applyFilters({
-                                district_id: v === 'all' ? undefined : v,
+                                district_id:
+                                    !v || v === 'all' ? undefined : v,
                             })
                         }
-                    >
-                        <SelectTrigger className="w-44">
-                            <SelectValue placeholder={t('All districts')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">
-                                {t('All districts')}
-                            </SelectItem>
-                            {districts.map((district) => (
-                                <SelectItem
-                                    key={district.id}
-                                    value={String(district.id)}
-                                >
-                                    {district.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        items={districtItems}
+                        placeholder={t('All districts')}
+                        searchPlaceholder={t('Search districts…')}
+                        emptyMessage={t('No districts found.')}
+                        className="w-44"
+                    />
 
-                    <Select
+                    <Combobox
                         value={filters.unit_id ?? 'all'}
                         onValueChange={(v) =>
                             applyFilters({
-                                unit_id: v === 'all' ? undefined : v,
+                                unit_id: !v || v === 'all' ? undefined : v,
                             })
                         }
-                    >
-                        <SelectTrigger className="w-44">
-                            <SelectValue placeholder={t('All units')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">
-                                {t('All units')}
-                            </SelectItem>
-                            {units.map((u) => (
-                                <SelectItem key={u.id} value={String(u.id)}>
-                                    {u.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        items={unitItems}
+                        placeholder={t('All units')}
+                        searchPlaceholder={t('Search units…')}
+                        emptyMessage={t('No units found.')}
+                        className="w-44"
+                    />
 
                     {hasActiveFilters && (
                         <Button

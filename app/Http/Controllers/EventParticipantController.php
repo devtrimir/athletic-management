@@ -25,7 +25,7 @@ class EventParticipantController extends Controller
         $rows = $request->validated()['participants'];
         $isTeamEvent = $event->event_type === 'team';
 
-        DB::transaction(function () use ($tournament, $event, $rows): void {
+        DB::transaction(function () use ($tournament, $event, $rows, $isTeamEvent): void {
             foreach ($rows as $row) {
                 $teamId = $isTeamEvent ? ($row['team_id'] ?? null) : null;
                 $memberId = $isTeamEvent ? null : ($row['member_id'] ?? null);

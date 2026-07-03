@@ -6,7 +6,9 @@ namespace App\Support\Teams;
 
 use App\Http\Resources\TeamResource;
 use App\Models\CoachAssignment;
+use App\Models\Coach;
 use App\Models\Incharge;
+use App\Models\Member;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
@@ -162,10 +164,17 @@ class TeamProfileData
     /** @return array<int, array<string, mixed>> */
     private function membersPayload(Team $team, int $selectedSessionId, bool $removed): array
     {
+        $teamSportId = (int) $team->sport_id;
+        $teamSportName = $team->sport?->name;
+
         return $team->teamMembers()
             ->with([
                 'member:id,full_name,member_code,pno,rank,designation,mobile,current_unit_id',
                 'member.currentUnit:id,name',
+                'member.playableSports' => fn ($query) => $query
+                    ->select(['sports.id', 'sports.name'])
+                    ->where('sports.id', $teamSportId)
+                    ->withPivot(['sport_event', 'role', 'position']),
                 'session:id,name',
             ])
             ->where('session_id', $selectedSessionId)
@@ -185,6 +194,7 @@ class TeamProfileData
                     'rank' => $teamMember->member->rank,
                     'designation' => $teamMember->member->designation,
                     'mobile' => $teamMember->member->mobile,
+                    'playable_profile' => $this->memberPlayableProfile($teamMember->member, $teamSportName),
                     'current_unit' => $teamMember->member->currentUnit ? [
                         'id' => $teamMember->member->currentUnit->id,
                         'name' => $teamMember->member->currentUnit->name,
@@ -198,11 +208,58 @@ class TeamProfileData
             ->all();
     }
 
+    /**
+     * @return array{sport_event: string|null, role: string|null, position: string|null}|null
+     */
+    private function memberPlayableProfile(Member $member, ?string $teamSportName): ?array
+    {
+        $sport = $member->relationLoaded('playableSports') ? $member->playableSports->first() : null;
+        if ($sport === null) {
+            return null;
+        }
+
+        $profile = [
+            'sport_event' => $this->withoutSportName($sport->pivot?->sport_event, $teamSportName),
+            'role' => filled($sport->pivot?->role) ? (string) $sport->pivot->role : null,
+            'position' => filled($sport->pivot?->position) ? (string) $sport->pivot->position : null,
+        ];
+
+        return collect($profile)->filter()->isEmpty() ? null : $profile;
+    }
+
+    private function withoutSportName(mixed $value, ?string $sportName): ?string
+    {
+        $text = trim((string) ($value ?? ''));
+        $sport = trim((string) ($sportName ?? ''));
+
+        if ($text === '') {
+            return null;
+        }
+
+        if ($sport !== '' && str_starts_with(mb_strtolower($text), mb_strtolower($sport))) {
+            $text = trim(mb_substr($text, mb_strlen($sport)));
+            $text = trim($text, " \t\n\r\0\x0B-/:|");
+        }
+
+        return $text !== '' ? $text : null;
+    }
+
     /** @return array<int, array<string, mixed>> */
     private function coachesPayload(Team $team, int $selectedSessionId): array
     {
+        $teamSportId = (int) $team->sport_id;
+        $teamSportName = $team->sport?->name;
+
         return $team->coachAssignments()
-            ->with(['coach:id,full_name,pno', 'session:id,name'])
+            ->with([
+                'coach' => fn ($query) => $query
+                    ->select(['id', 'full_name', 'pno'])
+                    ->with(['sports' => fn ($query) => $query
+                        ->select(['sports.id', 'sports.name'])
+                        ->where('sports.id', $teamSportId)
+                        ->withPivot(['sport_event', 'level'])]),
+                'session:id,name',
+            ])
             ->where('session_id', $selectedSessionId)
             ->current()
             ->orderBy('id')
@@ -215,6 +272,7 @@ class TeamProfileData
                     'id' => $coachAssignment->coach->id,
                     'full_name' => $coachAssignment->coach->full_name,
                     'pno' => $coachAssignment->coach->pno,
+                    'sport_profile' => $this->coachSportProfile($coachAssignment->coach, $teamSportName),
                 ] : null,
                 'session' => $coachAssignment->session ? [
                     'id' => $coachAssignment->session->id,
@@ -222,6 +280,24 @@ class TeamProfileData
                 ] : null,
             ])
             ->all();
+    }
+
+    /**
+     * @return array{sport_event: string|null, level: string|null}|null
+     */
+    private function coachSportProfile(Coach $coach, ?string $teamSportName): ?array
+    {
+        $sport = $coach->relationLoaded('sports') ? $coach->sports->first() : null;
+        if ($sport === null) {
+            return null;
+        }
+
+        $profile = [
+            'sport_event' => $this->withoutSportName($sport->pivot?->sport_event, $teamSportName),
+            'level' => filled($sport->pivot?->level) ? (string) $sport->pivot->level : null,
+        ];
+
+        return collect($profile)->filter()->isEmpty() ? null : $profile;
     }
 
     /** @return array<int, array<string, mixed>> */
