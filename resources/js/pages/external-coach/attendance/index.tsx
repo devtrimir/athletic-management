@@ -5,7 +5,6 @@ import {
     Camera,
     CheckCircle2,
     ClipboardCheck,
-    ImageUp,
     LocateFixed,
     Save,
     UserRound,
@@ -98,7 +97,6 @@ export default function ExternalCoachAttendance({
     const [cameraReady, setCameraReady] = useState(false);
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
-    const galleryInputRef = useRef<HTMLInputElement>(null);
     const cameraStreamRef = useRef<MediaStream | null>(null);
     const cameraRequestIdRef = useRef(0);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -337,7 +335,7 @@ export default function ExternalCoachAttendance({
 
     function handlePhotoSelected(
         file: File | null,
-        source: 'camera' | 'upload',
+        source: 'camera',
     ) {
         if (!file) {
             resetPhotoState();
@@ -400,9 +398,6 @@ export default function ExternalCoachAttendance({
             cameraInputRef.current.value = '';
         }
 
-        if (galleryInputRef.current) {
-            galleryInputRef.current.value = '';
-        }
     }
 
     function captureCameraPhoto() {
@@ -444,10 +439,6 @@ export default function ExternalCoachAttendance({
                 const transfer = new DataTransfer();
                 transfer.items.add(file);
                 cameraInputRef.current.files = transfer.files;
-
-                if (galleryInputRef.current) {
-                    galleryInputRef.current.value = '';
-                }
 
                 handlePhotoSelected(file, 'camera');
                 closeCamera();
@@ -796,7 +787,7 @@ export default function ExternalCoachAttendance({
                                             name="submitted_photo_source"
                                             value={photoSource}
                                         />
-                                        <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+                                        <div className="grid min-w-0 gap-2 sm:grid-cols-1">
                                             <Button
                                                 type="button"
                                                 variant="outline"
@@ -805,20 +796,6 @@ export default function ExternalCoachAttendance({
                                             >
                                                 <Camera className="size-4" />
                                                 {t('Camera')}
-                                            </Button>
-                                            <Button
-                                                asChild
-                                                type="button"
-                                                variant="outline"
-                                                className="min-w-0 px-2 whitespace-normal"
-                                            >
-                                                <label
-                                                    htmlFor="submitted_photo_upload"
-                                                    className="cursor-pointer"
-                                                >
-                                                    <ImageUp className="size-4" />
-                                                    {t('Upload')}
-                                                </label>
                                             </Button>
                                         </div>
 
@@ -832,11 +809,6 @@ export default function ExternalCoachAttendance({
                                             required={proofRequired}
                                             className="sr-only"
                                             onChange={(event) => {
-                                                if (galleryInputRef.current) {
-                                                    galleryInputRef.current.value =
-                                                        '';
-                                                }
-
                                                 handlePhotoSelected(
                                                     event.target.files?.[0] ??
                                                         null,
@@ -844,35 +816,6 @@ export default function ExternalCoachAttendance({
                                                 );
                                             }}
                                         />
-                                        <Input
-                                            ref={galleryInputRef}
-                                            id="submitted_photo_upload"
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp"
-                                            className="sr-only"
-                                            onChange={(event) => {
-                                                const file =
-                                                    event.target.files?.[0] ??
-                                                    null;
-
-                                                if (
-                                                    file &&
-                                                    cameraInputRef.current
-                                                ) {
-                                                    const transfer =
-                                                        new DataTransfer();
-                                                    transfer.items.add(file);
-                                                    cameraInputRef.current.files =
-                                                        transfer.files;
-                                                }
-
-                                                handlePhotoSelected(
-                                                    file,
-                                                    'upload',
-                                                );
-                                            }}
-                                        />
-
                                         <div className="rounded-md border bg-card px-3 py-2 text-sm">
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="min-w-0">
@@ -1033,7 +976,7 @@ export default function ExternalCoachAttendance({
                                     .catch(() =>
                                         setCameraStatus(
                                             t(
-                                                'Unable to start camera preview. Please use Upload.',
+                                                'Unable to start camera preview. Please try again.',
                                             ),
                                         ),
                                     );
@@ -1111,10 +1054,6 @@ function photoSourceLabel(source: string, t: (key: string) => string): string {
         return t('Captured from camera');
     }
 
-    if (source === 'upload') {
-        return t('Uploaded from device');
-    }
-
     return t(source);
 }
 
@@ -1172,7 +1111,7 @@ function cameraErrorMessage(
             error.name === 'NotFoundError' ||
             error.name === 'DevicesNotFoundError'
         ) {
-            return t('No camera was found on this device. Please use Upload.');
+            return t('No camera was found on this device. Please try again.');
         }
 
         if (
@@ -1186,7 +1125,7 @@ function cameraErrorMessage(
     }
 
     return t(
-        'Unable to open camera. Please allow camera permission or use Upload.',
+        'Unable to open camera. Please allow camera permission and try again.',
     );
 }
 

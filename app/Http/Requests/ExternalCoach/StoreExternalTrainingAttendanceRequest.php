@@ -58,7 +58,7 @@ class StoreExternalTrainingAttendanceRequest extends FormRequest
                 Rule::requiredIf(fn (): bool => $this->hasFile('submitted_photo')),
                 'nullable',
                 'string',
-                Rule::in(['camera', 'upload']),
+                'in:camera',
             ],
             'submitted_photo' => [
                 Rule::requiredIf(fn (): bool => in_array($this->string('attendance_status')->toString(), ['present', 'late'], true)),
