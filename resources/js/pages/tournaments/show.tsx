@@ -2418,43 +2418,31 @@ export default function TournamentsShow({
                                             />
                                         </form>
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <Select
-                                                value={
-                                                    eventFilters.sport_id ??
-                                                    'all'
-                                                }
+                                            <Combobox
+                                                value={eventFilters.sport_id ?? 'all'}
                                                 onValueChange={(value) =>
                                                     applyEventFilters({
                                                         sport_id:
-                                                            value === 'all'
-                                                                ? null
-                                                                : value,
+                                                            value === 'all' ||
+                                                            value === ''
+                                                            ? null
+                                                            : value,
                                                     })
                                                 }
-                                            >
-                                                <SelectTrigger className="w-44">
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'All sports',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="all">
-                                                        {t('All sports')}
-                                                    </SelectItem>
-                                                    {sports.map((sport) => (
-                                                        <SelectItem
-                                                            key={sport.id}
-                                                            value={String(
-                                                                sport.id,
-                                                            )}
-                                                        >
-                                                            {sport.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                                items={[
+                                                    { value: 'all', label: t('All sports') },
+                                                    ...sports.map((sport) => ({
+                                                        value: String(sport.id),
+                                                        label: sport.name,
+                                                    })),
+                                                ]}
+                                                placeholder={t('All sports')}
+                                                searchPlaceholder={t(
+                                                    'Search sports…',
+                                                )}
+                                                className="w-44"
+                                                emptyMessage={t('No sports found.')}
+                                            />
                                             <Select
                                                 value={
                                                     eventFilters.gender ?? 'all'
