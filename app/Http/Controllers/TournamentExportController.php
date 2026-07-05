@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
@@ -295,19 +296,27 @@ class TournamentExportController extends Controller
     {
         $raw = (new TournamentProfileData)->events($tournament, $filters);
         $events = collect($raw['events'] ?? []);
+        $playerMedalsByEvent = $this->individualPlayerMedalsByEvent($events);
         $summary = $this->hydrateSummaryTotals(
             $this->buildEventSummaryFromRows($events),
             $events,
         );
         $sportRows = $this->eventReportSportRows($summary['sports'] ?? []);
 
-        $rows = $events->values()->map(function (array $event, int $index): array {
+        $rows = $events->values()->map(function (array $event, int $index) use ($playerMedalsByEvent): array {
             $gold = $this->eventMedalCount((array) $event, 'gold');
             $silver = $this->eventMedalCount((array) $event, 'silver');
             $bronze = $this->eventMedalCount((array) $event, 'bronze');
             $merit = $this->eventMedalCount((array) $event, 'merit');
+            $eventId = (int) ($event['id'] ?? 0);
+            $isIndividualEvent = (string) ($event['event_type'] ?? '') === 'individual';
+            $players = $this->eventPlayerRows((array) $event);
+            $playerMedals = $isIndividualEvent
+                ? $this->resolveIndividualEventPlayerMedals($eventId, $players, $playerMedalsByEvent)
+                : [];
 
             return [
+                'id' => $eventId,
                 'serial_number' => $index + 1,
                 'title' => $this->eventDisplayTitle($event),
                 'sport_id' => (int) data_get($event, 'sport.id', 0),
@@ -316,8 +325,10 @@ class TournamentExportController extends Controller
                 'players' => $this->eventPlayersText((array) $event),
                 'player_names' => $this->eventPlayerNamesText((array) $event),
                 'player_pnos' => $this->eventPlayerPnosText((array) $event),
-                'player_rows' => $this->eventPlayerRows((array) $event),
-                'type' => (string) ($event['event_type'] === 'team' ? __('T') : __('I')),
+                'player_rows' => $players,
+                'event_type' => (string) ($event['event_type'] ?? ''),
+                'player_medals' => $playerMedals,
+                'type' => (string) ($event['event_type'] === 'team' ? __('Team') : __('Individual')),
                 'participants' => (int) ($event['participations_count'] ?? 0),
                 'gold' => $gold,
                 'silver' => $silver,
@@ -334,6 +345,37 @@ class TournamentExportController extends Controller
                 'summary' => $summary,
                 'sportRows' => $sportRows,
             ];
+        }
+
+        if (request()->boolean('debug_payload')) {
+            $eventsSample = $rows
+                ->map(static fn (array $event): array => [
+                    'id' => (int) ($event['id'] ?? 0),
+                    'serial_number' => (int) ($event['serial_number'] ?? 0),
+                    'title' => (string) ($event['title'] ?? ''),
+                    'event_type' => (string) ($event['event_type'] ?? ''),
+                    'participant_count' => (int) ($event['participants'] ?? 0),
+                    'player_medals_empty' => empty($event['player_medals'] ?? null),
+                    'gold' => (int) ($event['gold'] ?? 0),
+                    'silver' => (int) ($event['silver'] ?? 0),
+                    'bronze' => (int) ($event['bronze'] ?? 0),
+                    'merit' => (int) ($event['merit'] ?? 0),
+                    'player_rows' => (array) ($event['player_rows'] ?? []),
+                ])
+                ->take(5)
+                ->values()
+                ->all();
+
+            Log::debug('Tournament event report payload', [
+                'tournament_id' => (int) $tournament->id,
+                'report_type' => $reportType,
+                'filters' => $filters,
+                'event_count' => $rows->count(),
+                'events_sample' => $eventsSample,
+                'player_medals_event_count' => count($playerMedalsByEvent),
+                'player_medals_event_ids' => array_keys($playerMedalsByEvent),
+                'player_medals_sample_by_event' => collect($playerMedalsByEvent)->take(5)->all(),
+            ]);
         }
 
         return [
@@ -391,6 +433,212 @@ class TournamentExportController extends Controller
             'OPEN' => (string) __('Open'),
             default => trim((string) ($value ?? '')),
         };
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $events
+     * @return array<string, array<string, string>>
+     */
+    private function individualPlayerMedalsByEvent(Collection $events): array
+    {
+        $eventIds = $events
+            ->filter(static fn (array $event): bool => (string) ($event['event_type'] ?? '') === 'individual')
+            ->map(static fn (array $event): int => (int) ($event['id'] ?? 0))
+            ->filter(static fn (int $eventId): bool => $eventId > 0)
+            ->values()
+            ->all();
+
+        if ($eventIds === []) {
+            return [];
+        }
+
+        $participations = Participation::query()
+            ->select(['id', 'event_id', 'member_id'])
+            ->with([
+                'achievement' => fn ($query) => $query
+                    ->select(['id', 'participation_id', 'medal_type'])
+                    ->orderByDesc('id'),
+                'member:id,pno',
+            ])
+            ->whereIn('event_id', $eventIds)
+            ->get();
+
+        if ($participations->isEmpty()) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($participations as $participation) {
+            if (! $participation instanceof Participation) {
+                continue;
+            }
+
+            $eventId = (int) $participation->event_id;
+            $memberId = (int) $participation->member_id;
+            $participationId = (int) $participation->getKey();
+            $achievement = $participation->achievement;
+            if (! $achievement instanceof Achievement) {
+                continue;
+            }
+            $pno = trim((string) ($participation->member?->pno ?? ''));
+            $medal = strtoupper((string) $achievement->medal_type);
+
+            if ($eventId <= 0 || ! in_array($medal, ['GOLD', 'SILVER', 'BRONZE', 'MERIT'], true)) {
+                continue;
+            }
+
+            if ($memberId > 0) {
+                $result[(string) $eventId][(string) $memberId] = $medal;
+                $result[(string) $eventId]["m:{$memberId}"] = $medal;
+            }
+
+            if ($participationId > 0) {
+                $result[(string) $eventId][(string) $participationId] = $medal;
+                $result[(string) $eventId]["p:{$participationId}"] = $medal;
+            }
+
+            if ($pno !== '') {
+                $result[(string) $eventId]["pn:{$pno}"] = $medal;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array<int, array<string, string>>  $playerRows
+     * @return array<string, string>
+     */
+    private function resolveIndividualEventPlayerMedals(int $eventId, array $playerRows, array $playerMedalsByEvent): array
+    {
+        $resolved = $this->findIndividualEventPlayerMedalsByEventId($eventId, $playerMedalsByEvent);
+        if ($resolved !== []) {
+            return $resolved;
+        }
+
+        if ($eventId <= 0 || empty($playerRows)) {
+            return [];
+        }
+
+        return $this->individualPlayerMedalsFallbackByEventRows($eventId, $playerRows);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function findIndividualEventPlayerMedalsByEventId(int $eventId, array $playerMedalsByEvent): array
+    {
+        $directKeys = [(string) $eventId, (int) $eventId];
+        foreach ($directKeys as $eventKey) {
+            if (! array_key_exists($eventKey, $playerMedalsByEvent)) {
+                continue;
+            }
+
+            $playerMedals = $playerMedalsByEvent[$eventKey];
+            if ($playerMedals !== []) {
+                return $playerMedals;
+            }
+        }
+
+        foreach ($playerMedalsByEvent as $candidateEventId => $playerMedals) {
+            if ((int) $candidateEventId !== $eventId) {
+                continue;
+            }
+
+            if ($playerMedals !== []) {
+                return $playerMedals;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<int, array<string, string>>  $playerRows
+     * @return array<string, string>
+     */
+    private function individualPlayerMedalsFallbackByEventRows(int $eventId, array $playerRows): array
+    {
+        $participationIds = [];
+        $memberIds = [];
+
+        foreach ($playerRows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $participationId = (int) ($row['participation_id'] ?? 0);
+            if ($participationId > 0) {
+                $participationIds[(string) $participationId] = $participationId;
+            }
+
+            $memberId = (int) $this->eventReportPlayerMemberId($row);
+            if ($memberId > 0) {
+                $memberIds[(string) $memberId] = $memberId;
+            }
+        }
+
+        if ($participationIds === [] && $memberIds === []) {
+            return [];
+        }
+
+        $participations = Participation::query()
+            ->select(['id', 'event_id', 'member_id'])
+            ->where('event_id', $eventId)
+            ->where(function ($query) use ($participationIds, $memberIds): void {
+                if ($participationIds !== []) {
+                    $query->whereIn('id', array_values($participationIds));
+                    if ($memberIds !== []) {
+                        $query->orWhereIn('member_id', array_values($memberIds));
+                    }
+
+                    return;
+                }
+
+                $query->whereIn('member_id', array_values($memberIds));
+            })
+            ->with([
+                'achievement' => fn ($query) => $query
+                    ->select(['id', 'participation_id', 'medal_type'])
+                    ->orderByDesc('id'),
+                'member:id,pno',
+            ])
+            ->get();
+
+        if ($participations->isEmpty()) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($participations as $participation) {
+            if (! $participation instanceof Participation) {
+                continue;
+            }
+
+            $participantId = (int) $participation->id;
+            $memberId = (int) $participation->member_id;
+            $medal = strtoupper((string) ($participation->achievement?->medal_type ?? ''));
+            if (! in_array($medal, ['GOLD', 'SILVER', 'BRONZE', 'MERIT'], true)) {
+                continue;
+            }
+
+            if ($memberId > 0) {
+                $memberKey = (string) $memberId;
+                $result[$memberKey] = $medal;
+                $result["m:{$memberKey}"] = $medal;
+            }
+
+            $participationKey = (string) $participantId;
+            $result[$participationKey] = $medal;
+            $result["p:{$participationKey}"] = $medal;
+
+            $pno = trim((string) ($participation->member?->pno ?? ''));
+            if ($pno !== '') {
+                $result["pn:{$pno}"] = $medal;
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -518,6 +766,22 @@ class TournamentExportController extends Controller
         ));
 
         return [
+            'id' => (string) (
+                $player['id']
+                ?? $player['member_id']
+                ?? $player['member']['id']
+                ?? ''
+            ),
+            'participation_id' => (string) (
+                $player['participation_id']
+                ?? $player['participation']['id']
+                ?? ''
+            ),
+            'member_id' => (string) (
+                $player['member_id']
+                ?? $player['member']['id']
+                ?? ''
+            ),
             'name' => $name,
             'pno' => $pno,
             'rank' => trim((string) ($player['rank'] ?? '')),
@@ -528,6 +792,69 @@ class TournamentExportController extends Controller
                 ?? ''
             )),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $player
+     */
+    private function eventReportPlayerMemberId(array $player): string
+    {
+        $candidateIds = [
+            $player['member_id'] ?? null,
+            $player['member']['id'] ?? null,
+            $player['id'] ?? null,
+        ];
+
+        foreach ($candidateIds as $candidateId) {
+            $normalized = trim((string) $candidateId);
+            if ($normalized === '') {
+                continue;
+            }
+
+            $memberId = (int) $normalized;
+            if ($memberId > 0) {
+                return (string) $memberId;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $player
+     * @param  array<string, string>  $playerMedals
+     */
+    private function eventReportPlayerMedalType(array $player, array $playerMedals): string
+    {
+        $memberId = $this->eventReportPlayerMemberId($player);
+        if ($memberId !== '' && isset($playerMedals[$memberId])) {
+            return strtoupper((string) $playerMedals[$memberId]);
+        }
+
+        if ($memberId !== '' && isset($playerMedals["m:{$memberId}"])) {
+            return strtoupper((string) $playerMedals["m:{$memberId}"]);
+        }
+
+        $participationId = trim((string) ($player['participation_id'] ?? ''));
+        if ($participationId === '') {
+            $participationId = trim((string) ($player['id'] ?? ''));
+        }
+        if ($participationId !== '') {
+            $normalized = (string) (int) $participationId;
+            if ($normalized !== '0' && isset($playerMedals[$normalized])) {
+                return strtoupper((string) $playerMedals[$normalized]);
+            }
+            if ($normalized !== '0' && isset($playerMedals["p:{$normalized}"])) {
+                return strtoupper((string) $playerMedals["p:{$normalized}"]);
+            }
+        }
+
+        $pno = trim((string) ($player['pno'] ?? ''));
+        if ($pno !== '' && isset($playerMedals["pn:{$pno}"])) {
+            return strtoupper((string) $playerMedals["pn:{$pno}"]);
+        }
+
+        return '';
     }
 
     /**
@@ -611,7 +938,10 @@ class TournamentExportController extends Controller
     ): string {
         $queryText = [];
         foreach ($filters as $key => $value) {
-            if ($key === 'report_type' && (string) $value === self::EVENT_REPORT_TYPE_DETAIL) {
+            if (
+                $key === 'print_orientation'
+                || ($key === 'report_type' && (string) $value === self::EVENT_REPORT_TYPE_DETAIL)
+            ) {
                 continue;
             }
 
@@ -622,6 +952,7 @@ class TournamentExportController extends Controller
 
         $title = e($tournament->name);
         $session = e($tournament->session?->name ?? '—');
+        $printOrientation = $this->resolvePrintOrientation((string) ($filters['print_orientation'] ?? 'landscape'));
         $eventGroups = $this->groupEventRowsBySport($eventRows)->values();
         $eventRowsHtml = $eventGroups
             ->flatMap(function (array $group, int $groupIndex): array {
@@ -661,8 +992,8 @@ class TournamentExportController extends Controller
 
                     $event = $item['event'];
                     $players = $item['players'];
-                    $eventRowsToSpan = max(1, count($players));
-                    $span = $eventRowsToSpan > 1 ? sprintf(' rowspan="%d"', $eventRowsToSpan) : '';
+                    $isTeamEvent = (string) ($event['event_type'] ?? '') === 'team';
+                    $playerMedals = is_array($event['player_medals'] ?? null) ? $event['player_medals'] : [];
 
                     $eventGender = e((string) ($event['gender'] ?? ''));
                     $eventType = e((string) $event['type']);
@@ -672,46 +1003,103 @@ class TournamentExportController extends Controller
                     $bronze = (int) $event['bronze'];
                     $merit = (int) $event['merit'];
                     $totalMedals = (int) $event['total_medals'];
+                    $playerCount = count($players);
+                    $metaSpan = $playerCount > 1 ? sprintf(' rowspan="%d"', $playerCount) : '';
 
-                    $playerIndex = 0;
-                    foreach ($players as $player) {
-                        if (! is_array($player)) {
-                            continue;
+                    if ($isTeamEvent) {
+                        $isFirstPlayerInEvent = true;
+
+                        foreach ($players as $player) {
+                            if (! is_array($player)) {
+                                continue;
+                            }
+
+                            $pno = e((string) ($player['pno'] ?? ''));
+                            $rank = e((string) ($player['rank'] ?? ''));
+                            $name = e((string) ($player['name'] ?? ''));
+                            $postingLocation = e((string) ($player['posting_location'] ?? ''));
+
+                            if ($isFirstPlayerInEvent) {
+                                $rows[] = '<tr>'
+                                    .'<td class="num"'.$metaSpan.'>'.($eventIndex + 1).'</td>'
+                                    .'<td'.$metaSpan.'>'.e((string) $event['title']).'</td>'
+                                    .'<td>'.$pno.'</td>'
+                                    .'<td>'.$rank.'</td>'
+                                    .'<td>'.$name.'</td>'
+                                    .'<td>'.$postingLocation.'</td>'
+                                    .'<td'.$metaSpan.'>'.$eventGender.'</td>'
+                                    .'<td'.$metaSpan.'>'.$eventType.'</td>'
+                                    .'<td class="num"'.$metaSpan.'>'.$participants.'</td>'
+                                    .'<td class="num"'.$metaSpan.'>'.$gold.'</td>'
+                                    .'<td class="num"'.$metaSpan.'>'.$silver.'</td>'
+                                    .'<td class="num"'.$metaSpan.'>'.$bronze.'</td>'
+                                    .'<td class="num"'.$metaSpan.'>'.$merit.'</td>'
+                                    .'<td class="num"'.$metaSpan.'>'.$totalMedals.'</td>'
+                                    .'</tr>';
+                            } else {
+                                $rows[] = '<tr>'
+                                    .'<td>'.$pno.'</td>'
+                                    .'<td>'.$rank.'</td>'
+                                    .'<td>'.$name.'</td>'
+                                    .'<td>'.$postingLocation.'</td>'
+                                    .'</tr>';
+                            }
+
+                            $isFirstPlayerInEvent = false;
                         }
+                    } else {
+                        $isFirstPlayerInEvent = true;
+                        $isFirstMetaCell = true;
 
-                        $pno = e((string) ($player['pno'] ?? ''));
-                        $rank = e((string) ($player['rank'] ?? ''));
-                        $name = e((string) ($player['name'] ?? ''));
-                        $postingLocation = e((string) ($player['posting_location'] ?? ''));
+                        foreach ($players as $player) {
+                            if (! is_array($player)) {
+                                continue;
+                            }
 
-                        if ($playerIndex === 0) {
-                            $rows[] = '<tr>'
-                                .'<td class="num"'.$span.'>'.($eventIndex + 1).'</td>'
-                                .'<td'.$span.'>'.e((string) $event['title']).'</td>'
-                                .'<td>'.$pno.'</td>'
-                                .'<td>'.$rank.'</td>'
-                                .'<td>'.$name.'</td>'
-                                .'<td>'.$postingLocation.'</td>'
-                                .'<td'.$span.'>'.$eventGender.'</td>'
-                                .'<td'.$span.'>'.$eventType.'</td>'
-                                .'<td class="num"'.$span.'>'.$participants.'</td>'
-                                .'<td class="num"'.$span.'>'.$gold.'</td>'
-                                .'<td class="num"'.$span.'>'.$silver.'</td>'
-                                .'<td class="num"'.$span.'>'.$bronze.'</td>'
-                                .'<td class="num"'.$span.'>'.$merit.'</td>'
-                                .'<td class="num"'.$span.'>'.$totalMedals.'</td>'
-                                .'</tr>';
-                        } else {
-                            $rows[] = sprintf(
-                                '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
-                                $pno,
-                                $rank,
-                                $name,
-                                $postingLocation,
-                            );
+                            $pno = e((string) ($player['pno'] ?? ''));
+                            $rank = e((string) ($player['rank'] ?? ''));
+                            $name = e((string) ($player['name'] ?? ''));
+                            $postingLocation = e((string) ($player['posting_location'] ?? ''));
+                            $playerMedal = $this->eventReportPlayerMedalType($player, $playerMedals);
+                            $playerGold = $playerMedal === 'GOLD' ? 1 : 0;
+                            $playerSilver = $playerMedal === 'SILVER' ? 1 : 0;
+                            $playerBronze = $playerMedal === 'BRONZE' ? 1 : 0;
+                            $playerMerit = $playerMedal === 'MERIT' ? 1 : 0;
+                            $playerMedalsCount = $playerGold + $playerSilver + $playerBronze + $playerMerit;
+                            if ($isFirstMetaCell) {
+                                $rows[] = '<tr>'
+                                    .'<td class="num"'.($metaSpan).'>'.($isFirstPlayerInEvent ? (string) ($eventIndex + 1) : '').'</td>'
+                                    .'<td'.($metaSpan).'>'.($isFirstPlayerInEvent ? e((string) $event['title']) : '').'</td>'
+                                    .'<td>'.$pno.'</td>'
+                                    .'<td>'.$rank.'</td>'
+                                    .'<td>'.$name.'</td>'
+                                    .'<td>'.$postingLocation.'</td>'
+                                    .'<td'.($metaSpan).'>'.($isFirstPlayerInEvent ? $eventGender : '').'</td>'
+                                    .'<td'.($metaSpan).'>'.($isFirstPlayerInEvent ? $eventType : '').'</td>'
+                                    .'<td class="num"'.($metaSpan).'>'.($isFirstPlayerInEvent ? (string) $participants : '').'</td>'
+                                    .'<td class="num">'.$playerGold.'</td>'
+                                    .'<td class="num">'.$playerSilver.'</td>'
+                                    .'<td class="num">'.$playerBronze.'</td>'
+                                    .'<td class="num">'.$playerMerit.'</td>'
+                                    .'<td class="num">'.$playerMedalsCount.'</td>'
+                                    .'</tr>';
+                            } else {
+                                $rows[] = '<tr>'
+                                    .'<td>'.$pno.'</td>'
+                                    .'<td>'.$rank.'</td>'
+                                    .'<td>'.$name.'</td>'
+                                    .'<td>'.$postingLocation.'</td>'
+                                    .'<td class="num">'.$playerGold.'</td>'
+                                    .'<td class="num">'.$playerSilver.'</td>'
+                                    .'<td class="num">'.$playerBronze.'</td>'
+                                    .'<td class="num">'.$playerMerit.'</td>'
+                                    .'<td class="num">'.$playerMedalsCount.'</td>'
+                                    .'</tr>';
+                            }
+
+                            $isFirstMetaCell = false;
+                            $isFirstPlayerInEvent = false;
                         }
-
-                        $playerIndex++;
                     }
 
                     $eventIndex++;
@@ -797,22 +1185,7 @@ class TournamentExportController extends Controller
         $medalLogMode = $reportType === self::EVENT_REPORT_TYPE_MEDAL_LOG;
         $sportMedalLogMode = $reportType === self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG;
 
-        $metricRows = [
-            ...$this->eventReportSummaryRows($summary),
-            [__('Mode'), match ($reportType) {
-                self::EVENT_REPORT_TYPE_SUMMARY => __('Sport-wise'),
-                self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG => __('Sport medal log'),
-                self::EVENT_REPORT_TYPE_MEDAL_LOG => __('Medal log'),
-                default => __('Event-wise'),
-            }],
-            [__('Note'), match ($reportType) {
-                self::EVENT_REPORT_TYPE_SUMMARY => __('Table shows sport-wise totals.'),
-                self::EVENT_REPORT_TYPE_SPORT_MEDAL_LOG => __('Table shows sport-wise medal totals only.'),
-                self::EVENT_REPORT_TYPE_MEDAL_LOG => __('Table shows event-wise medal counts only.'),
-                default => __('Table shows event-wise medal and participant rows.'),
-            },
-            ],
-        ];
+        $metricRows = $this->eventReportSummaryRows($summary);
         $metricRowsHtml = collect($metricRows)->map(
             static fn (array $item): string => sprintf(
                 '<tr><th>%s</th><td>%s</td></tr>',
@@ -852,22 +1225,7 @@ class TournamentExportController extends Controller
             .'<th class="num">'.$meritTotal.'</th>'
             .'<th class="num">'.$totalMedals.'</th>'
             .'</tr>';
-        $detailReportColgroup = '<colgroup>'
-            .'<col style="width:4%">'
-            .'<col style="width:13%">'
-            .'<col style="width:10%">'
-            .'<col style="width:9%">'
-            .'<col style="width:11%">'
-            .'<col style="width:9%">'
-            .'<col style="width:7%">'
-            .'<col style="width:4%">'
-            .'<col style="width:8%">'
-            .'<col style="width:5%">'
-            .'<col style="width:5%">'
-            .'<col style="width:5%">'
-            .'<col style="width:5%">'
-            .'<col style="width:5%">'
-            .'</colgroup>';
+        $detailReportColgroup = '';
         $medalReportColgroup = '<colgroup>'
             .'<col style="width:6%">'
             .'<col style="width:31%">'
@@ -951,7 +1309,7 @@ class TournamentExportController extends Controller
         return '<!DOCTYPE html><html><head>'
             .'<meta charset="utf-8">'
             .'<title>'.__('Tournament Event Report').' - '.$title.'</title>'
-            .'<style>body{font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.35;padding:12px;color:#111}h1{font-size:18px;margin:0 0 6px}h2{font-size:13px;margin:12px 0 6px}table{width:100%;border-collapse:collapse;margin:0 0 10px}th,td{border:1px solid #bbb;padding:4px 6px;vertical-align:top;text-align:left;word-break:break-word}th{background:#f1f1f1;font-weight:600}.sport-row th{background:#e9eef5;font-weight:700}.sport-row .num{width:1%;text-align:center}.sport-medals{float:right;font-weight:600;white-space:nowrap}.total-row th{background:#e7e7e7;font-weight:700}.num{text-align:right;white-space:nowrap}.summary-table th:nth-child(2),.summary-table td:nth-child(2),.summary-table th:nth-child(3),.summary-table td:nth-child(3){text-align:right;white-space:nowrap}.event-table{font-size:8.8px;table-layout:fixed}p{margin:2px 0} .muted{color:#666}</style>'
+            .'<style>@page{size:A4 '.$printOrientation.';margin:5mm}html,body{margin:0}body{font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.35;padding:6px;color:#111}h1{font-size:18px;margin:0 0 6px}h2{font-size:13px;margin:10px 0 5px}table{width:100%;border-collapse:collapse;margin:0 0 8px}th,td{border:1px solid #bbb;padding:4px 5px;vertical-align:top;text-align:left}td{word-break:break-word}th{background:#f1f1f1;font-weight:600;white-space:nowrap;word-break:normal}.sport-row th{background:#e9eef5;font-weight:700}.sport-row .num{width:1%;text-align:center}.sport-medals{float:right;font-weight:600;white-space:nowrap}.total-row th{background:#e7e7e7;font-weight:700}.num{text-align:right;white-space:nowrap}.summary-table th:nth-child(2),.summary-table td:nth-child(2),.summary-table th:nth-child(3),.summary-table td:nth-child(3){text-align:right;white-space:nowrap}.event-table{font-size:8.8px;table-layout:auto}p{margin:2px 0}.muted{color:#666}@media print{body{padding:0}.event-table{font-size:8.2px}th,td{padding:3px 4px}h1{font-size:16px}h2{font-size:12px;margin:7px 0 4px}table{margin-bottom:6px}}</style>'
             .'</head><body>'
             .'<h1>'.__('Tournament Event Report').'</h1>'
             .'<p class="muted"><strong>'.__('Tournament').':</strong> '.$title.'</p>'
@@ -1264,26 +1622,67 @@ class TournamentExportController extends Controller
                     $players = [['name' => '', 'pno' => '']];
                 }
 
-                foreach ($players as $playerIndex => $player) {
+                $isTeamEvent = (string) ($event['event_type'] ?? '') === 'team';
+                $playerMedals = is_array($event['player_medals'] ?? null) ? $event['player_medals'] : [];
+
+                if ($isTeamEvent) {
+                    $isFirstPlayerInEvent = true;
+
+                    foreach ($players as $player) {
+                        if (! is_array($player)) {
+                            continue;
+                        }
+
+                        $result[] = [
+                            $isFirstPlayerInEvent ? $eventIndex + 1 : '',
+                            $isFirstPlayerInEvent ? (string) ($event['title'] ?? '') : '',
+                            (string) ($player['pno'] ?? ''),
+                            (string) ($player['name'] ?? ''),
+                            $isFirstPlayerInEvent ? (string) ($event['gender'] ?? '') : '',
+                            $isFirstPlayerInEvent ? (string) ($event['type'] ?? '') : '',
+                            $isFirstPlayerInEvent ? (int) ($event['participants'] ?? 0) : 0,
+                            $isFirstPlayerInEvent ? (int) ($event['gold'] ?? 0) : 0,
+                            $isFirstPlayerInEvent ? (int) ($event['silver'] ?? 0) : 0,
+                            $isFirstPlayerInEvent ? (int) ($event['bronze'] ?? 0) : 0,
+                            $isFirstPlayerInEvent ? (int) ($event['merit'] ?? 0) : 0,
+                            $isFirstPlayerInEvent ? (int) ($event['total_medals'] ?? 0) : 0,
+                        ];
+
+                        $isFirstPlayerInEvent = false;
+                    }
+
+                    continue;
+                }
+
+                $isFirstPlayerInEvent = true;
+
+                foreach ($players as $player) {
                     if (! is_array($player)) {
                         continue;
                     }
 
-                    $isFirstPlayer = $playerIndex === 0;
+                    $playerMedal = $this->eventReportPlayerMedalType($player, $playerMedals);
+                    $playerGold = $playerMedal === 'GOLD' ? 1 : 0;
+                    $playerSilver = $playerMedal === 'SILVER' ? 1 : 0;
+                    $playerBronze = $playerMedal === 'BRONZE' ? 1 : 0;
+                    $playerMerit = $playerMedal === 'MERIT' ? 1 : 0;
+
                     $result[] = [
-                        $isFirstPlayer ? $eventIndex + 1 : '',
-                        $isFirstPlayer ? (string) ($event['title'] ?? '') : '',
+                        $isFirstPlayerInEvent ? $eventIndex + 1 : '',
+                        $isFirstPlayerInEvent ? (string) ($event['title'] ?? '') : '',
                         (string) ($player['pno'] ?? ''),
                         (string) ($player['name'] ?? ''),
-                        $isFirstPlayer ? (string) ($event['gender'] ?? '') : '',
-                        $isFirstPlayer ? (string) ($event['type'] ?? '') : '',
-                        $isFirstPlayer ? (int) ($event['participants'] ?? 0) : '',
-                        $isFirstPlayer ? (int) ($event['gold'] ?? 0) : '',
-                        $isFirstPlayer ? (int) ($event['silver'] ?? 0) : '',
-                        $isFirstPlayer ? (int) ($event['bronze'] ?? 0) : '',
-                        $isFirstPlayer ? (int) ($event['merit'] ?? 0) : '',
-                        $isFirstPlayer ? (int) ($event['total_medals'] ?? 0) : '',
+                        $isFirstPlayerInEvent ? (string) ($event['gender'] ?? '') : '',
+                        $isFirstPlayerInEvent ? (string) ($event['type'] ?? '') : '',
+                        $isFirstPlayerInEvent ? (int) ($event['participants'] ?? 0) : 0,
+                        $playerGold,
+                        $playerSilver,
+                        $playerBronze,
+                        $playerMerit,
+                        $playerGold + $playerSilver + $playerBronze + $playerMerit,
                     ];
+
+                    $isFirstPlayerInEvent = false;
                 }
             }
         }
@@ -1632,20 +2031,17 @@ class TournamentExportController extends Controller
      */
     private function eventReportSummaryRows(array $summary): array
     {
+        $gold = (int) ($summary['medal_counts']['GOLD'] ?? 0);
+        $silver = (int) ($summary['medal_counts']['SILVER'] ?? 0);
+        $bronze = (int) ($summary['medal_counts']['BRONZE'] ?? 0);
+        $merit = (int) ($summary['medal_counts']['MERIT'] ?? 0);
+
         return [
-            [__('Events'), (string) ((int) ($summary['total_events'] ?? 0))],
-            [__('Sports'), (string) count($summary['sports'] ?? [])],
-            [__('Medals'), (string) (
-                (int) ($summary['medal_counts']['GOLD'] ?? 0) +
-                (int) ($summary['medal_counts']['SILVER'] ?? 0) +
-                (int) ($summary['medal_counts']['BRONZE'] ?? 0) +
-                (int) ($summary['medal_counts']['MERIT'] ?? 0)
-            )],
-            [__('Individual medals'), (string) ((int) ($summary['individual_medals'] ?? 0))],
-            [__('Team medals'), (string) ((int) ($summary['team_medals'] ?? 0))],
-            [__('Individual events'), (string) ((int) ($summary['individual_events'] ?? 0))],
-            [__('Team events'), (string) ((int) ($summary['team_events'] ?? 0))],
-            [__('Participants'), (string) ((int) ($summary['total_participants'] ?? 0))],
+            [__('Gold'), (string) $gold],
+            [__('Silver'), (string) $silver],
+            [__('Bronze'), (string) $bronze],
+            [__('Merit'), (string) $merit],
+            [__('Total Medals'), (string) ($gold + $silver + $bronze + $merit)],
         ];
     }
 
@@ -1666,6 +2062,7 @@ class TournamentExportController extends Controller
             'gender' => null,
             'participation_status' => null,
             'event_type' => null,
+            'print_orientation' => 'landscape',
             'report_type' => self::EVENT_REPORT_TYPE_DETAIL,
         ];
 
@@ -1694,7 +2091,16 @@ class TournamentExportController extends Controller
             $clean['report_type'] = $this->resolveEventReportType($eventFilters['report_type']);
         }
 
+        if (is_string($eventFilters['print_orientation'] ?? null)) {
+            $clean['print_orientation'] = $this->resolvePrintOrientation($eventFilters['print_orientation']);
+        }
+
         return $clean;
+    }
+
+    private function resolvePrintOrientation(?string $orientation): string
+    {
+        return $orientation === 'portrait' ? 'portrait' : 'landscape';
     }
 
     private function resolveEventReportType(?string $type): string
@@ -1721,6 +2127,7 @@ class TournamentExportController extends Controller
             if (
                 $value === null
                 || (string) $value === ''
+                || $key === 'print_orientation'
                 || ($key === 'report_type' && (string) $value === self::EVENT_REPORT_TYPE_DETAIL)
             ) {
                 continue;

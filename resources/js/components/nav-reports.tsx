@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     Award,
     BarChart2,
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useTranslation } from '@/hooks/use-translation';
+import type { Auth } from '@/types';
 
 // Paths: medals uses the dedicated controller; all others use ReportController.show.
 const REPORT_PATHS = {
@@ -41,6 +42,11 @@ const REPORT_PATHS = {
 export function NavReports() {
     const { t } = useTranslation();
     const { isCurrentUrl } = useCurrentUrl();
+    const { auth } = usePage().props as { auth?: Partial<Auth> };
+
+    if (!auth?.permissions?.includes('reports.view')) {
+        return null;
+    }
 
     const items = [
         {

@@ -115,6 +115,12 @@ type EventProp = {
     sport: { id: number; name: string } | null;
 };
 
+type PlayerSportProfile = {
+    sport_event: string | null;
+    role: string | null;
+    position: string | null;
+};
+
 type ParticipationRow = {
     id: number;
     position: number | null;
@@ -125,12 +131,14 @@ type ParticipationRow = {
         full_name: string;
         pno: string | null;
         photo_path: string | null;
+        sport_profile: PlayerSportProfile | null;
     } | null;
     lineup_members: {
         id: number;
         full_name: string;
         pno: string | null;
         photo_path: string | null;
+        sport_profile: PlayerSportProfile | null;
     }[];
     achievement: {
         medal_type: string | null;
@@ -1070,11 +1078,17 @@ function AddParticipantDialog({
     const candidates = participantCandidates ?? [];
     const candidatesLoading = participantCandidates === undefined;
     const candidateTeams = candidates.filter((team) => team.members.length > 0);
+    const hasSingleTeam = candidateTeams.length === 1;
+    const defaultTeam = candidateTeams[0] ?? null;
+    const effectiveSelectedTeamId =
+        selectedTeamId ??
+        (isTeamEvent && hasSingleTeam ? (defaultTeam?.id ?? null) : null);
     const selectedTeam =
-        selectedTeamId === null
+        effectiveSelectedTeamId === null
             ? null
-            : (candidateTeams.find((team) => team.id === selectedTeamId) ??
-              null);
+            : (candidateTeams.find(
+                  (team) => team.id === effectiveSelectedTeamId,
+              ) ?? null);
     const selectedIdSet = new Set(selectedIds);
     const normalizedQuery = query.trim().toLowerCase();
     const totalCandidates = candidates.reduce(
@@ -1169,20 +1183,13 @@ function AddParticipantDialog({
 
     const teamModeValidationMessage =
         isTeamEvent && event.participants_required
-            ? t('Team must include exactly :count players.').replace(
-                  ':count',
-                  String(event.participants_required),
-              )
+            ? t('Team players are optional; choose as many as needed.')
             : t('Select players from one team for this team entry.');
 
     const submitDisabled =
         submitting ||
         selectedCandidates.length === 0 ||
-        (isTeamEvent &&
-            (!selectedTeamId ||
-                (event.participants_required !== null &&
-                    selectedCandidates.length !==
-                        event.participants_required)));
+        (isTeamEvent && !effectiveSelectedTeamId);
 
     function toggleCandidate(memberId: number) {
         setSelectedIds((current) =>
@@ -1222,7 +1229,7 @@ function AddParticipantDialog({
 
         if (
             selectedCandidates.length === 0 ||
-            (isTeamEvent && !selectedTeamId)
+            (isTeamEvent && !effectiveSelectedTeamId)
         ) {
             return;
         }
@@ -1237,7 +1244,7 @@ function AddParticipantDialog({
                 participants: isTeamEvent
                     ? [
                           {
-                              team_id: selectedTeamId,
+                              team_id: effectiveSelectedTeamId,
                               player_ids: selectedIds,
                           },
                       ]
@@ -1262,7 +1269,7 @@ function AddParticipantDialog({
                 }
             }}
         >
-            <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
+            <DialogContent className="flex h-[92vh] max-h-[92vh] max-w-3xl flex-col overflow-hidden sm:max-w-3xl">
                 <DialogHeader className="border-b px-5 py-4 pr-12">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
@@ -1294,10 +1301,10 @@ function AddParticipantDialog({
                 <form
                     id="add-participant-form"
                     onSubmit={handleSubmit}
-                    className="flex max-h-[72vh] flex-col"
+                    className="flex min-h-0 flex-1 flex-col"
                 >
                     <div className="space-y-3 border-b bg-muted/20 px-5 py-4">
-                        {isTeamEvent ? (
+                        {isTeamEvent && candidateTeams.length > 1 ? (
                             <div className="grid gap-2">
                                 <Label htmlFor="event-team-select">
                                     {t('Select team')}
@@ -1411,294 +1418,305 @@ function AddParticipantDialog({
                         />
                     </div>
 
-                    <div className="flex min-h-0 flex-1 flex-col">
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-2.5">
-                            <div className="text-xs text-muted-foreground">
-                                {isTeamEvent
-                                    ? t('Team roster')
-                                    : hasActiveFilters
-                                      ? t('Filtered roster')
-                                      : t('All matching active teams')}
-                            </div>
-                            {visibleCandidates.length > 0 && (
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={
-                                            allVisibleSelected
-                                                ? clearVisibleCandidates
-                                                : selectVisibleCandidates
-                                        }
-                                    >
-                                        <Check className="mr-1.5 h-4 w-4" />
-                                        {allVisibleSelected
-                                            ? t('Clear shown')
-                                            : t('Select shown')}
-                                    </Button>
-                                    {hasActiveFilters && (
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                                setQuery('');
-                                                setFilterCategory('');
-                                                setFilterLevel('');
-                                            }}
-                                        >
-                                            {t('Reset filters')}
-                                        </Button>
-                                    )}
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                        <div className="max-h-[calc(92vh-22rem)] min-h-0 overflow-y-auto">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-2.5">
+                                <div className="text-xs text-muted-foreground">
+                                    {isTeamEvent
+                                        ? t('Team roster')
+                                        : hasActiveFilters
+                                          ? t('Filtered roster')
+                                          : t('All matching active teams')}
                                 </div>
-                            )}
-                        </div>
-
-                        {selectedCandidates.length > 0 && (
-                            <div className="border-b bg-background px-5 py-3">
-                                <div className="flex flex-wrap gap-2">
-                                    {selectedCandidates
-                                        .slice(0, 6)
-                                        .map((member) => (
-                                            <span
-                                                key={member.id}
-                                                className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-xs"
-                                            >
-                                                <span className="truncate font-medium">
-                                                    {member.full_name}
-                                                </span>
-                                                {member.pno && (
-                                                    <span className="font-mono text-muted-foreground">
-                                                        {member.pno}
-                                                    </span>
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    className="text-muted-foreground hover:text-foreground"
-                                                    onClick={() =>
-                                                        removeSelectedCandidate(
-                                                            member.id,
-                                                        )
-                                                    }
-                                                >
-                                                    <X className="h-3.5 w-3.5" />
-                                                    <span className="sr-only">
-                                                        {t('Remove')}
-                                                    </span>
-                                                </button>
-                                            </span>
-                                        ))}
-                                    {selectedCandidates.length > 6 && (
-                                        <span className="inline-flex items-center rounded-md border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
-                                            +{selectedCandidates.length - 6}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="min-h-72 flex-1 overflow-y-auto">
-                            {candidatesLoading && (
-                                <div className="space-y-2 p-5">
-                                    <Skeleton className="h-14 w-full" />
-                                    <Skeleton className="h-14 w-full" />
-                                    <Skeleton className="h-14 w-2/3" />
-                                </div>
-                            )}
-
-                            {!candidatesLoading && candidates.length === 0 && (
-                                <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-                                    <Users className="h-8 w-8 text-muted-foreground" />
-                                    <p className="text-sm font-medium">
-                                        {t(
-                                            'No active teams found for this event.',
-                                        )}
-                                    </p>
-                                    <p className="max-w-md text-sm text-muted-foreground">
-                                        {event.sport
-                                            ? t(
-                                                  'Create or activate a :sport team for this session first.',
-                                              ).replace(
-                                                  ':sport',
-                                                  event.sport.name,
-                                              )
-                                            : t(
-                                                  'Set the event sport before adding participants.',
-                                              )}
-                                    </p>
-                                </div>
-                            )}
-
-                            {!candidatesLoading &&
-                                candidates.length > 0 &&
-                                totalCandidates === 0 && (
-                                    <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-                                        <Users className="h-8 w-8 text-muted-foreground" />
-                                        <p className="text-sm font-medium">
-                                            {t(
-                                                'No eligible athletes left to add.',
-                                            )}
-                                        </p>
-                                        <p className="max-w-md text-sm text-muted-foreground">
-                                            {t(
-                                                'Everyone on the matching active roster is already added or filtered out by the event gender.',
-                                            )}
-                                        </p>
-                                    </div>
-                                )}
-
-                            {!candidatesLoading &&
-                                totalCandidates > 0 &&
-                                visibleCandidateTeams.length === 0 && (
-                                    <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-                                        <Search className="h-8 w-8 text-muted-foreground" />
-                                        <p className="text-sm font-medium">
-                                            {t(
-                                                'No roster members match the filters.',
-                                            )}
-                                        </p>
+                                {visibleCandidates.length > 0 && (
+                                    <div className="flex gap-2">
                                         <Button
                                             type="button"
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => {
-                                                setQuery('');
-                                                setFilterCategory('');
-                                                setFilterLevel('');
-                                            }}
+                                            onClick={
+                                                allVisibleSelected
+                                                    ? clearVisibleCandidates
+                                                    : selectVisibleCandidates
+                                            }
                                         >
-                                            {t('Reset filters')}
+                                            <Check className="mr-1.5 h-4 w-4" />
+                                            {allVisibleSelected
+                                                ? t('Clear shown')
+                                                : t('Select shown')}
                                         </Button>
+                                        {hasActiveFilters && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setQuery('');
+                                                    setFilterCategory('');
+                                                    setFilterLevel('');
+                                                }}
+                                            >
+                                                {t('Reset filters')}
+                                            </Button>
+                                        )}
                                     </div>
                                 )}
+                            </div>
 
-                            {visibleCandidateTeams.map((team) => (
-                                <div
-                                    key={team.id}
-                                    className="border-b last:border-b-0"
-                                >
-                                    <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-sky-50 px-5 py-2.5 backdrop-blur dark:bg-sky-950/30">
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-semibold text-sky-950 dark:text-sky-100">
-                                                {team.name}
-                                            </p>
-                                            <p className="text-xs text-sky-700 dark:text-sky-300">
-                                                {team.members.length}{' '}
-                                                {t(
-                                                    team.members.length === 1
-                                                        ? 'athlete'
-                                                        : 'athletes',
-                                                )}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="grid gap-2 p-3 sm:grid-cols-2">
-                                        {team.members.map((member) => {
-                                            const selected = selectedIdSet.has(
-                                                member.id,
-                                            );
-
-                                            return (
-                                                <label
-                                                    key={member.team_member_id}
-                                                    className={cn(
-                                                        'flex cursor-pointer items-start gap-3 rounded-md border px-3 py-3 transition-colors',
-                                                        selected
-                                                            ? 'border-sky-300 bg-sky-50/80 ring-1 ring-sky-200 dark:border-sky-800 dark:bg-sky-950/30 dark:ring-sky-900'
-                                                            : 'border-border bg-background hover:border-sky-200 hover:bg-sky-50/40 dark:hover:border-sky-900 dark:hover:bg-sky-950/20',
-                                                    )}
+                            {selectedCandidates.length > 0 && (
+                                <div className="border-b bg-background px-5 py-3">
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedCandidates
+                                            .slice(0, 6)
+                                            .map((member) => (
+                                                <span
+                                                    key={member.id}
+                                                    className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-xs"
                                                 >
-                                                    <Checkbox
-                                                        className="mt-0.5"
-                                                        checked={selected}
-                                                        onCheckedChange={() =>
-                                                            toggleCandidate(
+                                                    <span className="truncate font-medium">
+                                                        {member.full_name}
+                                                    </span>
+                                                    {member.pno && (
+                                                        <span className="font-mono text-muted-foreground">
+                                                            {member.pno}
+                                                        </span>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        className="text-muted-foreground hover:text-foreground"
+                                                        onClick={() =>
+                                                            removeSelectedCandidate(
                                                                 member.id,
                                                             )
                                                         }
-                                                    />
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <span className="truncate text-base leading-5 font-semibold">
-                                                                {
-                                                                    member.full_name
-                                                                }
-                                                            </span>
-                                                            {member.pno && (
-                                                                <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                                                                    {member.pno}
-                                                                </span>
-                                                            )}
-                                                            <Badge
-                                                                variant={
-                                                                    selected
-                                                                        ? 'secondary'
-                                                                        : 'outline'
-                                                                }
-                                                                className={cn(
-                                                                    'text-[11px]',
-                                                                    selected
-                                                                        ? 'border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-100'
-                                                                        : '',
-                                                                )}
-                                                            >
-                                                                {t(member.role)}
-                                                            </Badge>
-                                                        </div>
-                                                        <div className="mt-1 space-y-1 text-sm text-muted-foreground">
-                                                            <p className="truncate">
-                                                                {[
-                                                                    genderLabel(
-                                                                        member.gender,
-                                                                        t,
-                                                                    ),
-                                                                    t(
-                                                                        member.player_category,
-                                                                    ),
-                                                                    levelLabelByCode.get(
-                                                                        member.player_level,
-                                                                    ) ??
-                                                                        t(
-                                                                            member.player_level,
-                                                                        ),
-                                                                    t(
-                                                                        member.current_status,
-                                                                    ),
-                                                                ]
-                                                                    .filter(
-                                                                        Boolean,
-                                                                    )
-                                                                    .join(
-                                                                        ' · ',
-                                                                    )}
-                                                            </p>
-                                                            {member.sport_event ? (
-                                                                <p className="truncate">
-                                                                    <span className="font-medium text-foreground">
-                                                                        {t(
-                                                                            'Event / discipline',
-                                                                        )}
-                                                                        :
-                                                                    </span>{' '}
-                                                                    {
-                                                                        member.sport_event
-                                                                    }
-                                                                </p>
-                                                            ) : null}
-                                                        </div>
-                                                    </div>
-                                                </label>
-                                            );
-                                        })}
+                                                    >
+                                                        <X className="h-3.5 w-3.5" />
+                                                        <span className="sr-only">
+                                                            {t('Remove')}
+                                                        </span>
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        {selectedCandidates.length > 6 && (
+                                            <span className="inline-flex items-center rounded-md border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+                                                +{selectedCandidates.length - 6}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                            ))}
+                            )}
+
+                            <div>
+                                {candidatesLoading && (
+                                    <div className="space-y-2 p-5">
+                                        <Skeleton className="h-14 w-full" />
+                                        <Skeleton className="h-14 w-full" />
+                                        <Skeleton className="h-14 w-2/3" />
+                                    </div>
+                                )}
+
+                                {!candidatesLoading &&
+                                    candidates.length === 0 && (
+                                        <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                                            <Users className="h-8 w-8 text-muted-foreground" />
+                                            <p className="text-sm font-medium">
+                                                {t(
+                                                    'No active teams found for this event.',
+                                                )}
+                                            </p>
+                                            <p className="max-w-md text-sm text-muted-foreground">
+                                                {event.sport
+                                                    ? t(
+                                                          'Create or activate a :sport team for this session first.',
+                                                      ).replace(
+                                                          ':sport',
+                                                          event.sport.name,
+                                                      )
+                                                    : t(
+                                                          'Set the event sport before adding participants.',
+                                                      )}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                {!candidatesLoading &&
+                                    candidates.length > 0 &&
+                                    totalCandidates === 0 && (
+                                        <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                                            <Users className="h-8 w-8 text-muted-foreground" />
+                                            <p className="text-sm font-medium">
+                                                {t(
+                                                    'No eligible athletes left to add.',
+                                                )}
+                                            </p>
+                                            <p className="max-w-md text-sm text-muted-foreground">
+                                                {t(
+                                                    'Everyone on the matching active roster is already added or filtered out by the event gender.',
+                                                )}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                {!candidatesLoading &&
+                                    totalCandidates > 0 &&
+                                    visibleCandidateTeams.length === 0 && (
+                                        <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                                            <Search className="h-8 w-8 text-muted-foreground" />
+                                            <p className="text-sm font-medium">
+                                                {t(
+                                                    'No roster members match the filters.',
+                                                )}
+                                            </p>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setQuery('');
+                                                    setFilterCategory('');
+                                                    setFilterLevel('');
+                                                }}
+                                            >
+                                                {t('Reset filters')}
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                {visibleCandidateTeams.map((team) => (
+                                    <div
+                                        key={team.id}
+                                        className="border-b last:border-b-0"
+                                    >
+                                        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-sky-50 px-5 py-2.5 backdrop-blur dark:bg-sky-950/30">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold text-sky-950 dark:text-sky-100">
+                                                    {team.name}
+                                                </p>
+                                                <p className="text-xs text-sky-700 dark:text-sky-300">
+                                                    {team.members.length}{' '}
+                                                    {t(
+                                                        team.members.length ===
+                                                            1
+                                                            ? 'athlete'
+                                                            : 'athletes',
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="grid gap-2 p-3 sm:grid-cols-2">
+                                            {team.members.map((member) => {
+                                                const selected =
+                                                    selectedIdSet.has(
+                                                        member.id,
+                                                    );
+
+                                                return (
+                                                    <label
+                                                        key={
+                                                            member.team_member_id
+                                                        }
+                                                        className={cn(
+                                                            'flex cursor-pointer items-start gap-3 rounded-md border px-3 py-3 transition-colors',
+                                                            selected
+                                                                ? 'border-sky-300 bg-sky-50/80 ring-1 ring-sky-200 dark:border-sky-800 dark:bg-sky-950/30 dark:ring-sky-900'
+                                                                : 'border-border bg-background hover:border-sky-200 hover:bg-sky-50/40 dark:hover:border-sky-900 dark:hover:bg-sky-950/20',
+                                                        )}
+                                                    >
+                                                        <Checkbox
+                                                            className="mt-0.5"
+                                                            checked={selected}
+                                                            onCheckedChange={() =>
+                                                                toggleCandidate(
+                                                                    member.id,
+                                                                )
+                                                            }
+                                                        />
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span className="truncate text-base leading-5 font-semibold">
+                                                                    {
+                                                                        member.full_name
+                                                                    }
+                                                                </span>
+                                                                {member.pno && (
+                                                                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                                                        {
+                                                                            member.pno
+                                                                        }
+                                                                    </span>
+                                                                )}
+                                                                <Badge
+                                                                    variant={
+                                                                        selected
+                                                                            ? 'secondary'
+                                                                            : 'outline'
+                                                                    }
+                                                                    className={cn(
+                                                                        'text-[11px]',
+                                                                        selected
+                                                                            ? 'border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-100'
+                                                                            : '',
+                                                                    )}
+                                                                >
+                                                                    {t(
+                                                                        member.role,
+                                                                    )}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="mt-1 space-y-1 text-sm text-muted-foreground">
+                                                                <p className="truncate">
+                                                                    {[
+                                                                        genderLabel(
+                                                                            member.gender,
+                                                                            t,
+                                                                        ),
+                                                                        t(
+                                                                            member.player_category,
+                                                                        ),
+                                                                        levelLabelByCode.get(
+                                                                            member.player_level,
+                                                                        ) ??
+                                                                            t(
+                                                                                member.player_level,
+                                                                            ),
+                                                                        t(
+                                                                            member.current_status,
+                                                                        ),
+                                                                    ]
+                                                                        .filter(
+                                                                            Boolean,
+                                                                        )
+                                                                        .join(
+                                                                            ' · ',
+                                                                        )}
+                                                                </p>
+                                                                {member.sport_event ? (
+                                                                    <p className="truncate">
+                                                                        <span className="font-medium text-foreground">
+                                                                            {t(
+                                                                                'Event / discipline',
+                                                                            )}
+                                                                            :
+                                                                        </span>{' '}
+                                                                        {
+                                                                            member.sport_event
+                                                                        }
+                                                                    </p>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </form>
 
-                <DialogFooter className="border-t bg-muted/20 px-5 py-4">
+                <DialogFooter className="mt-auto flex shrink-0 flex-col gap-2 border-t bg-background px-5 py-4 shadow-[0_-1px_0_0_theme(colors.border)] sm:flex-row sm:justify-end sm:gap-2">
                     <Button
                         variant="outline"
                         type="button"
@@ -1715,7 +1733,7 @@ function AddParticipantDialog({
                         {submitting
                             ? t('Saving…')
                             : isTeamEvent
-                              ? t('Add team')
+                              ? t('Add participants')
                               : t('Add :count participants').replace(
                                     ':count',
                                     String(selectedCandidates.length),
@@ -1905,6 +1923,7 @@ function normalizeTeamParticipationPlayers(participation: ParticipationRow): {
     full_name: string;
     pno: string | null;
     photo_path: string | null;
+    sport_profile: PlayerSportProfile | null;
 }[] {
     if (participation.lineup_members.length > 0) {
         return participation.lineup_members;
@@ -1920,24 +1939,44 @@ function normalizeTeamParticipationPlayers(participation: ParticipationRow): {
             full_name: participation.member.full_name,
             pno: participation.member.pno,
             photo_path: participation.member.photo_path,
+            sport_profile: participation.member.sport_profile,
         },
     ];
+}
+
+function playerSportProfileText(
+    profile: PlayerSportProfile | null,
+    t: (key: string) => string,
+): string {
+    if (!profile) {
+        return '';
+    }
+
+    return [
+        profile.sport_event
+            ? `${t('Event / discipline')}: ${profile.sport_event}`
+            : null,
+        profile.role ? `${t('Role')}: ${profile.role}` : null,
+        profile.position ? `${t('Position')}: ${profile.position}` : null,
+    ]
+        .filter(Boolean)
+        .join(' · ');
 }
 
 function resolveDisplayPlayerName(
     row: TeamPlayerTableRow,
     eventName: string,
 ): string {
-    const normalize = (value?: string | null): string =>
-        (value ?? '').trim();
+    const normalize = (value?: string | null): string => (value ?? '').trim();
     const normalizeForCompare = (value?: string | null): string =>
         normalize(value).toLowerCase();
     const isRepeated = (value: string): boolean =>
-        !value ||
-        normalizeForCompare(value) === normalizeForCompare(eventName);
+        !value || normalizeForCompare(value) === normalizeForCompare(eventName);
 
     const nameFromRow = normalize(row.playerName);
-    const nameFromParticipation = normalize(row.participation.member?.full_name);
+    const nameFromParticipation = normalize(
+        row.participation.member?.full_name,
+    );
 
     if (!isRepeated(nameFromRow)) {
         return nameFromRow;
@@ -1948,62 +1987,6 @@ function resolveDisplayPlayerName(
     }
 
     return '—';
-}
-
-function mergeTeamParticipations(
-    participations: ParticipationRow[],
-): ParticipationRow[] {
-    const rowsByTeam = new Map<number, ParticipationRow>();
-    const mergedRows: ParticipationRow[] = [];
-
-    for (const participation of participations) {
-        const teamId = participation.team?.id;
-        if (teamId === null) {
-            mergedRows.push(participation);
-            continue;
-        }
-
-        const teamPlayers = normalizeTeamParticipationPlayers(participation);
-        const existing = rowsByTeam.get(teamId);
-
-        if (!existing) {
-            rowsByTeam.set(teamId, {
-                ...participation,
-                member: null,
-                lineup_members: teamPlayers,
-            });
-            mergedRows.push(rowsByTeam.get(teamId)!);
-            continue;
-        }
-
-        const playerMap = new Map<
-            number,
-            (typeof existing.lineup_members)[number]
-        >();
-        for (const player of existing.lineup_members) {
-            playerMap.set(player.id, player);
-        }
-
-        for (const player of teamPlayers) {
-            if (!playerMap.has(player.id)) {
-                playerMap.set(player.id, player);
-            }
-        }
-
-        existing.lineup_members = Array.from(playerMap.values());
-        existing.media_files_count += participation.media_files_count;
-        if (existing.position === null && participation.position !== null) {
-            existing.position = participation.position;
-        }
-        if (
-            existing.achievement === null &&
-            participation.achievement !== null
-        ) {
-            existing.achievement = participation.achievement;
-        }
-    }
-
-    return mergedRows;
 }
 
 function teamParticipationPlayerCount(participation: ParticipationRow): number {
@@ -2021,6 +2004,7 @@ type TeamPlayerTableRow = {
     playerName: string;
     playerPno: string | null;
     playerPhotoPath: string | null;
+    playerSportProfile: PlayerSportProfile | null;
     teamPlayerCount: number;
     isFirstPlayerInTeam: boolean;
 };
@@ -2028,22 +2012,21 @@ type TeamPlayerTableRow = {
 function buildTeamDisplayRows(
     participations: ParticipationRow[],
 ): TeamPlayerTableRow[] {
-    return mergeTeamParticipations(participations).flatMap(
-        (participation): TeamPlayerTableRow[] => {
-            const players = normalizeTeamParticipationPlayers(participation);
+    return participations.flatMap((participation): TeamPlayerTableRow[] => {
+        const players = normalizeTeamParticipationPlayers(participation);
 
-            return players.map((player, idx) => ({
-                rowId: `${participation.id}-${player.id}-${idx}`,
-                participation,
-                playerId: player.id,
-                playerName: player.full_name,
-                playerPno: player.pno,
-                playerPhotoPath: player.photo_path,
-                teamPlayerCount: players.length,
-                isFirstPlayerInTeam: idx === 0,
-            }));
-        },
-    );
+        return players.map((player, idx) => ({
+            rowId: `${participation.id}-${player.id}-${idx}`,
+            participation,
+            playerId: player.id,
+            playerName: player.full_name,
+            playerPno: player.pno,
+            playerPhotoPath: player.photo_path,
+            playerSportProfile: player.sport_profile,
+            teamPlayerCount: players.length,
+            isFirstPlayerInTeam: idx === 0,
+        }));
+    });
 }
 
 function buildIndividualDisplayRows(
@@ -2062,6 +2045,7 @@ function buildIndividualDisplayRows(
                 playerName: participation.member.full_name,
                 playerPno: participation.member.pno,
                 playerPhotoPath: participation.member.photo_path,
+                playerSportProfile: participation.member.sport_profile,
                 teamPlayerCount: 1,
                 isFirstPlayerInTeam: true,
             };
@@ -2169,119 +2153,114 @@ function ParticipantsList({
                                 row,
                                 event.name,
                             );
+                            const isTeamEvent = event.event_type === 'team';
+                            const editActionLabel = isTeamEvent
+                                ? t('Edit medal')
+                                : t('Edit participant');
+                            const playerSportProfile = playerSportProfileText(
+                                row.playerSportProfile,
+                                t,
+                            );
 
                             return (
                                 <TableRow
                                     key={row.rowId}
                                     className="border-b border-slate-200 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-900/60"
                                 >
-                                <TableCell className="border-r border-slate-200 text-center text-xs text-muted-foreground tabular-nums dark:border-slate-800">
-                                    {idx + 1}
-                                </TableCell>
-                                <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
-                                    <div className="flex items-start gap-2">
-                                        {row.playerPhotoPath ? (
-                                            <img
-                                                src={`/storage/${row.playerPhotoPath}`}
-                                                alt={playerName}
-                                                className="mt-0.5 h-8 w-8 rounded-full border object-cover"
-                                            />
-                                        ) : (
-                                            <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-slate-100 text-xs font-semibold text-slate-500">
-                                                {playerName
-                                                    .slice(0, 1)
-                                                    .toUpperCase()}
-                                            </span>
-                                        )}
-                                        <div>
-                                            <div className="text-sm font-medium">
-                                                {playerName}
-                                            </div>
-                                            {row.playerPno ? (
-                                                <p className="text-xs text-muted-foreground">
-                                                    {t('PNO')}: {row.playerPno}
-                                                </p>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                {event.event_type === 'team' ? (
-                                    row.isFirstPlayerInTeam ? (
-                                        <TableCell
-                                            rowSpan={Math.max(
-                                                row.teamPlayerCount,
-                                                1,
-                                            )}
-                                            className="border-r border-slate-200 py-2 text-center tabular-nums dark:border-slate-800"
-                                        >
-                                            {row.participation.position ?? (
-                                                <span className="text-muted-foreground">
-                                                    —
+                                    <TableCell className="border-r border-slate-200 text-center text-xs text-muted-foreground tabular-nums dark:border-slate-800">
+                                        {idx + 1}
+                                    </TableCell>
+                                    <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
+                                        <div className="flex items-start gap-2">
+                                            {row.playerPhotoPath ? (
+                                                <img
+                                                    src={`/storage/${row.playerPhotoPath}`}
+                                                    alt={playerName}
+                                                    className="mt-0.5 h-8 w-8 rounded-full border object-cover"
+                                                />
+                                            ) : (
+                                                <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-slate-100 text-xs font-semibold text-slate-500">
+                                                    {playerName
+                                                        .slice(0, 1)
+                                                        .toUpperCase()}
                                                 </span>
                                             )}
-                                        </TableCell>
-                                    ) : null
-                                ) : (
-                                    <TableCell className="border-r border-slate-200 py-2 text-center tabular-nums dark:border-slate-800">
-                                        {row.participation.position ?? (
-                                            <span className="text-muted-foreground">
-                                                —
-                                            </span>
-                                        )}
+                                            <div>
+                                                <div className="text-sm font-medium">
+                                                    {playerName}
+                                                </div>
+                                                {playerSportProfile ? (
+                                                    <p className="max-w-80 text-xs text-muted-foreground">
+                                                        {playerSportProfile}
+                                                    </p>
+                                                ) : null}
+                                                {row.playerPno ? (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {t('PNO')}:{' '}
+                                                        {row.playerPno}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                        </div>
                                     </TableCell>
-                                )}
-                                {event.event_type === 'team' ? (
-                                    row.isFirstPlayerInTeam ? (
-                                        <TableCell
-                                            rowSpan={Math.max(
-                                                row.teamPlayerCount,
-                                                1,
-                                            )}
-                                            className="border-r border-slate-200 py-2 dark:border-slate-800"
-                                        >
-                                            <MedalBadge
-                                                medal={
-                                                    row.participation
-                                                        .achievement
-                                                        ?.medal_type ?? null
+                                    {(!isTeamEvent ||
+                                        row.isFirstPlayerInTeam) && (
+                                        <>
+                                            <TableCell
+                                                rowSpan={
+                                                    isTeamEvent
+                                                        ? Math.max(
+                                                              row.teamPlayerCount,
+                                                              1,
+                                                          )
+                                                        : undefined
                                                 }
-                                            />
-                                        </TableCell>
-                                    ) : null
-                                ) : (
-                                    <TableCell className="border-r border-slate-200 py-2 dark:border-slate-800">
-                                        <MedalBadge
-                                            medal={
-                                                row.participation.achievement
-                                                    ?.medal_type ?? null
-                                            }
-                                        />
-                                    </TableCell>
-                                )}
-                                {event.event_type === 'team' ? (
-                                    row.isFirstPlayerInTeam ? (
-                                        <TableCell
-                                            rowSpan={Math.max(
-                                                row.teamPlayerCount,
-                                                1,
-                                            )}
-                                            className="max-w-[260px] border-r border-slate-200 py-2 text-sm text-muted-foreground dark:border-slate-800"
-                                        >
-                                            <span className="line-clamp-2">
-                                                {row.participation.achievement
-                                                    ?.remarks || '—'}
-                                            </span>
-                                        </TableCell>
-                                    ) : null
-                                ) : (
-                                    <TableCell className="max-w-[260px] border-r border-slate-200 py-2 text-sm text-muted-foreground dark:border-slate-800">
-                                        <span className="line-clamp-2">
-                                            {row.participation.achievement
-                                                ?.remarks || '—'}
-                                        </span>
-                                    </TableCell>
-                                )}
-                                {event.event_type === 'team' ? (
+                                                className="border-r border-slate-200 py-2 text-center tabular-nums dark:border-slate-800"
+                                            >
+                                                {row.participation.position ?? (
+                                                    <span className="text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell
+                                                rowSpan={
+                                                    isTeamEvent
+                                                        ? Math.max(
+                                                              row.teamPlayerCount,
+                                                              1,
+                                                          )
+                                                        : undefined
+                                                }
+                                                className="border-r border-slate-200 py-2 dark:border-slate-800"
+                                            >
+                                                <MedalBadge
+                                                    medal={
+                                                        row.participation
+                                                            .achievement
+                                                            ?.medal_type ?? null
+                                                    }
+                                                />
+                                            </TableCell>
+                                            <TableCell
+                                                rowSpan={
+                                                    isTeamEvent
+                                                        ? Math.max(
+                                                              row.teamPlayerCount,
+                                                              1,
+                                                          )
+                                                        : undefined
+                                                }
+                                                className="max-w-[260px] border-r border-slate-200 py-2 text-sm text-muted-foreground dark:border-slate-800"
+                                            >
+                                                <span className="line-clamp-2">
+                                                    {row.participation
+                                                        .achievement?.remarks ||
+                                                        '—'}
+                                                </span>
+                                            </TableCell>
+                                        </>
+                                    )}
                                     <TableCell className="py-2 text-right">
                                         <div className="flex items-center justify-end gap-1">
                                             <Button
@@ -2315,12 +2294,13 @@ function ParticipantsList({
                                                     {t('Photos')}
                                                 </span>
                                             </Button>
-                                            {row.isFirstPlayerInTeam ? (
+                                            {(!isTeamEvent ||
+                                                row.isFirstPlayerInTeam) && (
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8"
-                                                    title={t('Edit medal')}
+                                                    title={editActionLabel}
                                                     onClick={() =>
                                                         setEditingParticipation(
                                                             row.participation,
@@ -2329,10 +2309,10 @@ function ParticipantsList({
                                                 >
                                                     <Pencil className="h-4 w-4" />
                                                     <span className="sr-only">
-                                                        {t('Edit medal')}
+                                                        {editActionLabel}
                                                     </span>
                                                 </Button>
-                                            ) : null}
+                                            )}
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -2342,8 +2322,13 @@ function ParticipantsList({
                                                     setDeletingParticipation({
                                                         participation:
                                                             row.participation,
-                                                        playerId: row.playerId,
-                                                        playerName,
+                                                        ...(isTeamEvent
+                                                            ? {
+                                                                  playerId:
+                                                                      row.playerId,
+                                                                  playerName,
+                                                              }
+                                                            : {}),
                                                     })
                                                 }
                                             >
@@ -2354,78 +2339,8 @@ function ParticipantsList({
                                             </Button>
                                         </div>
                                     </TableCell>
-                                ) : (
-                                    <TableCell className="py-2 text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                title={t('Photos')}
-                                                onClick={() =>
-                                                    setMediaParticipation(
-                                                        row.participation,
-                                                    )
-                                                }
-                                            >
-                                                {canUpload || canDelete ? (
-                                                    <Camera className="h-4 w-4" />
-                                                ) : (
-                                                    <Images className="h-4 w-4" />
-                                                )}
-                                                {row.participation
-                                                    .media_files_count > 0 && (
-                                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
-                                                        {row.participation
-                                                            .media_files_count >
-                                                        9
-                                                            ? '9+'
-                                                            : row.participation
-                                                                  .media_files_count}
-                                                    </span>
-                                                )}
-                                                <span className="sr-only">
-                                                    {t('Photos')}
-                                                </span>
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8"
-                                                title={t('Edit participant')}
-                                                onClick={() =>
-                                                    setEditingParticipation(
-                                                        row.participation,
-                                                    )
-                                                }
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                                <span className="sr-only">
-                                                    {t('Edit participant')}
-                                                </span>
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                                title={t('Remove participant')}
-                                                onClick={() =>
-                                                    setDeletingParticipation({
-                                                        participation:
-                                                            row.participation,
-                                                    })
-                                                }
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                                <span className="sr-only">
-                                                    {t('Remove participant')}
-                                                </span>
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                )}
-                            </TableRow>
-                        );
+                                </TableRow>
+                            );
                         })}
                     </TableBody>
                 </Table>
@@ -2528,10 +2443,7 @@ export default function EventsShow({
         ],
     });
 
-    const normalizedParticipations =
-        event.event_type === 'team'
-            ? mergeTeamParticipations(participations ?? [])
-            : (participations ?? []);
+    const normalizedParticipations = participations ?? [];
 
     const participantCount =
         normalizedParticipations.reduce(

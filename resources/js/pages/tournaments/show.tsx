@@ -86,6 +86,28 @@ type Tournament = {
     sport: { id: number; name: string } | null;
 };
 
+type EventMedalCounts = {
+    gold: number;
+    silver: number;
+    bronze: number;
+    merit: number;
+};
+
+type EventParticipantPreviewPlayer = {
+    id: number;
+    participation_id?: string;
+    full_name: string;
+    pno: string | null;
+    rank?: string | null;
+    posting_location?: string | null;
+    sport_profile?: {
+        sport_event: string | null;
+        role: string | null;
+        position: string | null;
+    } | null;
+    medals_by_type?: EventMedalCounts;
+};
+
 type EventRow = {
     id: number;
     name: string;
@@ -101,24 +123,19 @@ type EventRow = {
     can_update_structure: boolean;
     teams_count: number;
     medals_count: number;
-    medals_by_type: {
-        gold: number;
-        silver: number;
-        bronze: number;
-        merit: number;
-    };
+    medals_by_type: EventMedalCounts;
     single_participant: {
         id: number;
+        participation_id?: string;
         full_name: string;
         pno: string | null;
+        rank?: string | null;
+        sport_profile?: EventParticipantPreviewPlayer['sport_profile'];
+        medals_by_type?: EventMedalCounts;
     } | null;
     participant_previews: {
-        players: Array<{ id: number; full_name: string; pno: string | null }>;
-        more_players: Array<{
-            id: number;
-            full_name: string;
-            pno: string | null;
-        }>;
+        players: EventParticipantPreviewPlayer[];
+        more_players: EventParticipantPreviewPlayer[];
         total_players: number;
     };
     sport: { id: number; name: string } | null;
@@ -152,13 +169,11 @@ type EventFilters = {
     gender?: string | null;
     participation_status?: string | null;
     event_type?: 'individual' | 'team' | null;
-    report_type?:
-        | 'detail'
-        | 'summary'
-        | 'medal_log'
-        | 'sport_medal_log'
-        | null;
+    print_orientation?: PrintOrientation | null;
+    report_type?: 'detail' | 'summary' | 'medal_log' | 'sport_medal_log' | null;
 };
+
+type PrintOrientation = 'landscape' | 'portrait';
 
 type EventSummarySport = {
     id: number;
@@ -196,6 +211,22 @@ const EMPTY_EVENT_SUMMARY: EventSummary = {
     },
     total_events: 0,
 };
+
+const ZERO_MEDAL_COUNTS: EventMedalCounts = {
+    gold: 0,
+    silver: 0,
+    bronze: 0,
+    merit: 0,
+};
+
+function medalCountTotal(medals?: EventMedalCounts | null): number {
+    return (
+        (medals?.gold ?? 0) +
+        (medals?.silver ?? 0) +
+        (medals?.bronze ?? 0) +
+        (medals?.merit ?? 0)
+    );
+}
 
 type EventForm = {
     event_mode: 'official' | 'provisional';
@@ -240,6 +271,7 @@ function normalizeOfficialEventDetail(value: string): string {
         .map((part) => part.trim())
         .filter(Boolean);
     const firstPart = parts.length > 0 ? parts[0] : '';
+
     return firstPart
         .replace(
             /^(?:powerlifting|weightlifting)\s+(?:total|total\s+points)\s*:?\s*/i,
@@ -262,6 +294,7 @@ function eventSubtitle(
     }
 
     const officialTitle = weight || normalizeOfficialEventDetail(discipline);
+
     if (officialTitle) {
         return { title: officialTitle };
     }
@@ -510,6 +543,7 @@ function EventFormFields({
             updates.discipline = selectedVariant.discipline ?? '';
             updates.weight_category = selectedVariant.weight_category ?? '';
             updates.gender_class = selectedVariant.gender_class;
+
             if (updates.event_type === '' || data.event_type === '') {
                 updates.event_type = variantTeamMode;
             }
@@ -1270,9 +1304,8 @@ export default function TournamentsShow({
     const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
     const [deletingEvent, setDeletingEvent] = useState<EventRow | null>(null);
     const [deleteTournamentOpen, setDeleteTournamentOpen] = useState(false);
-    const [expandedEventPlayers, setExpandedEventPlayers] = useState<
-        Record<number, boolean>
-    >({});
+    const [eventReportOrientation, setEventReportOrientation] =
+        useState<PrintOrientation>('landscape');
 
     const { delete: deleteEventForm, processing: deletingEventProcessing } =
         useForm({});
@@ -1304,13 +1337,6 @@ export default function TournamentsShow({
         });
     }
 
-    function toggleEventPlayers(eventId: number) {
-        setExpandedEventPlayers((prev) => ({
-            ...prev,
-            [eventId]: !prev[eventId],
-        }));
-    }
-
     function buildEventFilterQuery(
         overrides: Partial<EventFilters> = {},
     ): Record<string, string> {
@@ -1323,6 +1349,7 @@ export default function TournamentsShow({
                 eventFilters.participation_status ??
                 null,
             event_type: overrides.event_type ?? eventFilters.event_type ?? null,
+            print_orientation: overrides.print_orientation ?? null,
             report_type: overrides.report_type ?? null,
         };
         const query: Record<string, string> = {};
@@ -1372,8 +1399,13 @@ export default function TournamentsShow({
         const url = eventsReport.url(tournament.id, {
             query:
                 reportType === 'detail'
-                    ? buildEventFilterQuery()
-                    : buildEventFilterQuery({ report_type: reportType }),
+                    ? buildEventFilterQuery({
+                          print_orientation: eventReportOrientation,
+                      })
+                    : buildEventFilterQuery({
+                          report_type: reportType,
+                          print_orientation: eventReportOrientation,
+                      }),
         });
 
         window.open(url, '_blank', 'noopener,noreferrer');
@@ -1728,7 +1760,7 @@ export default function TournamentsShow({
         eventFilters.participation_status ||
         eventFilters.event_type
     );
-    const eventTableColSpan = 12;
+    const eventTableColSpan = 15;
     const eventGroups = Array.from(
         (events ?? [])
             .reduce(
@@ -2247,6 +2279,41 @@ export default function TournamentsShow({
                                                 </p>
                                             </div>
                                             <div className="flex flex-wrap items-center gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Label
+                                                        htmlFor="event-report-orientation"
+                                                        className="text-xs text-muted-foreground"
+                                                    >
+                                                        {t('Orientation')}
+                                                    </Label>
+                                                    <Select
+                                                        value={
+                                                            eventReportOrientation
+                                                        }
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            setEventReportOrientation(
+                                                                value as PrintOrientation,
+                                                            )
+                                                        }
+                                                    >
+                                                        <SelectTrigger
+                                                            id="event-report-orientation"
+                                                            className="h-9 w-36"
+                                                        >
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="landscape">
+                                                                {t('Landscape')}
+                                                            </SelectItem>
+                                                            <SelectItem value="portrait">
+                                                                {t('Portrait')}
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
@@ -2522,44 +2589,85 @@ export default function TournamentsShow({
                                             : ''}
                                     </div>
                                     <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="w-16">
+                                        <Table className="min-w-[1140px] text-[11px] leading-tight">
+                                            <TableHeader className="bg-muted/30 text-[11px]">
+                                                <TableRow className="hover:bg-muted/30">
+                                                    <TableHead
+                                                        rowSpan={2}
+                                                        className="w-14 whitespace-nowrap align-middle"
+                                                    >
                                                         {t('S.No.')}
                                                     </TableHead>
-                                                    <TableHead>
-                                                        {t('Event details')}
+                                                    <TableHead
+                                                        rowSpan={2}
+                                                        className="min-w-56 align-middle"
+                                                    >
+                                                        {t('Event')}
                                                     </TableHead>
-                                                    <TableHead>
+                                                    <TableHead
+                                                        colSpan={4}
+                                                        className="text-center"
+                                                    >
                                                         {t('Player')}
                                                     </TableHead>
-                                                    <TableHead className="w-16 text-right">
-                                                        {t('Gold')}
-                                                    </TableHead>
-                                                    <TableHead className="w-16 text-right">
-                                                        {t('Silver')}
-                                                    </TableHead>
-                                                    <TableHead className="w-16 text-right">
-                                                        {t('Bronze')}
-                                                    </TableHead>
-                                                    <TableHead className="w-16 text-right">
-                                                        {t('Merit')}
-                                                    </TableHead>
-                                                    <TableHead className="w-16 text-right">
-                                                        {t('Total')}
-                                                    </TableHead>
-                                                    <TableHead>
+                                                    <TableHead
+                                                        rowSpan={2}
+                                                        className="w-20 align-middle"
+                                                    >
                                                         {t('Gender')}
                                                     </TableHead>
-                                                    <TableHead>
+                                                    <TableHead
+                                                        rowSpan={2}
+                                                        className="w-20 align-middle"
+                                                    >
                                                         {t('Type')}
                                                     </TableHead>
-                                                    <TableHead className="text-right">
+                                                    <TableHead
+                                                        rowSpan={2}
+                                                        className="w-20 text-right align-middle"
+                                                    >
                                                         {t('Participants')}
                                                     </TableHead>
-                                                    <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
+                                                    <TableHead
+                                                        colSpan={5}
+                                                        className="text-center"
+                                                    >
+                                                        {t('Medals')}
+                                                    </TableHead>
+                                                    <TableHead
+                                                        rowSpan={2}
+                                                        className="sticky right-0 z-20 w-0 bg-card text-right align-middle"
+                                                    >
                                                         {t('Actions')}
+                                                    </TableHead>
+                                                </TableRow>
+                                                <TableRow className="hover:bg-muted/30">
+                                                    <TableHead className="w-20 whitespace-nowrap">
+                                                        {t('PNO')}
+                                                    </TableHead>
+                                                    <TableHead className="w-32">
+                                                        {t('Rank')}
+                                                    </TableHead>
+                                                    <TableHead className="min-w-40">
+                                                        {t('Player Name')}
+                                                    </TableHead>
+                                                    <TableHead className="w-36">
+                                                        {t('Playable Event')}
+                                                    </TableHead>
+                                                    <TableHead className="w-12 text-right">
+                                                        {t('Gold')}
+                                                    </TableHead>
+                                                    <TableHead className="w-12 text-right">
+                                                        {t('Silver')}
+                                                    </TableHead>
+                                                    <TableHead className="w-12 text-right">
+                                                        {t('Bronze')}
+                                                    </TableHead>
+                                                    <TableHead className="w-12 text-right">
+                                                        {t('Merit')}
+                                                    </TableHead>
+                                                    <TableHead className="w-14 text-right">
+                                                        {t('Total')}
                                                     </TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -2671,9 +2779,7 @@ export default function TournamentsShow({
                                                                         </TableCell>
                                                                     </TableRow>
                                                                     {group.events.map(
-                                                                        (
-                                                                            ev,
-                                                                        ) => {
+                                                                        (ev) => {
                                                                             eventSerialNumber += 1;
                                                                             const label =
                                                                                 eventSubtitle(
@@ -2694,306 +2800,386 @@ export default function TournamentsShow({
                                                                                     ...participantPreviews.players,
                                                                                     ...participantPreviews.more_players,
                                                                                 ];
-                                                                            const isPlayersExpanded =
-                                                                                !!expandedEventPlayers[
-                                                                                    ev
-                                                                                        .id
-                                                                                ];
-                                                                            const singlePlayer =
-                                                                                allPlayers[0] ??
-                                                                                null;
+                                                                            const isTeamEvent =
+                                                                                ev.event_type ===
+                                                                                'team';
+                                                                            const eventMedals =
+                                                                                ev.medals_by_type ??
+                                                                                ZERO_MEDAL_COUNTS;
+                                                                            const playerRows =
+                                                                                allPlayers.length >
+                                                                                0
+                                                                                    ? allPlayers
+                                                                                    : [
+                                                                                          {
+                                                                                              id: -ev.id,
+                                                                                              full_name:
+                                                                                                  t(
+                                                                                                      'No participants',
+                                                                                                  ),
+                                                                                              pno: null,
+                                                                                              medals_by_type:
+                                                                                                  ZERO_MEDAL_COUNTS,
+                                                                                          },
+                                                                                      ];
+                                                                            const participantCount =
+                                                                                participantPreviews.total_players >
+                                                                                0
+                                                                                    ? participantPreviews.total_players
+                                                                                    : ev.participations_count;
 
                                                                             return (
                                                                                 <Fragment
                                                                                     key={`event-${ev.id}`}
                                                                                 >
-                                                                                    <TableRow>
-                                                                                        <TableCell className="w-16 text-xs text-muted-foreground tabular-nums">
-                                                                                            {
-                                                                                                eventSerialNumber
-                                                                                            }
-                                                                                        </TableCell>
-                                                                                        <TableCell>
-                                                                                            <div className="space-y-0.5">
-                                                                                                <Link
-                                                                                                    href={showEvent.url(
-                                                                                                        {
-                                                                                                            tournament:
-                                                                                                                tournament.id,
-                                                                                                            event: ev.id,
-                                                                                                        },
-                                                                                                    )}
-                                                                                                    className="font-medium hover:underline"
+                                                                                    {playerRows.map(
+                                                                                        (
+                                                                                            player,
+                                                                                            playerIndex,
+                                                                                        ) => {
+                                                                                            const isFirstPlayerRow =
+                                                                                                playerIndex ===
+                                                                                                0;
+                                                                                            const rowMedals =
+                                                                                                isTeamEvent
+                                                                                                    ? eventMedals
+                                                                                                    : (player.medals_by_type ??
+                                                                                                      ZERO_MEDAL_COUNTS);
+                                                                                            const rowTotalMedals =
+                                                                                                isTeamEvent
+                                                                                                    ? ev.medals_count
+                                                                                                    : medalCountTotal(
+                                                                                                          rowMedals,
+                                                                                                      );
+                                                                                            const playableEvent =
+                                                                                                player
+                                                                                                    .sport_profile
+                                                                                                    ?.sport_event;
+
+                                                                                            return (
+                                                                                                <TableRow
+                                                                                                    key={`event-${ev.id}-player-${player.id}-${playerIndex}`}
+                                                                                                    className="align-top"
                                                                                                 >
-                                                                                                    {
-                                                                                                        label.title
-                                                                                                    }
-                                                                                                </Link>
-                                                                                                {label.fallbackName ? (
-                                                                                                    <p className="text-xs text-muted-foreground">
-                                                                                                        {
-                                                                                                            label.fallbackName
-                                                                                                        }
-                                                                                                    </p>
-                                                                                                ) : null}
-                                                                                            </div>
-                                                                                        </TableCell>
-                                                                                        <TableCell>
-                                                                                            {participantPreviews.total_players >
-                                                                                            0 ? (
-                                                                                                <div className="space-y-2">
-                                                                                                    {participantPreviews.total_players ===
-                                                                                                        1 &&
-                                                                                                    singlePlayer ? (
-                                                                                                        <div className="space-y-0.5">
-                                                                                                            <div className="text-sm font-medium text-foreground">
-                                                                                                                {
-                                                                                                                    singlePlayer.full_name
-                                                                                                                }
-                                                                                                            </div>
-                                                                                                            <div className="text-xs text-muted-foreground">
-                                                                                                                {singlePlayer.pno ??
-                                                                                                                    '—'}
-                                                                                                            </div>
-                                                                                                        </div>
-                                                                                                    ) : (
-                                                                                                        <button
-                                                                                                            type="button"
-                                                                                                            onClick={() =>
-                                                                                                                toggleEventPlayers(
-                                                                                                                    ev.id,
-                                                                                                                )
+                                                                                                    {isFirstPlayerRow ? (
+                                                                                                        <TableCell
+                                                                                                            rowSpan={
+                                                                                                                playerRows.length
                                                                                                             }
-                                                                                                            aria-expanded={
-                                                                                                                isPlayersExpanded
-                                                                                                            }
-                                                                                                            className="text-xs font-medium text-muted-foreground underline underline-offset-2"
+                                                                                                            className="w-14 px-2 py-1.5 text-[11px] text-muted-foreground tabular-nums align-top"
                                                                                                         >
-                                                                                                            {isPlayersExpanded
-                                                                                                                ? t(
-                                                                                                                      'Hide players',
-                                                                                                                  )
-                                                                                                                : `${t(
-                                                                                                                      'Show players',
-                                                                                                                  )} (${participantPreviews.total_players})`}
-                                                                                                        </button>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            ) : null}
-                                                                                        </TableCell>
-                                                                                        <TableCell className="text-right tabular-nums">
-                                                                                            <span className="text-amber-600">
-                                                                                                {ev
-                                                                                                    .medals_by_type
-                                                                                                    ?.gold ??
-                                                                                                    0}
-                                                                                            </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="text-right tabular-nums">
-                                                                                            <span>
-                                                                                                {ev
-                                                                                                    .medals_by_type
-                                                                                                    ?.silver ??
-                                                                                                    0}
-                                                                                            </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="text-right tabular-nums">
-                                                                                            <span>
-                                                                                                {ev
-                                                                                                    .medals_by_type
-                                                                                                    ?.bronze ??
-                                                                                                    0}
-                                                                                            </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="text-right tabular-nums">
-                                                                                            <span className="text-emerald-700 dark:text-emerald-300">
-                                                                                                {ev
-                                                                                                    .medals_by_type
-                                                                                                    ?.merit ??
-                                                                                                    0}
-                                                                                            </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="text-right tabular-nums">
-                                                                                            <span className="font-semibold">
-                                                                                                {
-                                                                                                    ev.medals_count
-                                                                                                }
-                                                                                            </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell>
-                                                                                            <span
-                                                                                                className={eventBadgeClass(
-                                                                                                    'class',
-                                                                                                )}
-                                                                                            >
-                                                                                                {t(
-                                                                                                    genderClassLabel(
-                                                                                                        ev.gender_class,
-                                                                                                        t,
-                                                                                                    ),
-                                                                                                )}
-                                                                                            </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell>
-                                                                                            <span
-                                                                                                className={eventBadgeClass(
-                                                                                                    'detail',
-                                                                                                )}
-                                                                                            >
-                                                                                                {ev.event_type ===
-                                                                                                'team'
-                                                                                                    ? t(
-                                                                                                          'Team',
-                                                                                                      )
-                                                                                                    : t(
-                                                                                                          'Individual',
-                                                                                                      )}
-                                                                                            </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="text-right">
-                                                                                            <span
-                                                                                                className={eventBadgeClass(
-                                                                                                    'count',
-                                                                                                )}
-                                                                                            >
-                                                                                                <Users className="h-3.5 w-3.5" />
-                                                                                                {
-                                                                                                    ev.participations_count
-                                                                                                }
-                                                                                            </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="sticky right-0 z-10 w-0 bg-card">
-                                                                                            <div className="flex items-center justify-end gap-1">
-                                                                                                <Button
-                                                                                                    variant="ghost"
-                                                                                                    size="icon"
-                                                                                                    title={t(
-                                                                                                        'View',
-                                                                                                    )}
-                                                                                                    asChild
-                                                                                                >
-                                                                                                    <Link
-                                                                                                        href={showEvent.url(
                                                                                                             {
-                                                                                                                tournament:
-                                                                                                                    tournament.id,
-                                                                                                                event: ev.id,
-                                                                                                            },
-                                                                                                        )}
-                                                                                                    >
-                                                                                                        <Eye className="h-4 w-4 text-sky-600" />
-                                                                                                        <span className="sr-only">
-                                                                                                            {t(
-                                                                                                                'View',
-                                                                                                            )}
-                                                                                                        </span>
-                                                                                                    </Link>
-                                                                                                </Button>
-                                                                                                <Button
-                                                                                                    variant="ghost"
-                                                                                                    size="icon"
-                                                                                                    title={t(
-                                                                                                        ev.can_update_structure
-                                                                                                            ? 'Edit event'
-                                                                                                            : 'Event cannot be edited after participants are added',
-                                                                                                    )}
-                                                                                                    disabled={
-                                                                                                        !ev.can_update_structure
-                                                                                                    }
-                                                                                                    onClick={() =>
-                                                                                                        setEditingEvent(
-                                                                                                            ev,
-                                                                                                        )
-                                                                                                    }
-                                                                                                >
-                                                                                                    <Pencil className="h-4 w-4 text-amber-600" />
-                                                                                                    <span className="sr-only">
-                                                                                                        {t(
-                                                                                                            'Edit event',
-                                                                                                        )}
-                                                                                                    </span>
-                                                                                                </Button>
-                                                                                                <Button
-                                                                                                    variant="ghost"
-                                                                                                    size="icon"
-                                                                                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                                                    title={t(
-                                                                                                        'Delete event',
-                                                                                                    )}
-                                                                                                    onClick={() =>
-                                                                                                        setDeletingEvent(
-                                                                                                            ev,
-                                                                                                        )
-                                                                                                    }
-                                                                                                >
-                                                                                                    <Trash2 className="h-4 w-4" />
-                                                                                                    <span className="sr-only">
-                                                                                                        {t(
-                                                                                                            'Delete event',
-                                                                                                        )}
-                                                                                                    </span>
-                                                                                                </Button>
-                                                                                            </div>
-                                                                                        </TableCell>
-                                                                                    </TableRow>
-                                                                                    {isPlayersExpanded &&
-                                                                                    participantPreviews.total_players >
-                                                                                        1 ? (
-                                                                                        <TableRow>
-                                                                                            <TableCell
-                                                                                                colSpan={
-                                                                                                    eventTableColSpan
-                                                                                                }
-                                                                                            >
-                                                                                                <div className="ml-8 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900">
-                                                                                                    <div className="text-xs font-medium text-muted-foreground">
-                                                                                                        {t(
-                                                                                                            'Players',
-                                                                                                        )}
-                                                                                                    </div>
-                                                                                                    <Table className="w-full text-xs">
-                                                                                                        <TableHeader>
-                                                                                                            <TableRow>
-                                                                                                                <TableHead className="h-7 w-2/3 px-2 py-1">
-                                                                                                                    {t(
-                                                                                                                        'Player',
+                                                                                                                eventSerialNumber
+                                                                                                            }
+                                                                                                        </TableCell>
+                                                                                                    ) : null}
+                                                                                                    {isFirstPlayerRow ? (
+                                                                                                        <TableCell
+                                                                                                            rowSpan={
+                                                                                                                playerRows.length
+                                                                                                            }
+                                                                                                            className="min-w-56 px-2 py-1.5 align-top"
+                                                                                                        >
+                                                                                                            <div className="space-y-1">
+                                                                                                                <Link
+                                                                                                                    href={showEvent.url(
+                                                                                                                        {
+                                                                                                                            tournament:
+                                                                                                                                tournament.id,
+                                                                                                                            event: ev.id,
+                                                                                                                        },
                                                                                                                     )}
-                                                                                                                </TableHead>
-                                                                                                                <TableHead className="h-7 w-40 px-2 py-1">
-                                                                                                                    {t(
-                                                                                                                        'PNo',
-                                                                                                                    )}
-                                                                                                                </TableHead>
-                                                                                                            </TableRow>
-                                                                                                        </TableHeader>
-                                                                                                        <TableBody>
-                                                                                                            {allPlayers.map(
-                                                                                                                (
-                                                                                                                    player,
-                                                                                                                ) => (
-                                                                                                                    <TableRow
-                                                                                                                        key={
-                                                                                                                            player.id
+                                                                                                                    className="font-medium leading-snug hover:underline"
+                                                                                                                >
+                                                                                                                    {
+                                                                                                                        label.title
+                                                                                                                    }
+                                                                                                                </Link>
+                                                                                                                {label.fallbackName ? (
+                                                                                                                    <p className="text-xs text-muted-foreground">
+                                                                                                                        {
+                                                                                                                            label.fallbackName
                                                                                                                         }
-                                                                                                                    >
-                                                                                                                        <TableCell className="px-2 py-1 text-sm text-foreground">
+                                                                                                                    </p>
+                                                                                                                ) : null}
+                                                                                                            </div>
+                                                                                                        </TableCell>
+                                                                                                    ) : null}
+                                                                                                    <TableCell className="w-20 whitespace-nowrap px-2 py-1.5 text-[11px] text-muted-foreground tabular-nums">
+                                                                                                        {player.pno ??
+                                                                                                            '—'}
+                                                                                                    </TableCell>
+                                                                                                    <TableCell className="w-32 px-2 py-1.5">
+                                                                                                        <span
+                                                                                                            className={
+                                                                                                                player.rank
+                                                                                                                    ? 'font-medium text-foreground'
+                                                                                                                    : 'text-muted-foreground'
+                                                                                                            }
+                                                                                                        >
+                                                                                                            {player.rank ??
+                                                                                                                '—'}
+                                                                                                        </span>
+                                                                                                    </TableCell>
+                                                                                                    <TableCell className="min-w-40 px-2 py-1.5">
+                                                                                                        <span
+                                                                                                            className={
+                                                                                                                allPlayers.length >
+                                                                                                                0
+                                                                                                                    ? 'font-medium text-foreground'
+                                                                                                                    : 'text-muted-foreground'
+                                                                                                            }
+                                                                                                        >
+                                                                                                            {
+                                                                                                                player.full_name
+                                                                                                            }
+                                                                                                        </span>
+                                                                                                    </TableCell>
+                                                                                                    <TableCell className="w-36 px-2 py-1.5 text-muted-foreground">
+                                                                                                        {playableEvent ??
+                                                                                                            '—'}
+                                                                                                    </TableCell>
+                                                                                                    {isFirstPlayerRow ? (
+                                                                                                        <TableCell
+                                                                                                            rowSpan={
+                                                                                                                playerRows.length
+                                                                                                            }
+                                                                                                            className="w-20 px-2 py-1.5 align-top"
+                                                                                                        >
+                                                                                                            <span
+                                                                                                                className={eventBadgeClass(
+                                                                                                                    'class',
+                                                                                                                )}
+                                                                                                            >
+                                                                                                                {genderClassLabel(
+                                                                                                                    ev.gender_class,
+                                                                                                                    t,
+                                                                                                                )}
+                                                                                                            </span>
+                                                                                                        </TableCell>
+                                                                                                    ) : null}
+                                                                                                    {isFirstPlayerRow ? (
+                                                                                                        <TableCell
+                                                                                                            rowSpan={
+                                                                                                                playerRows.length
+                                                                                                            }
+                                                                                                            className="w-20 px-2 py-1.5 align-top"
+                                                                                                        >
+                                                                                                            <span
+                                                                                                                className={eventBadgeClass(
+                                                                                                                    'detail',
+                                                                                                                )}
+                                                                                                            >
+                                                                                                                {ev.event_type ===
+                                                                                                                'team'
+                                                                                                                    ? t(
+                                                                                                                          'Team',
+                                                                                                                      )
+                                                                                                                    : t(
+                                                                                                                          'Individual',
+                                                                                                                      )}
+                                                                                                            </span>
+                                                                                                        </TableCell>
+                                                                                                    ) : null}
+                                                                                                    {isFirstPlayerRow ? (
+                                                                                                        <TableCell
+                                                                                                            rowSpan={
+                                                                                                                playerRows.length
+                                                                                                            }
+                                                                                                            className="w-20 px-2 py-1.5 text-right align-top"
+                                                                                                        >
+                                                                                                            <span
+                                                                                                                className={eventBadgeClass(
+                                                                                                                    'count',
+                                                                                                                )}
+                                                                                                            >
+                                                                                                                <Users className="h-3.5 w-3.5" />
+                                                                                                                {
+                                                                                                                    participantCount
+                                                                                                                }
+                                                                                                            </span>
+                                                                                                        </TableCell>
+                                                                                                    ) : null}
+                                                                                                    {isTeamEvent ? (
+                                                                                                        isFirstPlayerRow ? (
+                                                                                                            <>
+                                                                                                                <TableCell
+                                                                                                                    rowSpan={
+                                                                                                                        playerRows.length
+                                                                                                                    }
+                                                                                                                    className="w-12 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                >
+                                                                                                                    <span className="text-amber-600">
+                                                                                                                        {
+                                                                                                                            rowMedals.gold
+                                                                                                                        }
+                                                                                                                    </span>
+                                                                                                                </TableCell>
+                                                                                                                <TableCell
+                                                                                                                    rowSpan={
+                                                                                                                        playerRows.length
+                                                                                                                    }
+                                                                                                                    className="w-12 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                >
+                                                                                                                    {
+                                                                                                                        rowMedals.silver
+                                                                                                                    }
+                                                                                                                </TableCell>
+                                                                                                                <TableCell
+                                                                                                                    rowSpan={
+                                                                                                                        playerRows.length
+                                                                                                                    }
+                                                                                                                    className="w-12 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                >
+                                                                                                                    {
+                                                                                                                        rowMedals.bronze
+                                                                                                                    }
+                                                                                                                </TableCell>
+                                                                                                                <TableCell
+                                                                                                                    rowSpan={
+                                                                                                                        playerRows.length
+                                                                                                                    }
+                                                                                                                    className="w-12 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                >
+                                                                                                                    <span className="text-emerald-700 dark:text-emerald-300">
+                                                                                                                        {
+                                                                                                                            rowMedals.merit
+                                                                                                                        }
+                                                                                                                    </span>
+                                                                                                                </TableCell>
+                                                                                                                <TableCell
+                                                                                                                    rowSpan={
+                                                                                                                        playerRows.length
+                                                                                                                    }
+                                                                                                                    className="w-14 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                >
+                                                                                                                    <span className="font-semibold">
+                                                                                                                        {
+                                                                                                                            rowTotalMedals
+                                                                                                                        }
+                                                                                                                    </span>
+                                                                                                                </TableCell>
+                                                                                                            </>
+                                                                                                        ) : null
+                                                                                                    ) : (
+                                                                                                        <>
+                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-right tabular-nums">
+                                                                                                                <span className="text-amber-600">
+                                                                                                                    {
+                                                                                                                        rowMedals.gold
+                                                                                                                    }
+                                                                                                                </span>
+                                                                                                            </TableCell>
+                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-right tabular-nums">
+                                                                                                                {
+                                                                                                                    rowMedals.silver
+                                                                                                                }
+                                                                                                            </TableCell>
+                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-right tabular-nums">
+                                                                                                                {
+                                                                                                                    rowMedals.bronze
+                                                                                                                }
+                                                                                                            </TableCell>
+                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-right tabular-nums">
+                                                                                                                <span className="text-emerald-700 dark:text-emerald-300">
+                                                                                                                    {
+                                                                                                                        rowMedals.merit
+                                                                                                                    }
+                                                                                                                </span>
+                                                                                                            </TableCell>
+                                                                                                            <TableCell className="w-14 px-2 py-1.5 text-right tabular-nums">
+                                                                                                                <span className="font-semibold">
+                                                                                                                    {
+                                                                                                                        rowTotalMedals
+                                                                                                                    }
+                                                                                                                </span>
+                                                                                                            </TableCell>
+                                                                                                        </>
+                                                                                                    )}
+                                                                                                    {isFirstPlayerRow ? (
+                                                                                                        <TableCell
+                                                                                                            rowSpan={
+                                                                                                                playerRows.length
+                                                                                                            }
+                                                                                                            className="sticky right-0 z-10 w-0 bg-card px-1.5 py-1 align-top"
+                                                                                                        >
+                                                                                                            <div className="flex items-center justify-end gap-1">
+                                                                                                                <Button
+                                                                                                                    variant="ghost"
+                                                                                                                    size="icon"
+                                                                                                                    title={t(
+                                                                                                                        'View',
+                                                                                                                    )}
+                                                                                                                    asChild
+                                                                                                                >
+                                                                                                                    <Link
+                                                                                                                        href={showEvent.url(
                                                                                                                             {
-                                                                                                                                player.full_name
-                                                                                                                            }
-                                                                                                                        </TableCell>
-                                                                                                                        <TableCell className="w-40 px-2 py-1 text-xs text-muted-foreground">
-                                                                                                                            {player.pno ??
-                                                                                                                                '—'}
-                                                                                                                        </TableCell>
-                                                                                                                    </TableRow>
-                                                                                                                ),
-                                                                                                            )}
-                                                                                                        </TableBody>
-                                                                                                    </Table>
-                                                                                                </div>
-                                                                                            </TableCell>
-                                                                                        </TableRow>
-                                                                                    ) : null}
+                                                                                                                                tournament:
+                                                                                                                                    tournament.id,
+                                                                                                                                event: ev.id,
+                                                                                                                            },
+                                                                                                                        )}
+                                                                                                                    >
+                                                                                                                        <Eye className="h-4 w-4 text-sky-600" />
+                                                                                                                        <span className="sr-only">
+                                                                                                                            {t(
+                                                                                                                                'View',
+                                                                                                                            )}
+                                                                                                                        </span>
+                                                                                                                    </Link>
+                                                                                                                </Button>
+                                                                                                                <Button
+                                                                                                                    variant="ghost"
+                                                                                                                    size="icon"
+                                                                                                                    title={t(
+                                                                                                                        ev.can_update_structure
+                                                                                                                            ? 'Edit event'
+                                                                                                                            : 'Event cannot be edited after participants are added',
+                                                                                                                    )}
+                                                                                                                    disabled={
+                                                                                                                        !ev.can_update_structure
+                                                                                                                    }
+                                                                                                                    onClick={() =>
+                                                                                                                        setEditingEvent(
+                                                                                                                            ev,
+                                                                                                                        )
+                                                                                                                    }
+                                                                                                                >
+                                                                                                                    <Pencil className="h-4 w-4 text-amber-600" />
+                                                                                                                    <span className="sr-only">
+                                                                                                                        {t(
+                                                                                                                            'Edit event',
+                                                                                                                        )}
+                                                                                                                    </span>
+                                                                                                                </Button>
+                                                                                                                <Button
+                                                                                                                    variant="ghost"
+                                                                                                                    size="icon"
+                                                                                                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                                                                    title={t(
+                                                                                                                        'Delete event',
+                                                                                                                    )}
+                                                                                                                    onClick={() =>
+                                                                                                                        setDeletingEvent(
+                                                                                                                            ev,
+                                                                                                                        )
+                                                                                                                    }
+                                                                                                                >
+                                                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                                                    <span className="sr-only">
+                                                                                                                        {t(
+                                                                                                                            'Delete event',
+                                                                                                                        )}
+                                                                                                                    </span>
+                                                                                                                </Button>
+                                                                                                            </div>
+                                                                                                        </TableCell>
+                                                                                                    ) : null}
+                                                                                                </TableRow>
+                                                                                            );
+                                                                                        },
+                                                                                    )}
                                                                                 </Fragment>
                                                                             );
                                                                         },

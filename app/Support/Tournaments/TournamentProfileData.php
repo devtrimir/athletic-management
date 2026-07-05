@@ -149,8 +149,8 @@ class TournamentProfileData
             $participationId = (int) $row->participation_id;
             $teamKey = (int) ($row->team_id ?? 0);
             $dedupeKey = $eventType === 'team'
-                ? $eventType . ':' . $eventId . ':' . ($teamKey > 0 ? (string) $teamKey : 'p' . $participationId)
-                : 'individual:' . $participationId . ':' . $medalType;
+                ? $eventType.':'.$eventId.':'.($teamKey > 0 ? (string) $teamKey : 'p'.$participationId)
+                : 'individual:'.$participationId.':'.$medalType;
 
             if (isset($seenMedals[$dedupeKey])) {
                 continue;
@@ -280,15 +280,18 @@ class TournamentProfileData
             ->when(
                 $filters['participation_status'] === 'without',
                 fn (Builder $query): Builder => $query->doesntHave('participations'),
-            )
-            ;
+            );
 
         $events = $eventsQuery
             ->orderBy('name')
-            ->get(['id', 'event_type']);
+            ->get(['id', 'sport_id', 'event_type']);
 
         $eventIds = $events->pluck('id');
-        $participantPreviews = $this->eventParticipantPreviews($eventIds);
+        $participantPreviews = $this->eventParticipantPreviews(
+            $eventIds,
+            $events->pluck('event_type', 'id'),
+            $events->pluck('sport_id', 'id'),
+        );
         $lineupCountsByEvent = Participation::query()
             ->select(
                 'event_id',
@@ -411,8 +414,7 @@ class TournamentProfileData
                 'participants_required' => $event->participants_required,
                 'event_source' => $event->event_source,
                 'provisional_reason' => $event->provisional_reason,
-                'participations_count' =>
-                    $event->event_type === 'team'
+                'participations_count' => $event->event_type === 'team'
                         ? (int) ($lineupCountsByEvent->get($event->id, 0))
                         : (int) $event->participations_count,
                 'can_update_structure' => (int) $event->participations_count === 0,
@@ -451,17 +453,26 @@ class TournamentProfileData
         }
 
         $singleMemberByEvent = Participation::query()
-            ->select('event_id', DB::raw('MIN(member_id) as member_id'))
+            ->select(['id', 'event_id', 'member_id'])
             ->whereIn('event_id', $eventIds)
             ->whereNull('team_id')
+            ->get()
+            ->filter(fn (Participation $row): bool => (int) $row->member_id > 0)
             ->groupBy('event_id')
-            ->havingRaw('COUNT(*) = 1')
-            ->pluck('member_id', 'event_id')
-            ->filter(fn (mixed $memberId): bool => (int) $memberId > 0);
+            ->filter(fn (Collection $rows): bool => $rows->count() === 1)
+            ->mapWithKeys(function (Collection $rows, int|string $eventId): array {
+                /** @var Participation $singleRow */
+                $singleRow = $rows->first();
+
+                return [(int) $eventId => [
+                    'member_id' => (int) $singleRow->member_id,
+                    'participation_id' => (int) $singleRow->id,
+                ]];
+            });
 
         $teamSingleByEvent = [];
         $teamRows = Participation::query()
-            ->select(['event_id', 'member_id', 'lineup_member_ids'])
+            ->select(['id', 'event_id', 'member_id', 'lineup_member_ids'])
             ->whereIn('event_id', $eventIds)
             ->whereNotNull('team_id')
             ->get();
@@ -489,15 +500,20 @@ class TournamentProfileData
                 continue;
             }
 
-            $teamSingleByEvent[$eventId] = $memberIds[0];
+            $teamSingleByEvent[$eventId] = [
+                'member_id' => $memberIds[0],
+                'participation_id' => (int) $teamRow->id,
+            ];
         }
 
         $singleMemberIds = $singleMemberByEvent
             ->values()
+            ->pluck('member_id')
             ->merge($teamSingleByEvent)
             ->filter()
             ->unique()
-            ->values();
+            ->values()
+            ->map(static fn (mixed $member): int => is_array($member) ? (int) ($member['member_id'] ?? 0) : (int) $member);
 
         if ($singleMemberIds->isEmpty()) {
             return [];
@@ -511,29 +527,29 @@ class TournamentProfileData
             ->keyBy('id');
 
         $result = [];
-        foreach ($singleMemberByEvent as $eventId => $memberId) {
-            $member = $membersById->get((int) $memberId);
+        foreach ($singleMemberByEvent as $eventId => $memberData) {
+            $member = $membersById->get((int) ($memberData['member_id'] ?? 0));
             if ($member === null) {
                 continue;
             }
 
             $result[(int) $eventId] = [
-                ...$this->memberPlayerPreview($member),
+                ...$this->memberPlayerPreview($member, (int) ($memberData['participation_id'] ?? 0)),
             ];
         }
 
-        foreach ($teamSingleByEvent as $eventId => $memberId) {
+        foreach ($teamSingleByEvent as $eventId => $memberData) {
             if (isset($result[$eventId])) {
                 continue;
             }
 
-            $member = $membersById->get((int) $memberId);
+            $member = $membersById->get((int) ($memberData['member_id'] ?? 0));
             if ($member === null) {
                 continue;
             }
 
             $result[$eventId] = [
-                ...$this->memberPlayerPreview($member),
+                ...$this->memberPlayerPreview($member, (int) ($memberData['participation_id'] ?? 0)),
             ];
         }
 
@@ -543,21 +559,33 @@ class TournamentProfileData
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function eventParticipantPreviews(Collection $eventIds): array
+    private function eventParticipantPreviews(Collection $eventIds, Collection $eventTypesById, Collection $eventSportIdsById): array
     {
         if ($eventIds->isEmpty()) {
             return [];
         }
 
         $rows = Participation::query()
-            ->select(['event_id', 'member_id', 'team_id', 'lineup_member_ids'])
+            ->select(['id', 'event_id', 'member_id', 'team_id', 'lineup_member_ids'])
+            ->with([
+                'achievement' => fn ($query) => $query
+                    ->select(['id', 'participation_id', 'medal_type'])
+                    ->latest('id'),
+            ])
             ->whereIn('event_id', $eventIds)
             ->get();
 
         $memberIdsByEvent = [];
+        $memberParticipationByEvent = [];
+        $memberMedalsByEvent = [];
         foreach ($rows as $row) {
             $eventId = (int) $row->event_id;
             $candidateIds = [];
+            $participationId = (int) $row->id;
+            $medalsByType = $this->participationMedalCounts(
+                $row,
+                (string) ($eventTypesById->get($eventId) ?? ''),
+            );
 
             if ((int) $row->team_id > 0) {
                 $candidateIds = array_values(array_filter(
@@ -582,6 +610,13 @@ class TournamentProfileData
 
             foreach (array_unique($candidateIds) as $memberId) {
                 $memberIdsByEvent[$eventId][$memberId] = true;
+                if (! isset($memberParticipationByEvent[$eventId][$memberId])) {
+                    $memberParticipationByEvent[$eventId][$memberId] = $participationId;
+                }
+
+                if (! isset($memberMedalsByEvent[$eventId][$memberId])) {
+                    $memberMedalsByEvent[$eventId][$memberId] = $medalsByType;
+                }
             }
         }
 
@@ -594,7 +629,11 @@ class TournamentProfileData
 
         $membersById = Member::query()
             ->select(['id', 'full_name', 'pno', 'rank', 'current_unit_id', 'posting_district_id'])
-            ->with(['currentUnit:id,name', 'postingDistrict:id,name'])
+            ->with([
+                'currentUnit:id,name',
+                'postingDistrict:id,name',
+                'playableSports:id,name',
+            ])
             ->whereIn('id', $allMemberIds)
             ->get()
             ->keyBy('id');
@@ -608,7 +647,14 @@ class TournamentProfileData
                     continue;
                 }
 
-                $players[] = $this->memberPlayerPreview($member);
+                $players[] = [
+                    ...$this->memberPlayerPreview(
+                        $member,
+                        (int) ($memberParticipationByEvent[$eventId][$memberId] ?? 0),
+                    ),
+                    'sport_profile' => $this->memberSportProfile($member, (int) ($eventSportIdsById->get($eventId) ?? 0)),
+                    'medals_by_type' => $memberMedalsByEvent[$eventId][$memberId] ?? $this->emptyMedalCounts(),
+                ];
             }
 
             usort($players, static fn (array $a, array $b): int => strcmp(
@@ -627,11 +673,68 @@ class TournamentProfileData
     }
 
     /**
-     * @return array{id: int, full_name: string, pno: string|null, rank: string|null, posting_location: string|null}
+     * @return array{gold: int, silver: int, bronze: int, merit: int}
      */
-    private function memberPlayerPreview(Member $member): array
+    private function participationMedalCounts(Participation $participation, string $eventType): array
+    {
+        $counts = $this->emptyMedalCounts();
+
+        if ($eventType !== 'individual' || ! $participation->achievement instanceof Achievement) {
+            return $counts;
+        }
+
+        $medalType = strtolower((string) $participation->achievement->medal_type);
+
+        if (array_key_exists($medalType, $counts)) {
+            $counts[$medalType] = 1;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @return array{gold: int, silver: int, bronze: int, merit: int}
+     */
+    private function emptyMedalCounts(): array
     {
         return [
+            'gold' => 0,
+            'silver' => 0,
+            'bronze' => 0,
+            'merit' => 0,
+        ];
+    }
+
+    /**
+     * @return array{sport_event: string|null, role: string|null, position: string|null}|null
+     */
+    private function memberSportProfile(Member $member, int $sportId): ?array
+    {
+        if (! $member->relationLoaded('playableSports')) {
+            return null;
+        }
+
+        $sport = $member->playableSports->firstWhere('id', $sportId);
+        if ($sport === null) {
+            return null;
+        }
+
+        $profile = [
+            'sport_event' => filled($sport->pivot?->sport_event) ? (string) $sport->pivot->sport_event : null,
+            'role' => filled($sport->pivot?->role) ? (string) $sport->pivot->role : null,
+            'position' => filled($sport->pivot?->position) ? (string) $sport->pivot->position : null,
+        ];
+
+        return collect($profile)->filter()->isEmpty() ? null : $profile;
+    }
+
+    /**
+     * @return array{id: int, participation_id: string, full_name: string, pno: string|null, rank: string|null, posting_location: string|null}
+     */
+    private function memberPlayerPreview(Member $member, int $participationId = 0): array
+    {
+        return [
+            'participation_id' => (string) $participationId,
             'id' => (int) $member->id,
             'full_name' => $member->full_name,
             'pno' => $member->pno,

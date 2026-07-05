@@ -24,7 +24,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
@@ -782,11 +781,6 @@ export default function ExternalCoachAttendance({
                                         <Label htmlFor="submitted_photo">
                                             {t('Proof photo')}
                                         </Label>
-                                        <input
-                                            type="hidden"
-                                            name="submitted_photo_source"
-                                            value={photoSource}
-                                        />
                                         <div className="grid min-w-0 gap-2 sm:grid-cols-1">
                                             <Button
                                                 type="button"
@@ -799,7 +793,7 @@ export default function ExternalCoachAttendance({
                                             </Button>
                                         </div>
 
-                                        <Input
+                                        <input
                                             ref={cameraInputRef}
                                             id="submitted_photo_camera"
                                             name="submitted_photo"

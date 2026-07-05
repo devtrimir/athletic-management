@@ -149,6 +149,11 @@ type TeamMemberRow = {
         rank: string | null;
         designation: string | null;
         mobile: string | null;
+        playable_profile: {
+            sport_event: string | null;
+            role: string | null;
+            position: string | null;
+        } | null;
         current_unit: {
             id: number;
             name: string;
@@ -161,7 +166,15 @@ type CoachAssignmentRow = {
     id: number;
     role: string | null;
     assigned_at: string | null;
-    coach: { id: number; full_name: string; pno: string | null } | null;
+    coach: {
+        id: number;
+        full_name: string;
+        pno: string | null;
+        sport_profile: {
+            sport_event: string | null;
+            level: string | null;
+        } | null;
+    } | null;
     session: { id: number; name: string } | null;
 };
 
@@ -2100,7 +2113,7 @@ export default function TeamsShow({
 
                             <Deferred data="members" fallback={tableFallback}>
                                 <div className="overflow-x-auto rounded-2xl border bg-card p-4 shadow-sm">
-                                    <div className="min-w-[980px]">
+                                    <div className="min-w-[1120px]">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="bg-muted/70">
@@ -2127,6 +2140,11 @@ export default function TeamsShow({
                                                     </TableHead>
                                                     <TableHead>
                                                         {t('Role')}
+                                                    </TableHead>
+                                                    <TableHead className="min-w-44">
+                                                        {t(
+                                                            'Event / Role / Position',
+                                                        )}
                                                     </TableHead>
                                                     <TableHead className="hidden lg:table-cell">
                                                         {t('Posting')}
@@ -2173,6 +2191,20 @@ export default function TeamsShow({
                                                                             .member
                                                                             .id,
                                                                     )
+                                                                );
+                                                            const playableProfile =
+                                                                row.member
+                                                                    ?.playable_profile;
+                                                            const playableProfileMeta =
+                                                                [
+                                                                    playableProfile?.role
+                                                                        ? `${t('Role')}: ${playableProfile.role}`
+                                                                        : null,
+                                                                    playableProfile?.position
+                                                                        ? `${t('Position')}: ${playableProfile.position}`
+                                                                        : null,
+                                                                ].filter(
+                                                                    Boolean,
                                                                 );
 
                                                             return (
@@ -2255,6 +2287,31 @@ export default function TeamsShow({
                                                                                   )
                                                                                 : ''}
                                                                         </span>
+                                                                    </TableCell>
+                                                                    <TableCell className="min-w-44">
+                                                                        {playableProfile ? (
+                                                                            <div className="space-y-0.5">
+                                                                                {playableProfile.sport_event ? (
+                                                                                    <div className="text-sm font-medium">
+                                                                                        {
+                                                                                            playableProfile.sport_event
+                                                                                        }
+                                                                                    </div>
+                                                                                ) : null}
+                                                                                {playableProfileMeta.length >
+                                                                                0 ? (
+                                                                                    <div className="text-xs text-muted-foreground">
+                                                                                        {playableProfileMeta.join(
+                                                                                            ' · ',
+                                                                                        )}
+                                                                                    </div>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-sm text-muted-foreground">
+                                                                                —
+                                                                            </span>
+                                                                        )}
                                                                     </TableCell>
                                                                     <TableCell className="hidden lg:table-cell">
                                                                         <div className="text-sm">
@@ -2728,7 +2785,7 @@ export default function TeamsShow({
 
                             <Deferred data="coaches" fallback={tableFallback}>
                                 <div className="overflow-x-auto rounded-2xl border bg-card p-4 shadow-sm">
-                                    <div className="min-w-[680px]">
+                                    <div className="min-w-[840px]">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="bg-muted/40">
@@ -2756,6 +2813,9 @@ export default function TeamsShow({
                                                     <TableHead>
                                                         {t('Role')}
                                                     </TableHead>
+                                                    <TableHead className="min-w-44">
+                                                        {t('Event / Level')}
+                                                    </TableHead>
                                                     <TableHead className="hidden md:table-cell">
                                                         {t('Assigned on')}
                                                     </TableHead>
@@ -2770,7 +2830,7 @@ export default function TeamsShow({
                                                 0 ? (
                                                     <TableRow>
                                                         <TableCell
-                                                            colSpan={7}
+                                                            colSpan={8}
                                                             className="text-center text-muted-foreground"
                                                         >
                                                             {t(
@@ -2780,24 +2840,35 @@ export default function TeamsShow({
                                                     </TableRow>
                                                 ) : (
                                                     filteredCoaches.map(
-                                                        (row, index) => (
-                                                            <TableRow
-                                                                key={row.id}
-                                                                style={{
-                                                                    animationDelay: `${index * 20}ms`,
-                                                                }}
-                                                                className="animate-in transition-all duration-200 fade-in-0 hover:-translate-y-0.5 hover:bg-muted/30"
-                                                                data-state={
-                                                                    row.coach &&
-                                                                    selectedCoachIds.has(
-                                                                        row
-                                                                            .coach
-                                                                            .id,
-                                                                    )
-                                                                        ? 'selected'
-                                                                        : undefined
-                                                                }
-                                                            >
+                                                        (row, index) => {
+                                                            const sportProfile =
+                                                                row.coach
+                                                                    ?.sport_profile;
+                                                            const profileMeta =
+                                                                sportProfile?.level
+                                                                    ? [
+                                                                          `${t('Level')}: ${sportProfile.level}`,
+                                                                      ]
+                                                                    : [];
+
+                                                            return (
+                                                                <TableRow
+                                                                    key={row.id}
+                                                                    style={{
+                                                                        animationDelay: `${index * 20}ms`,
+                                                                    }}
+                                                                    className="animate-in transition-all duration-200 fade-in-0 hover:-translate-y-0.5 hover:bg-muted/30"
+                                                                    data-state={
+                                                                        row.coach &&
+                                                                        selectedCoachIds.has(
+                                                                            row
+                                                                                .coach
+                                                                                .id,
+                                                                        )
+                                                                            ? 'selected'
+                                                                            : undefined
+                                                                    }
+                                                                >
                                                                 <TableCell>
                                                                     <Checkbox
                                                                         checked={
@@ -2841,6 +2912,31 @@ export default function TeamsShow({
                                                                 <TableCell>
                                                                     {coachRoleLabel(
                                                                         row.role,
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell className="min-w-44">
+                                                                    {sportProfile ? (
+                                                                        <div className="space-y-0.5">
+                                                                            {sportProfile.sport_event ? (
+                                                                                <div className="text-sm font-medium">
+                                                                                    {
+                                                                                        sportProfile.sport_event
+                                                                                    }
+                                                                                </div>
+                                                                            ) : null}
+                                                                            {profileMeta.length >
+                                                                            0 ? (
+                                                                                <div className="text-xs text-muted-foreground">
+                                                                                    {profileMeta.join(
+                                                                                        ' · ',
+                                                                                    )}
+                                                                                </div>
+                                                                            ) : null}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-sm text-muted-foreground">
+                                                                            —
+                                                                        </span>
                                                                     )}
                                                                 </TableCell>
                                                                 <TableCell className="hidden md:table-cell">
@@ -2899,7 +2995,8 @@ export default function TeamsShow({
                                                                     </div>
                                                                 </TableCell>
                                                             </TableRow>
-                                                        ),
+                                                            );
+                                                        },
                                                     )
                                                 )}
                                             </TableBody>

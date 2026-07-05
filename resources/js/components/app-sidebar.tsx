@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     LayoutGrid,
     CalendarDays,
@@ -35,42 +35,58 @@ import {
 import { useTranslation } from '@/hooks/use-translation';
 import { dashboard } from '@/routes';
 import { edit as editProfile } from '@/routes/profile';
-import type { NavItem } from '@/types';
+import type { Auth, NavItem } from '@/types';
 
 export function AppSidebar() {
     const { t } = useTranslation();
     const { state } = useSidebar();
+    const { auth } = usePage().props as { auth?: Partial<Auth> };
+    const permissions = new Set(auth?.permissions ?? []);
 
-    const mainNavItems: NavItem[] = [
+    function can(permission?: string): boolean {
+        return permission === undefined || permissions.has(permission);
+    }
+
+    const mainNavItems: Array<NavItem & { permission?: string }> = [
         { title: t('Dashboard'), href: dashboard(), icon: LayoutGrid },
         {
             title: t('Team Prabhari'),
             href: InchargeController.index.url(),
             icon: UserRoundCheck,
+            permission: 'incharges.view',
         },
-        { title: t('Teams'), href: TeamController.index.url(), icon: Shield },
+        {
+            title: t('Teams'),
+            href: TeamController.index.url(),
+            icon: Shield,
+            permission: 'teams.view',
+        },
         {
             title: t('Tournaments'),
             href: TournamentController.index.url(),
             icon: Trophy,
+            permission: 'tournaments.view',
         },
 
         {
             title: t('Athletes'),
             href: MemberController.index.url(),
             icon: Users,
+            permission: 'members.view',
         },
         {
             title: t('Coaches'),
             href: CoachController.index.url(),
             icon: UserCheck,
+            permission: 'coaches.view',
         },
         {
             title: t('Sports calendars'),
             href: sportsCalendarIndex.url(),
             icon: CalendarDays,
+            permission: 'sports-calendars.view',
         },
-    ];
+    ].filter((item) => can(item.permission));
 
     const adminNavItems: NavItem[] = [
         { title: t('Settings'), href: editProfile(), icon: Settings2 },

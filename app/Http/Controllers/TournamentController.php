@@ -13,6 +13,7 @@ use App\Models\SportSession;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Support\Tournaments\TournamentProfileData;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,7 +43,23 @@ class TournamentController extends Controller
             ->allowedFilters([
                 AllowedFilter::exact('session_id'),
                 AllowedFilter::exact('tier_id'),
-                AllowedFilter::exact('sport_id'),
+                AllowedFilter::callback('sport_id', function (Builder $query, mixed $value): void {
+                    $rawSportId = is_array($value) ? reset($value) : $value;
+
+                    if (! is_numeric($rawSportId)) {
+                        return;
+                    }
+
+                    $sportId = (int) $rawSportId;
+                    $query->where(function (Builder $query) use ($sportId): void {
+                        $query
+                            ->where('sport_id', $sportId)
+                            ->orWhereHas(
+                                'sports',
+                                fn (Builder $query): Builder => $query->whereKey($sportId),
+                            );
+                    });
+                }),
                 AllowedFilter::partial('q', 'name'),
             ])
             ->allowedSorts(['name', 'date_from', 'created_at'])
@@ -58,19 +75,16 @@ class TournamentController extends Controller
                     ->join('events', 'events.id', '=', 'participations.event_id')
                     ->whereColumn('events.tournament_id', 'tournaments.id')
                     ->whereNotNull('participations.team_id'),
-                'medals_count' => Achievement::query()
-                    ->selectRaw('count(*)')
-                    ->join('participations', 'participations.id', '=', 'achievements.participation_id')
-                    ->join('events', 'events.id', '=', 'participations.event_id')
-                    ->whereColumn('events.tournament_id', 'tournaments.id'),
             ])
-            ->with(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name'])
+            ->with(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name', 'sports:id,name'])
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
                 fn ($q) => $q->where('session_id', $defaultSessionId)
             )
             ->paginate(25)
             ->withQueryString();
+
+        $this->attachMedalSummaries($tournaments->getCollection());
 
         $sessions = SportSession::select(['id', 'name'])
             ->where('organization_id', $orgId)
@@ -200,6 +214,62 @@ class TournamentController extends Controller
                 ->orderByDesc('weight')
                 ->get(),
         ];
+    }
+
+    /**
+     * @param  Collection<int, Tournament>  $tournaments
+     */
+    private function attachMedalSummaries(Collection $tournaments): void
+    {
+        $blank = [
+            'medals_count' => 0,
+            'team_medals_count' => 0,
+            'gold_medals_count' => 0,
+            'silver_medals_count' => 0,
+            'bronze_medals_count' => 0,
+            'merit_medals_count' => 0,
+        ];
+
+        if ($tournaments->isEmpty()) {
+            return;
+        }
+
+        $summaries = [];
+        $achievements = Achievement::query()
+            ->with(['participation:id,event_id,team_id', 'participation.event:id,tournament_id'])
+            ->whereHas(
+                'participation.event',
+                fn (Builder $query): Builder => $query->whereIn('tournament_id', $tournaments->modelKeys()),
+            )
+            ->get(['id', 'participation_id', 'medal_type']);
+
+        foreach ($achievements as $achievement) {
+            $tournamentId = $achievement->participation?->event?->tournament_id;
+
+            if (! $tournamentId) {
+                continue;
+            }
+
+            $summary = $summaries[$tournamentId] ?? $blank;
+            $summary['medals_count']++;
+
+            if ($achievement->participation?->team_id !== null) {
+                $summary['team_medals_count']++;
+            }
+
+            $medalKey = strtolower($achievement->medal_type).'_medals_count';
+            if (array_key_exists($medalKey, $summary)) {
+                $summary[$medalKey]++;
+            }
+
+            $summaries[$tournamentId] = $summary;
+        }
+
+        foreach ($tournaments as $tournament) {
+            foreach (($summaries[$tournament->id] ?? $blank) as $key => $value) {
+                $tournament->setAttribute($key, $value);
+            }
+        }
     }
 
     /**

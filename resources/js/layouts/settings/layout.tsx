@@ -31,7 +31,7 @@ import { index as sportsIndex } from '@/routes/sports';
 import { index as tournamentTiersIndex } from '@/routes/tournament-tiers';
 import { index as unitsIndex } from '@/routes/units';
 import { index as usersIndex } from '@/routes/users';
-import type { NavItem } from '@/types';
+import type { Auth, NavItem } from '@/types';
 
 function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
     return (
@@ -53,8 +53,10 @@ function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
 export default function SettingsLayout({ children }: PropsWithChildren) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
     const { t } = useTranslation();
-    const { auth } = usePage().props;
-    const canManageUsers = auth.permissions.includes('users.manage');
+    const { auth } = usePage().props as { auth: Auth };
+    const permissions = new Set(auth.permissions);
+    const canManageReferenceData = permissions.has('reference_data.manage');
+    const canManageUsers = permissions.has('users.manage');
 
     const accountNavItems: NavItem[] = [
         { title: t('Profile'), href: edit(), icon: User },
@@ -109,16 +111,22 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                 isActive={isCurrentOrParentUrl(item.href)}
                             />
                         ))}
-                        <p className="mt-4 px-3 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                            {t('Reference Data')}
-                        </p>
-                        {referenceDataNavItems.map((item) => (
-                            <NavLink
-                                key={toUrl(item.href)}
-                                item={item}
-                                isActive={isCurrentOrParentUrl(item.href)}
-                            />
-                        ))}
+                        {canManageReferenceData && (
+                            <>
+                                <p className="mt-4 px-3 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                    {t('Reference Data')}
+                                </p>
+                                {referenceDataNavItems.map((item) => (
+                                    <NavLink
+                                        key={toUrl(item.href)}
+                                        item={item}
+                                        isActive={isCurrentOrParentUrl(
+                                            item.href,
+                                        )}
+                                    />
+                                ))}
+                            </>
+                        )}
                         {canManageUsers && (
                             <>
                                 <p className="mt-4 px-3 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
