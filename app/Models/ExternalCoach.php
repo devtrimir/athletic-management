@@ -93,6 +93,12 @@ class ExternalCoach extends Authenticatable
         return $this->hasMany(ExternalCoachStatusHistory::class);
     }
 
+    /** @return HasMany<ExternalCoachingAssignment, $this> */
+    public function externalCoachingAssignments(): HasMany
+    {
+        return $this->hasMany(ExternalCoachingAssignment::class);
+    }
+
     public function isActiveForLogin(): bool
     {
         return $this->status === 'active' && $this->deleted_at === null;
