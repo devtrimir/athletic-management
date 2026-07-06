@@ -79,6 +79,8 @@ Route::prefix('external-coach')->name('external-coach.')->group(function (): voi
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('external-coaches/{externalCoach}/assignments', [ExternalCoachController::class, 'assignments'])->name('external-coaches.assignments');
+    Route::get('external-coaches/{externalCoach}/members/{member}/assignments', [ExternalCoachController::class, 'playerAssignments'])->name('external-coaches.player-assignments');
     Route::resource('external-coaches', ExternalCoachController::class);
     Route::resource('training-venues', TrainingVenueController::class);
     Route::get('external-coaching-assignments/{external_coaching_assignment}/permission-document', [ExternalCoachingAssignmentController::class, 'permissionDocument'])->name('external-coaching-assignments.permission-document');
