@@ -1,6 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useRef, useState } from 'react';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Incharge = {
@@ -24,11 +26,16 @@ type Assignment = {
     removal_reason: string | null;
     remarks: string | null;
     is_current: boolean;
-    team: { id: number; name: string } | null;
-    sport: { id: number; name: string } | null;
-    session: { id: number; name: string } | null;
-    unit: { id: number; name: string } | null;
-    district: { id: number; name: string } | null;
+    team:
+        | {
+              id: number;
+              name: string;
+              sport: { id: number; name: string } | null;
+              session: { id: number; name: string } | null;
+          }
+        | null;
+    sport?: { id: number; name: string } | null;
+    session?: { id: number; name: string } | null;
 };
 
 type Achievement = {
@@ -74,8 +81,43 @@ type SpecialAchievementPayload = {
     records: SpecialAchievement[];
 };
 
+const LETTERHEAD_LOGO_SRC = '/logo.jpg';
+const PRINT_HEADING = 'UP Police Sport Control Board (UPPSCB)';
+type SectionKey = 'overview' | 'teams' | 'achievements' | 'specialAchievements';
+const AVAILABLE_SECTIONS: SectionKey[] = [
+    'overview',
+    'teams',
+    'achievements',
+    'specialAchievements',
+];
+const DEFAULT_SECTIONS: SectionKey[] = AVAILABLE_SECTIONS;
+const SECTION_LABELS: Record<SectionKey, string> = {
+    overview: 'Overview',
+    teams: 'Team assignments',
+    achievements: 'Achievements',
+    specialAchievements: 'Special achievements',
+};
+
 function formatDate(value: string | null): string {
-    return value ? value : '';
+    if (!value) {
+        return '';
+    }
+
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+        return '';
+    }
+
+    if (trimmed.includes('T')) {
+        return trimmed.split('T')[0] ?? '';
+    }
+
+    if (trimmed.includes(' ')) {
+        return trimmed.split(' ')[0] ?? '';
+    }
+
+    return trimmed;
 }
 
 function identityValue(value: string | null | undefined): string {
@@ -86,29 +128,182 @@ function hasValue(value: string | null | undefined): boolean {
     return value?.trim() !== undefined && value?.trim() !== '';
 }
 
+function slugifyFileName(value: string): string {
+    return value
+        .toLowerCase()
+        .replace(/\\s+/g, '_')
+        .replace(/[^a-z0-9._-]/g, '')
+        .replace(/_{2,}/g, '_')
+        .replace(/-+/g, '-')
+        .replace(/^[-._]+|[-._]+$/g, '');
+}
+
 export default function InchargePrintPreview({
     incharge,
-    assignments,
+    assignments = [],
     achievements,
     specialAchievements,
 }: {
-    incharge: Incharge;
-    assignments: Assignment[];
+    incharge?: Incharge;
+    assignments?: Assignment[];
     achievements?: InchargeAchievementPayload;
     specialAchievements?: SpecialAchievementPayload;
 }) {
     const { t } = useTranslation();
+    const printTargetRef = useRef<HTMLDivElement | null>(null);
+    const inchargeRecord = incharge ?? {
+        id: 0,
+        full_name: 'Incharge',
+        pno: null,
+        rank: null,
+        designation: null,
+        mobile: null,
+        email: null,
+        is_active: false,
+        remarks: null,
+        photo_path: null,
+    };
     const achievementRecords = achievements?.records ?? [];
     const specialAchievementRecords = specialAchievements?.records ?? [];
+    const [selectedSections, setSelectedSections] =
+        useState<SectionKey[]>(DEFAULT_SECTIONS);
+
+    const toggleSection = (section: SectionKey): void => {
+        setSelectedSections((current) =>
+            current.includes(section)
+                ? current.filter((item) => item !== section)
+                : [...current, section],
+        );
+    };
+
+    const handlePrint = (): void => {
+        const target = printTargetRef.current;
+
+        if (!target) {
+            return;
+        }
+
+        const printWindow = window.open('', '_blank', 'width=1200,height=900');
+
+        if (!printWindow) {
+            return;
+        }
+
+        const safeDate = new Date().toLocaleDateString('en-CA');
+        const safeName = slugifyFileName(
+            `uppscb-incharge-${inchargeRecord.full_name}-${inchargeRecord.pno ?? ''}-${safeDate}`,
+        );
+
+        const styles = Array.from(
+            document.head.querySelectorAll('meta, link[rel="stylesheet"], style'),
+        )
+            .map((node) => node.outerHTML)
+            .join('');
+
+        printWindow.document.open();
+        printWindow.document.write(`<!doctype html>
+            <html>
+                <head>
+                    <title>${safeName}</title>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    ${styles}
+                    <style>
+                        @page {
+                            size: A4;
+                            margin: 6mm;
+                        }
+                        html,
+                        body {
+                            margin: 0;
+                            background: white;
+                        }
+                        @media print {
+                            #quick-view-print-target {
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                font-size: 9px !important;
+                                line-height: 1.25 !important;
+                            }
+                            body > * {
+                                display: block !important;
+                            }
+                            body #app {
+                                display: block !important;
+                            }
+                            body #app > * {
+                                display: none !important;
+                            }
+                            body #app #quick-view-print-target {
+                                display: block !important;
+                            }
+                            #quick-view-print-target * {
+                                color: black !important;
+                                background: transparent !important;
+                                box-shadow: none !important;
+                                border-color: #ccc !important;
+                            }
+                            #quick-view-print-target [data-print-hide] {
+                                display: none !important;
+                            }
+                            .print\\:hidden {
+                                display: none !important;
+                            }
+                            th,
+                            td {
+                                font-size: 8px !important;
+                                padding: 0.25rem !important;
+                            }
+                            h1 {
+                                font-size: 14px !important;
+                            }
+                            h2 {
+                                font-size: 11px !important;
+                            }
+                            .text-sm,
+                            .text-xs {
+                                font-size: 8px !important;
+                            }
+                            .text-lg {
+                                font-size: 12px !important;
+                            }
+                            .text-2xl {
+                                font-size: 16px !important;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div id="app">${target.outerHTML}</div>
+                </body>
+            </html>`);
+        printWindow.document.close();
+        printWindow.document.title = safeName;
+
+        printWindow.onload = () => {
+            printWindow.print();
+            printWindow.close();
+        };
+    };
+
+    const sectionEnabled = (section: SectionKey): boolean =>
+        selectedSections.includes(section);
 
     return (
         <>
-            <Head title={`${incharge.full_name} — ${t('Print preview')}`} />
+            <Head title={`${inchargeRecord.full_name} — ${t('Print preview')}`} />
 
-            <div className="mx-auto max-w-5xl space-y-4 p-4 print:p-0">
-                <div className="flex items-center justify-between gap-2 print:hidden">
+            <div
+                ref={printTargetRef}
+                id="quick-view-print-target"
+                className="relative mx-auto max-w-5xl space-y-4 overflow-hidden rounded-2xl border border-neutral-300 bg-white p-4 text-black shadow-sm print:max-w-none print:w-full print:space-y-1 print:rounded-none print:border-0 print:p-0 print:text-[10px] print:leading-4 print:shadow-none"
+            >
+                <div
+                    className="flex items-center justify-between gap-2 print:hidden"
+                    data-print-hide
+                >
                     <Button variant="outline" size="sm" asChild>
-                        <Link href={`/incharges/${incharge.id}`}>
+                            <Link href={`/incharges/${inchargeRecord.id}`}>
                             <span className="inline-flex items-center">
                                 <ArrowLeft className="mr-1.5 h-4 w-4" />
                                 {t('Back')}
@@ -116,69 +311,108 @@ export default function InchargePrintPreview({
                         </Link>
                     </Button>
                     <Button
+                        type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                            window.print();
-                        }}
+                        onClick={handlePrint}
                     >
                         <Printer className="mr-1.5 h-4 w-4" />
                         {t('Print')}
                     </Button>
                 </div>
 
-                <div className="rounded-xl border p-4 print:border-0">
-                    <div className="flex items-start gap-4">
-                        {incharge.photo_path && (
-                            <img
-                                src={`/storage/${incharge.photo_path}`}
-                                alt={incharge.full_name}
-                                className="size-20 rounded-lg border object-cover print:hidden"
-                            />
-                        )}
+                <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 print:hidden">
+                    <div className="text-sm font-semibold text-foreground">
+                        {t('Print options')}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {AVAILABLE_SECTIONS.map((section) => (
+                            <label
+                                key={section}
+                                className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-sm"
+                            >
+                                <Checkbox
+                                    checked={sectionEnabled(section)}
+                                    onCheckedChange={() => toggleSection(section)}
+                                />
+                                <span>{t(SECTION_LABELS[section])}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex items-start gap-4 border-b-2 border-neutral-900 pb-3">
+                    <img
+                        src={LETTERHEAD_LOGO_SRC}
+                        alt={PRINT_HEADING}
+                        className="size-20 shrink-0 object-contain"
+                    />
+                    <div className="min-w-0 flex-1 text-center">
+                        <div className="text-lg font-bold tracking-wide uppercase">
+                            {PRINT_HEADING}
+                        </div>
+                        <div className="mt-1 text-sm font-semibold uppercase text-neutral-700">
+                            {t('Incharge profile record')}
+                        </div>
+                        <div className="mt-1 text-xs text-neutral-700">
+                            {t('Official print preview')}
+                        </div>
+                    </div>
+                </div>
+
+                {sectionEnabled('overview') && (
+                <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2 print:space-y-2">
+                    <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                            <h1 className="text-2xl font-bold text-foreground print:text-black">
-                                {incharge.full_name}
+                            <h1 className="text-2xl font-bold text-foreground print:text-[16px] print:leading-tight">
+                                {inchargeRecord.full_name}
                             </h1>
-                            {hasValue(incharge.pno) && (
+                            {hasValue(inchargeRecord.pno) && (
                                 <p className="text-sm text-muted-foreground">
-                                    {t('PNO')}: {incharge.pno}
+                                    {t('PNO')}: {inchargeRecord.pno}
                                 </p>
                             )}
                         </div>
+                        {inchargeRecord.photo_path && (
+                            <img
+                                src={`/storage/${inchargeRecord.photo_path}`}
+                                alt={inchargeRecord.full_name}
+                                className="size-20 shrink-0 rounded-lg border object-cover"
+                            />
+                        )}
                     </div>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        {hasValue(incharge.rank) && (
+                        {hasValue(inchargeRecord.rank) && (
                         <dl className="grid gap-1">
                             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 {t('Rank')}
                             </dt>
-                            <dd>{identityValue(incharge.rank)}</dd>
+                            <dd>{identityValue(inchargeRecord.rank)}</dd>
                         </dl>
                         )}
-                        {hasValue(incharge.designation) && (
+                        {hasValue(inchargeRecord.designation) && (
                         <dl className="grid gap-1">
                             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 {t('Designation')}
                             </dt>
-                            <dd>{identityValue(incharge.designation)}</dd>
+                            <dd>{identityValue(inchargeRecord.designation)}</dd>
                         </dl>
                         )}
-                        {hasValue(incharge.mobile) && (
+                        {hasValue(inchargeRecord.mobile) && (
                         <dl className="grid gap-1">
                             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 {t('Mobile')}
                             </dt>
-                            <dd>{identityValue(incharge.mobile)}</dd>
+                            <dd>{identityValue(inchargeRecord.mobile)}</dd>
                         </dl>
                         )}
-                        {hasValue(incharge.email) && (
+                        {hasValue(inchargeRecord.email) && (
                         <dl className="grid gap-1">
                             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 {t('Email')}
                             </dt>
-                            <dd>{identityValue(incharge.email)}</dd>
+                            <dd>{identityValue(inchargeRecord.email)}</dd>
                         </dl>
                         )}
                         <dl className="grid gap-1">
@@ -186,24 +420,26 @@ export default function InchargePrintPreview({
                                 {t('Status')}
                             </dt>
                             <dd>
-                                {incharge.is_active ? t('Active') : t('Inactive')}
+                                {inchargeRecord.is_active ? t('Active') : t('Inactive')}
                             </dd>
                         </dl>
                     </div>
 
-                    {hasValue(incharge.remarks) && (
+                    {hasValue(inchargeRecord.remarks) && (
                         <div className="mt-3">
                             <h2 className="mb-1 text-sm font-semibold">
                                 {t('Remarks')}
                             </h2>
                             <p className="text-sm text-muted-foreground">
-                                {identityValue(incharge.remarks)}
+                                {identityValue(inchargeRecord.remarks)}
                             </p>
                         </div>
                     )}
-                </div>
+                </section>
+                )}
 
-                <section className="rounded-xl border p-4 print:border-0">
+                {sectionEnabled('teams') && (
+                <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
                     <h2 className="mb-2 text-lg font-semibold">
                         {t('Team assignments')}
                     </h2>
@@ -224,12 +460,6 @@ export default function InchargePrintPreview({
                                             {t('Sport')}
                                         </th>
                                         <th className="border p-2">
-                                            {t('Unit')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('District')}
-                                        </th>
-                                        <th className="border p-2">
                                             {t('Assigned at')}
                                         </th>
                                         <th className="border p-2">
@@ -247,16 +477,14 @@ export default function InchargePrintPreview({
                                                 {assignment.team?.name}
                                             </td>
                                             <td className="border p-2">
-                                                {assignment.session?.name}
+                                                {assignment.team?.session?.name ??
+                                                    assignment.session?.name ??
+                                                    ''}
                                             </td>
                                             <td className="border p-2">
-                                                {assignment.sport?.name}
-                                            </td>
-                                            <td className="border p-2">
-                                                {assignment.unit?.name}
-                                            </td>
-                                            <td className="border p-2">
-                                                {assignment.district?.name}
+                                                {assignment.team?.sport?.name ??
+                                                    assignment.sport?.name ??
+                                                    ''}
                                             </td>
                                             <td className="border p-2">
                                                 {formatDate(assignment.assigned_at)}
@@ -278,8 +506,10 @@ export default function InchargePrintPreview({
                         </div>
                     )}
                 </section>
+                )}
 
-                <section className="rounded-xl border p-4 print:border-0">
+                {sectionEnabled('achievements') && (
+                <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
                     <h2 className="mb-2 text-lg font-semibold">
                         {t('Achievements')}
                     </h2>
@@ -347,8 +577,10 @@ export default function InchargePrintPreview({
                         </div>
                     )}
                 </section>
+                )}
 
-                <section className="rounded-xl border p-4 print:border-0">
+                {sectionEnabled('specialAchievements') && (
+                <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
                     <h2 className="mb-2 text-lg font-semibold">
                         {t('Special achievements')}
                     </h2>
@@ -379,9 +611,6 @@ export default function InchargePrintPreview({
                                         <th className="border p-2">
                                             {t('Reference')}
                                         </th>
-                                        <th className="border p-2">
-                                            {t('Document')}
-                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -407,10 +636,6 @@ export default function InchargePrintPreview({
                                                 {achievement.order_reference ??
                                                     ''}
                                             </td>
-                                            <td className="border p-2">
-                                                {achievement.order_document
-                                                    ?.original_name ?? ''}
-                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -418,6 +643,7 @@ export default function InchargePrintPreview({
                         </div>
                     )}
                 </section>
+                )}
             </div>
         </>
     );

@@ -11,6 +11,7 @@ use App\Models\TournamentTier;
 use App\Models\InchargeSpecialAchievement;
 use App\Models\InchargeAchievement;
 use App\Models\Sport;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Collection;
 
 class InchargeProfileData
@@ -100,7 +101,9 @@ class InchargeProfileData
     private function shell(Incharge $incharge): array
     {
         return [
-            'auditLogEndpoint' => route('v1.incharges.audit-log.index', $incharge),
+            'auditLogEndpoint' => Route::has('v1.incharges.audit-log.index')
+                ? route('v1.incharges.audit-log.index', $incharge)
+                : null,
             'incharge' => [
                 'id' => $incharge->id,
                 'created_at' => $incharge->created_at?->toDateTimeString(),
@@ -151,7 +154,7 @@ class InchargeProfileData
     {
         return TeamInchargeAssignment::query()
             ->where('incharge_id', $incharge->id)
-            ->with(['team:id,name,sport_id,session_id,unit_id,district_id', 'team.sport:id,name', 'team.session:id,name', 'team.unit:id,name', 'team.district:id,name', 'assignedBy:id,name', 'removedBy:id,name'])
+            ->with(['team:id,name,sport_id,session_id', 'team.sport:id,name', 'team.session:id,name', 'assignedBy:id,name', 'removedBy:id,name'])
             ->latest('assigned_at')
             ->get()
             ->map(fn (TeamInchargeAssignment $assignment): array => [
@@ -173,8 +176,6 @@ class InchargeProfileData
                     'name' => $assignment->team->name,
                     'sport' => $assignment->team->sport ? ['id' => $assignment->team->sport->id, 'name' => $assignment->team->sport->name] : null,
                     'session' => $assignment->team->session ? ['id' => $assignment->team->session->id, 'name' => $assignment->team->session->name] : null,
-                    'unit' => $assignment->team->unit ? ['id' => $assignment->team->unit->id, 'name' => $assignment->team->unit->name] : null,
-                    'district' => $assignment->team->district ? ['id' => $assignment->team->district->id, 'name' => $assignment->team->district->name] : null,
                 ] : null,
                 'assigned_by' => $assignment->assignedBy ? ['id' => $assignment->assignedBy->id, 'name' => $assignment->assignedBy->name] : null,
                 'removed_by' => $assignment->removedBy ? ['id' => $assignment->removedBy->id, 'name' => $assignment->removedBy->name] : null,

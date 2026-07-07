@@ -97,9 +97,9 @@ type Assignment = {
         name: string;
         sport: { id: number; name: string } | null;
         session: { id: number; name: string } | null;
-        unit: { id: number; name: string } | null;
-        district: { id: number; name: string } | null;
     } | null;
+    sport?: { id: number; name: string } | null;
+    session?: { id: number; name: string } | null;
     full_name: string;
     pno: string;
     rank: string | null;
@@ -300,6 +300,28 @@ function displayValue(value: string | number | null | undefined): string {
     return value === null || value === undefined || value === ''
         ? '—'
         : String(value);
+}
+
+function formatDateOnly(value: string | null | undefined): string {
+    if (!value || typeof value !== 'string') {
+        return '';
+    }
+
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+        return '';
+    }
+
+    if (trimmed.includes('T')) {
+        return trimmed.split('T')[0] ?? '';
+    }
+
+    if (trimmed.includes(' ')) {
+        return trimmed.split(' ')[0] ?? '';
+    }
+
+    return trimmed;
 }
 
 export default function InchargesShow({
@@ -1303,7 +1325,7 @@ function submitAchievement(event: FormEvent): void {
                             <div className="overflow-x-auto rounded-md border">
                                 <Table>
                                     <TableHeader>
-                                        <TableRow>
+                                            <TableRow>
                                             <TableHead className="w-16 text-center">
                                                 {t('S. No.')}
                                             </TableHead>
@@ -1931,7 +1953,7 @@ function submitAchievement(event: FormEvent): void {
                                     {(assignments ?? []).length === 0 ? (
                                         <TableRow>
                                         <TableCell
-                                                colSpan={6}
+                                                colSpan={5}
                                                 className="h-24 text-center text-muted-foreground"
                                             >
                                                 {t(
@@ -1960,18 +1982,27 @@ function submitAchievement(event: FormEvent): void {
                                                     <TableCell>
                                                         <div className="text-sm">
                                                             {assignment.team
-                                                                ?.sport?.name ?? ''}
+                                                                ?.sport?.name ??
+                                                                assignment
+                                                                    .sport
+                                                                    ?.name ??
+                                                                ''}
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        {displayValue(
+                                                        {formatDateOnly(
                                                             assignment.assigned_at,
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
                                                         {displayValue(
                                                             assignment.team
-                                                                ?.session?.name,
+                                                                ?.session
+                                                                ?.name ??
+                                                                assignment
+                                                                    .session
+                                                                    ?.name ??
+                                                                '',
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
