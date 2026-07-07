@@ -291,6 +291,7 @@ class CoachController extends Controller
             ->with([
                 'district:id,name',
                 'unit:id,name',
+                'rankMaster:id,code,name,short_name',
                 'sports' => fn ($q) => $q
                     ->select('sports.id', 'sports.name')
                     ->withPivot([
@@ -302,6 +303,14 @@ class CoachController extends Controller
                         'effective_to',
                         'notes',
                     ]),
+                'currentAssignments' => fn ($q) => $q
+                    ->select(['id', 'team_id', 'coach_id', 'session_id', 'role', 'assigned_at'])
+                    ->with([
+                        'team:id,name,session_id,location_type,district_id,unit_id',
+                        'team.session:id,name',
+                        'session:id,name',
+                    ])
+                    ->latest('assigned_at'),
             ])
             ->withCount(['assignmentHistory as assignments_count' => fn ($q) => $q->current()])
             ->paginate(25)
@@ -416,6 +425,13 @@ class CoachController extends Controller
         Gate::authorize('view', $coach);
 
         return Inertia::render('coaches/show', $profileData->overview($coach));
+    }
+
+    public function preview(Coach $coach, CoachProfileData $profileData): Response
+    {
+        Gate::authorize('view', $coach);
+
+        return Inertia::render('coaches/print-preview', $profileData->print($coach));
     }
 
     public function edit(Coach $coach, Request $request): Response

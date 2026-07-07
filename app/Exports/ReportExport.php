@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exports;
 
+use Closure;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -24,6 +25,7 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithColumnWidths, 
      * @param  array<int, string>  $mergeRanges
      * @param  array<string, int|float>  $columnWidths
      * @param  array<int, array<string, mixed>>  $rowStyles
+     * @param  (Closure(AfterSheet): void)|null  $afterSheet
      */
     public function __construct(
         private readonly Collection $rows,
@@ -33,6 +35,7 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithColumnWidths, 
         private readonly array $mergeRanges = [],
         private readonly array $columnWidths = [],
         private readonly array $rowStyles = [],
+        private readonly ?Closure $afterSheet = null,
     ) {}
 
     public function collection(): Collection
@@ -124,6 +127,10 @@ class ReportExport implements FromCollection, ShouldAutoSize, WithColumnWidths, 
                         ->getStyle($range)
                         ->getAlignment()
                         ->setVertical(Alignment::VERTICAL_CENTER);
+                }
+
+                if ($this->afterSheet instanceof Closure) {
+                    ($this->afterSheet)($event);
                 }
             },
         ];

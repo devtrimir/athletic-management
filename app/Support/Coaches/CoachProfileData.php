@@ -162,6 +162,40 @@ class CoachProfileData
     }
 
     /** @return array<string, mixed> */
+    public function print(Coach $coach): array
+    {
+        $coach->loadMissing([
+            'assignmentHistory' => fn ($query) => $query
+                ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
+                ->orderByDesc('is_current')
+                ->orderByDesc('assigned_at')
+                ->orderByDesc('id'),
+            'sports' => fn ($query) => $query->withPivot(['is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes']),
+            'certifications:id,coach_id,name,certificate_type,issuer,issued_at,expired_at,attachment_path,metadata',
+            'promotions' => fn ($query) => $query
+                ->with([
+                    'recorder:id,name',
+                    'evidences.session:id,name',
+                    'evidences.tournament:id,name,tier_id,date_from,date_to,venue',
+                    'evidences.tournament.tier:id,code',
+                    'evidences.event:id,tournament_id,name,gender_class,discipline,weight_category',
+                    'evidences.team:id,name',
+                    'evidences.achievement:id,medal_type,position',
+                ])
+                ->orderByDesc('promotion_date')
+                ->orderByDesc('id'),
+            'statusHistory' => fn ($query) => $query->with('recorder')->orderByDesc('effective_on')->orderByDesc('id'),
+        ]);
+
+        return [
+            ...$this->shell($coach),
+            'coachTeams' => $this->assignmentsPayload($coach),
+            'statusHistory' => CoachStatusHistoryResource::collection($coach->statusHistory)->resolve(),
+            'coachAchievements' => $this->achievementsPayload($coach),
+        ];
+    }
+
+    /** @return array<string, mixed> */
     private function shell(Coach $coach): array
     {
         $coach->loadMissing([

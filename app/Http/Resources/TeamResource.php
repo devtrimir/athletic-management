@@ -32,6 +32,7 @@ class TeamResource extends JsonResource
             'current_incharge_mobile' => $this->current_incharge_mobile,
             'current_incharge_since' => $this->current_incharge_since,
             'has_current_incharge' => $this->has_current_incharge,
+            'current_incharge_rank' => $this->currentInchargeAssignment?->rank,
             'listing_is_active' => $this->when($this->hasAttribute('listing_is_active'), fn () => (bool) $this->listing_is_active),
             'session_status' => $this->when($this->hasAttribute('session_status'), fn () => $this->session_status),
             'session_status_label' => $this->when($this->hasAttribute('session_status_label'), fn () => $this->session_status_label),

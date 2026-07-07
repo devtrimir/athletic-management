@@ -53,6 +53,54 @@ function humanizeField(field: string): string {
         .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function humanizeValue(value: string | null): string {
+    if (!value) {
+        return '';
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return '';
+    }
+
+    if (trimmed.toLowerCase() === 'true') {
+        return 'Yes';
+    }
+
+    if (trimmed.toLowerCase() === 'false') {
+        return 'No';
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(trimmed)) {
+        return trimmed;
+    }
+
+    if (!/^[a-zA-Z]/.test(trimmed)) {
+        return trimmed;
+    }
+
+    return trimmed
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .map((word) => {
+            const normalizedWord = word.toUpperCase();
+
+            if (
+                normalizedWord === word.toUpperCase() &&
+                normalizedWord.length <= 4
+            ) {
+                return normalizedWord;
+            }
+
+            return `${word[0].toUpperCase()}${word.slice(1)}`;
+        })
+        .join(' ');
+}
+
 // ── Internal filter pill ──────────────────────────────────────────────────────
 
 function FilterPill({
@@ -784,17 +832,22 @@ export function ChangeLog({
                                                         {ch.old !== null ? (
                                                             <>
                                                                 <span className="text-muted-foreground line-through">
-                                                                    {ch.old}
+                                                                    {humanizeValue(
+                                                                        ch.old,
+                                                                    ) || '—'}
                                                                 </span>
                                                                 {' → '}
                                                                 <span>
-                                                                    {ch.new ??
-                                                                        '—'}
+                                                                {humanizeValue(
+                                                                    ch.new,
+                                                                ) || '—'}
                                                                 </span>
                                                             </>
                                                         ) : (
                                                             <span>
-                                                                {ch.new ?? '—'}
+                                                            {humanizeValue(
+                                                                ch.new,
+                                                            ) || '—'}
                                                             </span>
                                                         )}
                                                     </li>
@@ -890,30 +943,35 @@ export function ChangeLog({
                                                 </Badge>
                                             )}
                                         </div>
-                                        {entry.changes.length > 0 && (
-                                            <ul className="mt-1 space-y-1">
-                                                {entry.changes.map((ch, i) => (
-                                                    <li
-                                                        key={i}
-                                                        className="text-sm"
-                                                    >
-                                                        <span className="font-medium">
-                                                            {t(ch.field)}:
-                                                        </span>{' '}
-                                                        {ch.old !== null ? (
+                                                {entry.changes.length > 0 && (
+                                                    <ul className="mt-1 space-y-1">
+                                                        {entry.changes.map((ch, i) => (
+                                                            <li
+                                                                key={i}
+                                                                className="text-sm"
+                                                            >
+                                                                <span className="font-medium">
+                                                            {humanizeField(ch.field)}:
+                                                            </span>{' '}
+                                                                {ch.old !== null ? (
                                                             <>
                                                                 <span className="text-muted-foreground line-through">
-                                                                    {ch.old}
+                                                                    {humanizeValue(
+                                                                        ch.old,
+                                                                    ) || '—'}
                                                                 </span>
                                                                 {' → '}
                                                                 <span className="text-foreground">
-                                                                    {ch.new ??
-                                                                        '—'}
+                                                                    {humanizeValue(
+                                                                        ch.new,
+                                                                    ) || '—'}
                                                                 </span>
                                                             </>
                                                         ) : (
                                                             <span className="text-foreground">
-                                                                {ch.new ?? '—'}
+                                                                {humanizeValue(
+                                                                    ch.new,
+                                                                ) || '—'}
                                                             </span>
                                                         )}
                                                     </li>

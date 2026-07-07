@@ -23,10 +23,10 @@ use App\Http\Controllers\ExternalCoachController;
 use App\Http\Controllers\ExternalCoachingAssignmentController;
 use App\Http\Controllers\ExternalCoachPerformanceUpdateController as AdminExternalCoachPerformanceUpdateController;
 use App\Http\Controllers\ExternalTrainingAttendanceController as AdminExternalTrainingAttendanceController;
-use App\Http\Controllers\InchargeController;
 use App\Http\Controllers\InchargeAchievementController;
-use App\Http\Controllers\InchargeProfileTabController;
+use App\Http\Controllers\InchargeController;
 use App\Http\Controllers\InchargePhotoController;
+use App\Http\Controllers\InchargeProfileTabController;
 use App\Http\Controllers\InchargeSpecialAchievementController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MedalsExportController;
@@ -121,6 +121,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('coaches/{coach}/aliases', [CoachProfileTabController::class, 'aliases'])->name('coaches.aliases');
     Route::get('coaches/{coach}/changelog', [CoachProfileTabController::class, 'changelog'])->name('coaches.changelog');
     Route::get('coaches/{coach}/status', [CoachProfileTabController::class, 'status'])->name('coaches.status');
+    Route::get('coaches/{coach}/preview', [CoachController::class, 'preview'])->name('coaches.preview');
     Route::get('coaches/{coach}/export', [CoachExportController::class, 'show'])->name('coaches.export.show');
     Route::post('coaches/{coach}/status', [CoachStatusController::class, 'store'])->name('coaches.status.store');
     Route::post('coaches/{coach}/sports', [CoachSportController::class, 'store'])->name('coaches.sports.store');
@@ -152,6 +153,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('incharges/{incharge}/photo', [InchargePhotoController::class, 'store'])->name('incharges.photo.store');
     Route::delete('incharges/{incharge}/photo', [InchargePhotoController::class, 'destroy'])->name('incharges.photo.destroy');
     Route::get('teams/export', [TeamExportController::class, 'index'])->name('teams.export');
+    Route::get('teams/print', [TeamController::class, 'printRoster'])->name('teams.print');
     Route::get('teams/{team}/players', [TeamProfileTabController::class, 'players'])->name('teams.players');
     Route::get('teams/{team}/coaches', [TeamProfileTabController::class, 'coaches'])->name('teams.coaches');
     Route::get('teams/{team}/incharge', [TeamProfileTabController::class, 'incharge'])->name('teams.incharge');

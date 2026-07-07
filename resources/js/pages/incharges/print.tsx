@@ -109,15 +109,28 @@ function formatDate(value: string | null): string {
         return '';
     }
 
-    if (trimmed.includes('T')) {
-        return trimmed.split('T')[0] ?? '';
+    const dateOnly = trimmed.includes('T')
+        ? trimmed.split('T')[0] ?? ''
+        : trimmed.includes(' ')
+              ? trimmed.split(' ')[0] ?? ''
+              : trimmed;
+    const ymdMatch = dateOnly.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (ymdMatch) {
+        return `${ymdMatch[3]}-${ymdMatch[2]}-${ymdMatch[1]}`;
     }
 
-    if (trimmed.includes(' ')) {
-        return trimmed.split(' ')[0] ?? '';
+    const parsed = new Date(dateOnly);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return dateOnly;
     }
 
-    return trimmed;
+    return new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    }).format(parsed);
 }
 
 function identityValue(value: string | null | undefined): string {
@@ -126,6 +139,56 @@ function identityValue(value: string | null | undefined): string {
 
 function hasValue(value: string | null | undefined): boolean {
     return value?.trim() !== undefined && value?.trim() !== '';
+}
+
+function normalizeEnumValue(value: string | null | undefined): string {
+    const trimmed = value?.trim();
+
+    if (!trimmed) {
+        return '';
+    }
+
+    const upper = trimmed.toUpperCase();
+    const overrides: Record<string, string> = {
+        GD: 'GD',
+        MEN: 'Men',
+        WOMEN: 'Women',
+        INTERNATIONAL: 'International',
+        NATIONAL: 'National',
+        AIPSC: 'AIPSC',
+        STATE: 'State',
+        ZONAL: 'Zonal',
+        OTHER: 'Other',
+        GOLD: 'Gold',
+        SILVER: 'Silver',
+        BRONZE: 'Bronze',
+    };
+
+    if (overrides[upper]) {
+        return overrides[upper];
+    }
+
+    if (!/[A-Za-z]/.test(trimmed)) {
+        return trimmed;
+    }
+
+    return trimmed
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .map((word) => {
+            const normalizedWord = word.toUpperCase();
+
+            if (normalizedWord === word.toUpperCase() && normalizedWord.length <= 4) {
+                return normalizedWord;
+            }
+
+            return `${word[0].toUpperCase()}${word.slice(1)}`;
+        })
+        .join(' ');
 }
 
 function slugifyFileName(value: string): string {
@@ -457,9 +520,6 @@ export default function InchargePrintPreview({
                                             {t('Session')}
                                         </th>
                                         <th className="border p-2">
-                                            {t('Sport')}
-                                        </th>
-                                        <th className="border p-2">
                                             {t('Assigned at')}
                                         </th>
                                         <th className="border p-2">
@@ -479,11 +539,6 @@ export default function InchargePrintPreview({
                                             <td className="border p-2">
                                                 {assignment.team?.session?.name ??
                                                     assignment.session?.name ??
-                                                    ''}
-                                            </td>
-                                            <td className="border p-2">
-                                                {assignment.team?.sport?.name ??
-                                                    assignment.sport?.name ??
                                                     ''}
                                             </td>
                                             <td className="border p-2">
@@ -544,7 +599,9 @@ export default function InchargePrintPreview({
                                                 {achievement.title}
                                             </td>
                                             <td className="border p-2">
-                                                {achievement.level ?? ''}
+                                                {normalizeEnumValue(
+                                                    achievement.level,
+                                                )}
                                             </td>
                                             <td className="border p-2">
                                                 {formatDate(
@@ -554,7 +611,9 @@ export default function InchargePrintPreview({
                                             </td>
                                             <td className="border p-2">
                                                 {[
-                                                    achievement.sport_discipline,
+                                                    normalizeEnumValue(
+                                                        achievement.sport_discipline,
+                                                    ),
                                                     achievement.event,
                                                     achievement.discipline,
                                                 ]
@@ -562,7 +621,9 @@ export default function InchargePrintPreview({
                                                     .join(' · ') || ''}
                                             </td>
                                             <td className="border p-2">
-                                                {achievement.medal_type ?? ''}
+                                                {normalizeEnumValue(
+                                                    achievement.medal_type,
+                                                )}
                                             </td>
                                             <td className="border p-2">
                                                 {achievement.position ?? ''}
@@ -617,7 +678,9 @@ export default function InchargePrintPreview({
                                     {specialAchievementRecords.map((achievement) => (
                                         <tr key={achievement.id}>
                                             <td className="border p-2">
-                                                {achievement.achievement_type}
+                                                {normalizeEnumValue(
+                                                    achievement.achievement_type,
+                                                )}
                                             </td>
                                             <td className="border p-2">
                                                 {achievement.title}

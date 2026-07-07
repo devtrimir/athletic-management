@@ -4,21 +4,18 @@ import {
     ChevronDown,
     Download,
     Eye,
-    IdCard,
     Info,
-    MapPinned,
-    Phone,
     Plus,
     Printer,
     Search,
     ShieldCheck,
-    UserCheck,
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachExportController';
+import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { CoachQuickView } from '@/components/teams/coach-quick-view';
@@ -88,6 +85,12 @@ type Coach = {
     email: string | null;
     coach_status: string | null;
     nis_certified: boolean;
+    rank_master?: {
+        id: number;
+        code: string | null;
+        name: string | null;
+        short_name: string | null;
+    } | null;
     district?: { id: number; name: string } | null;
     unit?: { id: number; name: string } | null;
     sports?: {
@@ -109,6 +112,24 @@ type Coach = {
             effective_to?: string | null;
             notes?: string | null;
         };
+    }[];
+    current_assignments?: {
+        id: number;
+        role: string | null;
+        assigned_at: string | null;
+        session?: {
+            id: number;
+            name: string;
+        } | null;
+        team?: {
+            id: number;
+            name: string;
+            location_label?: string | null;
+            session?: {
+                id: number;
+                name: string;
+            } | null;
+        } | null;
     }[];
 };
 
@@ -308,91 +329,73 @@ function CoachSportCell({ coach }: { coach: Coach }) {
     const playableSports = coach.sports ?? [];
 
     if (playableSports.length === 0) {
-        return null;
+        return (
+            <span className="text-sm text-muted-foreground">
+                {t('Not added')}
+            </span>
+        );
     }
 
-    const primary = playableSports[0];
-    const primaryLabel = [
-        primary.name,
-        primary.sport_event ?? primary.pivot?.sport_event,
-        primary.level ?? primary.pivot?.level,
-        primary.notes ?? primary.pivot?.notes,
-    ]
-        .filter(Boolean)
-        .join(' · ');
-
     return (
-        <Popover>
-            <PopoverTrigger asChild>
-                <button
-                    type="button"
-                    className="inline-flex max-w-44 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-accent"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <span className="truncate">{primaryLabel}</span>
-                    {playableSports.length > 1 && (
-                        <Badge
-                            variant="outline"
-                            className="shrink-0 px-1.5 py-0 text-[10px]"
-                        >
-                            +{playableSports.length - 1}
-                        </Badge>
-                    )}
-                </button>
-            </PopoverTrigger>
-            <PopoverContent
-                className="w-56 p-3"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">
-                        {t('Playable sports')}
-                    </p>
-                    <ul className="mt-1 space-y-2 text-sm">
-                        {playableSports.map((sport) => (
-                            <li key={sport.id} className="space-y-0.5">
-                                <p className="font-medium">{sport.name}</p>
-                                <div className="space-y-0.5 text-xs text-muted-foreground">
-                                    {(sport.sport_event ??
-                                    sport.pivot?.sport_event) ? (
-                                        <p>
-                                            <span className="font-medium text-foreground">
-                                                {t('Event')}:
-                                            </span>{' '}
-                                            {sport.sport_event ??
-                                                sport.pivot?.sport_event}
-                                        </p>
-                                    ) : null}
-                                    {(sport.level ?? sport.pivot?.level) ? (
-                                        <p>
-                                            <span className="font-medium text-foreground">
-                                                {t('Level')}:
-                                            </span>{' '}
-                                            {sport.level ?? sport.pivot?.level}
-                                        </p>
-                                    ) : null}
-                                    {(sport.notes ?? sport.pivot?.notes) ? (
-                                        <p>
-                                            <span className="font-medium text-foreground">
-                                                {t('Notes')}:
-                                            </span>{' '}
-                                            {sport.notes ?? sport.pivot?.notes}
-                                        </p>
-                                    ) : null}
-                                    {!(
-                                        sport.sport_event ??
-                                        sport.pivot?.sport_event
-                                    ) &&
-                                        !(sport.level ?? sport.pivot?.level) &&
-                                        !(sport.notes ?? sport.pivot?.notes) &&
-                                        null}
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </PopoverContent>
-        </Popover>
+        <div className="w-full min-w-[420px] overflow-hidden rounded-md border">
+            <Table>
+                <TableHeader className="bg-muted/50">
+                    <TableRow>
+                        {playableSports.length > 1 && (
+                            <TableHead className="w-14 py-2 text-center text-xs">
+                                {t('S. No.')}
+                            </TableHead>
+                        )}
+                        <TableHead className="py-2 text-xs">
+                            {t('Sport')}
+                        </TableHead>
+                        <TableHead className="py-2 text-xs">
+                            {t('Event')}
+                        </TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {playableSports.map((sport, index) => (
+                        <TableRow key={sport.id}>
+                            {playableSports.length > 1 && (
+                                <TableCell className="py-2 text-center text-xs text-muted-foreground">
+                                    {index + 1}
+                                </TableCell>
+                            )}
+                            <TableCell className="py-2 text-xs font-medium">
+                                {sport.name}
+                            </TableCell>
+                            <TableCell className="py-2 text-xs">
+                                {displayValue(
+                                    sport.sport_event ??
+                                        sport.pivot?.sport_event,
+                                )}
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+function displayValue(value: string | number | null | undefined): string {
+    return value === null || value === undefined || value === ''
+        ? ''
+        : String(value);
+}
+
+function formatDate(value: string | null | undefined): string {
+    return value ? value.trim().split('T')[0] : '';
+}
+
+function coachRankLabel(coach: Coach): string {
+    return (
+        coach.rank_master?.short_name ??
+        coach.rank_master?.name ??
+        coach.rank_master?.code ??
+        coach.designation ??
+        ''
     );
 }
 
@@ -1188,7 +1191,7 @@ export default function CoachesIndex({
                         className="sticky top-0 z-40 max-w-full min-w-0 shadow-sm"
                     />
                     <div className="max-w-full min-w-0 overflow-x-auto overflow-y-hidden rounded-xl border bg-card">
-                        <Table className="min-w-[980px] table-fixed border-separate border border-border/60 [&_td]:border-r [&_td]:border-b [&_td]:border-border/45 [&_th]:border-r [&_th]:border-b [&_th]:border-border/45">
+                        <Table className="min-w-[1500px] table-fixed border-separate border border-border/60 [&_td]:border-r [&_td]:border-b [&_td]:border-border/45 [&_th]:border-r [&_th]:border-b [&_th]:border-border/45">
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                                     <TableHead className="sticky left-0 z-40 w-[56px] max-w-[56px] min-w-[56px] bg-card px-2">
@@ -1214,11 +1217,8 @@ export default function CoachesIndex({
                                     <TableHead className="sticky left-[56px] z-30 w-[72px] max-w-[72px] min-w-[72px] bg-card px-2 text-center">
                                         {t('S.No.')}
                                     </TableHead>
-                                    <TableHead className="w-[240px]">
-                                        {t('Name')}
-                                    </TableHead>
-                                    <TableHead className="hidden md:table-cell">
-                                        {t('PNO')}
+                                    <TableHead className="w-[280px]">
+                                        {t('Coach')}
                                     </TableHead>
                                     <TableHead className="hidden md:table-cell">
                                         {t('Blood group')}
@@ -1226,7 +1226,12 @@ export default function CoachesIndex({
                                     <TableHead className="hidden lg:table-cell">
                                         {t('Gender')}
                                     </TableHead>
-                                    <TableHead>{t('Playable sport')}</TableHead>
+                                    <TableHead className="w-[440px]">
+                                        {t('Playable sport')}
+                                    </TableHead>
+                                    <TableHead className="w-[520px]">
+                                        {t('Current team names')}
+                                    </TableHead>
                                     <TableHead className="w-[150px]">
                                         {t('Posting')}
                                     </TableHead>
@@ -1259,6 +1264,8 @@ export default function CoachesIndex({
                                     coaches.data.map((coach, index) => {
                                         const serialNumber =
                                             (coaches.from ?? 1) + index;
+                                        const assignments =
+                                            coach.current_assignments ?? [];
 
                                         return (
                                             <TableRow
@@ -1289,43 +1296,63 @@ export default function CoachesIndex({
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="min-w-0 space-y-2">
-                                                        <div className="truncate font-semibold text-foreground">
-                                                            {coach.full_name}
+                                                        <div className="flex min-w-0 items-start gap-2">
+                                                            {coachRankLabel(
+                                                                coach,
+                                                            ) ? (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="mt-0.5 shrink-0 px-1.5 py-0 text-[10px]"
+                                                                >
+                                                                    {coachRankLabel(
+                                                                        coach,
+                                                                    )}
+                                                                </Badge>
+                                                            ) : null}
+                                                            <Link
+                                                                href={CoachController.show.url(
+                                                                    coach.id,
+                                                                )}
+                                                                onClick={(
+                                                                    event,
+                                                                ) =>
+                                                                    event.stopPropagation()
+                                                                }
+                                                                className="min-w-0 truncate font-semibold text-foreground hover:underline"
+                                                            >
+                                                                {
+                                                                    coach.full_name
+                                                                }
+                                                            </Link>
                                                         </div>
+                                                        {coach.pno ? (
+                                                            <div className="text-xs text-muted-foreground">
+                                                                <span className="font-medium">
+                                                                    {t('PNO')}:
+                                                                </span>
+                                                                <span className="ml-1">
+                                                                    {
+                                                                        coach.pno
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="hidden text-muted-foreground md:table-cell">
-                                                    {coach.pno ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <IdCard className="h-4 w-4 text-sky-600 dark:text-sky-300" />
-                                                            <span>
-                                                                {coach.pno}
-                                                            </span>
-                                                        </div>
-                                                    ) : null}
-                                                </TableCell>
-                                                <TableCell className="hidden text-muted-foreground md:table-cell">
                                                     {coach.blood_group ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <ShieldCheck className="h-4 w-4 text-rose-600 dark:text-rose-300" />
-                                                            <span>
-                                                                {
-                                                                    coach.blood_group
-                                                                }
-                                                            </span>
-                                                        </div>
+                                                        <span>
+                                                            {coach.blood_group}
+                                                        </span>
                                                     ) : null}
                                                 </TableCell>
                                                 <TableCell className="hidden text-muted-foreground lg:table-cell">
                                                     {coach.gender ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <UserCheck className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-300" />
-                                                            <span>
-                                                                {genderLabel(
-                                                                    coach.gender,
-                                                                )}
-                                                            </span>
-                                                        </div>
+                                                        <span>
+                                                            {genderLabel(
+                                                                coach.gender,
+                                                            )}
+                                                        </span>
                                                     ) : null}
                                                 </TableCell>
                                                 <TableCell className="min-w-0">
@@ -1333,29 +1360,146 @@ export default function CoachesIndex({
                                                         coach={coach}
                                                     />
                                                 </TableCell>
+                                                <TableCell
+                                                    className="align-top"
+                                                    onClick={(event) =>
+                                                        event.stopPropagation()
+                                                    }
+                                                >
+                                                    {assignments.length > 0 ? (
+                                                        <div className="w-full min-w-[500px] overflow-hidden rounded-md border">
+                                                            <Table>
+                                                                <TableHeader className="bg-muted/50">
+                                                                    <TableRow>
+                                                                        {assignments.length >
+                                                                            1 && (
+                                                                            <TableHead className="w-14 py-2 text-center text-xs">
+                                                                                {t(
+                                                                                    'S. No.',
+                                                                                )}
+                                                                            </TableHead>
+                                                                        )}
+                                                                        <TableHead className="py-2 text-xs">
+                                                                            {t(
+                                                                                'Team',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead className="py-2 text-xs">
+                                                                            {t(
+                                                                                'Session',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead className="py-2 text-xs">
+                                                                            {t(
+                                                                                'Role',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead className="py-2 text-xs">
+                                                                            {t(
+                                                                                'Assigned at',
+                                                                            )}
+                                                                        </TableHead>
+                                                                    </TableRow>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {assignments.map(
+                                                                        (
+                                                                            assignment,
+                                                                            teamIndex,
+                                                                        ) => (
+                                                                            <TableRow
+                                                                                key={
+                                                                                    assignment.id
+                                                                                }
+                                                                            >
+                                                                                {assignments.length >
+                                                                                    1 && (
+                                                                                    <TableCell className="py-2 text-center text-xs text-muted-foreground">
+                                                                                        {teamIndex +
+                                                                                            1}
+                                                                                    </TableCell>
+                                                                                )}
+                                                                                <TableCell className="py-2 text-xs">
+                                                                                    {assignment
+                                                                                        .team
+                                                                                        ?.id ? (
+                                                                                        <a
+                                                                                            href={TeamController.show.url(
+                                                                                                assignment
+                                                                                                    .team
+                                                                                                    .id,
+                                                                                            )}
+                                                                                            target="_blank"
+                                                                                            rel="noopener noreferrer"
+                                                                                            className="font-medium hover:underline"
+                                                                                        >
+                                                                                            {displayValue(
+                                                                                                assignment
+                                                                                                    .team
+                                                                                                    ?.name,
+                                                                                            )}
+                                                                                        </a>
+                                                                                    ) : (
+                                                                                        displayValue(
+                                                                                            assignment
+                                                                                                .team
+                                                                                                ?.name,
+                                                                                        )
+                                                                                    )}
+                                                                                </TableCell>
+                                                                                <TableCell className="py-2 text-xs">
+                                                                                    {displayValue(
+                                                                                        assignment
+                                                                                            .session
+                                                                                            ?.name ??
+                                                                                            assignment
+                                                                                                .team
+                                                                                                ?.session
+                                                                                                ?.name,
+                                                                                    )}
+                                                                                </TableCell>
+                                                                                <TableCell className="py-2 text-xs">
+                                                                                    {displayValue(
+                                                                                        assignment.role,
+                                                                                    )}
+                                                                                </TableCell>
+                                                                                <TableCell className="py-2 text-xs">
+                                                                                    {formatDate(
+                                                                                        assignment.assigned_at,
+                                                                                    ) ||
+                                                                                        t(
+                                                                                            'Not assigned',
+                                                                                        )}
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        ),
+                                                                    )}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {t(
+                                                                'Not assigned',
+                                                            )}
+                                                        </span>
+                                                    )}
+                                                </TableCell>
                                                 <TableCell className="min-w-0">
                                                     {coachLocation(coach) ? (
-                                                        <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                                                            <MapPinned className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                                                            <span className="truncate">
-                                                                {coachLocation(
-                                                                    coach,
-                                                                )}
-                                                            </span>
-                                                        </div>
+                                                        <span className="block truncate text-muted-foreground">
+                                                            {coachLocation(
+                                                                coach,
+                                                            )}
+                                                        </span>
                                                     ) : null}
                                                 </TableCell>
                                                 <TableCell className="hidden lg:table-cell">
                                                     <div className="min-w-0 text-sm">
                                                         {coach.mobile ? (
-                                                            <div className="flex min-w-0 items-center gap-2">
-                                                                <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                                                                <span className="truncate font-medium">
-                                                                    {
-                                                                        coach.mobile
-                                                                    }
-                                                                </span>
-                                                            </div>
+                                                            <span className="block truncate font-medium">
+                                                                {coach.mobile}
+                                                            </span>
                                                         ) : null}
                                                     </div>
                                                 </TableCell>

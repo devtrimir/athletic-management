@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Download, Eye, Plus, Printer } from 'lucide-react';
+import { Download, Eye, Mail, Phone, Plus, Printer, Users } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -82,13 +82,10 @@ export default function ExternalCoachesIndex({ externalCoaches }: Props) {
     function printTable() {
         const headers = [
             t('S.No.'),
-            t('Name'),
-            t('Email'),
-            t('Phone'),
-            t('Experience'),
-            t('Active players'),
+            t('Coach'),
+            t('Contact'),
+            t('Coaching'),
             t('Status'),
-            t('Action'),
         ];
 
         const rows = externalCoaches.data
@@ -96,12 +93,12 @@ export default function ExternalCoachesIndex({ externalCoaches }: Props) {
                 const cells = [
                     (externalCoaches.from ?? 1) + index,
                     coach.name,
-                    coach.email,
-                    coach.phone ?? '-',
-                    coach.experience_years ?? '-',
-                    coach.active_coached_players_count,
+                    [coach.email, coach.phone ?? '-'].join(' / '),
+                    [
+                        `${t('Experience')}: ${coach.experience_years ?? '-'}`,
+                        `${t('Active players')}: ${coach.active_coached_players_count}`,
+                    ].join(' / '),
                     t(coach.status),
-                    t('View'),
                 ];
 
                 return `<tr>${cells
@@ -126,8 +123,8 @@ export default function ExternalCoachesIndex({ externalCoaches }: Props) {
                         body{font-family:Arial,sans-serif;padding:16px;font-size:12px}
                         h2{font-size:18px;margin:0 0 12px}
                         table{width:100%;border-collapse:collapse}
-                        th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
-                        th{background:#f3f4f6}
+                        th,td{border:1px solid #ccc;padding:6px 8px;text-align:center;vertical-align:middle}
+                        th{background:#1f2937;color:#fff}
                     </style>
                 </head>
                 <body>
@@ -189,61 +186,124 @@ export default function ExternalCoachesIndex({ externalCoaches }: Props) {
 
                 <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
                     <div className="overflow-x-auto">
-                        <Table>
+                        <Table className="border-separate border-spacing-0 text-sm">
                             <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-20">
+                                <TableRow className="bg-muted/80 hover:bg-muted/80">
+                                    <TableHead className="w-16 border-r border-b px-3 py-2 text-center font-semibold">
                                         {t('S.No.')}
                                     </TableHead>
-                                    <TableHead>{t('Name')}</TableHead>
-                                    <TableHead>{t('Email')}</TableHead>
-                                    <TableHead>{t('Phone')}</TableHead>
-                                    <TableHead>{t('Experience')}</TableHead>
-                                    <TableHead>
-                                        {t('Active players coached')}
+                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                        {t('Coach')}
                                     </TableHead>
-                                    <TableHead>{t('Status')}</TableHead>
-                                    <TableHead>{t('Action')}</TableHead>
+                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                        {t('Contact')}
+                                    </TableHead>
+                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                        {t('Coaching')}
+                                    </TableHead>
+                                    <TableHead className="w-32 border-r border-b px-3 py-2 text-center font-semibold">
+                                        {t('Status')}
+                                    </TableHead>
+                                    <TableHead className="w-28 border-b px-3 py-2 text-right font-semibold">
+                                        {t('Actions')}
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {externalCoaches.data.map((coach, index) => (
-                                    <TableRow key={coach.id}>
-                                        <TableCell>
-                                            {(externalCoaches.from ?? 1) + index}
-                                        </TableCell>
-                                        <TableCell className="font-medium">
-                                            {coach.name}
-                                        </TableCell>
-                                        <TableCell>{coach.email}</TableCell>
-                                        <TableCell>{coach.phone ?? '-'}</TableCell>
-                                        <TableCell>
-                                            {coach.experience_years ?? '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {coach.active_coached_players_count}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">
-                                                {t(coach.status)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button
-                                                asChild
-                                                size="sm"
-                                                variant="outline"
-                                            >
-                                                <Link
-                                                    href={`/external-coaches/${coach.id}`}
-                                                >
-                                                    <Eye className="mr-1.5 size-3.5" />
-                                                    {t('View')}
-                                                </Link>
-                                            </Button>
+                                {externalCoaches.data.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={6}
+                                            className="py-12 text-center text-muted-foreground"
+                                        >
+                                            {t('No external coaches found.')}
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                ) : (
+                                    externalCoaches.data.map((coach, index) => (
+                                        <TableRow
+                                            key={coach.id}
+                                            className="odd:bg-background even:bg-muted/20 hover:bg-sky-50/70 dark:hover:bg-sky-950/20"
+                                        >
+                                            <TableCell className="border-r border-b px-3 py-2 text-center font-semibold text-muted-foreground tabular-nums">
+                                                {(externalCoaches.from ?? 1) +
+                                                    index}
+                                            </TableCell>
+                                            <TableCell className="border-r border-b px-3 py-2 align-top">
+                                                <div className="min-w-56">
+                                                    <Link
+                                                        href={`/external-coaches/${coach.id}`}
+                                                        className="font-semibold text-primary hover:underline"
+                                                    >
+                                                        {coach.name}
+                                                    </Link>
+                                                    <div className="mt-1 text-xs text-muted-foreground">
+                                                        {t('External coach')}
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="border-r border-b px-3 py-2 align-top">
+                                                <div className="min-w-64 space-y-1.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <Mail className="h-3.5 w-3.5 text-sky-600" />
+                                                        <span className="break-all text-sm">
+                                                            {coach.email}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                                                        <span className="text-sm">
+                                                            {coach.phone ?? '-'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="border-r border-b px-3 py-2 align-top">
+                                                <div className="grid min-w-52 gap-1 text-xs sm:grid-cols-2">
+                                                    <div className="rounded-md border px-2 py-1">
+                                                        <div className="text-muted-foreground">
+                                                            {t('Experience')}
+                                                        </div>
+                                                        <div className="font-semibold tabular-nums">
+                                                            {coach.experience_years ??
+                                                                '-'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="rounded-md border px-2 py-1">
+                                                        <div className="flex items-center gap-1 text-muted-foreground">
+                                                            <Users className="h-3.5 w-3.5" />
+                                                            {t('Active players')}
+                                                        </div>
+                                                        <div className="font-semibold tabular-nums">
+                                                            {
+                                                                coach.active_coached_players_count
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="border-r border-b px-3 py-2 text-center align-top">
+                                                <Badge variant="outline">
+                                                    {t(coach.status)}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="border-b px-3 py-2 text-right align-top">
+                                                <Button
+                                                    asChild
+                                                    size="sm"
+                                                    variant="outline"
+                                                >
+                                                    <Link
+                                                        href={`/external-coaches/${coach.id}`}
+                                                    >
+                                                        <Eye className="mr-1.5 size-3.5" />
+                                                        {t('View')}
+                                                    </Link>
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
                             </TableBody>
                         </Table>
                     </div>

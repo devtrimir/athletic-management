@@ -95,10 +95,12 @@ type Assignment = {
     team: {
         id: number;
         name: string;
-        sport: { id: number; name: string } | null;
+        location_type: 'unit' | 'district' | null;
+        location_label: string | null;
         session: { id: number; name: string } | null;
+        district: { id: number; name: string } | null;
+        unit: { id: number; name: string } | null;
     } | null;
-    sport?: { id: number; name: string } | null;
     session?: { id: number; name: string } | null;
     full_name: string;
     pno: string;
@@ -756,8 +758,140 @@ function submitAchievement(event: FormEvent): void {
                     </TabsList>
 
                     <TabsContent value="overview" className="mt-4">
-                        <div className="grid gap-4 lg:grid-cols-[168px,1fr] items-start">
-                            <div className="shrink-0">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="order-1 min-w-0 overflow-hidden rounded-lg border border-dashed sm:flex-1">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                            <TableHead className="w-40">
+                                                {t('Field')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('Value')}
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Full name')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {displayValue(incharge.full_name)}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('PNO')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {displayValue(incharge.pno)}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Incharge ID')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {displayValue(incharge.id)}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Rank')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {displayValue(incharge.rank)}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Designation')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {displayValue(incharge.designation)}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Mobile')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {displayValue(incharge.mobile)}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Email')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {displayValue(incharge.email)}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Status')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {incharge.is_active
+                                                    ? t('Active')
+                                                    : t('Inactive')}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Current teams')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {summary?.current_teams_count ?? 0}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Total assignments')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {summary?.total_assignments_count ?? 0}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Created at')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {formatDateOnly(incharge.created_at)}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Updated at')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {formatDateOnly(incharge.updated_at)}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Deleted at')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {incharge.deleted_at
+                                                    ? formatDateOnly(incharge.deleted_at)
+                                                    : t('Not deleted')}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="font-medium">
+                                                {t('Remarks')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {displayValue(incharge.remarks)}
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            <div className="order-2 sm:order-2 sm:ml-auto sm:shrink-0">
                                 {incharge.photo_path ? (
                                     <div className="relative size-40 overflow-hidden rounded-xl border bg-muted">
                                         <img
@@ -814,88 +948,6 @@ function submitAchievement(event: FormEvent): void {
                                         />
                                     </label>
                                 ) : null}
-                            </div>
-                            <div className="grid gap-2 text-sm sm:grid-cols-2 sm:gap-x-8">
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Full name')}: {''}
-                                    </span>
-                                    {displayValue(incharge.full_name)}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('PNO')}: {''}
-                                    </span>
-                                    {displayValue(incharge.pno)}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Rank')}: {''}
-                                    </span>
-                                    {displayValue(incharge.rank)}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Mobile')}: {''}
-                                    </span>
-                                    {displayValue(incharge.mobile)}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Email')}: {''}
-                                    </span>
-                                    {displayValue(incharge.email)}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Created at')}: {''}
-                                    </span>
-                                    {displayValue(incharge.created_at)}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Updated at')}: {''}
-                                    </span>
-                                    {displayValue(incharge.updated_at)}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Deleted at')}: {''}
-                                    </span>
-                                    {displayValue(
-                                        incharge.deleted_at ?? t('Not deleted'),
-                                    )}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Current teams')}: {''}
-                                    </span>
-                                    {summary?.current_teams_count ?? 0}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Total assignments')}: {''}
-                                    </span>
-                                    {summary?.total_assignments_count ?? 0}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Remarks')}: {''}
-                                    </span>
-                                    {displayValue(incharge.remarks)}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Status')}: {''}
-                                    </span>
-                                    {incharge.is_active ? t('Active') : t('Inactive')}
-                                </p>
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Incharge ID')}: {''}
-                                    </span>
-                                    {displayValue(incharge.id)}
-                                </p>
                             </div>
                         </div>
                     </TabsContent>
@@ -1935,25 +1987,25 @@ function submitAchievement(event: FormEvent): void {
 
                     <TabsContent value="teams" className="mt-4">
                         <div className="overflow-hidden rounded-md border bg-card">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-16 text-center">
-                                            {t('S. No.')}
-                                        </TableHead>
-                                        <TableHead>{t('Team')}</TableHead>
-                                        <TableHead>{t('Sport')}</TableHead>
-                                        <TableHead>{t('Assigned on')}</TableHead>
-                                        <TableHead>{t('Session')}</TableHead>
-                                        <TableHead>{t('Status')}</TableHead>
-                                        <TableHead>{t('Notes')}</TableHead>
-                                    </TableRow>
-                                </TableHeader>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-16 text-center">
+                                    {t('S. No.')}
+                                </TableHead>
+                                <TableHead>{t('Team')}</TableHead>
+                                <TableHead>{t('Session')}</TableHead>
+                                <TableHead>{t('Location')}</TableHead>
+                                <TableHead>{t('Assigned on')}</TableHead>
+                                <TableHead>{t('Status')}</TableHead>
+                                <TableHead>{t('Notes')}</TableHead>
+                            </TableRow>
+                        </TableHeader>
                                 <TableBody>
                                     {(assignments ?? []).length === 0 ? (
                                         <TableRow>
-                                        <TableCell
-                                                colSpan={5}
+                                            <TableCell
+                                                colSpan={7}
                                                 className="h-24 text-center text-muted-foreground"
                                             >
                                                 {t(
@@ -1973,36 +2025,26 @@ function submitAchievement(event: FormEvent): void {
                                                             {assignment.team
                                                                 ?.name ?? ''}
                                                         </div>
-                                                        <div className="text-xs text-muted-foreground">
-                                                            {displayValue(
-                                                                assignment.pno,
-                                                            )}
-                                                        </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="text-sm">
-                                                            {assignment.team
-                                                                ?.sport?.name ??
+                                                        {displayValue(
+                                                            assignment.team
+                                                                ?.session?.name ??
                                                                 assignment
-                                                                    .sport
+                                                                    .session
                                                                     ?.name ??
-                                                                ''}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {formatDateOnly(
-                                                            assignment.assigned_at,
+                                                                '',
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
                                                         {displayValue(
                                                             assignment.team
-                                                                ?.session
-                                                                ?.name ??
-                                                                assignment
-                                                                    .session
-                                                                    ?.name ??
-                                                                '',
+                                                                ?.location_label,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {formatDateOnly(
+                                                            assignment.assigned_at,
                                                         )}
                                                     </TableCell>
                                                     <TableCell>

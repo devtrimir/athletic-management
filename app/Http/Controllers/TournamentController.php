@@ -234,30 +234,65 @@ class TournamentController extends Controller
             return;
         }
 
-        $summaries = [];
-        $achievements = Achievement::query()
-            ->with(['participation:id,event_id,team_id', 'participation.event:id,tournament_id'])
-            ->whereHas(
-                'participation.event',
-                fn (Builder $query): Builder => $query->whereIn('tournament_id', $tournaments->modelKeys()),
+        $tournamentIds = $tournaments->modelKeys();
+        $latestAchievementIds = Achievement::query()
+            ->whereIn(
+                'participation_id',
+                Participation::query()
+                    ->select('participations.id')
+                    ->join('events', 'events.id', '=', 'participations.event_id')
+                    ->whereIn('events.tournament_id', $tournamentIds),
             )
-            ->get(['id', 'participation_id', 'medal_type']);
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('participation_id')
+            ->pluck('id');
+
+        $summaries = [];
+        $seenMedals = [];
+        $achievements = Achievement::query()
+            ->whereIn('achievements.id', $latestAchievementIds)
+            ->selectRaw('events.tournament_id')
+            ->selectRaw('events.event_type')
+            ->selectRaw('events.id as event_id')
+            ->selectRaw('achievements.medal_type')
+            ->selectRaw('achievements.participation_id')
+            ->selectRaw('participations.team_id')
+            ->join('participations', 'participations.id', '=', 'achievements.participation_id')
+            ->join('events', 'events.id', '=', 'participations.event_id')
+            ->whereIn('events.tournament_id', $tournamentIds)
+            ->orderByDesc('achievements.id')
+            ->get();
 
         foreach ($achievements as $achievement) {
-            $tournamentId = $achievement->participation?->event?->tournament_id;
+            $tournamentId = (int) $achievement->tournament_id;
+            $medalType = strtoupper((string) $achievement->medal_type);
 
-            if (! $tournamentId) {
+            if (! in_array($medalType, ['GOLD', 'SILVER', 'BRONZE', 'MERIT'], true)) {
                 continue;
             }
+
+            $eventType = (string) $achievement->event_type;
+            $eventId = (int) $achievement->event_id;
+            $participationId = (int) $achievement->participation_id;
+            $teamKey = (int) ($achievement->team_id ?? 0);
+            $dedupeKey = $eventType === 'team'
+                ? $eventType.':'.$eventId.':'.($teamKey > 0 ? (string) $teamKey : 'p'.$participationId)
+                : 'individual:'.$participationId.':'.$medalType;
+
+            if (isset($seenMedals[$dedupeKey])) {
+                continue;
+            }
+
+            $seenMedals[$dedupeKey] = true;
 
             $summary = $summaries[$tournamentId] ?? $blank;
             $summary['medals_count']++;
 
-            if ($achievement->participation?->team_id !== null) {
+            if ($eventType === 'team') {
                 $summary['team_medals_count']++;
             }
 
-            $medalKey = strtolower($achievement->medal_type).'_medals_count';
+            $medalKey = strtolower($medalType).'_medals_count';
             if (array_key_exists($medalKey, $summary)) {
                 $summary[$medalKey]++;
             }

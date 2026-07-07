@@ -1,10 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Edit, Eye, Plus, Search, UserRoundCheck } from 'lucide-react';
+import { Edit, Eye, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import InchargeController from '@/actions/App/Http/Controllers/InchargeController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,13 +27,24 @@ type Incharge = {
     full_name: string;
     pno: string;
     rank: string | null;
-    designation: string | null;
-    mobile: string | null;
-    email: string | null;
-    is_active: boolean;
-    current_teams_count: number;
-    assignments_count: number;
+    current_team_assignments: {
+        team: {
+            id: number;
+            name: string;
+            location_type: 'unit' | 'district' | null;
+            location_label: string | null;
+            session?: {
+                id: number;
+                name: string;
+            } | null;
+        } | null;
+        assigned_at: string | null;
+    }[];
 };
+
+function formatDate(value: string | null | undefined): string {
+    return value ? value.trim().split('T')[0] : '';
+}
 
 type PaginatedIncharges = {
     data: Incharge[];
@@ -131,11 +141,10 @@ export default function InchargesIndex({
                                 <TableHead className="w-16 text-center">
                                     {t('S. No.')}
                                 </TableHead>
-                                <TableHead>{t('Team Prabhari')}</TableHead>
+                                <TableHead>{t('PNO')}</TableHead>
                                 <TableHead>{t('Rank')}</TableHead>
-                                <TableHead>{t('Contact')}</TableHead>
-                                <TableHead>{t('Current teams')}</TableHead>
-                                <TableHead>{t('Status')}</TableHead>
+                                <TableHead>{t('Name')}</TableHead>
+                                <TableHead>{t('Current team names')}</TableHead>
                                 <TableHead className="text-right">
                                     {t('Actions')}
                                 </TableHead>
@@ -145,111 +154,154 @@ export default function InchargesIndex({
                             {incharges.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={7}
+                                        colSpan={6}
                                         className="h-28 text-center text-muted-foreground"
                                     >
                                         {t('No team prabhari found.')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                incharges.data.map((incharge, index) => (
-                                    <TableRow key={incharge.id}>
-                                        <TableCell className="text-center text-sm text-muted-foreground">
-                                            {(incharges.from ?? 1) + index}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <span className="flex size-9 items-center justify-center rounded-md bg-muted">
-                                                    <UserRoundCheck className="size-4 text-muted-foreground" />
-                                                </span>
-                                                <div>
-                                                    <Link
-                                                        href={InchargeController.show.url(
-                                                            incharge.id,
-                                                        )}
-                                                        className="font-medium hover:underline"
-                                                    >
-                                                        {incharge.full_name}
-                                                    </Link>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {t('PNO')}:{' '}
-                                                        {incharge.pno}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="text-sm">
+                                incharges.data.map((incharge, index) => {
+                                    const assignments =
+                                        incharge.current_team_assignments ?? [];
+
+                                    return (
+                                        <TableRow key={incharge.id}>
+                                            <TableCell className="text-center text-sm text-muted-foreground">
+                                                {(incharges.from ?? 1) + index}
+                                            </TableCell>
+                                            <TableCell>
+                                                <a
+                                                    href={InchargeController.show.url(
+                                                        incharge.id,
+                                                    )}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="hover:underline"
+                                                >
+                                                    {displayValue(incharge.pno)}
+                                                </a>
+                                            </TableCell>
+                                            <TableCell>
                                                 {displayValue(incharge.rank)}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {displayValue(
-                                                    incharge.designation,
+                                            </TableCell>
+                                            <TableCell>
+                                                <a
+                                                    href={InchargeController.show.url(
+                                                        incharge.id,
+                                                    )}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="font-medium hover:underline"
+                                                >
+                                                    {displayValue(incharge.full_name)}
+                                                </a>
+                                            </TableCell>
+                                            
+                                            <TableCell>
+                                                {assignments.length > 0 ? (
+                                                    <div className="w-full min-w-[520px]">
+                                                        <Table>
+                                                            <TableHeader className="bg-muted/50">
+                                                                    <TableRow>
+                                                                        <TableHead className="w-16">
+                                                                            {t('S. No.')}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t('Team')}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t('Session')}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t('Location')}
+                                                                        </TableHead>
+                                                                    <TableHead>
+                                                                        {t('Assigned at')}
+                                                                    </TableHead>
+                                                                </TableRow>
+                                                            </TableHeader>
+                                                            <TableBody>
+                                                                {assignments.map(
+                                                                    (assignment, teamIndex) => (
+                                                                        <TableRow
+                                                                            key={`${incharge.id}-team-${teamIndex}`}
+                                                                        >
+                                                                            <TableCell className="py-2 text-xs">
+                                                                                {teamIndex +
+                                                                                    1}
+                                                                            </TableCell>
+                                                                            <TableCell className="py-2 text-xs">
+                                                                                {displayValue(
+                                                                                    assignment.team?.name,
+                                                                                )}
+                                                                            </TableCell>
+                                                                            <TableCell className="max-w-28 py-2 text-xs">
+                                                                                {displayValue(
+                                                                                    assignment.team
+                                                                                        ?.session?.name,
+                                                                                )}
+                                                                            </TableCell>
+                                                                            <TableCell className="max-w-28 py-2 text-xs">
+                                                                                {displayValue(
+                                                                                    assignment.team
+                                                                                        ?.location_label,
+                                                                                )}
+                                                                            </TableCell>
+                                                                            <TableCell className="py-2 text-xs">
+                                                                                {formatDate(
+                                                                                    assignment.assigned_at,
+                                                                                ) || t('Not assigned')}
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    ),
+                                                                )}
+                                                            </TableBody>
+                                                        </Table>
+                                                    </div>
+                                                ) : (
+                                                    t('Not assigned')
                                                 )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="text-sm">
-                                                {displayValue(incharge.mobile)}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {displayValue(incharge.email)}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {incharge.current_teams_count}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant={
-                                                    incharge.is_active
-                                                        ? 'default'
-                                                        : 'secondary'
-                                                }
-                                            >
-                                                {incharge.is_active
-                                                    ? t('Active')
-                                                    : t('Inactive')}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    asChild
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    aria-label={t(
-                                                        'View team prabhari',
-                                                    )}
-                                                >
-                                                    <Link
-                                                        href={InchargeController.show.url(
-                                                            incharge.id,
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        asChild
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        aria-label={t(
+                                                            'View team prabhari',
                                                         )}
                                                     >
-                                                        <Eye className="size-4" />
-                                                    </Link>
-                                                </Button>
-                                                <Button
-                                                    asChild
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    aria-label={t(
-                                                        'Edit team prabhari',
-                                                    )}
-                                                >
-                                                    <Link
-                                                        href={InchargeController.edit.url(
-                                                            incharge.id,
+                                                        <Link
+                                                            href={InchargeController.show.url(
+                                                                incharge.id,
+                                                            )}
+                                                        >
+                                                            <Eye className="size-4" />
+                                                        </Link>
+                                                    </Button>
+                                                    <Button
+                                                        asChild
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        aria-label={t(
+                                                            'Edit team prabhari',
                                                         )}
                                                     >
-                                                        <Edit className="size-4" />
-                                                    </Link>
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                                        <Link
+                                                            href={InchargeController.edit.url(
+                                                                incharge.id,
+                                                            )}
+                                                        >
+                                                            <Edit className="size-4" />
+                                                        </Link>
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
                             )}
                         </TableBody>
                     </Table>

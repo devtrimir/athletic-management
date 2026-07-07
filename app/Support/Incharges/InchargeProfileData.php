@@ -154,7 +154,15 @@ class InchargeProfileData
     {
         return TeamInchargeAssignment::query()
             ->where('incharge_id', $incharge->id)
-            ->with(['team:id,name,sport_id,session_id', 'team.sport:id,name', 'team.session:id,name', 'assignedBy:id,name', 'removedBy:id,name'])
+            ->with([
+                'team:id,name,sport_id,session_id,location_type,district_id,unit_id',
+                'team.sport:id,name',
+                'team.session:id,name',
+                'team.district:id,name',
+                'team.unit:id,name',
+                'assignedBy:id,name',
+                'removedBy:id,name',
+            ])
             ->latest('assigned_at')
             ->get()
             ->map(fn (TeamInchargeAssignment $assignment): array => [
@@ -174,8 +182,12 @@ class InchargeProfileData
                 'team' => $assignment->team ? [
                     'id' => $assignment->team->id,
                     'name' => $assignment->team->name,
+                    'location_type' => $assignment->team->location_type,
+                    'location_label' => $assignment->team->location_label,
                     'sport' => $assignment->team->sport ? ['id' => $assignment->team->sport->id, 'name' => $assignment->team->sport->name] : null,
                     'session' => $assignment->team->session ? ['id' => $assignment->team->session->id, 'name' => $assignment->team->session->name] : null,
+                    'district' => $assignment->team->district ? ['id' => $assignment->team->district->id, 'name' => $assignment->team->district->name] : null,
+                    'unit' => $assignment->team->unit ? ['id' => $assignment->team->unit->id, 'name' => $assignment->team->unit->name] : null,
                 ] : null,
                 'assigned_by' => $assignment->assignedBy ? ['id' => $assignment->assignedBy->id, 'name' => $assignment->assignedBy->name] : null,
                 'removed_by' => $assignment->removedBy ? ['id' => $assignment->removedBy->id, 'name' => $assignment->removedBy->name] : null,

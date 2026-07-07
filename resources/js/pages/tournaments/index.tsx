@@ -11,11 +11,9 @@ import {
     Search,
     Printer,
     Trophy,
-    Users,
     X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import {
     create as createTournament,
     index as tournamentsIndex,
@@ -41,7 +39,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Table,
     TableBody,
@@ -51,21 +48,6 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
-
-const ALL_COLUMNS = [
-    { key: 'name', label: 'Tournament Name' },
-    { key: 'session', label: 'Session' },
-    { key: 'tier', label: 'Tier' },
-    { key: 'sport', label: 'Sport' },
-    { key: 'venue', label: 'Venue' },
-    { key: 'date_from', label: 'Date from' },
-    { key: 'date_to', label: 'Date to' },
-    { key: 'events_count', label: 'Events' },
-    { key: 'participants_count', label: 'Participants' },
-    { key: 'teams_count', label: 'Teams' },
-    { key: 'medals_count', label: 'Medals' },
-    { key: 'created_at', label: 'Created on' },
-] as const;
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
@@ -149,10 +131,6 @@ export default function TournamentsIndex({
     const [quickOverviewTournament, setQuickOverviewTournament] =
         useState<Tournament | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
-    const [selectedColumns, setSelectedColumns] = useState<string[]>(
-        ALL_COLUMNS.map((c) => c.key),
-    );
-
     setLayoutProps({
         breadcrumbs: [{ title: t('Tournaments') }],
     });
@@ -352,11 +330,139 @@ export default function TournamentsIndex({
             }
         }
 
-        for (const col of selectedColumns) {
-            params.append('columns[]', col);
+        return exportTournamentsUrl.url() + '?' + params.toString();
+    }
+
+    function escapePrintValue(value: string | number | null | undefined): string {
+        return String(value ?? '—')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function printSportRows(tournament: Tournament): string {
+        const sportsList = tournamentSports(tournament);
+
+        if (sportsList.length === 0) {
+            return '—';
         }
 
-        return exportTournamentsUrl.url() + '?' + params.toString();
+        if (sportsList.length === 1) {
+            return escapePrintValue(sportsList[0].name);
+        }
+
+        return `<table class="sub-table sports-sub-table">${sportsList
+            .map(
+                (sport, index) =>
+                    `<tr><td class="sno">${index + 1}</td><td>${escapePrintValue(
+                        sport.name,
+                    )}</td></tr>`,
+            )
+            .join('')}</table>`;
+    }
+
+    function printDetailsRows(tournament: Tournament): string {
+        return `<table class="sub-table">
+            <tr><th>${escapePrintValue(t('Venue'))}</th><td>${escapePrintValue(tournament.venue)}</td></tr>
+            <tr><th>${escapePrintValue(t('Date'))}</th><td>${escapePrintValue(dateRange(tournament))}</td></tr>
+            <tr><th>${escapePrintValue(t('Status'))}</th><td>${escapePrintValue(tournamentStatus(tournament))}</td></tr>
+        </table>`;
+    }
+
+    function printActivityRows(tournament: Tournament): string {
+        return `<table class="sub-table">
+            <tr><th>${escapePrintValue(t('Events'))}</th><td>${escapePrintValue(tournament.events_count)}</td></tr>
+            <tr><th>${escapePrintValue(t('Participants'))}</th><td>${escapePrintValue(tournament.participants_count)}</td></tr>
+        </table>`;
+    }
+
+    function handleListingPrint() {
+        const rows =
+            selectedIds.size > 0
+                ? tournaments.data.filter((tournament) =>
+                      selectedIds.has(tournament.id),
+                  )
+                : tournaments.data;
+        const title = t('Tournaments');
+        const bodyRows = rows
+            .map(
+                (tournament, index) => `<tr>
+                    <td class="num">${index + 1}</td>
+                    <td>${escapePrintValue(tournament.name)}</td>
+                    <td>${escapePrintValue(tournament.tier?.label)}</td>
+                    <td>${printSportRows(tournament)}</td>
+                    <td>${printDetailsRows(tournament)}</td>
+                    <td>${printActivityRows(tournament)}</td>
+                    <td class="num medal-gold">${escapePrintValue(tournament.gold_medals_count)}</td>
+                    <td class="num medal-silver">${escapePrintValue(tournament.silver_medals_count)}</td>
+                    <td class="num medal-bronze">${escapePrintValue(tournament.bronze_medals_count)}</td>
+                    <td class="num medal-merit">${escapePrintValue(tournament.merit_medals_count)}</td>
+                    <td class="num medal-total">${escapePrintValue(tournament.medals_count)}</td>
+                    <td>${escapePrintValue(formatDisplayDate(tournament.created_at))}</td>
+                </tr>`,
+            )
+            .join('');
+        const printWindow = window.open('', '_blank');
+
+        if (!printWindow?.document) {
+            return;
+        }
+
+        printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+            <title>${escapePrintValue(title)}</title>
+            <style>
+                @page{size:A4 landscape;margin:6mm}
+                body{font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#111;margin:0;padding:6px}
+                .letterhead{text-align:center;border:1px solid #1e3a8a;border-bottom:3px solid #1e3a8a;margin-bottom:8px;padding:7px 8px;background:#eff6ff}
+                .letterhead h1{font-size:16px;margin:0;text-transform:uppercase;color:#1e3a8a;letter-spacing:.3px}
+                .letterhead p{margin:2px 0 0;font-size:10px;color:#1f2937}
+                h2{font-size:14px;text-align:center;margin:0 0 8px}
+                table{width:100%;border-collapse:collapse}
+                th,td{border:1px solid #999;padding:4px;vertical-align:middle;text-align:center}
+                thead th{background:#1f2937;color:#fff;font-weight:700}
+                td{text-align:center;word-break:break-word}
+                tbody tr:nth-child(even)>td{background:#f8fafc}
+                .num{white-space:nowrap;text-align:center}
+                .sub-table{background:#fff}
+                .sub-table th,.sub-table td{border:1px solid #94a3b8;padding:3px;font-size:9px;background:#fff}
+                .sub-table th{width:38%;background:#dbeafe;color:#1e3a8a;font-weight:700}
+                .sub-table .sno{width:24px;font-weight:700;color:#1e3a8a;background:#dbeafe}
+                .sports-sub-table td:last-child{font-weight:600;color:#111827}
+                .medal-gold{background:#fef3c7!important;color:#92400e;font-weight:700}
+                .medal-silver{background:#f1f5f9!important;color:#334155;font-weight:700}
+                .medal-bronze{background:#ffedd5!important;color:#9a3412;font-weight:700}
+                .medal-merit{background:#dcfce7!important;color:#166534;font-weight:700}
+                .medal-total{background:#e0f2fe!important;color:#075985;font-weight:700}
+                @media print{body{padding:0}th,td{padding:3px}.sub-table th,.sub-table td{padding:2px}.letterhead{padding:5px 8px}}
+            </style></head><body>
+            <div class="letterhead">
+                <h1>${escapePrintValue(t('UP Police Sport Control Board (UPPSCB)'))}</h1>
+                <p>${escapePrintValue(t('Tournament Listing'))}</p>
+                <p>${escapePrintValue(t('Printed at'))}: ${escapePrintValue(new Date().toLocaleString('en-IN'))}</p>
+            </div>
+            <h2>${escapePrintValue(title)}</h2>
+            <table>
+                <thead><tr>
+                    <th>${escapePrintValue(t('S.No.'))}</th>
+                    <th>${escapePrintValue(t('Tournament'))}</th>
+                    <th>${escapePrintValue(t('Tier'))}</th>
+                    <th>${escapePrintValue(t('Sports'))}</th>
+                    <th>${escapePrintValue(t('Venue / Date / Status'))}</th>
+                    <th>${escapePrintValue(t('Activity'))}</th>
+                    <th>${escapePrintValue(t('Gold'))}</th>
+                    <th>${escapePrintValue(t('Silver'))}</th>
+                    <th>${escapePrintValue(t('Bronze'))}</th>
+                    <th>${escapePrintValue(t('Merit'))}</th>
+                    <th>${escapePrintValue(t('Medals'))}</th>
+                    <th>${escapePrintValue(t('Created'))}</th>
+                </tr></thead>
+                <tbody>${bodyRows || `<tr><td colspan="12">${escapePrintValue(t('No tournaments to print.'))}</td></tr>`}</tbody>
+            </table>
+            <script>window.onload=function(){window.print();}</script>
+        </body></html>`);
+        printWindow.document.close();
     }
 
     const hasActive = !!(
@@ -412,6 +518,19 @@ export default function TournamentsIndex({
                                       String(selectedIds.size),
                                   )
                                 : t('Export tournaments')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleListingPrint}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            {selectedIds.size > 0
+                                ? t('Print :n selected').replace(
+                                      ':n',
+                                      String(selectedIds.size),
+                                  )
+                                : t('Print listing')}
                         </Button>
                         <Button asChild size="sm">
                             <Link href={createTournament.url()}>
@@ -526,35 +645,17 @@ export default function TournamentsIndex({
                                 <TableHead className="w-[260px]">
                                     {t('Name')}
                                 </TableHead>
-                                <TableHead className="w-[150px]">
-                                    {t('Session')}
-                                </TableHead>
                                 <TableHead className="w-[110px]">
                                     {t('Tier')}
                                 </TableHead>
                                 <TableHead className="w-[170px]">
                                     {t('Sport')}
                                 </TableHead>
-                                <TableHead className="w-[170px]">
-                                    {t('Venue')}
+                                <TableHead className="w-[240px]">
+                                    {t('Venue / Date / Status')}
                                 </TableHead>
-                                <TableHead className="w-[170px]">
-                                    {t('Dates')}
-                                </TableHead>
-                                <TableHead className="w-[105px]">
-                                    {t('Status')}
-                                </TableHead>
-                                <TableHead className="w-16 text-right">
-                                    {t('Events')}
-                                </TableHead>
-                                <TableHead className="w-20 text-right">
-                                    {t('Participants')}
-                                </TableHead>
-                                <TableHead className="w-16 text-right">
-                                    {t('Teams')}
-                                </TableHead>
-                                <TableHead className="w-20 text-right">
-                                    {t('Team Medals')}
+                                <TableHead className="w-[150px]">
+                                    {t('Activity')}
                                 </TableHead>
                                 <TableHead className="w-14 text-right">
                                     {t('Gold')}
@@ -583,7 +684,7 @@ export default function TournamentsIndex({
                             {tournaments.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={20}
+                                        colSpan={14}
                                         className="py-12 text-center text-muted-foreground"
                                     >
                                         {hasActive
@@ -611,10 +712,10 @@ export default function TournamentsIndex({
                                                 ? tournaments.from
                                                 : 1) + index}
                                         </TableCell>
-                                        <TableCell className="w-[260px] max-w-[260px] overflow-hidden font-medium">
+                                        <TableCell className="w-[260px] max-w-[260px] overflow-hidden">
                                             <Link
                                                 href={showTournament.url(t_.id)}
-                                                className="flex w-full min-w-0 items-center gap-2 hover:underline"
+                                                className="flex w-full min-w-0 items-center gap-2 font-medium hover:underline"
                                                 title={t_.name}
                                             >
                                                 <Trophy className="h-3.5 w-3.5 shrink-0 text-blue-500" />
@@ -622,14 +723,6 @@ export default function TournamentsIndex({
                                                     {t_.name}
                                                 </span>
                                             </Link>
-                                        </TableCell>
-                                        <TableCell className="max-w-[150px] text-muted-foreground">
-                                            <span
-                                                className="block truncate"
-                                                title={t_.session?.name}
-                                            >
-                                                {t_.session?.name ?? '—'}
-                                            </span>
                                         </TableCell>
                                         <TableCell>
                                             {t_.tier ? (
@@ -645,43 +738,85 @@ export default function TournamentsIndex({
                                                 </span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="max-w-[170px] text-muted-foreground">
+                                        <TableCell className="max-w-[300px] text-muted-foreground">
                                             {(() => {
                                                 const sportsList =
                                                     tournamentSports(t_);
-                                                const title = sportsList
-                                                    .map((sport) => sport.name)
-                                                    .join(', ');
+                                                const sportPairs: Sport[][] =
+                                                    [];
 
-                                                return sportsList.length > 0 ? (
-                                                    <div
-                                                        className="flex min-w-0 flex-wrap gap-1"
-                                                        title={title}
-                                                    >
-                                                        {sportsList
-                                                            .slice(0, 2)
-                                                            .map((sport) => (
-                                                                <Badge
-                                                                    key={
-                                                                        sport.id
-                                                                    }
-                                                                    variant="outline"
-                                                                    className="max-w-[74px] truncate border-sky-200 bg-sky-50 px-1.5 py-0 text-[10px] font-medium text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300"
-                                                                >
-                                                                    {sport.name}
-                                                                </Badge>
-                                                            ))}
-                                                        {sportsList.length >
-                                                            2 && (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="px-1.5 py-0 text-[10px]"
-                                                            >
-                                                                +
-                                                                {sportsList.length -
-                                                                    2}
-                                                            </Badge>
-                                                        )}
+                                                for (
+                                                    let sportIndex = 0;
+                                                    sportIndex <
+                                                    sportsList.length;
+                                                    sportIndex += 2
+                                                ) {
+                                                    sportPairs.push(
+                                                        sportsList.slice(
+                                                            sportIndex,
+                                                            sportIndex + 2,
+                                                        ),
+                                                    );
+                                                }
+
+                                                return sportsList.length ===
+                                                    1 ? (
+                                                    <div className="px-2 py-1 text-[11px] font-medium text-foreground">
+                                                        {sportsList[0].name}
+                                                    </div>
+                                                ) : sportsList.length > 0 ? (
+                                                    <div className="overflow-hidden rounded-md border border-border">
+                                                        <table className="w-full text-[11px]">
+                                                            <tbody>
+                                                                {sportPairs.map(
+                                                                    (
+                                                                        pair,
+                                                                        pairIndex,
+                                                                    ) => (
+                                                                        <tr
+                                                                            key={`sport-row-${pairIndex}`}
+                                                                            className="border-b border-sky-100 last:border-b-0 dark:border-sky-900/60"
+                                                                        >
+                                                                            {pair.map(
+                                                                                (
+                                                                                    sport,
+                                                                                    sportOffset,
+                                                                                ) => (
+                                                                                    <Fragment
+                                                                                        key={
+                                                                                            sport.id
+                                                                                        }
+                                                                                    >
+                                                                                    <td
+                                                                                        className="w-8 border-r border-border px-2 py-1 text-center font-medium text-muted-foreground tabular-nums"
+                                                                                    >
+                                                                                        {pairIndex *
+                                                                                            2 +
+                                                                                            sportOffset +
+                                                                                            1}
+                                                                                    </td>
+                                                                                    <td
+                                                                                        className="w-1/2 border-r border-border px-2 py-1 font-medium text-foreground"
+                                                                                    >
+                                                                                        {
+                                                                                            sport.name
+                                                                                        }
+                                                                                    </td>
+                                                                                    </Fragment>
+                                                                                ),
+                                                                            )}
+                                                                            {pair.length ===
+                                                                                1 && (
+                                                                                <>
+                                                                                    <td className="w-8 border-r border-border px-2 py-1" />
+                                                                                    <td className="w-1/2 px-2 py-1" />
+                                                                                </>
+                                                                            )}
+                                                                        </tr>
+                                                                    ),
+                                                                )}
+                                                            </tbody>
+                                                        </table>
                                                     </div>
                                                 ) : (
                                                     <span className="text-border select-none">
@@ -690,42 +825,82 @@ export default function TournamentsIndex({
                                                 );
                                             })()}
                                         </TableCell>
-                                        <TableCell className="max-w-[170px] text-muted-foreground">
-                                            <div
-                                                className="flex min-w-0 items-center gap-1.5"
-                                                title={t_.venue ?? undefined}
-                                            >
-                                                <MapPin className="h-3.5 w-3.5 shrink-0 text-rose-500" />
-                                                <span className="truncate">
-                                                    {t_.venue ?? '—'}
-                                                </span>
+                                        <TableCell className="max-w-[240px] text-muted-foreground">
+                                            <div className="overflow-hidden rounded-md border border-border">
+                                                <table className="w-full text-[11px]">
+                                                    <tbody>
+                                                        <tr className="border-b border-border">
+                                                            <td className="w-20 border-r border-border px-2 py-1 font-medium text-muted-foreground">
+                                                                {t('Venue')}
+                                                            </td>
+                                                            <td
+                                                                className="px-2 py-1 font-medium text-foreground"
+                                                                title={
+                                                                    t_.venue ??
+                                                                    undefined
+                                                                }
+                                                            >
+                                                                <span className="line-clamp-2">
+                                                                    {t_.venue ??
+                                                                        '—'}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        <tr className="border-b border-border">
+                                                            <td className="w-20 border-r border-border px-2 py-1 font-medium text-muted-foreground">
+                                                                {t('Date')}
+                                                            </td>
+                                                            <td className="px-2 py-1 font-medium text-foreground">
+                                                                {dateRange(t_)}
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td className="w-20 border-r border-border px-2 py-1 font-medium text-muted-foreground">
+                                                                {t('Status')}
+                                                            </td>
+                                                            <td className="px-2 py-1">
+                                                                <Badge variant="outline">
+                                                                    {tournamentStatus(
+                                                                        t_,
+                                                                    )}
+                                                                </Badge>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            <div className="flex items-center gap-1.5">
-                                                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-sky-500" />
-                                                <span>{dateRange(t_)}</span>
+                                        <TableCell className="max-w-[150px]">
+                                            <div className="overflow-hidden rounded-md border border-border">
+                                                <table className="w-full text-[11px]">
+                                                    <tbody>
+                                                        <tr className="border-b border-border">
+                                                            <td className="w-24 border-r border-border px-2 py-1 font-medium text-muted-foreground">
+                                                                {t('Events')}
+                                                            </td>
+                                                            <td className="px-2 py-1 text-center font-medium text-foreground tabular-nums">
+                                                                {
+                                                                    t_
+                                                                        .events_count
+                                                                }
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td className="w-24 border-r border-border px-2 py-1 font-medium text-muted-foreground">
+                                                                {t(
+                                                                    'Participants',
+                                                                )}
+                                                            </td>
+                                                            <td className="px-2 py-1 text-center font-medium text-foreground tabular-nums">
+                                                                {
+                                                                    t_
+                                                                        .participants_count
+                                                                }
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">
-                                                {tournamentStatus(t_)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {t_.events_count}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            <span className="inline-flex items-center justify-end gap-1">
-                                                <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                                                {t_.participants_count}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {t_.teams_count}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {t_.team_medals_count}
                                         </TableCell>
                                         <TableCell className="text-right font-medium text-amber-700 tabular-nums dark:text-amber-300">
                                             {t_.gold_medals_count}
@@ -819,8 +994,6 @@ export default function TournamentsIndex({
                 onOpenChange={setExportOpen}
                 selectedIds={selectedIds}
                 tournaments={tournaments}
-                selectedColumns={selectedColumns}
-                setSelectedColumns={setSelectedColumns}
                 buildExportUrl={buildExportUrl}
                 t={t}
             />
@@ -1006,8 +1179,6 @@ function ExportDialog({
     onOpenChange,
     selectedIds,
     tournaments,
-    selectedColumns,
-    setSelectedColumns,
     buildExportUrl,
     t,
 }: {
@@ -1015,8 +1186,6 @@ function ExportDialog({
     onOpenChange: (v: boolean) => void;
     selectedIds: Set<number>;
     tournaments: PaginatedTournaments;
-    selectedColumns: string[];
-    setSelectedColumns: Dispatch<SetStateAction<string[]>>;
     buildExportUrl: () => string;
     t: (key: string) => string;
 }) {
@@ -1038,34 +1207,12 @@ function ExportDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-2">
-                    <p className="mb-3 text-sm font-medium">
-                        {t('Select columns to export')}
+                    <p className="text-sm font-medium">
+                        {t('Excel will use the same columns as this listing.')}
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
-                        {ALL_COLUMNS.map((col) => (
-                            <div
-                                key={col.key}
-                                className="flex items-center gap-2"
-                            >
-                                <Checkbox
-                                    id={`col-${col.key}`}
-                                    checked={selectedColumns.includes(col.key)}
-                                    onCheckedChange={(checked) =>
-                                        setSelectedColumns((prev) =>
-                                            checked
-                                                ? [...prev, col.key]
-                                                : prev.filter(
-                                                      (k) => k !== col.key,
-                                                  ),
-                                        )
-                                    }
-                                />
-                                <Label htmlFor={`col-${col.key}`}>
-                                    {t(col.label)}
-                                </Label>
-                            </div>
-                        ))}
-                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        {t('Actions are not included in the Excel file.')}
+                    </p>
                 </div>
                 <DialogFooter>
                     <Button
@@ -1075,7 +1222,6 @@ function ExportDialog({
                         {t('Cancel')}
                     </Button>
                     <Button
-                        disabled={selectedColumns.length === 0}
                         onClick={() => {
                             window.location.href = buildExportUrl();
                             onOpenChange(false);

@@ -9,6 +9,7 @@ use App\Http\Requests\Incharges\UpdateInchargeRequest;
 use App\Models\Designation;
 use App\Models\Incharge;
 use App\Models\Rank;
+use App\Models\TeamInchargeAssignment;
 use App\Support\Incharges\InchargeProfileData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,9 +43,44 @@ class InchargeController extends Controller
             ])
             ->allowedSorts(['full_name', 'pno', 'created_at'])
             ->defaultSort('full_name')
-            ->withCount(['currentAssignments as current_teams_count', 'assignments as assignments_count'])
+            ->with([
+                'currentAssignments.team:id,name,sport_id,session_id,location_type,district_id,unit_id',
+                'currentAssignments.team.sport:id,name',
+                'currentAssignments.team.session:id,name',
+                'currentAssignments.team.district:id,name',
+                'currentAssignments.team.unit:id,name',
+            ])
             ->paginate(25)
             ->withQueryString();
+
+        $incharges->getCollection()->transform(function (Incharge $incharge): Incharge {
+            $currentTeamAssignments = $incharge->currentAssignments
+                ->map(function (TeamInchargeAssignment $assignment): array {
+                    $team = $assignment->team;
+
+                    return [
+                        'team' => $team
+                            ? [
+                                'id' => $team->id,
+                                'name' => $team->name,
+                                'location_type' => $team->location_type,
+                                'location_label' => $team->location_label,
+                                'sport' => $team->sport?->only(['id', 'name']),
+                                'session' => $team->session?->only(['id', 'name']),
+                            ]
+                            : null,
+                        'assigned_at' => $assignment->assigned_at
+                            ? $assignment->assigned_at->format('Y-m-d')
+                            : null,
+                    ];
+                })
+                ->values()
+                ->all();
+
+            $incharge->setAttribute('current_team_assignments', $currentTeamAssignments);
+
+            return $incharge;
+        });
 
         return Inertia::render('incharges/index', [
             'incharges' => $incharges,

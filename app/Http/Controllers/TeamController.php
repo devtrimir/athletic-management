@@ -62,6 +62,20 @@ class TeamController extends Controller
         ]);
     }
 
+    public function printRoster(Request $request, TeamListingService $teamListing, TeamProfileData $profileData): Response
+    {
+        Gate::authorize('viewAny', Team::class);
+
+        $orgId = (int) $request->user()->organization_id;
+        $listing = $teamListing->forPrintRequest($request, $orgId);
+
+        return Inertia::render('teams/print', $profileData->printTeams(
+            $listing['teams'],
+            $orgId,
+            $listing['selectedSessionId'],
+        ));
+    }
+
     public function create(Request $request): Response
     {
         Gate::authorize('create', Team::class);

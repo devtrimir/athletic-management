@@ -1385,13 +1385,15 @@ export default function CoachesShow({
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                                setExportMode('print');
-                                setExportOpen(true);
-                            }}
+                            asChild
                         >
-                            <Printer className="mr-1.5 h-4 w-4" />
-                            {t('Print preview')}
+                            <Link
+                                href={`/coaches/${coach.id}/preview`}
+                                target="_blank"
+                            >
+                                <Printer className="mr-1.5 h-4 w-4" />
+                                {t('Print preview')}
+                            </Link>
                         </Button>
                         <Button
                             variant="outline"
@@ -1763,7 +1765,7 @@ export default function CoachesShow({
                                                     {t('Level')}
                                                 </TableHead>
                                                 <TableHead>
-                                                    {t('Event / Discipline')}
+                                                    {t('Event / Weight')}
                                                 </TableHead>
                                                 <TableHead>
                                                     {t('From')}
