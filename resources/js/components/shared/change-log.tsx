@@ -40,6 +40,19 @@ export type AuditEntry = {
     changes: AuditChange[];
 };
 
+function humanizeField(field: string): string {
+    if (!field) {
+        return '';
+    }
+
+    return field
+        .replace(/_/g, ' ')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 // ── Internal filter pill ──────────────────────────────────────────────────────
 
 function FilterPill({
@@ -199,12 +212,14 @@ export function ChangeLog({
     endpoint,
 }: ChangeLogProps) {
     const { t } = useTranslation();
+    const displayLocale = 'en-US';
     const [remoteEntries, setRemoteEntries] = useState<
         AuditEntry[] | undefined
     >(undefined);
     const [hasMore, setHasMore] = useState(false);
     const [page, setPage] = useState(1);
     const [perPage] = useState(25);
+    const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
 
     const [view, setView] = useState<'timeline' | 'table' | 'compact'>(() => {
@@ -224,9 +239,63 @@ export function ChangeLog({
     const [year, setYear] = useState<string | undefined>(undefined);
     const [period, setPeriod] = useState<
         'month' | 'quarter' | 'half_year' | 'year' | undefined
-    >(undefined);
+    >('month');
+    const [fromDate, setFromDate] = useState(
+        getPeriodStart('month')?.toISOString().slice(0, 10) ?? '',
+    );
+    const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10));
     const [action, setAction] = useState<string | undefined>(undefined);
     const [subject, setSubject] = useState<string | undefined>(undefined);
+
+    function buildQueryParams(targetPage: number): string {
+        const params = new URLSearchParams();
+
+        params.set('page', String(targetPage));
+        params.set('per_page', String(perPage));
+
+        if (search.trim() !== '') {
+            params.set('search', search.trim());
+        }
+
+        if (year) {
+            params.set('year', year);
+        }
+
+        if (period) {
+            params.set('period', period);
+        }
+
+        if (fromDate !== '') {
+            params.set('from', fromDate);
+        }
+
+        if (toDate !== '') {
+            params.set('to', toDate);
+        }
+
+        if (action) {
+            params.set('action', action);
+        }
+
+        if (subject) {
+            params.set('subject', subject);
+        }
+
+        return params.toString();
+    }
+
+    function normalizePeriod(selected: 'month' | 'quarter' | 'half_year' | 'year' | undefined): void {
+        if (selected === undefined) {
+            return;
+        }
+
+        const nextFrom = getPeriodStart(selected);
+
+        if (nextFrom) {
+            setFromDate(nextFrom.toISOString().slice(0, 10));
+            setToDate(new Date().toISOString().slice(0, 10));
+        }
+    }
 
     useEffect(() => {
         if (!endpoint) {
@@ -235,7 +304,15 @@ export function ChangeLog({
 
         let alive = true;
 
-        fetch(`${endpoint}?page=1&per_page=${perPage}`)
+        if (page === 1) {
+            setLoading(true);
+        } else {
+            setLoadingMore(true);
+        }
+
+        const query = buildQueryParams(page);
+
+        fetch(`${endpoint}?${query}`)
             .then((response) => response.json())
             .then(
                 (payload: {
@@ -244,25 +321,46 @@ export function ChangeLog({
                 }) => {
                     if (!alive) {
                         return;
-                    }
+                }
 
-                    setRemoteEntries(payload.data ?? []);
-                    setHasMore(payload.meta?.has_more ?? false);
-                },
-            )
-            .catch(() => {
+                setRemoteEntries((current) =>
+                    page === 1
+                        ? payload.data ?? []
+                        : [...(current ?? []), ...(payload.data ?? [])],
+                );
+                setHasMore(payload.meta?.has_more ?? false);
+                setLoading(false);
+                setLoadingMore(false);
+            },
+        )
+        .catch(() => {
                 if (!alive) {
                     return;
                 }
 
-                setRemoteEntries([]);
+                if (page === 1) {
+                    setRemoteEntries([]);
+                }
+
                 setHasMore(false);
+                setLoading(false);
+                setLoadingMore(false);
             });
 
         return () => {
             alive = false;
         };
-    }, [endpoint, perPage]);
+    }, [endpoint, page, perPage, search, year, period, fromDate, toDate, action, subject]);
+
+    useEffect(() => {
+        if (!endpoint) {
+            return;
+        }
+
+        setRemoteEntries(undefined);
+        setHasMore(false);
+        setPage(1);
+    }, [search, year, period, fromDate, toDate, action, subject, endpoint]);
 
     const sourceEntries = endpoint ? remoteEntries : entries;
 
@@ -352,7 +450,7 @@ export function ChangeLog({
         });
     }, [sourceEntries, year, period, action, subject, search]);
 
-    const anyFilter = !!(year ?? period ?? action ?? subject ?? search);
+    const anyFilter = !!(year || period || action || subject || search || fromDate || toDate);
 
     const summary = useMemo(() => {
         const total = visible.length;
@@ -372,7 +470,7 @@ export function ChangeLog({
         const groups = new Map<string, AuditEntry[]>();
 
         for (const entry of visible) {
-            const key = new Date(entry.at).toLocaleDateString('hi-IN', {
+            const key = new Date(entry.at).toLocaleDateString(displayLocale, {
                 dateStyle: 'long',
             });
             const current = groups.get(key) ?? [];
@@ -409,10 +507,10 @@ export function ChangeLog({
                         />
                     </FilterPill>
 
-                    <FilterPill
-                        label={t('Period')}
-                        activeLabel={
-                            period
+                        <FilterPill
+                            label={t('Period')}
+                            activeLabel={
+                                period
                                 ? t(
                                       period === 'month'
                                           ? 'Last one month'
@@ -423,11 +521,15 @@ export function ChangeLog({
                                               : 'Last year',
                                   )
                                 : undefined
-                        }
-                        onClear={() => setPeriod(undefined)}
-                    >
-                        <OptionList
-                            options={[
+                            }
+                            onClear={() => {
+                                setPeriod(undefined);
+                                setFromDate('');
+                                setToDate('');
+                            }}
+                        >
+                            <OptionList
+                                options={[
                                 { value: 'month', label: t('Last one month') },
                                 { value: 'quarter', label: t('Last quarter') },
                                 {
@@ -435,11 +537,56 @@ export function ChangeLog({
                                     label: t('Last half year'),
                                 },
                                 { value: 'year', label: t('Last year') },
-                            ]}
-                            value={period}
-                            onSelect={(v) => setPeriod(v as typeof period)}
-                        />
-                    </FilterPill>
+                                ]}
+                                value={period}
+                                onSelect={(v) => {
+                                    const selected = v as
+                                        | 'month'
+                                        | 'quarter'
+                                        | 'half_year'
+                                        | 'year'
+                                        | undefined;
+
+                                    setPeriod(selected);
+
+                                    if (selected) {
+                                        normalizePeriod(selected);
+                                    }
+
+                                    if (!selected) {
+                                        setFromDate('');
+                                        setToDate('');
+                                    }
+                                }}
+                            />
+                        </FilterPill>
+
+                    <div className="flex items-center gap-2">
+                        <label className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                            {t('From')}
+                            <Input
+                                type="date"
+                                value={fromDate}
+                                onChange={(e) => {
+                                    setPeriod(undefined);
+                                    setFromDate(e.target.value);
+                                }}
+                                className="h-7 w-32 border-0 bg-transparent px-0 py-0 text-xs"
+                            />
+                        </label>
+                        <label className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                            {t('To')}
+                            <Input
+                                type="date"
+                                value={toDate}
+                                onChange={(e) => {
+                                    setPeriod(undefined);
+                                    setToDate(e.target.value);
+                                }}
+                                className="h-7 w-32 border-0 bg-transparent px-0 py-0 text-xs"
+                            />
+                        </label>
+                    </div>
 
                     <FilterPill
                         label={t('Action')}
@@ -473,6 +620,8 @@ export function ChangeLog({
                                 setSearch('');
                                 setYear(undefined);
                                 setPeriod(undefined);
+                                setFromDate('');
+                                setToDate('');
                                 setAction(undefined);
                                 setSubject(undefined);
                             }}
@@ -545,27 +694,8 @@ export function ChangeLog({
                             className="rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                             onClick={() => {
                                 const nextPage = page + 1;
-                                setPage(nextPage);
                                 setLoadingMore(true);
-                                fetch(
-                                    `${endpoint}?page=${nextPage}&per_page=${perPage}`,
-                                )
-                                    .then((response) => response.json())
-                                    .then(
-                                        (payload: {
-                                            data: AuditEntry[];
-                                            meta?: { has_more: boolean };
-                                        }) => {
-                                            setRemoteEntries((current) => [
-                                                ...(current ?? []),
-                                                ...(payload.data ?? []),
-                                            ]);
-                                            setHasMore(
-                                                payload.meta?.has_more ?? false,
-                                            );
-                                        },
-                                    )
-                                    .finally(() => setLoadingMore(false));
+                                setPage(nextPage);
                             }}
                             disabled={loadingMore}
                         >
@@ -576,7 +706,11 @@ export function ChangeLog({
             </div>
 
             {/* Content */}
-            {visible.length === 0 ? (
+            {loading && endpoint ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                    {t('Loading…')}
+                </p>
+            ) : visible.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
                     {anyFilter
                         ? t('No changes match filters.')
@@ -607,7 +741,7 @@ export function ChangeLog({
                                 <TableRow key={entry.id}>
                                     <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
                                         {new Date(entry.at).toLocaleString(
-                                            'hi-IN',
+                                            displayLocale,
                                             {
                                                 dateStyle: 'medium',
                                                 timeStyle: 'short',
@@ -645,7 +779,7 @@ export function ChangeLog({
                                                 {entry.changes.map((ch, i) => (
                                                     <li key={i}>
                                                         <span className="font-medium">
-                                                            {t(ch.field)}:
+                                                        {humanizeField(ch.field)}:
                                                         </span>{' '}
                                                         {ch.old !== null ? (
                                                             <>
@@ -681,7 +815,7 @@ export function ChangeLog({
                             className="flex items-center gap-3 px-4 py-2.5"
                         >
                             <time className="w-36 shrink-0 text-xs text-muted-foreground">
-                                {new Date(entry.at).toLocaleString('hi-IN', {
+                                {new Date(entry.at).toLocaleString(displayLocale, {
                                     dateStyle: 'medium',
                                     timeStyle: 'short',
                                 })}
@@ -730,7 +864,7 @@ export function ChangeLog({
                                             <time className="text-xs text-muted-foreground">
                                                 {new Date(
                                                     entry.at,
-                                                ).toLocaleString('hi-IN', {
+                                                ).toLocaleString(displayLocale, {
                                                     dateStyle: 'medium',
                                                     timeStyle: 'short',
                                                 })}

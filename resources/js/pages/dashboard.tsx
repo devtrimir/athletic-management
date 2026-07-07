@@ -41,6 +41,7 @@ import { dashboard } from '@/routes';
 type StatMetric = {
     label: string;
     value: number;
+    href?: string;
     tone?: 'active' | 'bronze' | 'gold' | 'inactive' | 'silver' | 'total';
 };
 
@@ -134,7 +135,7 @@ function MetricValue({ metric }: { metric: StatMetric }) {
         total: 'text-foreground',
     }[metric.tone ?? 'total'];
 
-    return (
+    const inner = (
         <div className="min-w-0 rounded-md border bg-background px-3 py-2">
             <p className="truncate text-xs text-muted-foreground">
                 {metric.label}
@@ -146,6 +147,19 @@ function MetricValue({ metric }: { metric: StatMetric }) {
             </p>
         </div>
     );
+
+    if (metric.href) {
+        return (
+            <Link
+                href={metric.href}
+                className="rounded-md outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+                {inner}
+            </Link>
+        );
+    }
+
+    return inner;
 }
 
 function StatCard({
@@ -386,6 +400,10 @@ export default function Dashboard({
         permissions.viewTeams ||
         permissions.viewTournaments;
 
+    const teamSessionFilter = selectedSession
+        ? { query: { filter: { session_id: selectedSession.id } } }
+        : undefined;
+
     return (
         <>
             <Head title={t('Dashboard')} />
@@ -464,21 +482,36 @@ export default function Dashboard({
                                 {
                                     label: t('Total'),
                                     value: stats.members.total,
+                                    href: MemberController.index.url(),
                                     tone: 'total',
                                 },
                                 {
                                     label: t('Active'),
                                     value: stats.members.active,
+                                    href: MemberController.index.url({
+                                        query: {
+                                            filter: {
+                                                status_scope: 'active',
+                                                current_status: 'ACTIVE',
+                                            },
+                                        },
+                                    }),
                                     tone: 'active',
                                 },
                                 {
                                     label: t('Inactive'),
                                     value: stats.members.inactive,
+                                    href: MemberController.index.url({
+                                        query: {
+                                            filter: {
+                                                status_scope: 'inactive',
+                                            },
+                                        },
+                                    }),
                                     tone: 'inactive',
                                 },
                             ]}
                             icon={Users}
-                            href={MemberController.index.url()}
                             color="#6366f1"
                         />
                     )}
@@ -489,16 +522,27 @@ export default function Dashboard({
                                 {
                                     label: t('Total'),
                                     value: stats.coaches.total,
+                                    href: CoachController.index.url(),
                                     tone: 'total',
                                 },
                                 {
                                     label: t('Active'),
                                     value: stats.coaches.active,
+                                    href: CoachController.index.url({
+                                        query: {
+                                            filter: { status_scope: 'active' },
+                                        },
+                                    }),
                                     tone: 'active',
                                 },
                                 {
                                     label: t('Inactive'),
                                     value: stats.coaches.inactive,
+                                    href: CoachController.index.url({
+                                        query: {
+                                            filter: { status_scope: 'inactive' },
+                                        },
+                                    }),
                                     tone: 'inactive',
                                 },
                             ]}
@@ -510,7 +554,6 @@ export default function Dashboard({
                                     : undefined
                             }
                             icon={UsersRound}
-                            href={`${CoachController.index.url()}?filter[status_scope]=active`}
                             color="#8b5cf6"
                         />
                     )}
@@ -521,16 +564,33 @@ export default function Dashboard({
                                 {
                                     label: t('Total'),
                                     value: stats.teams.total,
+                                    href: TeamController.index.url(teamSessionFilter),
                                     tone: 'total',
                                 },
                                 {
                                     label: t('Active'),
                                     value: stats.teams.active,
+                                    href: TeamController.index.url({
+                                        query: {
+                                            filter: {
+                                                ...teamSessionFilter?.query.filter,
+                                                is_active: true,
+                                            },
+                                        },
+                                    }),
                                     tone: 'active',
                                 },
                                 {
                                     label: t('Inactive'),
                                     value: stats.teams.inactive,
+                                    href: TeamController.index.url({
+                                        query: {
+                                            filter: {
+                                                ...teamSessionFilter?.query.filter,
+                                                is_active: false,
+                                            },
+                                        },
+                                    }),
                                     tone: 'inactive',
                                 },
                             ]}
@@ -540,7 +600,6 @@ export default function Dashboard({
                                     : undefined
                             }
                             icon={Shield}
-                            href={TeamController.index.url()}
                             color="#0ea5e9"
                         />
                     )}

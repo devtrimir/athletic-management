@@ -12,6 +12,27 @@ use Inertia\Response;
 
 class InchargeProfileTabController extends Controller
 {
+    public function profile(Incharge $incharge, InchargeProfileData $profileData): Response
+    {
+        Gate::authorize('view', $incharge);
+
+        return Inertia::render('incharges/show', $profileData->profile($incharge));
+    }
+
+    public function achievements(Incharge $incharge, InchargeProfileData $profileData): Response
+    {
+        Gate::authorize('view', $incharge);
+
+        return Inertia::render('incharges/show', $profileData->achievements($incharge));
+    }
+
+    public function specialAchievements(Incharge $incharge, InchargeProfileData $profileData): Response
+    {
+        Gate::authorize('view', $incharge);
+
+        return Inertia::render('incharges/show', $profileData->specialAchievements($incharge));
+    }
+
     public function teams(Incharge $incharge, InchargeProfileData $profileData): Response
     {
         Gate::authorize('view', $incharge);

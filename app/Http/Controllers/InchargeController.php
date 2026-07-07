@@ -81,6 +81,13 @@ class InchargeController extends Controller
         return Inertia::render('incharges/show', $profileData->overview($incharge));
     }
 
+    public function preview(Incharge $incharge, InchargeProfileData $profileData): Response
+    {
+        Gate::authorize('view', $incharge);
+
+        return Inertia::render('incharges/print-preview', $profileData->print($incharge));
+    }
+
     public function edit(Incharge $incharge): Response
     {
         Gate::authorize('update', $incharge);
