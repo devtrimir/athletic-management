@@ -11,10 +11,10 @@ use Database\Factories\InchargeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'email',
     'is_active',
     'remarks',
+    'photo_path',
 ])]
 #[ObservedBy([AuditObserver::class])]
 class Incharge extends Model
@@ -57,6 +58,18 @@ class Incharge extends Model
     public function currentAssignments(): HasMany
     {
         return $this->hasMany(TeamInchargeAssignment::class)->where('is_current', true);
+    }
+
+    /** @return HasMany<InchargeSpecialAchievement, $this> */
+    public function specialAchievements(): HasMany
+    {
+        return $this->hasMany(InchargeSpecialAchievement::class);
+    }
+
+    /** @return HasMany<InchargeAchievement, $this> */
+    public function achievements(): HasMany
+    {
+        return $this->hasMany(InchargeAchievement::class);
     }
 
     /** @param Builder<Incharge> $query */

@@ -1,4 +1,5 @@
 import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react';
+import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,23 +39,37 @@ export function SportsMultiSelect({
     id,
 }: Props) {
     const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const [draftValue, setDraftValue] = useState<string[]>(value);
 
     const selectedSports = sports.filter((sport) =>
         value.includes(String(sport.id)),
+    );
+    const draftSelectedSports = sports.filter((sport) =>
+        draftValue.includes(String(sport.id)),
     );
     const sportLabel = (sport: SportOption) =>
         locale === 'en' ? sport.name : sport.name;
 
     function toggleSport(sportId: string) {
-        onValueChange(
-            value.includes(sportId)
-                ? value.filter((id) => id !== sportId)
-                : [...value, sportId],
+        setDraftValue((current) =>
+            current.includes(sportId)
+                ? current.filter((id) => id !== sportId)
+                : [...current, sportId],
         );
     }
 
     return (
-        <Popover>
+        <Popover
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (nextOpen) {
+                    setDraftValue(value);
+                }
+            }}
+        >
             <PopoverTrigger asChild>
                 <Button
                     id={id}
@@ -104,7 +119,8 @@ export function SportsMultiSelect({
                         <CommandGroup>
                             {sports.map((sport) => {
                                 const sportId = String(sport.id);
-                                const selected = value.includes(sportId);
+                                const selected =
+                                    draftValue.includes(sportId);
 
                                 return (
                                     <CommandItem
@@ -128,6 +144,36 @@ export function SportsMultiSelect({
                             })}
                         </CommandGroup>
                     </CommandList>
+                    <div className="border-t bg-background p-2">
+                        <div className="mb-2 text-xs text-muted-foreground">
+                            {draftSelectedSports.length === 0
+                                ? t('No sports selected yet.')
+                                : `${draftSelectedSports.length} ${draftSelectedSports.length === 1 ? t('sport') : t('sports')} ${t('selected')}. ${t('Press Okay to confirm, then Save.')}`}
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setDraftValue(value);
+                                    setOpen(false);
+                                }}
+                            >
+                                {t('Cancel')}
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                    onValueChange(draftValue);
+                                    setOpen(false);
+                                }}
+                            >
+                                {t('Okay')}
+                            </Button>
+                        </div>
+                    </div>
                 </Command>
             </PopoverContent>
         </Popover>

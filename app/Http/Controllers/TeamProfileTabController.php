@@ -17,7 +17,11 @@ class TeamProfileTabController extends Controller
     {
         Gate::authorize('view', $team);
 
-        return Inertia::render('teams/show', $profileData->players(
+        $page = $request->boolean('print')
+            ? 'teams/print'
+            : 'teams/show';
+
+        return Inertia::render($page, $profileData->players(
             $team,
             (int) $request->user()->organization_id,
             $this->requestedSessionId($request),

@@ -17,6 +17,8 @@ use App\Models\CoachStatusHistory;
 use App\Models\District;
 use App\Models\Event;
 use App\Models\Incharge;
+use App\Models\InchargeAchievement;
+use App\Models\InchargeSpecialAchievement;
 use App\Models\Member;
 use App\Models\MemberLegacyAchievement;
 use App\Models\MemberPromotion;
@@ -522,11 +524,25 @@ class AuditLogBuilder
     public function forIncharge(Incharge $incharge): array
     {
         $assignmentIds = TeamInchargeAssignment::where('incharge_id', $incharge->id)->pluck('id');
+        $achievementIds = InchargeAchievement::where('incharge_id', $incharge->id)->pluck('id');
+        $specialAchievementIds = InchargeSpecialAchievement::where('incharge_id', $incharge->id)->pluck('id');
 
         $logs = AuditLog::where('entity', 'Incharge')->where('entity_id', $incharge->id)->get();
 
         $logs = $logs->merge(
             AuditLog::where('entity', 'TeamInchargeAssignment')
+                ->whereIn('action', ['created', 'deleted'])
+                ->whereRaw("JSON_EXTRACT(diff, '$.incharge_id') = ?", [$incharge->id])
+                ->get()
+        );
+        $logs = $logs->merge(
+            AuditLog::where('entity', 'InchargeAchievement')
+                ->whereIn('action', ['created', 'deleted'])
+                ->whereRaw("JSON_EXTRACT(diff, '$.incharge_id') = ?", [$incharge->id])
+                ->get()
+        );
+        $logs = $logs->merge(
+            AuditLog::where('entity', 'InchargeSpecialAchievement')
                 ->whereIn('action', ['created', 'deleted'])
                 ->whereRaw("JSON_EXTRACT(diff, '$.incharge_id') = ?", [$incharge->id])
                 ->get()
@@ -540,6 +556,22 @@ class AuditLogBuilder
                     ->get()
             );
         }
+        if ($achievementIds->isNotEmpty()) {
+            $logs = $logs->merge(
+                AuditLog::where('entity', 'InchargeAchievement')
+                    ->where('action', 'updated')
+                    ->whereIn('entity_id', $achievementIds)
+                    ->get()
+            );
+        }
+        if ($specialAchievementIds->isNotEmpty()) {
+            $logs = $logs->merge(
+                AuditLog::where('entity', 'InchargeSpecialAchievement')
+                    ->where('action', 'updated')
+                    ->whereIn('entity_id', $specialAchievementIds)
+                    ->get()
+            );
+        }
 
         $allLogs = $logs->unique('id')->sortByDesc('at')->values();
 
@@ -549,6 +581,8 @@ class AuditLogBuilder
         $subjectMap = [
             'Incharge' => 'Incharge',
             'TeamInchargeAssignment' => 'Team assignment',
+            'InchargeAchievement' => 'Achievement',
+            'InchargeSpecialAchievement' => 'Special achievement',
         ];
 
         $fieldLabelMap = [
@@ -571,11 +605,28 @@ class AuditLogBuilder
                 'removal_reason' => 'Removal reason',
                 'is_current' => 'Current',
             ],
+            'InchargeAchievement' => [
+                'title' => 'Title',
+                'description' => 'Description',
+                'achieved_on' => 'Achieved on',
+                'remarks' => 'Remarks',
+            ],
+            'InchargeSpecialAchievement' => [
+                'achievement_type' => 'Type',
+                'title' => 'Title',
+                'awarded_on' => 'Awarded on',
+                'issuing_authority' => 'Issuing authority',
+                'order_reference' => 'Order reference',
+                'place' => 'Place',
+                'remarks' => 'Remarks',
+            ],
         ];
 
         $hiddenFields = [
             'Incharge' => ['id', 'organization_id', 'deleted_at'],
             'TeamInchargeAssignment' => ['id', 'current_team_id'],
+            'InchargeAchievement' => ['id', 'organization_id', 'incharge_id'],
+            'InchargeSpecialAchievement' => ['id', 'organization_id', 'incharge_id'],
         ];
 
         $resolve = function (string $entity, string $field, mixed $value) use ($teamMap, $incharge): ?string {

@@ -10,12 +10,17 @@ use App\Models\Participation;
 use App\Models\SportSession;
 use App\Models\Tournament;
 use App\Support\Tournaments\TournamentProfileData;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -32,16 +37,19 @@ class TournamentExportController extends Controller
 
     /** @var array<string, string> */
     private const COLUMN_LABELS = [
-        'name' => 'Tournament Name',
-        'session' => 'Session',
+        'serial_no' => 'S.No.',
+        'name' => 'Tournament',
         'tier' => 'Tier',
-        'sport' => 'Sport',
+        'sports' => 'Sports',
         'venue' => 'Venue',
-        'date_from' => 'Date From',
-        'date_to' => 'Date To',
+        'date' => 'Date',
+        'status' => 'Status',
         'events_count' => 'Events',
         'participants_count' => 'Participants',
-        'teams_count' => 'Teams',
+        'gold_medals_count' => 'Gold',
+        'silver_medals_count' => 'Silver',
+        'bronze_medals_count' => 'Bronze',
+        'merit_medals_count' => 'Merit',
         'medals_count' => 'Medals',
         'created_at' => 'Created On',
     ];
@@ -56,9 +64,6 @@ class TournamentExportController extends Controller
             ->where('is_current', true)
             ->value('id');
 
-        /** @var array<int, string> $columns */
-        $columns = $request->query('columns', array_keys(self::COLUMN_LABELS));
-
         /** @var array<int, string> $ids */
         $ids = $request->query('ids', []);
 
@@ -66,7 +71,7 @@ class TournamentExportController extends Controller
             $tournaments = Tournament::whereIn('id', array_map('intval', $ids))
                 ->withCount('events')
                 ->addSelect($this->aggregateSelects())
-                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name'])
+                ->with(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name', 'sports:id,name'])
                 ->orderBy('name')
                 ->get();
         } else {
@@ -74,14 +79,30 @@ class TournamentExportController extends Controller
                 ->allowedFilters([
                     AllowedFilter::exact('session_id'),
                     AllowedFilter::exact('tier_id'),
-                    AllowedFilter::exact('sport_id'),
+                    AllowedFilter::callback('sport_id', function (Builder $query, mixed $value): void {
+                        $rawSportId = is_array($value) ? reset($value) : $value;
+
+                        if (! is_numeric($rawSportId)) {
+                            return;
+                        }
+
+                        $sportId = (int) $rawSportId;
+                        $query->where(function (Builder $query) use ($sportId): void {
+                            $query
+                                ->where('sport_id', $sportId)
+                                ->orWhereHas(
+                                    'sports',
+                                    fn (Builder $query): Builder => $query->whereKey($sportId),
+                                );
+                        });
+                    }),
                     AllowedFilter::partial('q', 'name'),
                 ])
                 ->allowedSorts(['name', 'date_from', 'created_at'])
                 ->defaultSort('-date_from')
                 ->withCount('events')
                 ->addSelect($this->aggregateSelects())
-                ->with(['session:id,name', 'tier:id,code,label_hi', 'sport:id,name'])
+                ->with(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name', 'sports:id,name'])
                 ->when(
                     ! $request->has('filter.session_id') && $defaultSessionId,
                     fn ($q) => $q->where('session_id', $defaultSessionId)
@@ -89,30 +110,307 @@ class TournamentExportController extends Controller
                 ->get();
         }
 
-        $validColumns = array_intersect($columns, array_keys(self::COLUMN_LABELS));
-        $headings = array_map(fn (string $col) => self::COLUMN_LABELS[$col], $validColumns);
+        $this->attachMedalSummaries($tournaments);
 
-        $rows = $tournaments->map(function (Tournament $tournament) use ($validColumns) {
-            $row = [];
-            foreach ($validColumns as $col) {
-                $row[$col] = match ($col) {
-                    'session' => $tournament->session?->name,
-                    'tier' => $tournament->tier?->label_hi ?? $tournament->tier?->code,
-                    'sport' => $tournament->sport?->name,
-                    'date_from' => $tournament->date_from?->toDateString(),
-                    'date_to' => $tournament->date_to?->toDateString(),
-                    'created_at' => $tournament->created_at?->toDateString(),
-                    default => $tournament->{$col},
-                };
-            }
-
-            return $row;
+        $rows = $tournaments->values()->map(function (Tournament $tournament, int $index): array {
+            return [
+                'serial_no' => $index + 1,
+                'name' => $tournament->name,
+                'tier' => $tournament->tier?->label ?? $tournament->tier?->label_hi ?? $tournament->tier?->code,
+                'sports' => $this->tournamentSportsText($tournament),
+                'venue' => $tournament->venue ?: '—',
+                'date' => $this->dateRange($tournament),
+                'status' => $this->tournamentStatus($tournament),
+                'events_count' => (int) $tournament->events_count,
+                'participants_count' => (int) $tournament->participants_count,
+                'gold_medals_count' => (int) $tournament->gold_medals_count,
+                'silver_medals_count' => (int) $tournament->silver_medals_count,
+                'bronze_medals_count' => (int) $tournament->bronze_medals_count,
+                'merit_medals_count' => (int) $tournament->merit_medals_count,
+                'medals_count' => (int) $tournament->medals_count,
+                'created_at' => $tournament->created_at?->format('d M Y'),
+            ];
         });
 
         return Excel::download(
-            new ReportExport($rows, array_values($headings), 'Tournaments'),
+            new ReportExport(
+                $rows,
+                array_values(self::COLUMN_LABELS),
+                'Tournaments',
+                $this->tournamentListingHeaderRows(),
+                ['A1:O1', 'A2:O2', 'A3:O3', 'E4:G4', 'H4:I4', 'J4:N4'],
+                columnWidths: [
+                    'A' => 8,
+                    'B' => 28,
+                    'C' => 14,
+                    'D' => 28,
+                    'E' => 22,
+                    'F' => 24,
+                    'G' => 14,
+                    'H' => 10,
+                    'I' => 16,
+                    'J' => 10,
+                    'K' => 10,
+                    'L' => 10,
+                    'M' => 10,
+                    'N' => 10,
+                    'O' => 14,
+                ],
+                afterSheet: fn (AfterSheet $event) => $this->styleTournamentListingExport($event, 5),
+            ),
             'tournaments-'.now()->format('Y-m-d').'.xlsx',
         );
+    }
+
+    /**
+     * @return array<int, array<int, string>>
+     */
+    private function tournamentListingHeaderRows(): array
+    {
+        $columnCount = count(self::COLUMN_LABELS);
+
+        return [
+            array_pad([__('UP Police Sport Control Board (UPPSCB)')], $columnCount, ''),
+            array_pad([__('Tournament Listing')], $columnCount, ''),
+            array_pad([__('Generated on').' '.now()->format('d M Y')], $columnCount, ''),
+            [
+                '',
+                '',
+                '',
+                '',
+                __('Venue / Date / Status'),
+                '',
+                '',
+                __('Activity'),
+                '',
+                __('Medals'),
+                '',
+                '',
+                '',
+                '',
+                '',
+            ],
+        ];
+    }
+
+    private function styleTournamentListingExport(AfterSheet $event, int $headingRow): void
+    {
+        $sheet = $event->sheet->getDelegate();
+        $lastRow = max($sheet->getHighestDataRow(), $headingRow);
+
+        $sheet->freezePane('A'.($headingRow + 1));
+        $sheet->getDefaultRowDimension()->setRowHeight(30);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+        $sheet->getRowDimension(2)->setRowHeight(24);
+
+        $sheet->getStyle("A1:O{$lastRow}")->applyFromArray([
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '9CA3AF'],
+                ],
+            ],
+        ]);
+
+        $sheet->getStyle('A1:O1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 15, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '1E3A8A'],
+            ],
+        ]);
+        $sheet->getStyle('A2:O3')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => '1E3A8A']],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'DBEAFE'],
+            ],
+        ]);
+        $sheet->getStyle('E4:N4')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => '1E3A8A']],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'DBEAFE'],
+            ],
+        ]);
+        $sheet->getStyle("A{$headingRow}:O{$headingRow}")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '111827'],
+            ],
+        ]);
+
+        $sheet->getStyle("J".($headingRow + 1).":J{$lastRow}")->applyFromArray([
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FEF3C7']],
+            'font' => ['bold' => true, 'color' => ['rgb' => '92400E']],
+        ]);
+        $sheet->getStyle("K".($headingRow + 1).":K{$lastRow}")->applyFromArray([
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
+            'font' => ['bold' => true, 'color' => ['rgb' => '334155']],
+        ]);
+        $sheet->getStyle("L".($headingRow + 1).":L{$lastRow}")->applyFromArray([
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFEDD5']],
+            'font' => ['bold' => true, 'color' => ['rgb' => '9A3412']],
+        ]);
+        $sheet->getStyle("M".($headingRow + 1).":M{$lastRow}")->applyFromArray([
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'DCFCE7']],
+            'font' => ['bold' => true, 'color' => ['rgb' => '166534']],
+        ]);
+        $sheet->getStyle("N".($headingRow + 1).":N{$lastRow}")->applyFromArray([
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E0F2FE']],
+            'font' => ['bold' => true, 'color' => ['rgb' => '075985']],
+        ]);
+    }
+
+    private function tournamentSportsText(Tournament $tournament): string
+    {
+        $sports = collect($tournament->sports ?? [])
+            ->when($tournament->sport, fn (Collection $sports): Collection => $sports->push($tournament->sport))
+            ->unique('id')
+            ->values();
+
+        if ($sports->isEmpty()) {
+            return '—';
+        }
+
+        if ($sports->count() === 1) {
+            return (string) $sports->first()?->name;
+        }
+
+        return $sports
+            ->values()
+            ->map(fn ($sport, int $index): string => ($index + 1).'. '.$sport->name)
+            ->implode("\n");
+    }
+
+    private function dateRange(Tournament $tournament): string
+    {
+        $from = $tournament->date_from?->format('d M Y');
+        $to = $tournament->date_to?->format('d M Y');
+
+        if ($from !== null && $to !== null && $from !== $to) {
+            return $from.' - '.$to;
+        }
+
+        return $from ?? $to ?? '—';
+    }
+
+    private function tournamentStatus(Tournament $tournament): string
+    {
+        $today = now()->startOfDay();
+        $from = $tournament->date_from?->copy()->startOfDay();
+        $to = $tournament->date_to?->copy()->startOfDay() ?? $from;
+
+        if ($from === null && $to === null) {
+            return __('Date pending');
+        }
+
+        if ($from !== null && $today->lt($from)) {
+            return __('Upcoming');
+        }
+
+        if ($to !== null && $today->gt($to)) {
+            return __('Completed');
+        }
+
+        return __('Ongoing');
+    }
+
+    /**
+     * @param  Collection<int, Tournament>  $tournaments
+     */
+    private function attachMedalSummaries(Collection $tournaments): void
+    {
+        $blank = [
+            'medals_count' => 0,
+            'team_medals_count' => 0,
+            'gold_medals_count' => 0,
+            'silver_medals_count' => 0,
+            'bronze_medals_count' => 0,
+            'merit_medals_count' => 0,
+        ];
+
+        if ($tournaments->isEmpty()) {
+            return;
+        }
+
+        $tournamentIds = $tournaments->modelKeys();
+        $latestAchievementIds = Achievement::query()
+            ->whereIn(
+                'participation_id',
+                Participation::query()
+                    ->select('participations.id')
+                    ->join('events', 'events.id', '=', 'participations.event_id')
+                    ->whereIn('events.tournament_id', $tournamentIds),
+            )
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('participation_id')
+            ->pluck('id');
+
+        $summaries = [];
+        $seenMedals = [];
+        $achievements = Achievement::query()
+            ->whereIn('achievements.id', $latestAchievementIds)
+            ->selectRaw('events.tournament_id')
+            ->selectRaw('events.event_type')
+            ->selectRaw('events.id as event_id')
+            ->selectRaw('achievements.medal_type')
+            ->selectRaw('achievements.participation_id')
+            ->selectRaw('participations.team_id')
+            ->join('participations', 'participations.id', '=', 'achievements.participation_id')
+            ->join('events', 'events.id', '=', 'participations.event_id')
+            ->whereIn('events.tournament_id', $tournamentIds)
+            ->orderByDesc('achievements.id')
+            ->get();
+
+        foreach ($achievements as $achievement) {
+            $tournamentId = (int) $achievement->tournament_id;
+            $medalType = strtoupper((string) $achievement->medal_type);
+
+            if (! in_array($medalType, ['GOLD', 'SILVER', 'BRONZE', 'MERIT'], true)) {
+                continue;
+            }
+
+            $eventType = (string) $achievement->event_type;
+            $eventId = (int) $achievement->event_id;
+            $participationId = (int) $achievement->participation_id;
+            $teamKey = (int) ($achievement->team_id ?? 0);
+            $dedupeKey = $eventType === 'team'
+                ? $eventType.':'.$eventId.':'.($teamKey > 0 ? (string) $teamKey : 'p'.$participationId)
+                : 'individual:'.$participationId.':'.$medalType;
+
+            if (isset($seenMedals[$dedupeKey])) {
+                continue;
+            }
+
+            $seenMedals[$dedupeKey] = true;
+
+            $summary = $summaries[$tournamentId] ?? $blank;
+            $summary['medals_count']++;
+
+            if ($eventType === 'team') {
+                $summary['team_medals_count']++;
+            }
+
+            $medalKey = strtolower($medalType).'_medals_count';
+            if (array_key_exists($medalKey, $summary)) {
+                $summary[$medalKey]++;
+            }
+
+            $summaries[$tournamentId] = $summary;
+        }
+
+        foreach ($tournaments as $tournament) {
+            foreach (($summaries[$tournament->id] ?? $blank) as $key => $value) {
+                $tournament->setAttribute($key, $value);
+            }
+        }
     }
 
     public function eventsReport(Request $request, Tournament $tournament): Response
@@ -1309,8 +1607,13 @@ class TournamentExportController extends Controller
         return '<!DOCTYPE html><html><head>'
             .'<meta charset="utf-8">'
             .'<title>'.__('Tournament Event Report').' - '.$title.'</title>'
-            .'<style>@page{size:A4 '.$printOrientation.';margin:5mm}html,body{margin:0}body{font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.35;padding:6px;color:#111}h1{font-size:18px;margin:0 0 6px}h2{font-size:13px;margin:10px 0 5px}table{width:100%;border-collapse:collapse;margin:0 0 8px}th,td{border:1px solid #bbb;padding:4px 5px;vertical-align:top;text-align:left}td{word-break:break-word}th{background:#f1f1f1;font-weight:600;white-space:nowrap;word-break:normal}.sport-row th{background:#e9eef5;font-weight:700}.sport-row .num{width:1%;text-align:center}.sport-medals{float:right;font-weight:600;white-space:nowrap}.total-row th{background:#e7e7e7;font-weight:700}.num{text-align:right;white-space:nowrap}.summary-table th:nth-child(2),.summary-table td:nth-child(2),.summary-table th:nth-child(3),.summary-table td:nth-child(3){text-align:right;white-space:nowrap}.event-table{font-size:8.8px;table-layout:auto}p{margin:2px 0}.muted{color:#666}@media print{body{padding:0}.event-table{font-size:8.2px}th,td{padding:3px 4px}h1{font-size:16px}h2{font-size:12px;margin:7px 0 4px}table{margin-bottom:6px}}</style>'
+            .'<style>@page{size:A4 '.$printOrientation.';margin:5mm}html,body{margin:0}body{font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.35;padding:6px;color:#111}.letterhead{text-align:center;border-bottom:2px solid #111;margin:0 0 8px;padding:0 0 7px}.letterhead-title{font-size:18px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}.letterhead-subtitle{font-size:11px;font-weight:600;margin-top:2px}.letterhead-meta{font-size:9px;color:#555;margin-top:2px}h1{font-size:18px;margin:0 0 6px;text-align:center}h2{font-size:13px;margin:10px 0 5px}table{width:100%;border-collapse:collapse;margin:0 0 8px}th,td{border:1px solid #bbb;padding:4px 5px;vertical-align:middle;text-align:center}td{word-break:break-word}th{background:#f1f1f1;font-weight:600;white-space:nowrap;word-break:normal}.sport-row th{background:#e9eef5;font-weight:700}.sport-row .num{width:1%;text-align:center}.sport-medals{float:right;font-weight:600;white-space:nowrap}.total-row th{background:#e7e7e7;font-weight:700}.num{text-align:center;white-space:nowrap}.summary-table th:nth-child(2),.summary-table td:nth-child(2),.summary-table th:nth-child(3),.summary-table td:nth-child(3){text-align:center;white-space:nowrap}.event-table{font-size:8.8px;table-layout:auto}p{margin:2px 0}.muted{color:#666}@media print{body{padding:0}.letterhead{margin-bottom:6px;padding-bottom:5px}.letterhead-title{font-size:16px}.event-table{font-size:8.2px}th,td{padding:3px 4px}h1{font-size:16px}h2{font-size:12px;margin:7px 0 4px}table{margin-bottom:6px}}</style>'
             .'</head><body>'
+            .'<div class="letterhead">'
+            .'<div class="letterhead-title">'.__('UP Police Sport Control Board (UPPSCB)').'</div>'
+            .'<div class="letterhead-subtitle">'.__('Tournament Events Report').'</div>'
+            .'<div class="letterhead-meta">'.__('Official Sports Unit Record').'</div>'
+            .'</div>'
             .'<h1>'.__('Tournament Event Report').'</h1>'
             .'<p class="muted"><strong>'.__('Tournament').':</strong> '.$title.'</p>'
             .'<p class="muted"><strong>'.__('Session').':</strong> '.$session.'</p>'

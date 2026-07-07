@@ -739,6 +739,9 @@ function storyField(
     }
 
     const translated = t(field);
+    if (translated === field) {
+        return humanizeCode(field);
+    }
 
     return locale === 'en' ? translated.toLowerCase() : translated;
 }
@@ -917,7 +920,9 @@ function PromotionEvidenceTable({
         <table className="w-full border-collapse text-xs print:text-[9px]">
             <thead className="bg-muted/40 text-left text-[10px] tracking-wide text-muted-foreground uppercase print:text-[8px]">
                 <tr>
-                    <th className="w-8 border p-1.5">#</th>
+                    <th className="w-8 border p-1.5">
+                        {uiText('S. No.', locale)}
+                    </th>
                     <th className="border p-1.5">
                         {uiText('Session', locale)}
                     </th>

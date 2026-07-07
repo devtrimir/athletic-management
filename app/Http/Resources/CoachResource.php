@@ -47,6 +47,18 @@ class CoachResource extends JsonResource
             'tier_master_id' => $this->tier_master_id,
             'rank_master_id' => $this->rank_master_id,
             'designation_master_id' => $this->designation_master_id,
+            'rank_master' => $this->whenLoaded('rankMaster', fn () => [
+                'id' => $this->rankMaster->id,
+                'code' => $this->rankMaster->code,
+                'name' => $this->rankMaster->name,
+                'short_name' => $this->rankMaster->short_name,
+            ]),
+            'designation_master' => $this->whenLoaded('designationMaster', fn () => [
+                'id' => $this->designationMaster->id,
+                'code' => $this->designationMaster->code,
+                'name' => $this->designationMaster->name,
+                'short_name' => $this->designationMaster->short_name,
+            ]),
             'profile_status_badge' => $this->profile_status_badge,
             'aliases' => $this->whenLoaded('aliases', fn () => $this->aliases
                 ->map(fn ($alias) => [

@@ -31,6 +31,8 @@ import {
     destroy as destroyTeamCoach,
     bulkDestroy as bulkDestroyCoaches,
 } from '@/actions/App/Http/Controllers/TeamCoachController';
+import CoachController from '@/actions/App/Http/Controllers/CoachController';
+import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import {
     edit as editTeam,
     index as teamsIndex,
@@ -146,6 +148,7 @@ type TeamMemberRow = {
         full_name: string;
         member_code: string;
         pno: string | null;
+        player_category: string | null;
         rank: string | null;
         designation: string | null;
         mobile: string | null;
@@ -288,6 +291,7 @@ export default function TeamsShow({
         joined_on: '',
         left_on: '',
     });
+    const hasAutoPrintRun = useRef(false);
 
     const [highlightedMemberIds, setHighlightedMemberIds] = useState<
         Set<number>
@@ -412,6 +416,35 @@ export default function TeamsShow({
         reason: '',
         remove_coaches: false,
     });
+
+    useEffect(() => {
+        const shouldAutoPrint = new URLSearchParams(window.location.search).get(
+            'print',
+        );
+
+        if (shouldAutoPrint !== '1' || hasAutoPrintRun.current) {
+            return;
+        }
+
+        hasAutoPrintRun.current = true;
+
+        const timeoutId = window.setTimeout(() => {
+            handlePrint();
+
+            const params = new URLSearchParams(window.location.search);
+            params.delete('print');
+            params.delete('print_sections');
+            const nextQuery = params.toString();
+            const nextUrl = `${window.location.pathname}${
+                nextQuery ? `?${nextQuery}` : ''
+            }${window.location.hash}`;
+            window.history.replaceState(null, '', nextUrl);
+        }, 120);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [handlePrint]);
 
     function openConfirm(
         title: string,
@@ -628,189 +661,56 @@ export default function TeamsShow({
         return `${exportTeamUrl.url()}?${params.toString()}`;
     }
 
-    function escapeHtml(value: string | null | undefined): string {
-        const text = value ?? '';
-
-        return text
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#39;');
-    }
-
     function handlePrint() {
-        const currentMembers = members ?? [];
-        const currentRemovedMembers = removedMembers ?? [];
-        const currentCoaches = coaches ?? [];
-        const currentMovements = memberMovements ?? [];
+        const rawPrintSections = new URLSearchParams(
+            window.location.search,
+        ).get('print_sections');
+        const printSections = rawPrintSections
+            ? rawPrintSections
+                  .split(',')
+                  .map((value) =>
+                      value
+                          .trim()
+                          .toLowerCase()
+                          .replace(/\s+/g, '_'),
+                  )
+                  .filter(Boolean)
+            : [];
 
-        const activePlayerRows = currentMembers
-            .map(
-                (member) =>
-                    `<tr>
-                        <td>${escapeHtml(member.member?.full_name)}</td>
-                        <td>${escapeHtml(member.member?.pno)}</td>
-                        <td>${escapeHtml(member.role)}</td>
-                        <td>${escapeHtml(member.session?.name)}</td>
-                        <td>${escapeHtml(member.joined_on)}</td>
-                        <td>${escapeHtml(member.left_on)}</td>
-                    </tr>`,
-            )
-            .join('');
+        const printSectionsParam =
+            printSections.length === 0 || printSections.includes('all')
+                ? 'all'
+                : printSections.join(',');
 
-        const removedPlayerRows = currentRemovedMembers
-            .map(
-                (member) =>
-                    `<tr>
-                        <td>${escapeHtml(member.member?.full_name)}</td>
-                        <td>${escapeHtml(member.member?.pno)}</td>
-                        <td>${escapeHtml(member.role)}</td>
-                        <td>${escapeHtml(member.joined_on)}</td>
-                        <td>${escapeHtml(member.left_on)}</td>
-                    </tr>`,
-            )
-            .join('');
+        const query = {
+            filter: selectedSessionId
+                ? {
+                      session_id: String(selectedSessionId),
+                  }
+                : undefined,
+            print: '1',
+            print_sections: printSectionsParam,
+            page_mode: 'landscape',
+        } as {
+            filter?: { session_id: string };
+            print: string;
+            print_sections: string;
+            page_mode: 'portrait' | 'landscape';
+        };
 
-        const coachRows = currentCoaches
-            .map(
-                (coach) =>
-                    `<tr>
-                        <td>${escapeHtml(coach.coach?.full_name)}</td>
-                        <td>${escapeHtml(coach.coach?.pno)}</td>
-                        <td>${escapeHtml(coachRoleLabel(coach.role))}</td>
-                        <td>${escapeHtml(coach.session?.name)}</td>
-                    </tr>`,
-            )
-            .join('');
+        const printUrl = teamPlayersRoute.url(team, { query });
+        const printWindow = window.open(
+            printUrl,
+            '_blank',
+            'noopener,noreferrer',
+        );
 
-        const movementRows = currentMovements
-            .slice(0, 80)
-            .map(
-                (movement) =>
-                    `<tr>
-                        <td>${escapeHtml(movement.action)}</td>
-                        <td>${escapeHtml(movement.member?.full_name)}</td>
-                        <td>${escapeHtml(movement.role)}</td>
-                        <td>${escapeHtml(
-                            movement.effective_on ?? movement.created_at,
-                        )}</td>
-                        <td>${escapeHtml(movement.source)}</td>
-                        <td>${escapeHtml(movement.reason)}</td>
-                    </tr>`,
-            )
-            .join('');
-
-        const style = `
-            body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:12px;padding:16px;color:#111827}
-            h1{font-size:22px;margin:0 0 8px}
-            h2{font-size:16px;margin:18px 0 8px}
-            table{width:100%;border-collapse:collapse;margin-top:8px}
-            th,td{border:1px solid #d1d5db;padding:6px 8px;text-align:left;font-size:11px}
-            th{background:#f3f4f6;font-weight:600}
-            .muted{color:#6b7280}
-            .section{margin-top:20px}
-            .meta{margin:10px 0 4px;color:#374151}
-        `;
-
-        const html = `<!doctype html>
-            <html>
-                <head>
-                    <meta charset="utf-8" />
-                    <title>${escapeHtml(team.name)} - ${t('Team roster')}</title>
-                    <style>${style}</style>
-                </head>
-                <body>
-                    <h1>${escapeHtml(team.name)}</h1>
-                    <p class="meta">${t('Session')}: ${escapeHtml(selectedSession?.name)}</p>
-                    <p class="meta">${t('Sport')}: ${escapeHtml(team.sport?.name)}</p>
-                    <p class="meta">${t('Location')}: ${escapeHtml(team.location_label ?? '')}</p>
-                    <h2>${t('Active players')}</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>${t('Name')}</th>
-                                <th>${t('PNO')}</th>
-                                <th>${t('Role')}</th>
-                                <th>${t('Session')}</th>
-                                <th>${t('Joined on')}</th>
-                                <th>${t('Left on')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${activePlayerRows || `<tr><td colspan="6" class="muted">${t('No players in this session.')}</td></tr>`}
-                        </tbody>
-                    </table>
-                    <h2>${t('Removed players')}</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>${t('Name')}</th>
-                                <th>${t('PNO')}</th>
-                                <th>${t('Role')}</th>
-                                <th>${t('Joined on')}</th>
-                                <th>${t('Left on')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${
-                                removedPlayerRows ||
-                                `<tr><td colspan="5" class="muted">${t('No removed players in this session.')}</td></tr>`
-                            }
-                        </tbody>
-                    </table>
-                    <h2>${t('Coaches')}</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>${t('Name')}</th>
-                                <th>${t('PNO')}</th>
-                                <th>${t('Role')}</th>
-                                <th>${t('Session')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${coachRows || `<tr><td colspan="4" class="muted">${t('No coaches in this session.')}</td></tr>`}
-                        </tbody>
-                    </table>
-                    <div class="section">
-                        <h2>${t('Recent movement')}</h2>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>${t('Action')}</th>
-                                    <th>${t('Name')}</th>
-                                    <th>${t('Role')}</th>
-                                    <th>${t('Effective on')}</th>
-                                    <th>${t('Source')}</th>
-                                    <th>${t('Reason')}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${
-                                    movementRows ||
-                                    `<tr><td colspan="6" class="muted">${t('No movements for this session.')}</td></tr>`
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                    <script>
-                        window.onload = function () {
-                            window.print();
-                            window.close();
-                        };
-                    </script>
-                </body>
-            </html>`;
-
-        const printWindow = window.open('', '_blank', 'width=1000,height=800');
-
-        if (!printWindow) {
+        if (printWindow) {
             return;
         }
 
-        printWindow.document.write(html);
-        printWindow.document.close();
+        toast.info(t('Popup blocked. Opening print view in current tab.'));
+        window.location.href = printUrl;
     }
 
     function submitRemoveMembers() {
@@ -1095,6 +995,21 @@ export default function TeamsShow({
     const isViewingArchivedSession = hasSessionContext
         ? selectedSession.id !== currentSession!.id
         : false;
+
+    const leftDateForMemberRow = (row: TeamMemberRow): string => {
+        if (
+            isViewingCurrentSession &&
+            row.session?.id === selectedSession?.id
+        ) {
+            const leftOn = row.left_on?.trim() ?? '';
+
+            if (!leftOn || leftOn.startsWith('0000-00-00')) {
+                return '';
+            }
+        }
+
+        return row.left_on ?? '';
+    };
     // Derive unique session options from loaded rows for filter pills
     const memberSessions = Array.from(
         new Map(
@@ -1135,6 +1050,10 @@ export default function TeamsShow({
 
         return true;
     });
+    const showLeftOnColumn = filteredMembers.some(
+        (row) => leftDateForMemberRow(row).trim() !== '',
+    );
+    const memberTableColumnCount = showLeftOnColumn ? 12 : 11;
 
     const filteredCoaches = (coaches ?? []).filter((r) => {
         if (
@@ -2142,9 +2061,7 @@ export default function TeamsShow({
                                                         {t('Role')}
                                                     </TableHead>
                                                     <TableHead className="min-w-44">
-                                                        {t(
-                                                            'Event / Role / Position',
-                                                        )}
+                                                        {t('Event / Weight')}
                                                     </TableHead>
                                                     <TableHead className="hidden lg:table-cell">
                                                         {t('Posting')}
@@ -2161,9 +2078,11 @@ export default function TeamsShow({
                                                     <TableHead className="hidden md:table-cell">
                                                         {t('Joined on')}
                                                     </TableHead>
-                                                    <TableHead className="hidden lg:table-cell">
-                                                        {t('Left on')}
-                                                    </TableHead>
+                                                    {showLeftOnColumn ? (
+                                                        <TableHead className="hidden lg:table-cell">
+                                                            {t('Left on')}
+                                                        </TableHead>
+                                                    ) : null}
                                                     <TableHead />
                                                 </TableRow>
                                             </TableHeader>
@@ -2172,7 +2091,7 @@ export default function TeamsShow({
                                                 0 ? (
                                                     <TableRow>
                                                         <TableCell
-                                                            colSpan={12}
+                                                            colSpan={memberTableColumnCount}
                                                             className="text-center text-muted-foreground"
                                                         >
                                                             {t(
@@ -2265,15 +2184,48 @@ export default function TeamsShow({
                                                                         />
                                                                     </TableCell>
                                                                     <TableCell className="font-medium">
-                                                                        {memberNameWithRank(
-                                                                            row.member,
+                                                                        {row.member ? (
+                                                                            <Link
+                                                                                href={MemberController.show.url(
+                                                                                    row
+                                                                                        .member
+                                                                                        .id,
+                                                                                )}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                className="text-primary hover:underline"
+                                                                            >
+                                                                                {memberNameWithRank(
+                                                                                    row.member,
+                                                                                )}
+                                                                            </Link>
+                                                                        ) : (
+                                                                            ''
                                                                         )}
                                                                     </TableCell>
                                                                     <TableCell className="hidden font-mono text-sm sm:table-cell">
                                                                         {row
                                                                             .member
-                                                                            ?.pno ??
-                                                                            ''}
+                                                                            ?.pno ? (
+                                                                            <Link
+                                                                                href={MemberController.show.url(
+                                                                                    row
+                                                                                        .member
+                                                                                        .id,
+                                                                                )}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                className="text-primary hover:underline"
+                                                                            >
+                                                                                {
+                                                                                    row
+                                                                                        .member
+                                                                                        .pno
+                                                                                }
+                                                                            </Link>
+                                                                        ) : (
+                                                                            ''
+                                                                        )}
                                                                     </TableCell>
                                                                     <TableCell>
                                                                         <span
@@ -2339,16 +2291,19 @@ export default function TeamsShow({
                                                                             ?.name ??
                                                                             ''}
                                                                     </TableCell>
-                                                                    <TableCell className="hidden md:table-cell">
-                                                                        {row.joined_on ??
-                                                                            ''}
-                                                                    </TableCell>
-                                                                    <TableCell className="hidden lg:table-cell">
-                                                                        {row.left_on ??
-                                                                            ''}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-right">
-                                                                        <div className="flex items-center justify-end gap-1">
+                                                                <TableCell className="hidden md:table-cell">
+                                                            {row.joined_on ??
+                                                                ''}
+                                                        </TableCell>
+                                                        {showLeftOnColumn ? (
+                                                            <TableCell className="hidden lg:table-cell">
+                                                                {leftDateForMemberRow(
+                                                                    row,
+                                                                )}
+                                                            </TableCell>
+                                                        ) : null}
+                                                        <TableCell className="text-right">
+                                                            <div className="flex items-center justify-end gap-1">
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"
@@ -2814,7 +2769,7 @@ export default function TeamsShow({
                                                         {t('Role')}
                                                     </TableHead>
                                                     <TableHead className="min-w-44">
-                                                        {t('Event / Level')}
+                                                        {t('Event / Weight')}
                                                     </TableHead>
                                                     <TableHead className="hidden md:table-cell">
                                                         {t('Assigned on')}
@@ -2900,14 +2855,49 @@ export default function TeamsShow({
                                                                     />
                                                                 </TableCell>
                                                                 <TableCell className="font-medium">
-                                                                    {row.coach
-                                                                        ?.full_name ??
-                                                                        ''}
+                                                                    {row.coach ? (
+                                                                        <Link
+                                                                            href={CoachController.show.url(
+                                                                                row
+                                                                                    .coach
+                                                                                    .id,
+                                                                            )}
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className="text-primary hover:underline"
+                                                                        >
+                                                                            {
+                                                                                row
+                                                                                    .coach
+                                                                                    .full_name
+                                                                            }
+                                                                        </Link>
+                                                                    ) : (
+                                                                        ''
+                                                                    )}
                                                                 </TableCell>
                                                                 <TableCell className="hidden font-mono text-sm sm:table-cell">
                                                                     {row.coach
-                                                                        ?.pno ??
-                                                                        ''}
+                                                                        ?.pno ? (
+                                                                        <Link
+                                                                            href={CoachController.show.url(
+                                                                                row
+                                                                                    .coach
+                                                                                    .id,
+                                                                            )}
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className="text-primary hover:underline"
+                                                                        >
+                                                                            {
+                                                                                row
+                                                                                    .coach
+                                                                                    .pno
+                                                                            }
+                                                                        </Link>
+                                                                    ) : (
+                                                                        ''
+                                                                    )}
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     {coachRoleLabel(

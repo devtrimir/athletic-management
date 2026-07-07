@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Support\Teams;
 
 use App\Http\Resources\TeamResource;
-use App\Models\CoachAssignment;
 use App\Models\Coach;
+use App\Models\CoachAssignment;
 use App\Models\Incharge;
 use App\Models\Member;
 use App\Models\SportSession;
@@ -48,6 +48,32 @@ class TeamProfileData
             'members' => $this->membersPayload($team, $selectedSessionId, false),
             'removedMembers' => $this->membersPayload($team, $selectedSessionId, true),
             'memberMovements' => $this->memberMovementsPayload($team, $selectedSessionId),
+            'coaches' => $this->coachesPayload($team, $selectedSessionId),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Team>  $teams
+     * @return array<string, mixed>
+     */
+    public function printTeams(Collection $teams, int $organizationId, ?int $requestedSessionId = null): array
+    {
+        $firstTeam = $teams->first();
+        $selectedSessionId = $firstTeam instanceof Team
+            ? $this->selectedSessionId($firstTeam, $organizationId, $requestedSessionId)
+            : (int) ($requestedSessionId ?? 0);
+
+        return [
+            'team' => $this->syntheticPrintTeam(),
+            'sessions' => $this->sessions($organizationId),
+            'selectedSessionId' => $selectedSessionId > 0 ? $selectedSessionId : null,
+            'members' => [],
+            'removedMembers' => [],
+            'coaches' => [],
+            'printTeams' => $teams
+                ->values()
+                ->map(fn (Team $team): array => $this->printTeamPayload($team, $selectedSessionId))
+                ->all(),
         ];
     }
 
@@ -169,7 +195,7 @@ class TeamProfileData
 
         return $team->teamMembers()
             ->with([
-                'member:id,full_name,member_code,pno,rank,designation,mobile,current_unit_id',
+                'member:id,full_name,member_code,pno,player_category,rank,designation,mobile,current_unit_id',
                 'member.currentUnit:id,name',
                 'member.playableSports' => fn ($query) => $query
                     ->select(['sports.id', 'sports.name'])
@@ -191,6 +217,7 @@ class TeamProfileData
                     'full_name' => $teamMember->member->full_name,
                     'member_code' => $teamMember->member->member_code,
                     'pno' => $teamMember->member->pno,
+                    'player_category' => $teamMember->member->player_category,
                     'rank' => $teamMember->member->rank,
                     'designation' => $teamMember->member->designation,
                     'mobile' => $teamMember->member->mobile,
@@ -282,6 +309,43 @@ class TeamProfileData
             ->all();
     }
 
+    /** @return array<string, mixed> */
+    private function printTeamPayload(Team $team, int $selectedSessionId): array
+    {
+        $team->loadMissing([
+            'sport:id,name',
+            'session:id,name',
+            'district:id,name',
+            'unit:id,name,district_id',
+            'currentInchargeAssignment',
+        ]);
+
+        return [
+            'team' => (new TeamResource($team))->resolve(),
+            'members' => $this->membersPayload($team, $selectedSessionId, false),
+            'removedMembers' => $this->membersPayload($team, $selectedSessionId, true),
+            'coaches' => $this->coachesPayload($team, $selectedSessionId),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function syntheticPrintTeam(): array
+    {
+        return [
+            'id' => 0,
+            'name' => __('Teams'),
+            'in_charge' => null,
+            'has_current_incharge' => false,
+            'current_incharge_rank' => null,
+            'current_incharge_name' => null,
+            'current_incharge_pno' => null,
+            'current_incharge_designation' => null,
+            'current_incharge_mobile' => null,
+            'sport' => null,
+            'location_label' => null,
+        ];
+    }
+
     /**
      * @return array{sport_event: string|null, level: string|null}|null
      */
@@ -343,6 +407,7 @@ class TeamProfileData
             ->get()
             ->map(fn (TeamInchargeAssignment $assignment): array => [
                 'id' => $assignment->id,
+                'incharge_id' => $assignment->incharge_id,
                 'full_name' => $assignment->full_name,
                 'pno' => $assignment->pno,
                 'rank' => $assignment->rank,

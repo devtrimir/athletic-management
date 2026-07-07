@@ -19,9 +19,11 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import { toast } from 'sonner';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import { Combobox } from '@/components/combobox';
+import { players as teamPlayersRoute } from '@/routes/teams';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { TeamQuickView } from '@/components/teams/team-quick-view';
@@ -47,33 +49,6 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
-
-const ALL_COLUMNS = [
-    { key: 'serial_no', label: 'S.No.' },
-    { key: 'name', label: 'Team Name' },
-    { key: 'posting', label: 'Location' },
-    { key: 'location_type', label: 'Location Type' },
-    { key: 'district', label: 'District' },
-    { key: 'unit', label: 'Unit' },
-    { key: 'is_active', label: 'Status' },
-    { key: 'in_charge', label: 'Team Prabhari' },
-    { key: 'incharge_pno', label: 'In-Charge PNO' },
-    { key: 'incharge_rank', label: 'In-Charge Rank' },
-    { key: 'incharge_designation', label: 'In-Charge Designation' },
-    { key: 'incharge_mobile', label: 'In-Charge Mobile' },
-    { key: 'incharge_email', label: 'In-Charge Email' },
-    { key: 'incharge_assigned_at', label: 'In-Charge Assigned On' },
-    { key: 'players_count', label: 'Players' },
-    { key: 'men_players_count', label: 'Men Players' },
-    { key: 'men_gd_players_count', label: 'Men GD Players' },
-    { key: 'men_non_gd_players_count', label: 'Men Sports Quota Players' },
-    { key: 'women_players_count', label: 'Women Players' },
-    { key: 'women_gd_players_count', label: 'Women GD Players' },
-    { key: 'women_non_gd_players_count', label: 'Women Sports Quota Players' },
-    { key: 'captains_count', label: 'Captains' },
-    { key: 'reserves_count', label: 'Reserves' },
-    { key: 'coaches_count', label: 'Coaches' },
-] as const;
 
 type PaginationLink = {
     url: string | null;
@@ -145,6 +120,14 @@ type Filters = {
 
 type RefItem = { id: number; name: string };
 type UnitItem = { id: number; name: string };
+type PrintSheets = {
+    all: boolean;
+    gd: boolean;
+    sportQuota: boolean;
+    coaches: boolean;
+    removed: boolean;
+};
+type PrintPageMode = 'portrait' | 'landscape';
 
 export default function TeamsIndex({
     teams,
@@ -177,10 +160,25 @@ export default function TeamsIndex({
     const [quickViewHistoricalSession, setQuickViewHistoricalSession] =
         useState(false);
     const [inchargeTeam, setInchargeTeam] = useState<Team | null>(null);
-    const [selectedColumns, setSelectedColumns] = useState<string[]>(
-        ALL_COLUMNS.map((c) => c.key),
-    );
-
+    const [teamPrintTeam, setTeamPrintTeam] = useState<Team | null>(null);
+    const [printAllTeams, setPrintAllTeams] = useState(false);
+    const [printDialogOpen, setPrintDialogOpen] = useState(false);
+    const [printSheets, setPrintSheets] = useState<PrintSheets>({
+        all: true,
+        gd: false,
+        sportQuota: false,
+        coaches: true,
+        removed: true,
+    });
+    const [exportSheets, setExportSheets] = useState<PrintSheets>({
+        all: true,
+        gd: false,
+        sportQuota: false,
+        coaches: true,
+        removed: true,
+    });
+    const [printPageMode, setPrintPageMode] =
+        useState<PrintPageMode>('landscape');
     const [query, setQuery] = useState(filters.q ?? '');
     const [pnoQuery, setPnoQuery] = useState(filters.pno ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -368,72 +366,6 @@ export default function TeamsIndex({
         return null;
     }
 
-    function printValue(
-        team: Team,
-        column: string,
-        serialNumber: number,
-    ): string {
-        if (column === 'serial_no') {
-            return String(serialNumber);
-        }
-
-        if (column === 'posting') {
-            return (
-                [postingPrimary(team), postingSecondary(team)]
-                    .filter(Boolean)
-                    .join(' / ') || ''
-            );
-        }
-
-        if (column === 'location_type') {
-            return team.location_type === 'unit' ? t('Unit') : t('District');
-        }
-
-        if (column === 'district') {
-            return team.district?.name ?? '';
-        }
-
-        if (column === 'unit') {
-            return team.unit?.name ?? '';
-        }
-
-        if (column === 'is_active') {
-            return t(team.session_status_label);
-        }
-
-        if (column === 'in_charge') {
-            return inchargeName(team) ?? '';
-        }
-
-        if (column === 'incharge_pno') {
-            return inchargePno(team) ?? '';
-        }
-
-        if (column === 'incharge_rank') {
-            return currentIncharge(team)?.rank ?? '';
-        }
-
-        if (column === 'incharge_designation') {
-            return currentIncharge(team)?.designation ?? '';
-        }
-
-        if (column === 'incharge_mobile') {
-            return currentIncharge(team)?.mobile ?? '';
-        }
-
-        if (column === 'incharge_email') {
-            return currentIncharge(team)?.email ?? '';
-        }
-
-        if (column === 'incharge_assigned_at') {
-            return currentIncharge(team)?.assigned_at ?? '';
-        }
-
-        const raw = (team as Record<string, unknown>)[column];
-
-        return raw != null && raw !== '' ? String(raw) : '';
-    }
-
     function dash() {
         return <span className="text-border select-none" />;
     }
@@ -475,15 +407,19 @@ export default function TeamsIndex({
             }
         }
 
-        for (const col of selectedColumns) {
-            params.append('columns[]', col);
-        }
+        params.append(
+            'export_sections',
+            selectedPrintSections(
+                exportSheets,
+                teams.data.some((team) => team.removed_players_count > 0),
+            ),
+        );
 
         return exportTeamsUrl.url() + '?' + params.toString();
     }
 
-    function teamShowUrl(teamId: number): string {
-        const url = TeamController.show.url(teamId);
+    function teamShowUrl(team: Team): string {
+        const url = TeamController.show.url(team);
 
         if (!filters.session_id) {
             return url;
@@ -492,33 +428,220 @@ export default function TeamsIndex({
         return `${url}?filter[session_id]=${filters.session_id}`;
     }
 
-    function handlePrint() {
-        const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
-        const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
-        const bodyRows = teams.data
-            .map(
-                (team, index) =>
-                    `<tr>${cols
-                        .map(
-                            (c) =>
-                                `<td>${printValue(
-                                    team,
-                                    c.key,
-                                    (teams.from ?? 1) + index,
-                                )}</td>`,
-                        )
-                        .join('')}</tr>`,
-            )
-            .join('');
-        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Teams')}</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Teams')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
-        const win = window.open('', '_blank', 'width=900,height=700');
+    function teamPrintUrl(team: Team, printOptions: PrintSheets = printSheets): string {
+        const selected: string[] = [];
 
-        if (!win) {
+        if (printOptions.all) {
+            selected.push('all');
+        }
+
+        if (printOptions.gd) {
+            selected.push('gd');
+        }
+
+        if (printOptions.sportQuota) {
+            selected.push('sport_quota');
+        }
+        if (printOptions.coaches) {
+            selected.push('coaches');
+        }
+        if (printOptions.removed && team.removed_players_count > 0) {
+            selected.push('removed');
+        }
+
+        const printSections = selected.length === 0 ? 'all' : selected.join(',');
+
+        const query = {
+            filter: filters.session_id
+                ? {
+                      session_id: filters.session_id,
+                  }
+                : undefined,
+            print: '1',
+            print_sections: printSections,
+            page_mode: printPageMode,
+        } as {
+            filter?: { session_id: string };
+            print: string;
+            print_sections?: string;
+            page_mode?: PrintPageMode;
+        };
+
+        return teamPlayersRoute.url(team, {
+            query,
+        });
+    }
+
+    function teamExportUrl(team: Team): string {
+        const params = new URLSearchParams();
+
+        params.append('ids[]', String(team.id));
+
+        if (filters.session_id) {
+            params.append('filter[session_id]', filters.session_id);
+        }
+
+        params.append(
+            'export_sections',
+            selectedPrintSections(
+                {
+                    all: true,
+                    gd: false,
+                    sportQuota: false,
+                    coaches: true,
+                    removed: team.removed_players_count > 0,
+                },
+                team.removed_players_count > 0,
+            ),
+        );
+
+        return exportTeamsUrl.url() + '?' + params.toString();
+    }
+
+    function selectedPrintSections(printOptions: PrintSheets, allowRemoved: boolean): string {
+        const selected: string[] = [];
+
+        if (printOptions.all) {
+            selected.push('all');
+        }
+
+        if (printOptions.gd) {
+            selected.push('gd');
+        }
+
+        if (printOptions.sportQuota) {
+            selected.push('sport_quota');
+        }
+
+        if (printOptions.coaches) {
+            selected.push('coaches');
+        }
+
+        if (printOptions.removed && allowRemoved) {
+            selected.push('removed');
+        }
+
+        return selected.length === 0 ? 'all' : selected.join(',');
+    }
+
+    function teamsPrintUrl(printOptions: PrintSheets = printSheets): string {
+        const params = new URLSearchParams();
+
+        if (filters.session_id) {
+            params.append('filter[session_id]', filters.session_id);
+        }
+
+        if (filters.q) {
+            params.append('filter[q]', filters.q);
+        }
+
+        if (filters.pno) {
+            params.append('filter[pno]', filters.pno);
+        }
+
+        if (filters.sport_id) {
+            params.append('filter[sport_id]', filters.sport_id);
+        }
+
+        if (filters.district_id) {
+            params.append('filter[district_id]', filters.district_id);
+        }
+
+        if (filters.unit_id) {
+            params.append('filter[unit_id]', filters.unit_id);
+        }
+
+        if (filters.location_type) {
+            params.append('filter[location_type]', filters.location_type);
+        }
+
+        params.append(
+            'print_sections',
+            selectedPrintSections(printOptions, true),
+        );
+        params.append('page_mode', printPageMode);
+
+        return `/teams/print?${params.toString()}`;
+    }
+
+    function openPrintOptions(team: Team) {
+        setPrintAllTeams(false);
+        setTeamPrintTeam(team);
+        setPrintSheets({
+            all: true,
+            gd: false,
+            sportQuota: false,
+            coaches: true,
+            removed: team.removed_players_count > 0,
+        });
+        setPrintPageMode('landscape');
+        setPrintDialogOpen(true);
+    }
+
+    function openAllTeamsPrintOptions() {
+        setPrintAllTeams(true);
+        setTeamPrintTeam(null);
+        setPrintSheets({
+            all: true,
+            gd: false,
+            sportQuota: false,
+            coaches: true,
+            removed: teams.data.some((team) => team.removed_players_count > 0),
+        });
+        setPrintPageMode('landscape');
+        setPrintDialogOpen(true);
+    }
+
+    function openPrintTarget() {
+        if (!teamPrintTeam && !printAllTeams) {
             return;
         }
 
-        win.document.write(html);
-        win.document.close();
+        const hasRemovedPlayers = printAllTeams
+            ? true
+            : (teamPrintTeam?.removed_players_count ?? 0) > 0;
+        const printSections: PrintSheets = {
+            all: printSheets.all,
+            gd: printSheets.gd,
+            sportQuota: printSheets.sportQuota,
+            coaches: printSheets.coaches,
+            removed: hasRemovedPlayers && printSheets.removed,
+        };
+
+        if (
+            !printSections.all &&
+            !printSections.gd &&
+            !printSections.sportQuota &&
+            !printSections.coaches &&
+            !printSections.removed
+        ) {
+            return;
+        }
+
+        const url =
+            printAllTeams || !teamPrintTeam
+                ? teamsPrintUrl(printSections)
+                : teamPrintUrl(teamPrintTeam, printSections);
+        const printWindow = window.open(
+            url,
+            '_blank',
+            'noopener,noreferrer',
+        );
+
+        if (printWindow) {
+            setPrintDialogOpen(false);
+            setTeamPrintTeam(null);
+            setPrintAllTeams(false);
+
+            return;
+        }
+
+        toast.error(t('Popup blocked. Opening print view in current tab.'));
+        window.location.href = url;
+
+        setPrintDialogOpen(false);
+        setTeamPrintTeam(null);
+        setPrintAllTeams(false);
     }
 
     const hasActiveFilters = !!(
@@ -602,6 +725,15 @@ export default function TeamsIndex({
                                       String(selectedIds.size),
                                   )
                                 : t('Export teams')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={teams.total === 0}
+                            onClick={openAllTeamsPrintOptions}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            {t('Print teams')}
                         </Button>
                         <Button asChild size="sm">
                             <Link href={TeamController.create.url()}>
@@ -1069,10 +1201,8 @@ export default function TeamsIndex({
                                                             title={t('View')}
                                                             asChild
                                                         >
-                                                            <Link
-                                                                href={teamShowUrl(
-                                                                    team.id,
-                                                                )}
+                                                        <Link
+                                                                href={teamShowUrl(team)}
                                                                 onClick={(
                                                                     event,
                                                                 ) =>
@@ -1081,6 +1211,32 @@ export default function TeamsIndex({
                                                             >
                                                                 <Eye className="h-4 w-4" />
                                                             </Link>
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title={t('Print')}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                openPrintOptions(team);
+                                                            }}
+                                                        >
+                                                            <Printer className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title={t('Export Excel')}
+                                                            asChild
+                                                        >
+                                                            <a
+                                                                href={teamExportUrl(team)}
+                                                                onClick={(event) =>
+                                                                    event.stopPropagation()
+                                                                }
+                                                            >
+                                                                <Download className="h-4 w-4" />
+                                                            </a>
                                                         </Button>
                                                     </div>
                                                 </TableCell>
@@ -1099,10 +1255,26 @@ export default function TeamsIndex({
                 onOpenChange={setExportOpen}
                 selectedIds={selectedIds}
                 teams={teams}
-                selectedColumns={selectedColumns}
-                setSelectedColumns={setSelectedColumns}
+                exportSheets={exportSheets}
+                setExportSheets={setExportSheets}
                 buildExportUrl={buildExportUrl}
-                onPrint={handlePrint}
+                t={t}
+            />
+            <TeamPrintDialog
+                open={printDialogOpen}
+                onOpenChange={setPrintDialogOpen}
+                team={teamPrintTeam}
+                isBulk={printAllTeams}
+                hasRemovedPlayers={
+                    printAllTeams
+                        ? teams.data.some((team) => team.removed_players_count > 0)
+                        : undefined
+                }
+                printSheets={printSheets}
+                setPrintSheets={setPrintSheets}
+                printPageMode={printPageMode}
+                setPrintPageMode={setPrintPageMode}
+                onConfirm={openPrintTarget}
                 t={t}
             />
             <InchargeDialog
@@ -1279,22 +1451,30 @@ function ExportDialog({
     onOpenChange,
     selectedIds,
     teams,
-    selectedColumns,
-    setSelectedColumns,
+    exportSheets,
+    setExportSheets,
     buildExportUrl,
-    onPrint,
     t,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
     selectedIds: Set<number>;
     teams: PaginatedTeams;
-    selectedColumns: string[];
-    setSelectedColumns: Dispatch<SetStateAction<string[]>>;
+    exportSheets: PrintSheets;
+    setExportSheets: Dispatch<SetStateAction<PrintSheets>>;
     buildExportUrl: () => string;
-    onPrint: () => void;
     t: (key: string) => string;
 }) {
+    const hasRemovedPlayers = teams.data.some(
+        (team) => team.removed_players_count > 0,
+    );
+    const hasSelectedSection =
+        exportSheets.all ||
+        exportSheets.gd ||
+        exportSheets.sportQuota ||
+        exportSheets.coaches ||
+        (hasRemovedPlayers && exportSheets.removed);
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
@@ -1314,32 +1494,86 @@ function ExportDialog({
                 </DialogHeader>
                 <div className="min-h-0 flex-1 overflow-y-auto py-2">
                     <p className="mb-3 text-sm font-medium">
-                        {t('Select columns to export')}
+                        {t('Select roster sections')}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                        {ALL_COLUMNS.map((col) => (
-                            <div
-                                key={col.key}
-                                className="flex items-center gap-2"
-                            >
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="export-section-active"
+                                checked={exportSheets.all}
+                                onCheckedChange={(checked) =>
+                                    setExportSheets((prev) => ({
+                                        ...prev,
+                                        all: Boolean(checked),
+                                    }))
+                                }
+                            />
+                            <Label htmlFor="export-section-active">
+                                {t('Active players')}
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="export-section-gd"
+                                checked={exportSheets.gd}
+                                onCheckedChange={(checked) =>
+                                    setExportSheets((prev) => ({
+                                        ...prev,
+                                        gd: Boolean(checked),
+                                    }))
+                                }
+                            />
+                            <Label htmlFor="export-section-gd">
+                                {t('GD')}
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="export-section-sport-quota"
+                                checked={exportSheets.sportQuota}
+                                onCheckedChange={(checked) =>
+                                    setExportSheets((prev) => ({
+                                        ...prev,
+                                        sportQuota: Boolean(checked),
+                                    }))
+                                }
+                            />
+                            <Label htmlFor="export-section-sport-quota">
+                                {t('Sport quota')}
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="export-section-coaches"
+                                checked={exportSheets.coaches}
+                                onCheckedChange={(checked) =>
+                                    setExportSheets((prev) => ({
+                                        ...prev,
+                                        coaches: Boolean(checked),
+                                    }))
+                                }
+                            />
+                            <Label htmlFor="export-section-coaches">
+                                {t('Coaches')}
+                            </Label>
+                        </div>
+                        {hasRemovedPlayers && (
+                            <div className="flex items-center gap-2">
                                 <Checkbox
-                                    id={`col-${col.key}`}
-                                    checked={selectedColumns.includes(col.key)}
+                                    id="export-section-removed"
+                                    checked={exportSheets.removed}
                                     onCheckedChange={(checked) =>
-                                        setSelectedColumns((prev) =>
-                                            checked
-                                                ? [...prev, col.key]
-                                                : prev.filter(
-                                                      (k) => k !== col.key,
-                                                  ),
-                                        )
+                                        setExportSheets((prev) => ({
+                                            ...prev,
+                                            removed: Boolean(checked),
+                                        }))
                                     }
                                 />
-                                <Label htmlFor={`col-${col.key}`}>
-                                    {t(col.label)}
+                                <Label htmlFor="export-section-removed">
+                                    {t('Removed players')}
                                 </Label>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
                 <DialogFooter>
@@ -1350,18 +1584,7 @@ function ExportDialog({
                         {t('Cancel')}
                     </Button>
                     <Button
-                        variant="outline"
-                        disabled={selectedColumns.length === 0}
-                        onClick={() => {
-                            onPrint();
-                            onOpenChange(false);
-                        }}
-                    >
-                        <Printer className="mr-1.5 h-4 w-4" />
-                        {t('Print')}
-                    </Button>
-                    <Button
-                        disabled={selectedColumns.length === 0}
+                        disabled={!hasSelectedSection}
                         onClick={() => {
                             window.location.href = buildExportUrl();
                             onOpenChange(false);
@@ -1369,6 +1592,188 @@ function ExportDialog({
                     >
                         <Download className="mr-1.5 h-4 w-4" />
                         {t('Download Excel')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function TeamPrintDialog({
+    open,
+    onOpenChange,
+    team,
+    isBulk = false,
+    hasRemovedPlayers: hasRemovedPlayersOverride,
+    printSheets,
+    setPrintSheets,
+    printPageMode,
+    setPrintPageMode,
+    onConfirm,
+    t,
+}: {
+    open: boolean;
+    onOpenChange: (value: boolean) => void;
+    team: Team | null;
+    isBulk?: boolean;
+    hasRemovedPlayers?: boolean;
+    printSheets: PrintSheets;
+    setPrintSheets: Dispatch<SetStateAction<PrintSheets>>;
+    printPageMode: PrintPageMode;
+    setPrintPageMode: Dispatch<SetStateAction<PrintPageMode>>;
+    onConfirm: () => void;
+    t: (key: string) => string;
+}) {
+    const hasRemovedPlayers =
+        hasRemovedPlayersOverride ?? (team?.removed_players_count ?? 0) > 0;
+    const disabled =
+        !printSheets.all &&
+        !printSheets.gd &&
+        !printSheets.sportQuota &&
+        !printSheets.coaches &&
+        !(hasRemovedPlayers && printSheets.removed);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>
+                        {isBulk ? t('Print teams') : t('Print team')}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {t('Select what you want to print.')}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                    <p className="text-sm font-medium">
+                        {isBulk
+                            ? t('All teams in selected session')
+                            : team?.name
+                              ? team.name
+                              : t('Team')}
+                    </p>
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="team-print-all"
+                                checked={printSheets.all}
+                                onCheckedChange={(checked) =>
+                                    setPrintSheets((prev) => ({
+                                        ...prev,
+                                        all: Boolean(checked),
+                                    }))
+                                }
+                            />
+                            <Label htmlFor="team-print-all">
+                                {t('Active players')}
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="team-print-gd"
+                                checked={printSheets.gd}
+                                onCheckedChange={(checked) =>
+                                    setPrintSheets((prev) => ({
+                                        ...prev,
+                                        gd: Boolean(checked),
+                                    }))
+                                }
+                            />
+                            <Label htmlFor="team-print-gd">
+                                {t('GD')}
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="team-print-sport-quota"
+                                checked={printSheets.sportQuota}
+                                onCheckedChange={(checked) =>
+                                    setPrintSheets((prev) => ({
+                                        ...prev,
+                                        sportQuota: Boolean(checked),
+                                    }))
+                                }
+                            />
+                                <Label htmlFor="team-print-sport-quota">
+                                    {t('Sport quota')}
+                                </Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="team-print-coaches"
+                                    checked={printSheets.coaches}
+                                    onCheckedChange={(checked) =>
+                                        setPrintSheets((prev) => ({
+                                            ...prev,
+                                            coaches: Boolean(checked),
+                                        }))
+                                    }
+                                />
+                                <Label htmlFor="team-print-coaches">
+                                    {t('Coaches')}
+                                </Label>
+                            </div>
+                            {hasRemovedPlayers && (
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id="team-print-removed"
+                                        checked={printSheets.removed}
+                                        onCheckedChange={(checked) =>
+                                            setPrintSheets((prev) => ({
+                                                ...prev,
+                                                removed: Boolean(checked),
+                                            }))
+                                        }
+                                    />
+                                    <Label htmlFor="team-print-removed">
+                                        {t('Removed players')}
+                                    </Label>
+                                </div>
+                            )}
+                        </div>
+                    <div className="space-y-2 pt-2">
+                        <p className="text-sm font-medium">{t('Page mode')}</p>
+                        <div className="flex items-center gap-4">
+                            <label className="inline-flex items-center gap-1.5 text-sm">
+                                <input
+                                    type="radio"
+                                    name="team-print-page-mode"
+                                    value="portrait"
+                                    checked={printPageMode === 'portrait'}
+                                    onChange={() =>
+                                        setPrintPageMode('portrait')
+                                    }
+                                />
+                                <span>{t('Portrait')}</span>
+                            </label>
+                            <label className="inline-flex items-center gap-1.5 text-sm">
+                                <input
+                                    type="radio"
+                                    name="team-print-page-mode"
+                                    value="landscape"
+                                    checked={printPageMode === 'landscape'}
+                                    onChange={() =>
+                                        setPrintPageMode('landscape')
+                                    }
+                                />
+                                <span>{t('Landscape')}</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                    >
+                        {t('Cancel')}
+                    </Button>
+                    <Button
+                        disabled={disabled}
+                        onClick={onConfirm}
+                    >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        {t('Print')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -12,6 +12,7 @@ use App\Models\TeamMember;
 use App\Models\TeamSessionStatus;
 use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Spatie\QueryBuilder\AllowedFilter;
@@ -78,6 +79,40 @@ class TeamListingService
                 'session_id' => $selectedSessionId > 0 ? (string) $selectedSessionId : null,
             ]),
             'defaultSessionId' => $defaultSessionId !== null ? (int) $defaultSessionId : null,
+            'selectedSessionId' => $selectedSessionId > 0 ? $selectedSessionId : null,
+        ];
+    }
+
+    /**
+     * @return array{teams: Collection<int, Team>, selectedSessionId: int|null}
+     */
+    public function forPrintRequest(Request $request, int $orgId): array
+    {
+        $defaultSessionId = SportSession::where('organization_id', $orgId)
+            ->where('is_current', true)
+            ->value('id');
+        $selectedSessionId = (int) ($request->input('filter.session_id') ?: $defaultSessionId ?: 0);
+
+        $teams = QueryBuilder::for(Team::class)
+            ->allowedFilters($this->allowedFilters($selectedSessionId))
+            ->allowedSorts(['name', 'created_at'])
+            ->defaultSort('name')
+            ->withCount($this->rosterCounts($selectedSessionId))
+            ->with([
+                'sport:id,name',
+                'session:id,name',
+                'district:id,name',
+                'unit:id,name,district_id',
+                'currentInchargeAssignment',
+            ])
+            ->when(
+                ! $request->has('filter.is_active'),
+                fn (Builder $query): Builder => $query->where('is_active', true)
+            )
+            ->get();
+
+        return [
+            'teams' => $teams,
             'selectedSessionId' => $selectedSessionId > 0 ? $selectedSessionId : null,
         ];
     }

@@ -1,6 +1,7 @@
-import { router, useForm, usePage } from '@inertiajs/react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import InchargeController from '@/actions/App/Http/Controllers/InchargeController';
 import {
     destroy as destroyTeamIncharge,
     store as storeTeamIncharge,
@@ -48,6 +49,7 @@ type CurrentAssignment = {
 
 type HistoryRow = {
     id: number;
+    incharge_id: number | null;
     full_name: string;
     pno: string | null;
     rank: string | null;
@@ -168,6 +170,31 @@ function fieldMessage(
 
 function detailValue(value: string | null | undefined): string {
     return value && value.length > 0 ? value : '';
+}
+
+function displayDate(value: string | null | undefined): string {
+    if (!value) {
+        return '';
+    }
+
+    const [datePart] = value.split(' ');
+    const [year, month, day] = datePart.split('-').map(Number);
+
+    if (!year || !month || !day) {
+        return value;
+    }
+
+    const date = new Date(year, month - 1, day);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    }).format(date);
 }
 
 function inchargeLabel(incharge: InchargeOption): string {
@@ -517,8 +544,23 @@ export function TeamInchargePanel({
                                         {t('Name')}
                                     </dt>
                                     <dd className="font-medium">
-                                        {detailValue(
-                                            currentAssignment.full_name,
+                                        {currentAssignment.incharge_id ? (
+                                            <Link
+                                                href={InchargeController.show.url(
+                                                    currentAssignment.incharge_id,
+                                                )}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-primary hover:underline"
+                                            >
+                                                {detailValue(
+                                                    currentAssignment.full_name,
+                                                )}
+                                            </Link>
+                                        ) : (
+                                            detailValue(
+                                                currentAssignment.full_name,
+                                            )
                                         )}
                                     </dd>
                                 </div>
@@ -527,7 +569,23 @@ export function TeamInchargePanel({
                                         {t('PNO')}
                                     </dt>
                                     <dd className="font-medium">
-                                        {detailValue(currentAssignment.pno)}
+                                        {currentAssignment.incharge_id &&
+                                        currentAssignment.pno ? (
+                                            <Link
+                                                href={InchargeController.show.url(
+                                                    currentAssignment.incharge_id,
+                                                )}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-primary hover:underline"
+                                            >
+                                                {detailValue(
+                                                    currentAssignment.pno,
+                                                )}
+                                            </Link>
+                                        ) : (
+                                            detailValue(currentAssignment.pno)
+                                        )}
                                     </dd>
                                 </div>
                                 <div>
@@ -561,7 +619,7 @@ export function TeamInchargePanel({
                                         {t('Assigned on')}
                                     </dt>
                                     <dd className="font-medium">
-                                        {detailValue(
+                                        {displayDate(
                                             currentAssignment.assigned_at,
                                         )}
                                     </dd>
@@ -691,7 +749,22 @@ export function TeamInchargePanel({
                                         </TableCell>
                                         <TableCell>
                                             <div className="font-medium">
-                                                {detailValue(row.full_name)}
+                                                {row.incharge_id ? (
+                                                    <Link
+                                                        href={InchargeController.show.url(
+                                                            row.incharge_id,
+                                                        )}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-primary hover:underline"
+                                                    >
+                                                        {detailValue(
+                                                            row.full_name,
+                                                        )}
+                                                    </Link>
+                                                ) : (
+                                                    detailValue(row.full_name)
+                                                )}
                                             </div>
                                             <div className="text-xs text-muted-foreground">
                                                 {[row.rank, row.designation]
@@ -700,13 +773,26 @@ export function TeamInchargePanel({
                                             </div>
                                         </TableCell>
                                         <TableCell className="font-mono text-xs">
-                                            {detailValue(row.pno)}
+                                            {row.incharge_id && row.pno ? (
+                                                <Link
+                                                    href={InchargeController.show.url(
+                                                        row.incharge_id,
+                                                    )}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-primary hover:underline"
+                                                >
+                                                    {detailValue(row.pno)}
+                                                </Link>
+                                            ) : (
+                                                detailValue(row.pno)
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-xs">
-                                            {detailValue(row.assigned_at)}
+                                            {displayDate(row.assigned_at)}
                                         </TableCell>
                                         <TableCell className="text-xs">
-                                            {detailValue(row.removed_at)}
+                                            {displayDate(row.removed_at)}
                                         </TableCell>
                                         <TableCell className="text-xs">
                                             {row.assigned_by?.name ?? ''}
@@ -1091,7 +1177,20 @@ export function TeamInchargePanel({
                         {currentAssignment ? (
                             <div className="rounded-lg border bg-muted/30 px-3 py-2">
                                 <p className="text-sm font-medium">
-                                    {currentAssignment.full_name}
+                                    {currentAssignment.incharge_id ? (
+                                        <Link
+                                            href={InchargeController.show.url(
+                                                currentAssignment.incharge_id,
+                                            )}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-primary hover:underline"
+                                        >
+                                            {currentAssignment.full_name}
+                                        </Link>
+                                    ) : (
+                                        currentAssignment.full_name
+                                    )}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                     {[

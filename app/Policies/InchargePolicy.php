@@ -28,6 +28,11 @@ class InchargePolicy
         return $user->can('incharges.update');
     }
 
+    public function manageSpecialAchievements(User $user, mixed $incharge): bool
+    {
+        return $user->can('incharges.manageSpecialAchievements') || $user->can('incharges.update');
+    }
+
     public function delete(User $user, mixed $incharge): bool
     {
         return $user->can('incharges.delete');
