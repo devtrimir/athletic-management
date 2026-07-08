@@ -9,7 +9,6 @@ use App\Http\Requests\Members\UpdateAchievementBenefitRequest;
 use App\Models\Achievement;
 use App\Models\AchievementBenefit;
 use App\Models\Member;
-use App\Models\MemberLegacyAchievement;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\RedirectResponse;
@@ -101,10 +100,6 @@ class AchievementBenefitController extends Controller
      */
     private function resolveMember(mixed $parent): Member
     {
-        if ($parent instanceof MemberLegacyAchievement) {
-            return $parent->member;
-        }
-
         if ($parent instanceof Achievement) {
             return $parent->participation->member;
         }

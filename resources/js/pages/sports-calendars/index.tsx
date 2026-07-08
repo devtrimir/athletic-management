@@ -8,6 +8,8 @@ import {
     edit,
     index as indexUrl,
 } from '@/actions/App/Http/Controllers/SportsCalendarController';
+import Heading from '@/components/heading';
+import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -36,8 +38,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import Heading from '@/components/heading';
-import { ListingPagination } from '@/components/listing-pagination';
 import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [

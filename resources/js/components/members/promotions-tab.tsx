@@ -37,32 +37,6 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
-type LegacyAchievement = {
-    id: number;
-    period: string;
-    level: string;
-    competition_details: string;
-    event_date: string | null;
-    venue: string | null;
-    sport_discipline: string | null;
-    event: string | null;
-    medal_type: string | null;
-    position: number | null;
-    sort_order: number | null;
-    benefits: {
-        id: number;
-        benefit_type: string;
-        cash_amount: string | null;
-        benefit_date: string | null;
-        order_reference: string | null;
-        remarks: string | null;
-    }[];
-    remarks: string | null;
-    session: {
-        id: number;
-        name: string;
-    } | null;
-};
 type LiveAchievement = {
     id: number;
     medal_type: string;
@@ -112,7 +86,7 @@ type ParticipationGroup = {
 };
 type PromotionEvidence = {
     id: number;
-    type: 'member_legacy_achievement' | 'achievement' | 'participation';
+    type: 'achievement' | 'participation';
     evidence_id: number;
     summary?: string | null;
     position?: number | null;
@@ -155,33 +129,6 @@ type PromotionEvidence = {
         benefits: {
             id?: number;
             benefit_type?: string;
-            cash_amount: string | null;
-            benefit_date: string | null;
-            order_reference: string | null;
-            remarks: string | null;
-            promoted_from_rank?: string | null;
-            promoted_to_rank?: string | null;
-        }[];
-    };
-    legacy_achievement?: {
-        id: number;
-        period: string | null;
-        level: string | null;
-        competition_details: string | null;
-        event: string | null;
-        event_date: string | null;
-        venue: string | null;
-        sport_discipline: string | null;
-        medal_type: string | null;
-        position: number | null;
-        remarks: string | null;
-        session: {
-            id: number;
-            name: string;
-        } | null;
-        benefits: {
-            id?: number;
-            benefit_type: string | null;
             cash_amount: string | null;
             benefit_date: string | null;
             order_reference: string | null;
@@ -237,7 +184,6 @@ type Props = {
     ranks: RankOption[];
     promotions: PromotionRow[] | undefined;
     participations: ParticipationGroup[] | undefined;
-    legacyAchievements: LegacyAchievement[] | undefined;
     achievements: LiveAchievement[];
     onSaved: () => void;
     showActions?: boolean;
@@ -248,11 +194,7 @@ function evidenceKey(type: string, id: number): string {
 }
 
 function evidenceSelectionKey(evidence: PromotionEvidence): string {
-    if (
-        evidence.type !== 'member_legacy_achievement' &&
-        evidence.tournament?.id &&
-        evidence.event?.id
-    ) {
+    if (evidence.tournament?.id && evidence.event?.id) {
         return `event:${evidence.tournament.id}:${evidence.event.id}`;
     }
 
@@ -279,33 +221,19 @@ function visibleEvidenceGroupCount(
     evidences: PromotionEvidence[] = [],
     participations: ParticipationGroup[],
     achievements: LiveAchievement[],
-    legacyAchievements: LegacyAchievement[],
 ): number {
-    return visibleEvidenceRows(
-        evidences,
-        participations,
-        achievements,
-        legacyAchievements,
-    ).length;
+    return visibleEvidenceRows(evidences, participations, achievements).length;
 }
 
 function visibleEvidenceRows(
     evidences: PromotionEvidence[] = [],
     participations: ParticipationGroup[],
     achievements: LiveAchievement[],
-    legacyAchievements: LegacyAchievement[],
 ): PromotionEvidence[] {
     const visible = new Map<string, PromotionEvidence>();
 
     for (const evidence of evidences) {
-        if (
-            isOtherTierEvidence(
-                evidence,
-                participations,
-                achievements,
-                legacyAchievements,
-            )
-        ) {
+        if (isOtherTierEvidence(evidence, participations, achievements)) {
             continue;
         }
 
@@ -319,14 +247,10 @@ function visibleEvidenceRows(
     return Array.from(visible.values());
 }
 
-function currentSessionId(
-    participations: ParticipationGroup[],
-    legacyAchievements: LegacyAchievement[] = [],
-): string {
+function currentSessionId(participations: ParticipationGroup[]): string {
     return String(
         participations.find((group) => group.session.is_current)?.session.id ??
             participations[0]?.session.id ??
-            legacyAchievements.find((item) => item.session)?.session?.id ??
             '',
     );
 }
@@ -353,39 +277,20 @@ function sessionById(
     )?.session;
 }
 
-function sessionLabelById(
-    participations: ParticipationGroup[],
-    legacyAchievements: LegacyAchievement[],
-): Map<number, string> {
+function sessionLabelById(participations: ParticipationGroup[]): Map<number, string> {
     const sessionNames = new Map<number, string>();
 
     for (const group of participations) {
         sessionNames.set(group.session.id, group.session.name);
     }
 
-    for (const achievement of legacyAchievements) {
-        if (achievement.session?.id) {
-            sessionNames.set(achievement.session.id, achievement.session.name);
-        }
-    }
-
     return sessionNames;
 }
 
-function allSessions(
-    participations: ParticipationGroup[],
-    legacyAchievements: LegacyAchievement[],
-) {
-    const legacySessionIds = new Set<string>(
-        legacyAchievements
-            .map((item) => item.session?.id)
-            .filter((value): value is number => Boolean(value))
-            .map((value) => String(value)),
+function allSessions(participations: ParticipationGroup[]) {
+    const values = new Set<string>(
+        participations.map((group) => String(group.session.id)),
     );
-    const values = new Set<string>([
-        ...participations.map((group) => String(group.session.id)),
-        ...legacySessionIds,
-    ]);
 
     return Array.from(values);
 }
@@ -406,13 +311,8 @@ function isOtherTierEvent(tierCode?: string | null): boolean {
     return tierCode?.trim().toUpperCase() === 'OTHER';
 }
 
-function isOtherTierLegacyAchievement(item: LegacyAchievement): boolean {
-    return item.level?.trim().toUpperCase() === 'OTHER';
-}
-
 type PromotionEventBlockSet = {
     eventKeys: Set<string>;
-    legacyEvidenceKeys: Set<string>;
 };
 function promotedEventKeys(
     promotions: PromotionRow[] | undefined,
@@ -430,7 +330,6 @@ function promotedEventKeys(
         { tournamentId: number; eventId: number }
     >();
     const eventKeys = new Set<string>();
-    const legacyEvidenceKeys = new Set<string>();
 
     for (const group of participations) {
         for (const item of group.participations) {
@@ -458,18 +357,6 @@ function promotedEventKeys(
             : true;
 
         for (const evidence of item.evidences) {
-            if (
-                evidence.type === 'member_legacy_achievement' &&
-                (rewardMode ? shouldTrackEvent : true)
-            ) {
-                legacyEvidenceKeys.add(
-                    evidenceKey(
-                        'member_legacy_achievement',
-                        evidence.evidence_id,
-                    ),
-                );
-            }
-
             if (!shouldTrackEvent) {
                 continue;
             }
@@ -510,7 +397,7 @@ function promotedEventKeys(
         }
     }
 
-    return { eventKeys, legacyEvidenceKeys };
+    return { eventKeys };
 }
 function hasPromotionOrCashAward(
     benefits: { benefit_type: string }[] | undefined,
@@ -536,18 +423,7 @@ function isOtherTierEvidence(
     evidence: PromotionEvidence,
     participations: ParticipationGroup[],
     achievements: LiveAchievement[],
-    legacyAchievements: LegacyAchievement[],
 ): boolean {
-    const legacyLevel =
-        evidence.level ??
-        evidence.legacy_achievement?.level ??
-        legacyAchievements.find((item) => item.id === evidence.evidence_id)
-            ?.level;
-
-    if (legacyLevel?.trim().toUpperCase() === 'OTHER') {
-        return true;
-    }
-
     if (evidence.tournament?.tier_code) {
         return isOtherTierEvent(evidence.tournament.tier_code);
     }
@@ -578,18 +454,6 @@ function isOtherTierEvidence(
         return isOtherTierEvent(item.tournament.tier_code);
     }
 
-    if (evidence.type === 'member_legacy_achievement') {
-        const item = legacyAchievements.find(
-            (item) => item.id === evidence.evidence_id,
-        );
-
-        if (!item) {
-            return false;
-        }
-
-        return isOtherTierLegacyAchievement(item);
-    }
-
     return false;
 }
 
@@ -597,7 +461,6 @@ function evidenceSessionId(
     evidences: PromotionEvidence[],
     participations: ParticipationGroup[],
     achievements: LiveAchievement[],
-    legacyAchievements: LegacyAchievement[],
 ): string {
     for (const evidence of evidences) {
         if (evidence.session?.id) {
@@ -630,15 +493,6 @@ function evidenceSessionId(
             continue;
         }
 
-        if (evidence.type === 'member_legacy_achievement') {
-            const item = legacyAchievements.find(
-                (item) => item.id === evidence.evidence_id,
-            );
-
-            if (item?.session?.id) {
-                return String(item.session.id);
-            }
-        }
     }
 
     return '';
@@ -1155,7 +1009,6 @@ export function PromotionDialog({
     ranks,
     promotions = [],
     participations,
-    legacyAchievements,
     achievements,
     promotion,
     onSaved,
@@ -1168,7 +1021,6 @@ export function PromotionDialog({
     ranks: RankOption[];
     promotions?: PromotionRow[];
     participations: ParticipationGroup[];
-    legacyAchievements: LegacyAchievement[];
     achievements: LiveAchievement[];
     promotion?: PromotionRow;
     onSaved: () => void;
@@ -1249,9 +1101,8 @@ export function PromotionDialog({
                 promotion?.evidences ?? [],
                 participations,
                 achievements,
-                legacyAchievements,
-            ) || currentSessionId(participations, legacyAchievements),
-        [achievements, legacyAchievements, participations, promotion],
+            ) || currentSessionId(participations),
+        [achievements, participations, promotion],
     );
     const [selected, setSelected] = useState<string[]>(selectedDefaults);
     const [selectedSessionId, setSelectedSessionId] =
@@ -1342,8 +1193,7 @@ export function PromotionDialog({
                 promotion?.evidences ?? [],
                 participations,
                 achievements,
-                legacyAchievements,
-            ) || currentSessionId(participations, legacyAchievements),
+            ) || currentSessionId(participations),
         );
         form.clearErrors();
         setPendingPayload(null);
@@ -1352,17 +1202,16 @@ export function PromotionDialog({
 
     const sessionOptions = useMemo(
         () =>
-            allSessions(participations, legacyAchievements).map(
+            allSessions(participations).map(
                 (sessionId) => ({
                     id: sessionId,
-                    name: sessionLabelById(
-                        participations,
-                        legacyAchievements,
-                    ).get(Number(sessionId)),
+                    name: sessionLabelById(participations).get(
+                        Number(sessionId),
+                    ),
                     isCurrent: false,
                 }),
             ),
-        [legacyAchievements, participations],
+        [participations],
     );
 
     function handleRankCreated(rank: RankOption) {
@@ -1494,58 +1343,12 @@ export function PromotionDialog({
             }
         }
 
-        for (const item of legacyAchievements) {
-            const evidenceKeyValue = evidenceKey(
-                'member_legacy_achievement',
-                item.id,
-            );
-            const legacyBlocked = isRewardAction
-                ? hasCashAward(item.benefits)
-                : hasPromotionOrCashAward(item.benefits);
-
-            if (legacyBlocked && !selectedDefaultSet.has(evidenceKeyValue)) {
-                continue;
-            }
-
-            if (
-                isOtherTierLegacyAchievement(item) &&
-                !selectedDefaultSet.has(evidenceKeyValue)
-            ) {
-                continue;
-            }
-
-            if (
-                disabledEvidenceKeys.legacyEvidenceKeys.has(evidenceKeyValue) &&
-                !selectedDefaultSet.has(evidenceKeyValue)
-            ) {
-                continue;
-            }
-
-            if (String(item.session?.id ?? '') !== selectedSessionId) {
-                continue;
-            }
-
-            if (!deduped.has(evidenceKeyValue)) {
-                deduped.set(evidenceKeyValue, {
-                    key: evidenceKeyValue,
-
-                    label: `${t(item.period)} · ${t(item.level)} · ${item.competition_details}`,
-                    evidences: [
-                        { type: 'member_legacy_achievement', id: item.id },
-                    ],
-                    priority: 0,
-                });
-            }
-        }
-
         return Array.from(deduped.values()).map(
             ({ key, label, evidences }) => ({ key, label, evidences }),
         );
     }, [
         achievements,
         disabledEvidenceKeys.eventKeys,
-        disabledEvidenceKeys.legacyEvidenceKeys,
-        legacyAchievements,
         selectedDefaultSet,
         selectedParticipationGroups,
         selectedSessionId,
@@ -1659,10 +1462,9 @@ export function PromotionDialog({
             if (item) {
                 return {
                     session:
-                        sessionLabelById(
-                            participations,
-                            legacyAchievements,
-                        ).get(item.session.id) ?? String(item.session.id),
+                        sessionLabelById(participations).get(
+                            item.session.id,
+                        ) ?? String(item.session.id),
                     tournament: item.tournament.name,
                     event: item.event.name,
                     tier: item.tournament.tier_code ?? t('—'),
@@ -1677,23 +1479,11 @@ export function PromotionDialog({
             };
         }
 
-        const payload = getEvidenceByRef(primaryEvidence);
-        const legacy = legacyAchievements.find(
-            (item) => item.id === primaryEvidence.id,
-        );
-        const legacyPayload = payload?.legacy_achievement;
-
         return {
-            session:
-                legacyPayload?.session?.name ??
-                legacy?.session?.name ??
-                t('No session'),
-            tournament:
-                legacyPayload?.competition_details ??
-                legacy?.competition_details ??
-                t('—'),
-            event: legacyPayload?.event ?? legacy?.event ?? t('—'),
-            tier: legacyPayload?.level ?? legacy?.level ?? t('—'),
+            session: t('No session'),
+            tournament: t('—'),
+            event: t('—'),
+            tier: t('—'),
         };
     }
     function evidenceValueFromRefs(
@@ -1739,21 +1529,7 @@ export function PromotionDialog({
             return `#${primary.id}`;
         }
 
-        const payload = getEvidenceByRef(primary);
-
-        if (payload?.legacy_achievement?.position) {
-            return `#${payload.legacy_achievement.position}`;
-        }
-
-        const legacy = legacyAchievements.find(
-            (item) => item.id === primary.id,
-        );
-
-        if (legacy?.position) {
-            return `#${legacy.position}`;
-        }
-
-        return legacy?.period ?? `#${primary.id}`;
+        return `#${primary.id}`;
     }
     function evidenceLabelFromRefs(
         evidences: PromotionEvidenceRef[] = [],
@@ -1763,9 +1539,6 @@ export function PromotionDialog({
         );
         const hasAchievement = evidences.some(
             (item) => item.type === 'achievement',
-        );
-        const hasLegacy = evidences.some(
-            (item) => item.type === 'member_legacy_achievement',
         );
 
         if (hasParticipation && hasAchievement) {
@@ -1780,10 +1553,6 @@ export function PromotionDialog({
             return t('Achievement');
         }
 
-        if (hasLegacy) {
-            return t('Legacy achievement');
-        }
-
         return t('Evidence');
     }
     function primaryEvidenceRefFromRefs(
@@ -1792,9 +1561,6 @@ export function PromotionDialog({
         return (
             evidences.find((item) => item.type === 'participation') ??
             evidences.find((item) => item.type === 'achievement') ??
-            evidences.find(
-                (item) => item.type === 'member_legacy_achievement',
-            ) ??
             null
         );
     }
@@ -1839,24 +1605,6 @@ export function PromotionDialog({
             }
 
             return t(item.medal_type);
-        }
-
-        if (primary.type === 'member_legacy_achievement') {
-            const payload = getEvidenceByRef(primary);
-
-            if (payload?.legacy_achievement?.medal_type) {
-                return t(payload.legacy_achievement.medal_type);
-            }
-
-            const legacy = legacyAchievements.find(
-                (item) => item.id === primary.id,
-            );
-
-            if (!legacy?.medal_type) {
-                return '—';
-            }
-
-            return t(legacy.medal_type);
         }
 
         return '—';
@@ -1907,22 +1655,6 @@ export function PromotionDialog({
 
             if (item) {
                 return item.remarks ?? '';
-            }
-        }
-
-        if (primary.type === 'member_legacy_achievement') {
-            const payload = getEvidenceByRef(primary);
-
-            if (payload?.legacy_achievement?.remarks) {
-                return payload.legacy_achievement.remarks;
-            }
-
-            const item = legacyAchievements.find(
-                (legacy) => legacy.id === primary.id,
-            );
-
-            if (item) {
-                return item.competition_details ?? '';
             }
         }
 
@@ -2545,7 +2277,6 @@ export function PromotionsTab({
     ranks,
     promotions,
     participations = [],
-    legacyAchievements = [],
     achievements,
     onSaved,
     showActions = true,
@@ -2629,7 +2360,7 @@ export function PromotionsTab({
             return 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200';
         }
 
-        return 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-800 dark:bg-fuchsia-950/30 dark:text-fuchsia-200';
+        return 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-200';
     }
     function evidenceTypeLabel(evidence: PromotionEvidence): string {
         if (evidence.type === 'participation') {
@@ -2640,7 +2371,7 @@ export function PromotionsTab({
             return t('Achievement');
         }
 
-        return t('Legacy achievement');
+        return t('Evidence');
     }
     function evidenceSessionLabel(evidence: PromotionEvidence): string {
         if (evidence.session?.name) {
@@ -2669,25 +2400,12 @@ export function PromotionsTab({
             );
 
             if (item) {
-                const sessionName = sessionLabelById(
-                    participations,
-                    legacyAchievements,
-                ).get(item.session.id);
+                const sessionName = sessionLabelById(participations).get(
+                    item.session.id,
+                );
 
                 return sessionName ?? String(item.session.id);
             }
-        }
-
-        if (evidence.type === 'member_legacy_achievement') {
-            if (evidence.legacy_achievement?.session?.name) {
-                return evidence.legacy_achievement.session.name;
-            }
-
-            const item = legacyAchievements.find(
-                (a) => a.id === evidence.evidence_id,
-            );
-
-            return item?.session?.name ?? t('No session');
         }
 
         return t('No session');
@@ -2713,15 +2431,7 @@ export function PromotionsTab({
             return item?.tournament.name ?? t('—');
         }
 
-        if (evidence.legacy_achievement?.competition_details) {
-            return evidence.legacy_achievement.competition_details;
-        }
-
-        const item = legacyAchievements.find(
-            (a) => a.id === evidence.evidence_id,
-        );
-
-        return item?.competition_details ?? t('—');
+        return t('—');
     }
     function evidenceEventLabel(evidence: PromotionEvidence): string {
         if (evidence.event?.name) {
@@ -2744,15 +2454,7 @@ export function PromotionsTab({
             return item?.event.name ?? t('—');
         }
 
-        if (evidence.legacy_achievement?.event) {
-            return evidence.legacy_achievement.event;
-        }
-
-        const item = legacyAchievements.find(
-            (a) => a.id === evidence.evidence_id,
-        );
-
-        return item?.event ?? t('—');
+        return t('—');
     }
     function evidenceTierLabel(evidence: PromotionEvidence): string {
         if (evidence.tournament?.tier_code) {
@@ -2775,7 +2477,7 @@ export function PromotionsTab({
             return item?.tournament.tier_code ?? t('—');
         }
 
-        return evidence.legacy_achievement?.level ?? t('—');
+        return t('—');
     }
     function evidenceDetailLabel(evidence: PromotionEvidence): string {
         const details = new Array<string>();
@@ -2850,24 +2552,6 @@ export function PromotionsTab({
             }
         }
 
-        if (evidence.type === 'member_legacy_achievement') {
-            if (evidence.legacy_achievement?.remarks) {
-                return evidence.legacy_achievement.remarks;
-            }
-
-            const item = legacyAchievements.find(
-                (item) => item.id === evidence.evidence_id,
-            );
-
-            if (item?.event) {
-                return item.event;
-            }
-
-            if (item?.competition_details) {
-                return item.competition_details;
-            }
-        }
-
         return '';
     }
 
@@ -2902,18 +2586,6 @@ export function PromotionsTab({
             return item?.medal_type ? t(item.medal_type) : '—';
         }
 
-        if (evidence.type === 'member_legacy_achievement') {
-            if (evidence.legacy_achievement?.medal_type) {
-                return t(evidence.legacy_achievement.medal_type);
-            }
-
-            const item = legacyAchievements.find(
-                (a) => a.id === evidence.evidence_id,
-            );
-
-            return item?.medal_type ? t(item.medal_type) : '—';
-        }
-
         return '—';
     }
     function evidenceValue(evidence: PromotionEvidence): string {
@@ -2932,28 +2604,6 @@ export function PromotionsTab({
 
             if (item?.position) {
                 return `#${item.position}`;
-            }
-        }
-
-        if (evidence.type === 'member_legacy_achievement') {
-            if (evidence.legacy_achievement?.position) {
-                return `#${evidence.legacy_achievement.position}`;
-            }
-
-            if (evidence.position) {
-                return `#${evidence.position}`;
-            }
-
-            const item = legacyAchievements.find(
-                (a) => a.id === evidence.evidence_id,
-            );
-
-            if (item?.position) {
-                return `#${item.position}`;
-            }
-
-            if (item?.period) {
-                return item.period;
             }
         }
 
@@ -3027,7 +2677,6 @@ export function PromotionsTab({
                                 ranks={ranks}
                                 promotions={promotions}
                                 participations={participations}
-                                legacyAchievements={legacyAchievements}
                                 achievements={achievements}
                                 onSaved={onSaved}
                             />
@@ -3038,7 +2687,6 @@ export function PromotionsTab({
                                 ranks={ranks}
                                 promotions={promotions}
                                 participations={participations}
-                                legacyAchievements={legacyAchievements}
                                 achievements={achievements}
                                 onSaved={onSaved}
                                 triggerLabel={t('Add cash reward')}
@@ -3169,7 +2817,6 @@ export function PromotionsTab({
                                                                 promotion.evidences,
                                                                 participations,
                                                                 achievements,
-                                                                legacyAchievements,
                                                             )}{' '}
                                                             {t('items')}
                                                         </Badge>
@@ -3220,9 +2867,6 @@ export function PromotionsTab({
                                                             participations={
                                                                 participations
                                                             }
-                                                            legacyAchievements={
-                                                                legacyAchievements
-                                                            }
                                                             achievements={
                                                                 achievements
                                                             }
@@ -3263,7 +2907,6 @@ export function PromotionsTab({
                                                                         promotion.evidences,
                                                                         participations,
                                                                         achievements,
-                                                                        legacyAchievements,
                                                                     );
 
                                                                 return (
@@ -3510,7 +3153,6 @@ export function PromotionsTab({
                                                                 promotion.evidences,
                                                                 participations,
                                                                 achievements,
-                                                                legacyAchievements,
                                                             )}{' '}
                                                             {t('items')}
                                                         </Badge>
@@ -3561,9 +3203,6 @@ export function PromotionsTab({
                                                             participations={
                                                                 participations
                                                             }
-                                                            legacyAchievements={
-                                                                legacyAchievements
-                                                            }
                                                             achievements={
                                                                 achievements
                                                             }
@@ -3612,7 +3251,6 @@ export function PromotionsTab({
                                                                         promotion.evidences,
                                                                         participations,
                                                                         achievements,
-                                                                        legacyAchievements,
                                                                     );
 
                                                                 return (

@@ -62,7 +62,6 @@ use Illuminate\Support\Carbon;
  * @property-read District|null $postingDistrict
  * @property-read Unit|null $currentUnit
  * @property-read Collection<int, Sport> $playableSports
- * @property-read Collection<int, MemberLegacyAchievement> $legacyAchievements
  * @property-read Collection<int, MemberSpecialAchievement> $specialAchievements
  */
 #[Fillable([
@@ -185,12 +184,6 @@ class Member extends Model
     public function aliases(): HasMany
     {
         return $this->hasMany(NameAlias::class);
-    }
-
-    /** @return HasMany<MemberLegacyAchievement, $this> */
-    public function legacyAchievements(): HasMany
-    {
-        return $this->hasMany(MemberLegacyAchievement::class)->orderBy('period')->orderBy('level')->orderBy('sort_order');
     }
 
     /** @return HasMany<MemberSpecialAchievement, $this> */

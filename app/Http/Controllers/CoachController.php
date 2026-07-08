@@ -20,6 +20,7 @@ use App\Support\Coaches\CoachProfileData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,47 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class CoachController extends Controller
 {
+    /** @var list<string> */
+    private const DEFAULT_PRINT_COLUMNS = [
+        'serial_number',
+        'coach',
+        'pno',
+        'blood_group',
+        'gender',
+        'sports',
+        'current_assignments',
+        'unit_district',
+        'mobile',
+        'nis_certified',
+    ];
+
+    /** @var array<string, string> */
+    private const PRINT_COLUMN_LABELS = [
+        'serial_number' => 'S.No.',
+        'coach' => 'Coach',
+        'pno' => 'PNO',
+        'blood_group' => 'Blood Group',
+        'gender' => 'Gender',
+        'sports' => 'Playable Sport',
+        'current_assignments' => 'Current team names',
+        'unit_district' => 'Posting',
+        'mobile' => 'Mobile Number',
+        'nis_certified' => 'NIS Certified',
+        'display_name' => 'Display Name',
+        'designation' => 'Designation',
+        'email' => 'Email',
+        'coach_status' => 'Status',
+        'certifications' => 'Certifications',
+        'assignment_history_count' => 'Assignment History Count',
+        'linked_member' => 'Linked Member Code',
+    ];
+
+    private const PRINT_GENDER_LABELS = [
+        'M' => 'Male',
+        'F' => 'Female',
+        'O' => 'Other gender',
+    ];
+
     /**
      * @param  array<string, mixed>  $row
      * @return array<string, mixed>
@@ -229,7 +271,74 @@ class CoachController extends Controller
         $filters = is_array($filters) ? $filters : [];
         $statusScope = $this->statusScopeFromFilters($filters);
 
-        $coaches = QueryBuilder::for($this->coachStatusScopeQuery($statusScope))
+        $coaches = $this->listingQuery($statusScope)
+            ->withCount(['assignmentHistory as assignments_count' => fn ($q) => $q->current()])
+            ->paginate(25)
+            ->withQueryString();
+
+        return Inertia::render('coaches/index', [
+            'coaches' => $coaches,
+            'filters' => [
+                'status_scope' => $statusScope,
+                ...$filters,
+            ],
+            'activeCoachCount' => $this->coachStatusScopeQuery('active')->count(),
+            'inactiveCoachCount' => $this->coachStatusScopeQuery('inactive')->count(),
+            'sports' => Sport::select(['id', 'name'])
+                ->where('organization_id', $request->user()->organization_id)
+                ->orderBy('name')
+                ->get(),
+            'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
+            'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
+            'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
+            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
+            'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
+            'nisMasters' => NisMaster::query()->active()->ordered()->get(),
+            'certificateTypes' => CoachCertification::query()
+                ->whereHas('coach', fn (Builder $query) => $query->where('organization_id', $request->user()->organization_id))
+                ->whereNotNull('certificate_type')
+                ->where('certificate_type', '!=', '')
+                ->distinct()
+                ->pluck('certificate_type')
+                ->concat(NisMaster::query()->active()->ordered()->pluck('name'))
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values(),
+            'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
+            'genders' => ['M', 'F', 'O'],
+        ]);
+    }
+
+    public function print(Request $request): HttpResponse
+    {
+        Gate::authorize('viewAny', Coach::class);
+
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+        $statusScope = $this->statusScopeFromFilters($filters);
+        $columns = $this->selectedPrintColumns($request->query('columns', self::DEFAULT_PRINT_COLUMNS));
+        $orientation = $request->query('orientation') === 'portrait' ? 'portrait' : 'landscape';
+
+        $coaches = $this->listingQuery($statusScope)
+            ->with([
+                'member:id,member_code',
+                'certifications:id,coach_id,name,certificate_type',
+                'currentAssignments:id,coach_id,team_id,session_id,role,assigned_at',
+                'currentAssignments.team:id,name,session_id',
+                'currentAssignments.session:id,name',
+            ])
+            ->withCount(['assignmentHistory as assignments_count' => fn ($q) => $q->current()])
+            ->get()
+            ->unique('id')
+            ->values();
+
+        return response($this->buildPrintHtml($coaches, $columns, $filters, $statusScope, $orientation));
+    }
+
+    private function listingQuery(string $statusScope): QueryBuilder
+    {
+        return QueryBuilder::for($this->coachStatusScopeQuery($statusScope))
             ->allowedFilters([
                 AllowedFilter::callback('status_scope', fn (Builder $query, mixed $value): Builder => $this->filterByStatusScope($query, (string) $value)),
                 AllowedFilter::exact('nis_certified'),
@@ -311,43 +420,218 @@ class CoachController extends Controller
                         'session:id,name',
                     ])
                     ->latest('assigned_at'),
-            ])
-            ->withCount(['assignmentHistory as assignments_count' => fn ($q) => $q->current()])
-            ->paginate(25)
-            ->withQueryString();
+            ]);
+    }
 
-        return Inertia::render('coaches/index', [
-            'coaches' => $coaches,
-            'filters' => [
-                'status_scope' => $statusScope,
-                ...$filters,
-            ],
-            'activeCoachCount' => $this->coachStatusScopeQuery('active')->count(),
-            'inactiveCoachCount' => $this->coachStatusScopeQuery('inactive')->count(),
-            'sports' => Sport::select(['id', 'name'])
-                ->where('organization_id', $request->user()->organization_id)
-                ->orderBy('name')
-                ->get(),
-            'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
-            'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
-            'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
-            'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
-            'nisMasters' => NisMaster::query()->active()->ordered()->get(),
-            'certificateTypes' => CoachCertification::query()
-                ->whereHas('coach', fn (Builder $query) => $query->where('organization_id', $request->user()->organization_id))
-                ->whereNotNull('certificate_type')
-                ->where('certificate_type', '!=', '')
-                ->distinct()
-                ->pluck('certificate_type')
-                ->concat(NisMaster::query()->active()->ordered()->pluck('name'))
+    /**
+     * @return list<string>
+     */
+    private function selectedPrintColumns(mixed $columns): array
+    {
+        $requested = is_array($columns) ? $columns : self::DEFAULT_PRINT_COLUMNS;
+        $requested = array_values(array_filter(array_unique($requested), 'is_string'));
+        $valid = array_values(array_intersect($requested, array_keys(self::PRINT_COLUMN_LABELS)));
+
+        return $valid === [] ? self::DEFAULT_PRINT_COLUMNS : $valid;
+    }
+
+    /**
+     * @param  Collection<int, Coach>  $coaches
+     * @param  list<string>  $columns
+     * @param  array<string, mixed>  $filters
+     */
+    private function buildPrintHtml(Collection $coaches, array $columns, array $filters, string $statusScope, string $orientation): string
+    {
+        $headingRows = $this->printHeadingRows($columns);
+        $tableColumnCount = count($columns)
+            + (in_array('sports', $columns, true) ? 1 : 0)
+            + (in_array('current_assignments', $columns, true) ? 3 : 0);
+
+        $rows = $coaches
+            ->values()
+            ->map(function (Coach $coach, int $index) use ($columns): string {
+                $cells = collect($columns)
+                    ->map(function (string $column) use ($coach, $index): string {
+                        if ($column === 'sports') {
+                            return $this->sportsPrintCells($coach);
+                        }
+
+                        if ($column === 'current_assignments') {
+                            return $this->currentAssignmentsPrintCells($coach);
+                        }
+
+                        return '<td>'.e($this->printColumnValue($coach, $column, $index + 1)).'</td>';
+                    })
+                    ->implode('');
+
+                return '<tr>'.$cells.'</tr>';
+            })
+            ->implode('');
+
+        $filterText = $this->printFilterText($filters, $statusScope);
+        $emptyRow = '<tr><td colspan="'.$tableColumnCount.'">'.e(__('No coaches found for the selected filters.')).'</td></tr>';
+
+        return '<!DOCTYPE html><html><head>'
+            .'<meta charset="utf-8">'
+            .'<title>'.e(__('Coach Listing')).'</title>'
+            .'<style>@page{size:A4 '.e($orientation).';margin:8mm}html,body{margin:0}body{font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.35;padding:8px;color:#111}.letterhead{text-align:center;border-bottom:2px solid #1E3A8A;background:#DBEAFE;padding:6px 8px 8px;margin:0 0 8px}.letterhead-title{font-size:18px;font-weight:700;text-transform:uppercase;color:#1E40AF}.letterhead-subtitle{font-size:11px;font-weight:600;margin-top:2px;color:#1D4ED8}.letterhead-meta{font-size:9px;color:#334155;margin-top:2px}h1{font-size:17px;margin:0 0 7px;text-align:center}.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:0 0 8px}.meta p{border:1px solid #cbd5e1;margin:0;padding:4px;background:#eff6ff}.muted{color:#334155}table{width:100%;border-collapse:collapse;table-layout:auto}th,td{border:1px solid #94a3b8;padding:4px 5px;vertical-align:top;text-align:left;word-break:break-word}th{background:#1E3A8A;color:#fff;font-weight:600;white-space:nowrap}.num{text-align:center;white-space:nowrap}.group-heading{text-align:left}.line-item{min-height:13px;padding:0 0 2px}.line-item+ .line-item{border-top:1px solid #cbd5e1;padding-top:2px}.no-data{color:#64748b;font-style:italic}@media print{body{padding:0}.letterhead{margin-bottom:6px;padding-bottom:5px}.letterhead-title{font-size:16px}h1{font-size:15px}th,td{padding:3px 4px}}</style>'
+            .'</head><body>'
+            .'<div class="letterhead">'
+            .'<div class="letterhead-title">'.e(__('UP Police Sport Control Board (UPPSCB)')).'</div>'
+            .'<div class="letterhead-subtitle">'.e(__('Coach Listing Report')).'</div>'
+            .'<div class="letterhead-meta">'.e(__('Official Sports Unit Record')).'</div>'
+            .'</div>'
+            .'<h1>'.e(__('Coach Listing')).'</h1>'
+            .'<div class="meta">'
+            .'<p><strong>'.e(__('Status')).':</strong> '.e($statusScope === 'inactive' ? __('Inactive coaches') : __('Active coaches')).'</p>'
+            .'<p><strong>'.e(__('Total')).':</strong> '.e((string) $coaches->count()).'</p>'
+            .'<p><strong>'.e(__('Printed at')).':</strong> '.e(now()->format('d-m-Y H:i')).'</p>'
+            .'<p><strong>'.e(__('Filters')).':</strong> '.e($filterText).'</p>'
+            .'</div>'
+            .'<table><thead>'.$headingRows.'</thead><tbody>'.($rows === '' ? $emptyRow : $rows).'</tbody></table>'
+            .'<script>window.onload=function(){window.print();}</script>'
+            .'</body></html>';
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    private function printHeadingRows(array $columns): string
+    {
+        $hasGroupedColumns = in_array('sports', $columns, true) || in_array('current_assignments', $columns, true);
+
+        $mainHeadings = collect($columns)
+            ->map(function (string $column) use ($hasGroupedColumns): string {
+                if ($column === 'sports') {
+                    return '<th class="group-heading" colspan="2">'.e(__(self::PRINT_COLUMN_LABELS[$column])).'</th>';
+                }
+
+                if ($column === 'current_assignments') {
+                    return '<th class="group-heading" colspan="4">'.e(__('Teams')).'</th>';
+                }
+
+                return '<th'.($hasGroupedColumns ? ' rowspan="2"' : '').'>'.e(__(self::PRINT_COLUMN_LABELS[$column])).'</th>';
+            })
+            ->implode('');
+
+        $detailHeadings = collect($columns)
+            ->map(function (string $column): string {
+                if ($column === 'sports') {
+                    return '<th>'.e(__('Sport')).'</th>'
+                        .'<th>'.e(__('Event / Weight')).'</th>';
+                }
+
+                if ($column === 'current_assignments') {
+                    return '<th>'.e(__('Team')).'</th>'
+                        .'<th>'.e(__('Session')).'</th>'
+                        .'<th>'.e(__('Role')).'</th>'
+                        .'<th>'.e(__('Assigned at')).'</th>';
+                }
+
+                return '';
+            })
+            ->implode('');
+
+        return '<tr>'.$mainHeadings.'</tr>'.($detailHeadings === '' ? '' : '<tr>'.$detailHeadings.'</tr>');
+    }
+
+    private function printColumnValue(Coach $coach, string $column, int $serialNumber): string
+    {
+        return match ($column) {
+            'serial_number' => (string) $serialNumber,
+            'nis_certified' => $coach->nis_certified ? __('Yes') : __('No'),
+            'coach' => implode(' | ', array_filter([
+                trim((string) ($coach->designation ?? '')) !== '' ? trim((string) $coach->designation) : null,
+                $coach->full_name,
+            ])),
+            'pno' => (string) ($coach->pno ?? ''),
+            'gender' => self::PRINT_GENDER_LABELS[$coach->gender] ?? ($coach->gender ?? ''),
+            'unit_district' => (string) ($coach->unit?->name ?? $coach->district?->name ?? ''),
+            'current_assignments' => $coach->currentAssignments
+                ->map(function (CoachAssignment $assignment): string {
+                    $team = $assignment->team?->name ?? '';
+                    $session = $assignment->session?->name
+                        ?? $assignment->team?->session?->name
+                        ?? '';
+                    $role = (string) ($assignment->role ?? '');
+                    $assignedAt = $assignment->assigned_at?->format('d-m-Y') ?? '';
+
+                    return implode(' | ', array_filter([$team, $session, $role, $assignedAt]));
+                })
                 ->filter()
-                ->unique()
-                ->sort()
-                ->values(),
-            'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
-            'genders' => ['M', 'F', 'O'],
+                ->join('; '),
+            'linked_member' => (string) ($coach->member?->member_code ?? ''),
+            'certifications' => $coach->certifications
+                ->map(fn (CoachCertification $certification): string => trim(($certification->name ?? '').($certification->certificate_type ? ' ('.$certification->certificate_type.')' : '')))
+                ->filter()
+                ->join(', ') ?: __('None'),
+            'sports' => $coach->sports
+                ->map(function (Sport $sport): string {
+                    $event = (string) ($sport->pivot?->sport_event ?? '');
+
+                    return $event !== '' ? $sport->name.' ('.$event.')' : $sport->name;
+                })
+                ->filter()
+                ->join(', '),
+            'assignment_history_count' => (string) ($coach->assignments_count ?? 0),
+            default => (string) ($coach->{$column} ?? ''),
+        };
+    }
+
+    private function sportsPrintCells(Coach $coach): string
+    {
+        if ($coach->sports->isEmpty()) {
+            return '<td></td><td></td>';
+        }
+
+        $values = $coach->sports->map(fn (Sport $sport): array => [
+            'sport' => (string) $sport->name,
+            'event' => (string) ($sport->pivot?->sport_event ?? ''),
         ]);
+
+        return $this->printStackedCells($values, ['sport', 'event']);
+    }
+
+    private function currentAssignmentsPrintCells(Coach $coach): string
+    {
+        if ($coach->currentAssignments->isEmpty()) {
+            return '<td class="no-data">'.e(__('Not assigned')).'</td><td></td><td></td><td></td>';
+        }
+
+        $values = $coach->currentAssignments->map(fn (CoachAssignment $assignment): array => [
+            'team' => (string) ($assignment->team?->name ?? ''),
+            'session' => (string) ($assignment->session?->name ?? $assignment->team?->session?->name ?? ''),
+            'role' => (string) ($assignment->role ?? ''),
+            'assigned_at' => (string) ($assignment->assigned_at?->format('d-m-Y') ?? ''),
+        ]);
+
+        return $this->printStackedCells($values, ['team', 'session', 'role', 'assigned_at']);
+    }
+
+    /**
+     * @param  Collection<int, array<string, string>>  $values
+     * @param  list<string>  $keys
+     */
+    private function printStackedCells(Collection $values, array $keys): string
+    {
+        return collect($keys)
+            ->map(fn (string $key): string => '<td>'.$values
+                ->map(fn (array $row): string => '<div class="line-item">'.e($row[$key] ?? '').'</div>')
+                ->implode('').'</td>')
+            ->implode('');
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function printFilterText(array $filters, string $statusScope): string
+    {
+        $activeFilters = collect($filters)
+            ->reject(fn (mixed $value, string $key): bool => $key === 'status_scope' || $value === null || $value === '')
+            ->map(fn (mixed $value, string $key): string => str($key)->replace('_', ' ')->title()->toString().': '.(is_scalar($value) ? (string) $value : (json_encode($value) ?: '')))
+            ->values();
+
+        return $activeFilters->prepend($statusScope === 'inactive' ? __('Inactive coaches') : __('Active coaches'))->join(', ');
     }
 
     private function filterByStatusScope(Builder $query, string $value): Builder

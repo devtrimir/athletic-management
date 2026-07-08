@@ -25,7 +25,6 @@ return [
         ['code' => 'members.create', 'group' => 'members', 'name_hi' => 'सदस्य जोड़ें',    'name_en' => 'Create members'],
         ['code' => 'members.update', 'group' => 'members', 'name_hi' => 'सदस्य अपडेट करें', 'name_en' => 'Update members'],
         ['code' => 'members.delete', 'group' => 'members', 'name_hi' => 'सदस्य हटाएं',     'name_en' => 'Delete members'],
-        ['code' => 'members.manageLegacyAchievements', 'group' => 'members', 'name_hi' => 'पुरानी उपलब्धियाँ प्रबंधित करें', 'name_en' => 'Manage legacy achievements'],
         ['code' => 'members.manageBenefits',           'group' => 'members', 'name_hi' => 'उपलब्धि लाभ प्रबंधित करें',       'name_en' => 'Manage achievement benefits'],
 
         // ── Coaches ───────────────────────────────────────────────────────────

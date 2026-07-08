@@ -33,8 +33,8 @@ import {
 } from '@/actions/App/Http/Controllers/EventParticipantController';
 import {
     index as tournamentsIndex,
-    show as showTournament,
 } from '@/actions/App/Http/Controllers/TournamentController';
+import { events as tournamentEvents } from '@/actions/App/Http/Controllers/TournamentProfileTabController';
 import { Combobox } from '@/components/combobox';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -2000,6 +2000,7 @@ function teamParticipationPlayerCount(participation: ParticipationRow): number {
 type TeamPlayerTableRow = {
     rowId: string;
     participation: ParticipationRow;
+    resultParticipation: ParticipationRow;
     playerId: number;
     playerName: string;
     playerPno: string | null;
@@ -2012,21 +2013,49 @@ type TeamPlayerTableRow = {
 function buildTeamDisplayRows(
     participations: ParticipationRow[],
 ): TeamPlayerTableRow[] {
-    return participations.flatMap((participation): TeamPlayerTableRow[] => {
-        const players = normalizeTeamParticipationPlayers(participation);
+    const groups = new Map<
+        string,
+        {
+            resultParticipation: ParticipationRow;
+            rows: Omit<TeamPlayerTableRow, 'teamPlayerCount' | 'isFirstPlayerInTeam'>[];
+        }
+    >();
 
-        return players.map((player, idx) => ({
-            rowId: `${participation.id}-${player.id}-${idx}`,
-            participation,
-            playerId: player.id,
-            playerName: player.full_name,
-            playerPno: player.pno,
-            playerPhotoPath: player.photo_path,
-            playerSportProfile: player.sport_profile,
-            teamPlayerCount: players.length,
+    for (const participation of participations) {
+        const players = normalizeTeamParticipationPlayers(participation);
+        const groupKey = participation.team?.id
+            ? `team:${participation.team.id}`
+            : 'event:legacy-team';
+        const group =
+            groups.get(groupKey) ??
+            {
+                resultParticipation: participation,
+                rows: [],
+            };
+
+        players.forEach((player, idx) => {
+            group.rows.push({
+                rowId: `${participation.id}-${player.id}-${idx}`,
+                participation,
+                resultParticipation: group.resultParticipation,
+                playerId: player.id,
+                playerName: player.full_name,
+                playerPno: player.pno,
+                playerPhotoPath: player.photo_path,
+                playerSportProfile: player.sport_profile,
+            });
+        });
+
+        groups.set(groupKey, group);
+    }
+
+    return Array.from(groups.values()).flatMap((group) =>
+        group.rows.map((row, idx) => ({
+            ...row,
+            teamPlayerCount: group.rows.length,
             isFirstPlayerInTeam: idx === 0,
-        }));
-    });
+        })),
+    );
 }
 
 function buildIndividualDisplayRows(
@@ -2041,6 +2070,7 @@ function buildIndividualDisplayRows(
             return {
                 rowId: `${participation.id}-${participation.member.id}`,
                 participation,
+                resultParticipation: participation,
                 playerId: participation.member.id,
                 playerName: participation.member.full_name,
                 playerPno: participation.member.pno,
@@ -2217,7 +2247,7 @@ function ParticipantsList({
                                                 }
                                                 className="border-r border-slate-200 py-2 text-center tabular-nums dark:border-slate-800"
                                             >
-                                                {row.participation.position ?? (
+                                                {row.resultParticipation.position ?? (
                                                     <span className="text-muted-foreground">
                                                         —
                                                     </span>
@@ -2236,7 +2266,7 @@ function ParticipantsList({
                                             >
                                                 <MedalBadge
                                                     medal={
-                                                        row.participation
+                                                        row.resultParticipation
                                                             .achievement
                                                             ?.medal_type ?? null
                                                     }
@@ -2254,7 +2284,7 @@ function ParticipantsList({
                                                 className="max-w-[260px] border-r border-slate-200 py-2 text-sm text-muted-foreground dark:border-slate-800"
                                             >
                                                 <span className="line-clamp-2">
-                                                    {row.participation
+                                                    {row.resultParticipation
                                                         .achievement?.remarks ||
                                                         '—'}
                                                 </span>
@@ -2303,7 +2333,7 @@ function ParticipantsList({
                                                     title={editActionLabel}
                                                     onClick={() =>
                                                         setEditingParticipation(
-                                                            row.participation,
+                                                            row.resultParticipation,
                                                         )
                                                     }
                                                 >
@@ -2417,7 +2447,8 @@ export default function EventsShow({
     participantFilterOptions?: ParticipantFilterOptions;
 }) {
     const { t } = useTranslation();
-    const permissions = usePage().props.auth.permissions;
+    const page = usePage();
+    const permissions = page.props.auth.permissions;
     const canUploadMedia = permissions.includes('media.upload');
     const canDeleteMedia = permissions.includes('media.delete');
     const [editEventOpen, setEditEventOpen] = useState(false);
@@ -2435,10 +2466,28 @@ export default function EventsShow({
         );
     }
 
+    const currentQuery = Object.fromEntries(
+        new URLSearchParams(page.url.split('?')[1] ?? ''),
+    );
+    const tournamentContextQuery = Object.fromEntries(
+        Object.entries(currentQuery).filter(([key]) =>
+            key === 'filter[session_id]' ||
+            key === 'filter[tier_id]' ||
+            key === 'filter[date_from]' ||
+            key === 'filter[date_to]',
+        ),
+    );
+    const tournamentEventsUrl = tournamentEvents.url(tournament.id, {
+        query: currentQuery,
+    });
+
     setLayoutProps({
         breadcrumbs: [
-            { title: t('Tournaments'), href: tournamentsIndex.url() },
-            { title: tournament.name, href: showTournament.url(tournament.id) },
+            {
+                title: t('Tournaments'),
+                href: tournamentsIndex.url({ query: tournamentContextQuery }),
+            },
+            { title: tournament.name, href: tournamentEventsUrl },
             { title: event.name },
         ],
     });
@@ -2466,15 +2515,19 @@ export default function EventsShow({
                 <div className="rounded-xl border bg-card p-4 shadow-sm">
                     <div className="mb-4 flex flex-wrap items-center gap-2 border-b pb-4">
                         <Button variant="outline" size="sm" asChild>
-                            <Link href={tournamentsIndex()}>
+                            <Link
+                                href={tournamentsIndex({
+                                    query: tournamentContextQuery,
+                                })}
+                            >
                                 <List className="mr-1.5 h-4 w-4" />
                                 {t('All tournaments')}
                             </Link>
                         </Button>
                         <Button variant="ghost" size="sm" asChild>
-                            <Link href={showTournament(tournament.id)}>
+                            <Link href={tournamentEventsUrl}>
                                 <ArrowLeft className="mr-1.5 h-4 w-4" />
-                                {t('Tournament overview')}
+                                {t('Tournament events')}
                             </Link>
                         </Button>
                     </div>

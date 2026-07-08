@@ -9,6 +9,8 @@ use App\Models\Organization;
 use App\Models\Participation;
 use App\Models\Sport;
 use App\Models\SportSession;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\Unit;
@@ -61,6 +63,58 @@ function memberAchievement(
     ]);
 }
 
+function teamMemberAchievement(
+    Organization $org,
+    string $tierCode = 'NATIONAL',
+    string $medalType = 'GOLD',
+): array {
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => $tierCode],
+        ['label_hi' => $tierCode, 'label_en' => $tierCode, 'weight' => 80],
+    );
+    $session = SportSession::factory()->create(['organization_id' => $org->id]);
+    $sport = Sport::factory()->create(['organization_id' => $org->id]);
+    $team = Team::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+    ]);
+    $members = Member::factory()->count(2)->create(['organization_id' => $org->id]);
+
+    foreach ($members as $member) {
+        TeamMember::factory()->create([
+            'team_id' => $team->id,
+            'member_id' => $member->id,
+            'session_id' => $session->id,
+        ]);
+    }
+
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+    ]);
+    $event = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'event_type' => 'team',
+    ]);
+    $participation = Participation::factory()->create([
+        'member_id' => null,
+        'team_id' => $team->id,
+        'event_id' => $event->id,
+        'session_id' => $session->id,
+        'lineup_member_ids' => $members->pluck('id')->all(),
+    ]);
+    $achievement = Achievement::factory()->create([
+        'participation_id' => $participation->id,
+        'medal_type' => $medalType,
+    ]);
+
+    return compact('session', 'sport', 'team', 'members', 'achievement');
+}
+
 function memberNoFilters(): array
 {
     return ['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null];
@@ -94,6 +148,34 @@ test('returns correct medal counts for a single member', function (): void {
     expect($rows[0]['MERIT'])->toBe(0);
     expect($rows[0]['total'])->toBe(3);
     expect($rows[0]['member']['id'])->toBe($member->id);
+});
+
+test('credits team event medals to every lineup member', function (): void {
+    $org = memberOrg();
+    $setup = teamMemberAchievement($org, medalType: 'BRONZE');
+
+    $report = app(MedalsByMemberReport::class);
+    $rows = $report->run($org->id, memberNoFilters());
+
+    expect($rows)->toHaveCount(2);
+    expect($rows->pluck('member.id')->all())->toEqualCanonicalizing($setup['members']->pluck('id')->all());
+    expect($rows->pluck('BRONZE')->all())->toEqual([1, 1]);
+    expect($rows->pluck('total')->all())->toEqual([1, 1]);
+});
+
+test('unit filter applies to team event lineup members', function (): void {
+    $org = memberOrg();
+    $unit = Unit::factory()->create(['organization_id' => $org->id]);
+    $setup = teamMemberAchievement($org, medalType: 'GOLD');
+    $matchingMember = $setup['members']->first();
+    $matchingMember->update(['current_unit_id' => $unit->id]);
+
+    $report = app(MedalsByMemberReport::class);
+    $rows = $report->run($org->id, ['unit_id' => $unit->id]);
+
+    expect($rows)->toHaveCount(1);
+    expect($rows[0]['member']['id'])->toBe($matchingMember->id);
+    expect($rows[0]['GOLD'])->toBe(1);
 });
 
 test('limit truncates result to top-N', function (): void {

@@ -5,11 +5,12 @@ declare(strict_types=1);
 use App\Models\Achievement;
 use App\Models\Event;
 use App\Models\Member;
-use App\Models\MemberLegacyAchievement;
 use App\Models\Organization;
 use App\Models\Participation;
 use App\Models\Sport;
 use App\Models\SportSession;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\Unit;
@@ -60,6 +61,55 @@ function tallySetup(Organization $org, string $tierCode = 'NATIONAL', string $me
     return compact('tier', 'session', 'sport', 'tournament', 'member', 'achievement');
 }
 
+function tallyTeamSetup(Organization $org, string $tierCode = 'NATIONAL', string $medalType = 'GOLD'): array
+{
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => $tierCode],
+        ['label_hi' => $tierCode, 'label_en' => $tierCode, 'weight' => 80],
+    );
+    $session = SportSession::factory()->create(['organization_id' => $org->id]);
+    $sport = Sport::factory()->create(['organization_id' => $org->id]);
+    $team = Team::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+    ]);
+    $members = Member::factory()->count(2)->create(['organization_id' => $org->id]);
+
+    foreach ($members as $member) {
+        TeamMember::factory()->create([
+            'team_id' => $team->id,
+            'member_id' => $member->id,
+            'session_id' => $session->id,
+        ]);
+    }
+
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+    ]);
+    $event = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'event_type' => 'team',
+    ]);
+    $participation = Participation::factory()->create([
+        'member_id' => null,
+        'team_id' => $team->id,
+        'event_id' => $event->id,
+        'session_id' => $session->id,
+        'lineup_member_ids' => $members->pluck('id')->all(),
+    ]);
+    $achievement = Achievement::factory()->create([
+        'participation_id' => $participation->id,
+        'medal_type' => $medalType,
+    ]);
+
+    return compact('tier', 'session', 'sport', 'tournament', 'event', 'team', 'members', 'achievement');
+}
+
 function noFilters(): array
 {
     return ['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null];
@@ -91,87 +141,101 @@ test('returns correct tier row with GOLD count', function (): void {
     expect($rows[0]['MERIT'])->toBe(0);
 });
 
-test('includes member legacy achievement medals in tier tally', function (): void {
+test('tier tally counts a team event medal once', function (): void {
     $org = tallyOrg();
-    tallySetup($org, 'NATIONAL', 'SILVER');
-    $session = SportSession::factory()->create(['organization_id' => $org->id]);
-    $sport = Sport::factory()->create(['organization_id' => $org->id]);
-    $member = Member::factory()->create(['organization_id' => $org->id]);
-
-    TournamentTier::firstOrCreate(
-        ['code' => 'NATIONAL'],
-        ['label_hi' => 'NATIONAL', 'label_en' => 'National', 'weight' => 80],
-    );
-
-    MemberLegacyAchievement::factory()->forMember($member)->create([
-        'session_id' => $session->id,
-        'sport_id' => $sport->id,
-        'period' => 'POST_RECRUITMENT',
-        'level' => 'NATIONAL',
-        'event_date' => '2026-02-10',
-        'medal_type' => 'SILVER',
-    ]);
-
+    tallyTeamSetup($org, medalType: 'GOLD');
     $report = app(MedalTallyReport::class);
+
     $rows = $report->run($org->id, noFilters());
 
     expect($rows)->toHaveCount(1);
     expect($rows[0]['tier']['code'])->toBe('NATIONAL');
-    expect($rows[0]['GOLD'])->toBe(0);
-    expect($rows[0]['SILVER'])->toBe(2);
-    expect($rows[0]['BRONZE'])->toBe(0);
-    expect($rows[0]['MERIT'])->toBe(0);
+    expect($rows[0]['GOLD'])->toBe(1);
 });
 
-test('legacy international medal appears even without a matching tournament tier row', function (): void {
+test('team tally groups team event medals by tier', function (): void {
     $org = tallyOrg();
-    $member = Member::factory()->create(['organization_id' => $org->id]);
+    tallyTeamSetup($org, medalType: 'SILVER');
+    $report = app(MedalTallyReport::class);
 
-    MemberLegacyAchievement::factory()->forMember($member)->create([
-        'period' => 'POST_RECRUITMENT',
-        'level' => 'INTERNATIONAL',
-        'event_date' => '2026-02-10',
+    $rows = $report->runTeams($org->id, noFilters());
+
+    expect($rows)->toHaveCount(1);
+    expect($rows[0]['tier']['code'])->toBe('NATIONAL');
+    expect($rows[0]['SILVER'])->toBe(1);
+    expect($rows[0])->not->toHaveKey('event');
+    expect($rows[0])->not->toHaveKey('players');
+});
+
+test('team tally athlete search matches lineup pno', function (): void {
+    $org = tallyOrg();
+    $setup = tallyTeamSetup($org, medalType: 'GOLD');
+    $setup['members']->first()->update([
+        'pno' => 'PNO-9001',
+        'full_name' => 'Lineup Player',
+    ]);
+    $report = app(MedalTallyReport::class);
+
+    $rows = $report->runTeams($org->id, ['member_name' => '9001']);
+
+    expect($rows)->toHaveCount(1);
+    expect($rows[0]['tier']['code'])->toBe('NATIONAL');
+    expect($rows[0]['GOLD'])->toBe(1);
+});
+
+test('team tally counts duplicate lineup medals once per event medal type', function (): void {
+    $org = tallyOrg();
+    $setup = tallyTeamSetup($org, medalType: 'GOLD');
+    $secondParticipation = Participation::factory()->create([
+        'member_id' => null,
+        'team_id' => $setup['team']->id,
+        'event_id' => $setup['event']->id,
+        'session_id' => $setup['session']->id,
+        'lineup_member_ids' => [$setup['members']->last()->id],
+    ]);
+    Achievement::factory()->create([
+        'participation_id' => $secondParticipation->id,
         'medal_type' => 'GOLD',
     ]);
 
     $report = app(MedalTallyReport::class);
-    $rows = $report->run($org->id, noFilters());
+    $rows = $report->runTeams($org->id, noFilters());
+    $tierRows = $report->run($org->id, noFilters());
 
     expect($rows)->toHaveCount(1);
-    expect($rows[0]['tier']['code'])->toBe('INTERNATIONAL');
     expect($rows[0]['GOLD'])->toBe(1);
-    expect($rows[0]['display_only'])->toBe(0);
+    expect($rows[0]['SILVER'])->toBe(0);
+    expect($rows[0]['BRONZE'])->toBe(0);
+    expect($rows[0]['MERIT'])->toBe(0);
+    expect($tierRows[0]['GOLD'])->toBe(1);
 });
 
-test('legacy medal tally respects session and sport filters', function (): void {
+test('tier tally applies unit filter to team event lineup members', function (): void {
     $org = tallyOrg();
-    $session = SportSession::factory()->create(['organization_id' => $org->id]);
-    $sport = Sport::factory()->create(['organization_id' => $org->id]);
-    $member = Member::factory()->create(['organization_id' => $org->id]);
-
-    TournamentTier::firstOrCreate(
-        ['code' => 'NATIONAL'],
-        ['label_hi' => 'NATIONAL', 'label_en' => 'National', 'weight' => 80],
-    );
-
-    MemberLegacyAchievement::factory()->forMember($member)->create([
-        'session_id' => $session->id,
-        'sport_id' => $sport->id,
-        'level' => 'NATIONAL',
-        'event_date' => '2026-02-10',
-        'medal_type' => 'BRONZE',
-    ]);
+    $unit = Unit::factory()->create(['organization_id' => $org->id]);
+    $setup = tallyTeamSetup($org, medalType: 'GOLD');
+    $setup['members']->first()->update(['current_unit_id' => $unit->id]);
 
     $report = app(MedalTallyReport::class);
-    $rows = $report->run($org->id, [
-        'session_id' => $session->id,
-        'sport_id' => $sport->id,
-        'unit_id' => null,
-        'tier_id' => null,
-    ]);
+    $rows = $report->run($org->id, ['unit_id' => $unit->id]);
 
     expect($rows)->toHaveCount(1);
-    expect($rows[0]['BRONZE'])->toBe(1);
+    expect($rows[0]['GOLD'])->toBe(1);
+});
+
+test('team event tally applies unit filter before tier counting', function (): void {
+    $org = tallyOrg();
+    $unit = Unit::factory()->create(['organization_id' => $org->id]);
+    $setup = tallyTeamSetup($org, medalType: 'GOLD');
+    $setup['members']->first()->update(['current_unit_id' => $unit->id]);
+
+    $report = app(MedalTallyReport::class);
+    $rows = $report->runTeams($org->id, ['unit_id' => $unit->id]);
+
+    expect($rows)->toHaveCount(1);
+    expect($rows[0]['tier']['code'])->toBe('NATIONAL');
+    expect($rows[0]['GOLD'])->toBe(1);
+    expect($rows[0])->not->toHaveKey('players');
 });
 
 test('session_id filter scopes to correct session', function (): void {

@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Models\Achievement;
 use App\Models\AchievementBenefit;
-use App\Models\MemberLegacyAchievement;
+use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,13 +19,16 @@ class AchievementBenefitFactory extends Factory
      */
     public function definition(): array
     {
-        $legacy = MemberLegacyAchievement::factory()->create();
+        $achievement = Achievement::factory()->create();
         $benefitType = fake()->randomElement(['PROMOTION', 'OUT_OF_TURN_PROMOTION', 'CASH_AWARD', 'COMMENDATION', 'NONE', 'OTHER']);
 
+        $achievement->loadMissing('participation.member');
+
         return [
-            'organization_id' => $legacy->organization_id,
-            'benefitable_type' => MemberLegacyAchievement::class,
-            'benefitable_id' => $legacy->id,
+            'organization_id' => $achievement->participation?->member?->organization_id
+                ?? Organization::factory(),
+            'benefitable_type' => Achievement::class,
+            'benefitable_id' => $achievement->id,
             'benefit_type' => $benefitType,
             'promoted_from_rank' => in_array($benefitType, ['PROMOTION', 'OUT_OF_TURN_PROMOTION'], true)
                 ? fake()->randomElement(['Constable', 'Head Constable', 'SI'])

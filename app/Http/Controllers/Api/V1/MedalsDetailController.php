@@ -24,6 +24,7 @@ class MedalsDetailController extends Controller
 
         $data = $paginator->toArray();
         $data['medal_counts'] = $medalCounts;
+        $data['medal_total'] = array_sum($medalCounts);
 
         return response()->json($data);
     }

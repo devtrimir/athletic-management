@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * Records a tangible benefit received for a specific achievement —
- * works polymorphically against both MemberLegacyAchievement and Achievement (live).
+ * works against live achievements while old achievement storage is redesigned.
  *
  * benefit_type = NONE explicitly records "confirmed no benefit granted"
  * (absence of a row means data not yet entered, NOT that no benefit was given).
@@ -32,7 +32,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $remarks
  * @property Carbon $created_at
  * @property Carbon $updated_at
- * @property-read MemberLegacyAchievement|Achievement $benefitable
+ * @property-read Achievement $benefitable
  */
 #[Fillable([
     'organization_id',
@@ -63,7 +63,7 @@ class AchievementBenefit extends Model
     }
 
     /**
-     * The achievement this benefit belongs to (MemberLegacyAchievement or Achievement).
+     * The live achievement this benefit belongs to.
      *
      * @return MorphTo<Model, $this>
      */

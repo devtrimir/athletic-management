@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import CoachController from '@/actions/App/Http/Controllers/CoachController';
+import CoachController, {
+    print as printCoachesUrl,
+} from '@/actions/App/Http/Controllers/CoachController';
 import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachExportController';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import Heading from '@/components/heading';
@@ -46,6 +48,13 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
     Table,
     TableBody,
     TableCell,
@@ -58,11 +67,12 @@ import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
     { key: 'serial_number', label: 'S.No.' },
-    { key: 'full_name', label: 'Name' },
+    { key: 'coach', label: 'Coach' },
     { key: 'pno', label: 'PNO' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'gender', label: 'Gender' },
     { key: 'sports', label: 'Playable sport' },
+    { key: 'current_assignments', label: 'Current team names' },
     { key: 'unit_district', label: 'Posting' },
     { key: 'mobile', label: 'Mobile number' },
     { key: 'nis_certified', label: 'NIS Certified' },
@@ -171,6 +181,9 @@ const STATUS_TABS = [
     { value: 'active', label: 'Active coaches' },
     { value: 'inactive', label: 'Inactive coaches' },
 ] as const;
+
+type ReportAction = 'print' | 'export';
+type PrintOrientation = 'portrait' | 'landscape';
 
 function FilterPill({
     label,
@@ -425,7 +438,11 @@ export default function CoachesIndex({
     const { t } = useTranslation();
 
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-    const [exportOpen, setExportOpen] = useState(false);
+    const [reportAction, setReportAction] = useState<ReportAction | null>(
+        null,
+    );
+    const [printOrientation, setPrintOrientation] =
+        useState<PrintOrientation>('landscape');
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
@@ -565,38 +582,6 @@ export default function CoachesIndex({
         return coach.unit?.name ?? coach.district?.name ?? null;
     }
 
-    function exportValue(
-        coach: Coach,
-        key: string,
-        serialNumber: number,
-    ): string {
-        if (key === 'serial_number') {
-            return String(serialNumber);
-        }
-
-        if (key === 'nis_certified') {
-            return coach.nis_certified ? t('NIS Certified') : '';
-        }
-
-        if (key === 'gender') {
-            return genderLabel(coach.gender);
-        }
-
-        if (key === 'sports') {
-            return (coach.sports ?? []).map((sport) => sport.name).join(', ');
-        }
-
-        if (key === 'unit_district') {
-            return coachLocation(coach) ?? '';
-        }
-
-        const raw = (coach as Record<string, unknown>)[key];
-
-        return raw === null || raw === '' || raw === undefined
-            ? ''
-            : String(raw);
-    }
-
     function toggleRow(id: number) {
         setSelectedIds((prev) => {
             const next = new Set(prev);
@@ -708,6 +693,29 @@ export default function CoachesIndex({
         return exportCoachesUrl.url() + '?' + params.toString();
     }
 
+    function buildPrintUrl(): string {
+        const params = new URLSearchParams();
+        const printFilters: Filters = {
+            ...filters,
+            status_scope: activeStatusScope,
+            q: query || filters.q,
+        };
+
+        for (const [key, value] of Object.entries(printFilters)) {
+            if (value) {
+                params.append(`filter[${key}]`, value);
+            }
+        }
+
+        for (const col of selectedColumns) {
+            params.append('columns[]', col);
+        }
+
+        params.append('orientation', printOrientation);
+
+        return printCoachesUrl.url() + '?' + params.toString();
+    }
+
     function buildIndexUrl(patch: Partial<Filters> = {}): string {
         const merged: Filters = {
             ...filters,
@@ -731,23 +739,7 @@ export default function CoachesIndex({
     }
 
     function handlePrint() {
-        const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
-        const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
-        const bodyRows = coaches.data
-            .map(
-                (coach, index) =>
-                    `<tr>${cols.map((c) => `<td>${exportValue(coach, c.key, (coaches.from ?? 1) + index)}</td>`).join('')}</tr>`,
-            )
-            .join('');
-        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Coaches')}</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Coaches')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
-        const win = window.open('', '_blank', 'width=900,height=700');
-
-        if (!win) {
-            return;
-        }
-
-        win.document.write(html);
-        win.document.close();
+        window.open(buildPrintUrl(), '_blank', 'noopener,noreferrer');
     }
 
     const hasActiveFilters = !!(
@@ -867,7 +859,15 @@ export default function CoachesIndex({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setExportOpen(true)}
+                                onClick={() => setReportAction('print')}
+                            >
+                                <Printer className="mr-1.5 h-4 w-4" />
+                                {t('Print')}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setReportAction('export')}
                             >
                                 <Download className="mr-1.5 h-4 w-4" />
                                 {selectedIds.size > 0
@@ -1564,12 +1564,19 @@ export default function CoachesIndex({
             </div>
 
             <ExportDialog
-                open={exportOpen}
-                onOpenChange={setExportOpen}
+                action={reportAction}
+                open={reportAction !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setReportAction(null);
+                    }
+                }}
                 selectedIds={selectedIds}
                 coaches={coaches}
                 selectedColumns={selectedColumns}
                 setSelectedColumns={setSelectedColumns}
+                printOrientation={printOrientation}
+                setPrintOrientation={setPrintOrientation}
                 buildExportUrl={buildExportUrl}
                 onPrint={handlePrint}
                 t={t}
@@ -1589,46 +1596,63 @@ CoachesIndex.layout = {
 };
 
 function ExportDialog({
+    action,
     open,
     onOpenChange,
     selectedIds,
     coaches,
     selectedColumns,
     setSelectedColumns,
+    printOrientation,
+    setPrintOrientation,
     buildExportUrl,
     onPrint,
     t,
 }: {
+    action: ReportAction | null;
     open: boolean;
     onOpenChange: (v: boolean) => void;
     selectedIds: Set<number>;
     coaches: PaginatedCoaches;
     selectedColumns: string[];
     setSelectedColumns: Dispatch<SetStateAction<string[]>>;
+    printOrientation: PrintOrientation;
+    setPrintOrientation: Dispatch<SetStateAction<PrintOrientation>>;
     buildExportUrl: () => string;
     onPrint: () => void;
     t: (key: string) => string;
 }) {
+    const isPrint = action === 'print';
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>{t('Export coaches')}</DialogTitle>
+                    <DialogTitle>
+                        {isPrint ? t('Print coaches') : t('Export coaches')}
+                    </DialogTitle>
                     <DialogDescription>
-                        {selectedIds.size > 0
-                            ? t('Exporting :n selected coaches.').replace(
-                                  ':n',
-                                  String(selectedIds.size),
-                              )
-                            : t('Exporting all :count coaches.').replace(
+                        {isPrint
+                            ? t('Printing all :count filtered coaches.').replace(
                                   ':count',
                                   String(coaches.total),
-                              )}
+                              )
+                            : selectedIds.size > 0
+                              ? t('Exporting :n selected coaches.').replace(
+                                    ':n',
+                                    String(selectedIds.size),
+                                )
+                              : t('Exporting all :count coaches.').replace(
+                                    ':count',
+                                    String(coaches.total),
+                                )}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="min-h-0 flex-1 overflow-y-auto py-2">
                     <p className="mb-3 text-sm font-medium">
-                        {t('Select columns to export')}
+                        {isPrint
+                            ? t('Select columns to print')
+                            : t('Select columns to export')}
                     </p>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {ALL_COLUMNS.map((col) => (
@@ -1657,6 +1681,33 @@ function ExportDialog({
                             </div>
                         ))}
                     </div>
+                    {isPrint ? (
+                        <div className="mt-5 space-y-2">
+                            <Label htmlFor="print-orientation">
+                                {t('Print orientation')}
+                            </Label>
+                            <Select
+                                value={printOrientation}
+                                onValueChange={(value) =>
+                                    setPrintOrientation(
+                                        value as PrintOrientation,
+                                    )
+                                }
+                            >
+                                <SelectTrigger id="print-orientation">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="landscape">
+                                        {t('Landscape')}
+                                    </SelectItem>
+                                    <SelectItem value="portrait">
+                                        {t('Portrait')}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    ) : null}
                 </div>
                 <DialogFooter>
                     <Button
@@ -1665,27 +1716,29 @@ function ExportDialog({
                     >
                         {t('Cancel')}
                     </Button>
-                    <Button
-                        variant="outline"
-                        disabled={selectedColumns.length === 0}
-                        onClick={() => {
-                            onPrint();
-                            onOpenChange(false);
-                        }}
-                    >
-                        <Printer className="mr-1.5 h-4 w-4" />
-                        {t('Print')}
-                    </Button>
-                    <Button
-                        disabled={selectedColumns.length === 0}
-                        onClick={() => {
-                            window.location.href = buildExportUrl();
-                            onOpenChange(false);
-                        }}
-                    >
-                        <Download className="mr-1.5 h-4 w-4" />
-                        {t('Download Excel')}
-                    </Button>
+                    {isPrint ? (
+                        <Button
+                            disabled={selectedColumns.length === 0}
+                            onClick={() => {
+                                onPrint();
+                                onOpenChange(false);
+                            }}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            {t('Print')}
+                        </Button>
+                    ) : (
+                        <Button
+                            disabled={selectedColumns.length === 0}
+                            onClick={() => {
+                                window.location.href = buildExportUrl();
+                                onOpenChange(false);
+                            }}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Download Excel')}
+                        </Button>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

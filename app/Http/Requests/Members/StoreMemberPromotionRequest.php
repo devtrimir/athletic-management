@@ -39,7 +39,7 @@ class StoreMemberPromotionRequest extends FormRequest
             'reason' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string'],
             'evidences' => ['required', 'array', 'min:1'],
-            'evidences.*.type' => ['required', Rule::in(['member_legacy_achievement', 'achievement', 'participation'])],
+            'evidences.*.type' => ['required', Rule::in(['achievement', 'participation'])],
             'evidences.*.id' => ['required', 'integer', 'min:1'],
         ];
     }

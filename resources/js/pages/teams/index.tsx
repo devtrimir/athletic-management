@@ -23,7 +23,6 @@ import { toast } from 'sonner';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { index as exportTeamsUrl } from '@/actions/App/Http/Controllers/TeamExportController';
 import { Combobox } from '@/components/combobox';
-import { players as teamPlayersRoute } from '@/routes/teams';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { TeamQuickView } from '@/components/teams/team-quick-view';
@@ -49,6 +48,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { players as teamPlayersRoute } from '@/routes/teams';
 
 type PaginationLink = {
     url: string | null;
@@ -442,9 +442,11 @@ export default function TeamsIndex({
         if (printOptions.sportQuota) {
             selected.push('sport_quota');
         }
+
         if (printOptions.coaches) {
             selected.push('coaches');
         }
+
         if (printOptions.removed && team.removed_players_count > 0) {
             selected.push('removed');
         }

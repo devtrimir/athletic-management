@@ -74,26 +74,6 @@ type AchievementBenefitRow = {
     order_reference: string | null;
     remarks: string | null;
 };
-type LegacyAchievement = {
-    id: number;
-    period: string;
-    session: { id: number; name: string } | null;
-    level: string;
-    competition_details: string;
-    event_date: string | null;
-    venue: string | null;
-    sport: { id: number; name: string } | null;
-    sport_discipline: string | null;
-    event: string | null;
-    discipline: string | null;
-    weight_category: string | null;
-    gender_class: string | null;
-    medal_type: string | null;
-    position: string | number | null;
-    sort_order: number | null;
-    remarks: string | null;
-    benefits: AchievementBenefitRow[];
-};
 type AchievementRow = {
     id: number;
     medal_type: string;
@@ -146,18 +126,6 @@ type PromotionEvidenceRow = {
         id: number;
         medal_type: string | null;
         position: string | number | null;
-        benefits: AchievementBenefitRow[];
-    } | null;
-    legacy_achievement?: {
-        id: number;
-        period: string;
-        level: string;
-        competition_details: string;
-        event: string | null;
-        event_date: string | null;
-        venue: string | null;
-        sport_discipline: string | null;
-        medal_type: string | null;
         benefits: AchievementBenefitRow[];
     } | null;
 };
@@ -226,13 +194,10 @@ type SectionKey =
     | 'promotions'
     | 'timeline';
 
-const PRE_RECRUITMENT_PERIOD = 'PRE_RECRUITMENT';
-
 type Props = {
     member: Member;
     statusHistory?: StatusEntry[];
     memberTeams?: MemberTeamRow[];
-    legacyAchievements?: LegacyAchievement[];
     achievements?: AchievementRow[];
     specialAchievements?: SpecialAchievementsData;
     externalCoaching?: ExternalCoachingData;
@@ -312,11 +277,6 @@ const UI_LABELS: Record<
         en: 'No external coaching assignments.',
         hi: 'कोई बाहरी कोचिंग असाइनमेंट नहीं।',
     },
-    'Legacy achievements': {
-        en: 'Legacy achievements',
-        hi: 'पूर्व उपलब्धियां',
-    },
-    legacy: { en: 'Legacy achievements', hi: 'पूर्व उपलब्धियां' },
     Achievements: { en: 'Achievements', hi: 'उपलब्धियां' },
     achievements: { en: 'Achievements', hi: 'उपलब्धियां' },
     'Event / discipline': {
@@ -605,14 +565,6 @@ const STORY_SUBJECTS: Record<
             'This part describes achievements linked with the member sporting record.',
         introHi: 'यह भाग सदस्य के खेल रिकॉर्ड से जुड़ी उपलब्धियों को बताता है।',
     },
-    'Legacy achievement': {
-        en: 'legacy achievement',
-        hi: 'पूर्व उपलब्धि',
-        introEn:
-            'This part preserves older achievement information brought into the system.',
-        introHi:
-            'यह भाग सिस्टम में जोड़ी गई पुरानी उपलब्धियों की जानकारी संभालता है।',
-    },
     Promotion: {
         en: 'promotion',
         hi: 'पदोन्नति',
@@ -739,6 +691,7 @@ function storyField(
     }
 
     const translated = t(field);
+
     if (translated === field) {
         return humanizeCode(field);
     }
@@ -833,10 +786,6 @@ function hasRewardFields(row: PromotionRow): boolean {
 }
 
 function promotionEvidenceKey(evidence: PromotionEvidenceRow): string {
-    if (evidence.legacy_achievement) {
-        return `legacy:${evidence.legacy_achievement.id}`;
-    }
-
     if (evidence.tournament?.id && evidence.event?.id) {
         return `event:${evidence.tournament.id}:${evidence.event.id}`;
     }
@@ -852,32 +801,6 @@ function promotionEvidenceTableRows(
     const rows = new Map<string, PromotionEvidenceTableRow>();
 
     for (const evidence of row.evidences) {
-        if (evidence.legacy_achievement) {
-            const legacy = evidence.legacy_achievement;
-
-            if (legacy.period === PRE_RECRUITMENT_PERIOD) {
-                continue;
-            }
-
-            rows.set(promotionEvidenceKey(evidence), {
-                key: promotionEvidenceKey(evidence),
-                session: printValue(legacy.period, t),
-                tournament: legacy.competition_details,
-                event: legacy.event ?? legacy.sport_discipline,
-                level: printValue(legacy.level, t),
-                date: formatDateValue(legacy.event_date, locale),
-                gender: null,
-                result: [
-                    legacy.medal_type ? printValue(legacy.medal_type, t) : null,
-                ]
-                    .filter(Boolean)
-                    .join(' · '),
-                venue: legacy.venue,
-            });
-
-            continue;
-        }
-
         const result = [
             evidence.achievement?.medal_type
                 ? printValue(evidence.achievement.medal_type, t)
@@ -1080,16 +1003,7 @@ function Timeline({
     mode: TimelineMode;
 }) {
     const visibleEntries = entries.filter(
-        (entry) =>
-            entry.subject !== 'Alias' &&
-            !(
-                entry.subject === 'Legacy achievement' &&
-                entry.changes.some(
-                    (change) =>
-                        change.old === PRE_RECRUITMENT_PERIOD ||
-                        change.new === PRE_RECRUITMENT_PERIOD,
-                )
-            ),
+        (entry) => entry.subject !== 'Alias',
     );
     void mode;
 
@@ -1190,7 +1104,6 @@ export default function PrintPreview({
     member,
     statusHistory,
     memberTeams,
-    legacyAchievements,
     achievements,
     specialAchievements,
     externalCoaching,
@@ -1226,31 +1139,8 @@ export default function PrintPreview({
         .map((row) => row.team?.name)
         .filter((name): name is string => Boolean(name));
     const externalCoachingRows = externalCoaching?.assignments ?? [];
-    const achievementRows = [
-        ...(legacyAchievements ?? [])
-            .filter((row) => row.period !== PRE_RECRUITMENT_PERIOD)
-            .map((row) => ({
-                id: `legacy-${row.id}`,
-                session: row.session?.name ?? row.period,
-                tier: printValue(row.level, t),
-                tournament: row.competition_details,
-                event: row.event,
-                eventDate: row.event_date,
-                venue: row.venue,
-                sport: [
-                    row.sport?.name,
-                    row.sport_discipline,
-                    row.discipline,
-                    row.weight_category,
-                ]
-                    .filter(Boolean)
-                    .join(' · '),
-                genderClass: genderClassLabel(row.gender_class, t),
-                position: row.position,
-                medal_type: row.medal_type,
-                remarks: row.remarks,
-            })),
-        ...(achievements ?? []).map((row) => ({
+    const achievementRows = (achievements ?? [])
+        .map((row) => ({
             id: `normal-${row.id}`,
             session: row.session.name,
             tier: row.tournament.tier_code,
@@ -1263,10 +1153,10 @@ export default function PrintPreview({
             position: row.position ?? row.participation_position,
             medal_type: row.medal_type,
             remarks: row.remarks,
-        })),
-    ].sort((first, second) =>
-        (second.eventDate ?? '').localeCompare(first.eventDate ?? ''),
-    );
+        }))
+        .sort((first, second) =>
+            (second.eventDate ?? '').localeCompare(first.eventDate ?? ''),
+        );
     const countableAchievementRows = achievementRows.filter(
         (row) => !isOtherTier(row.tier),
     );
@@ -2101,7 +1991,7 @@ export default function PrintPreview({
                     {sectionEnabled('achievements') && (
                         <Section title={uiText('Achievements', locale)}>
                             <Deferred
-                                data={['achievements', 'legacyAchievements']}
+                                data="achievements"
                                 fallback={<Skeleton className="h-10 w-full" />}
                             >
                                 {achievementRows.length === 0 ? (

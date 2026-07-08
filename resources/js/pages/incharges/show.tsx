@@ -12,7 +12,8 @@ import {
     X,
     Trophy,
 } from 'lucide-react';
-import { type ChangeEvent, type FormEvent, useState } from 'react';
+import {   useState } from 'react';
+import type {ChangeEvent, FormEvent} from 'react';
 import InchargeController from '@/actions/App/Http/Controllers/InchargeController';
 import {
     changelog as inchargeChangelog,
@@ -20,23 +21,12 @@ import {
     specialAchievements as inchargeSpecialAchievements,
     teams as inchargeTeams,
 } from '@/actions/App/Http/Controllers/InchargeProfileTabController';
-import Heading from '@/components/heading';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import InputError from '@/components/input-error';
-import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import Heading from '@/components/heading';
+import InputError from '@/components/input-error';
+import { ChangeLog } from '@/components/shared/change-log';
+import type { AuditEntry } from '@/components/shared/change-log';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -47,6 +37,18 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -54,7 +56,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Table,
     TableBody,
@@ -63,10 +64,10 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { ChangeLog } from '@/components/shared/change-log';
-import type { AuditEntry } from '@/components/shared/change-log';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { cn } from '@/lib/utils';
 
 type Incharge = {
     id: number;
@@ -469,11 +470,13 @@ function submitAchievement(event: FormEvent): void {
 
         if (!payload.level) {
             achievementForm.setError('level', t('Level is required.'));
+
             return;
         }
 
         if (!payload.title) {
             achievementForm.setError('title', t('Title is required.'));
+
             return;
         }
 
@@ -482,16 +485,19 @@ function submitAchievement(event: FormEvent): void {
                 'competition_details',
                 t('Competition details are required.'),
             );
+
             return;
         }
 
         if (!payload.sport_discipline) {
             achievementForm.setError('sport_discipline', t('Sport is required.'));
+
             return;
         }
 
         if (!payload.event_date) {
             achievementForm.setError('event_date', t('Event date is required.'));
+
             return;
         }
 
@@ -502,6 +508,7 @@ function submitAchievement(event: FormEvent): void {
             )
         ) {
             achievementForm.setError('medal_type', t('Invalid medal type.'));
+
             return;
         }
 
@@ -510,11 +517,13 @@ function submitAchievement(event: FormEvent): void {
             (!Number.isInteger(payload.position) || payload.position < 1 || payload.position > 9999)
         ) {
             achievementForm.setError('position', t('Enter a valid position.'));
+
             return;
         }
 
         if (payload.event_date !== null && !isIsoDate(payload.event_date)) {
             achievementForm.setError('event_date', t('Use YYYY-MM-DD format.'));
+
             return;
         }
 
@@ -562,11 +571,13 @@ function submitAchievement(event: FormEvent): void {
 
         if (!payload.title) {
             specialAchievementForm.setError('title', t('Title is required.'));
+
             return;
         }
 
         if (!SPECIAL_ACHIEVEMENT_TYPES.includes(payload.achievement_type as (typeof SPECIAL_ACHIEVEMENT_TYPES)[number])) {
             specialAchievementForm.setError('achievement_type', t('Invalid achievement type.'));
+
             return;
         }
 
@@ -576,6 +587,7 @@ function submitAchievement(event: FormEvent): void {
             !isIsoDate(payload.awarded_on)
         ) {
             specialAchievementForm.setError('awarded_on', t('Use YYYY-MM-DD format.'));
+
             return;
         }
 

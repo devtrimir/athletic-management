@@ -1,4 +1,11 @@
-import { Head, Link, router, setLayoutProps, useForm } from '@inertiajs/react';
+import {
+    Head,
+    Link,
+    router,
+    setLayoutProps,
+    useForm,
+    usePage,
+} from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarDays,
@@ -1299,6 +1306,7 @@ export default function TournamentsShow({
     events?: EventRow[];
 }) {
     const { t } = useTranslation();
+    const page = usePage();
 
     const [addEventOpen, setAddEventOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
@@ -1337,6 +1345,28 @@ export default function TournamentsShow({
         });
     }
 
+    const currentQuery = Object.fromEntries(
+        new URLSearchParams(page.url.split('?')[1] ?? ''),
+    );
+
+    function tournamentContextQuery(): Record<string, string> {
+        const eventFilterKeys = new Set([
+            'filter[q]',
+            'filter[sport_id]',
+            'filter[gender]',
+            'filter[participation_status]',
+            'filter[event_type]',
+            'filter[print_orientation]',
+            'filter[report_type]',
+        ]);
+
+        return Object.fromEntries(
+            Object.entries(currentQuery).filter(
+                ([key]) => !eventFilterKeys.has(key),
+            ),
+        );
+    }
+
     function buildEventFilterQuery(
         overrides: Partial<EventFilters> = {},
     ): Record<string, string> {
@@ -1352,7 +1382,7 @@ export default function TournamentsShow({
             print_orientation: overrides.print_orientation ?? null,
             report_type: overrides.report_type ?? null,
         };
-        const query: Record<string, string> = {};
+        const query: Record<string, string> = tournamentContextQuery();
 
         for (const [key, value] of Object.entries(merged)) {
             if (value) {
@@ -1375,7 +1405,7 @@ export default function TournamentsShow({
     function clearEventFilters() {
         router.get(
             tournamentEvents.url(tournament.id),
-            {},
+            tournamentContextQuery(),
             {
                 preserveScroll: true,
                 preserveState: true,
@@ -1831,7 +1861,11 @@ export default function TournamentsShow({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                         <Button variant="outline" size="sm" asChild>
-                            <Link href={tournamentsIndex.url()}>
+                            <Link
+                                href={tournamentsIndex.url({
+                                    query: tournamentContextQuery(),
+                                })}
+                            >
                                 <ArrowLeft className="mr-1.5 h-4 w-4" />
                                 {t('Back')}
                             </Link>
@@ -1867,7 +1901,9 @@ export default function TournamentsShow({
                     <TabsList>
                         <TabsTrigger value="overview" asChild>
                             <Link
-                                href={showTournament.url(tournament.id)}
+                                href={showTournament.url(tournament.id, {
+                                    query: tournamentContextQuery(),
+                                })}
                                 prefetch
                             >
                                 {t('Overview')}
@@ -1875,7 +1911,9 @@ export default function TournamentsShow({
                         </TabsTrigger>
                         <TabsTrigger value="events" asChild>
                             <Link
-                                href={tournamentEvents.url(tournament.id)}
+                                href={tournamentEvents.url(tournament.id, {
+                                    query: buildEventFilterQuery(),
+                                })}
                                 prefetch
                             >
                                 {t('Events')}
@@ -2876,6 +2914,9 @@ export default function TournamentsShow({
                                                                                                                                 tournament.id,
                                                                                                                             event: ev.id,
                                                                                                                         },
+                                                                                                                        {
+                                                                                                                            query: buildEventFilterQuery(),
+                                                                                                                        },
                                                                                                                     )}
                                                                                                                     className="font-medium leading-snug hover:underline"
                                                                                                                 >
@@ -3106,6 +3147,9 @@ export default function TournamentsShow({
                                                                                                                                 tournament:
                                                                                                                                     tournament.id,
                                                                                                                                 event: ev.id,
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                query: buildEventFilterQuery(),
                                                                                                                             },
                                                                                                                         )}
                                                                                                                     >
