@@ -13,7 +13,6 @@ import {
     ExternalLink,
     Medal,
     Minus,
-    Trash2,
     Trophy,
     Printer,
 } from 'lucide-react';
@@ -28,7 +27,6 @@ import {
     show as showMember,
 } from '@/actions/App/Http/Controllers/MemberController';
 import { show as exportMember } from '@/actions/App/Http/Controllers/MemberExportController';
-import { destroy as destroyLegacyAchievement } from '@/actions/App/Http/Controllers/MemberLegacyAchievementController';
 import {
     store as storeMemberPhoto,
     destroy as destroyMemberPhoto,
@@ -47,10 +45,6 @@ import {
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
-import {
-    EditAchievementDialog,
-    LegacyAchievementsTab,
-} from '@/components/members/legacy-achievements-tab';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
 import { MemberPerformanceTab } from '@/components/members/member-performance-tab';
 import type { MemberPerformanceData } from '@/components/members/member-performance-tab';
@@ -63,16 +57,6 @@ import type { SpecialAchievementsData } from '@/components/members/special-achie
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -149,7 +133,6 @@ type StatusEntry = {
     recorded_by_name: string | null;
 };
 type Alias = { id: number; alias: string; source: string };
-type SportOption = { id: number; name: string };
 
 function displayPostingLocation(member: Member): string | null {
     return member.current_unit?.name ?? member.posting_district?.name ?? null;
@@ -290,7 +273,7 @@ type PromotionRow = {
     recorded_by_name: string | null;
     evidences: {
         id: number;
-        type: 'member_legacy_achievement' | 'achievement' | 'participation';
+        type: 'achievement' | 'participation';
         evidence_id: number;
     }[];
 };
@@ -346,37 +329,6 @@ type AchievementFiltersState = {
     tier: string;
     eventClass: string;
     benefit: 'all' | 'benefit' | 'promotion';
-};
-
-type LegacyAchievement = {
-    id: number;
-    period: string;
-    session: { id: number; name: string } | null;
-    level: string;
-    competition_details: string;
-    event_date: string | null;
-    venue: string | null;
-    sport_id: number | null;
-    sport: { id: number; name: string } | null;
-    sport_discipline: string | null;
-    event: string | null;
-    discipline: string | null;
-    weight_category: string | null;
-    gender_class: string | null;
-    medal_type: string | null;
-    position: number | null;
-    sort_order: number | null;
-    remarks: string | null;
-    benefits: Array<{
-        id: number;
-        benefit_type: string;
-        promoted_from_rank: string | null;
-        promoted_to_rank: string | null;
-        cash_amount: string | null;
-        benefit_date: string | null;
-        order_reference: string | null;
-        remarks: string | null;
-    }>;
 };
 
 type ExternalCoachingData = {
@@ -460,7 +412,6 @@ export default function MembersShow({
     memberTeams,
     participations: participationsProp,
     achievementsData: achievementsDataProp,
-    legacyAchievements,
     promotions,
     specialAchievements,
     performance,
@@ -468,8 +419,6 @@ export default function MembersShow({
     auditLog,
     media,
     ranks,
-    sessions,
-    sports,
 }: {
     member: Member;
     activeTab?: MemberShowTab;
@@ -478,7 +427,6 @@ export default function MembersShow({
     memberTeams?: MemberTeamRow[];
     participations?: ParticipationGroup[];
     achievementsData?: AchievementsData;
-    legacyAchievements?: LegacyAchievement[];
     promotions?: PromotionRow[];
     specialAchievements?: SpecialAchievementsData;
     performance?: MemberPerformanceData;
@@ -486,8 +434,6 @@ export default function MembersShow({
     auditLog?: AuditEntry[];
     media?: ComponentProps<typeof MemberMediaTab>['initialData'];
     ranks?: RankOption[];
-    sessions?: Array<{ id: number; name: string; is_current?: boolean }>;
-    sports?: SportOption[];
 }) {
     const memberId = member.id;
     const activeTab = MEMBER_SHOW_TABS.includes(activeTabProp)
@@ -507,13 +453,10 @@ export default function MembersShow({
         id: number;
         eventName: string;
     } | null>(null);
-    const [pendingLegacyAchievementDelete, setPendingLegacyAchievementDelete] =
-        useState<LegacyAchievement | null>(null);
     const [dateFromFilter, setDateFromFilter] = useState('');
     const [dateToFilter, setDateToFilter] = useState('');
     const displayName = member.full_name;
     const sportName = (sport: { name: string }): string => sport.name;
-    const sportOptions = sports ?? [];
     const tabLinks: Record<MemberShowTab, string> = {
         overview: showMember.url(member),
         teams: memberTeamsRoute.url(member),
@@ -616,156 +559,6 @@ export default function MembersShow({
         },
         [t],
     );
-
-    const postRecruitmentLegacyMedalAchievements = useMemo(() => {
-        return (legacyAchievements ?? [])
-            .filter((achievement) => {
-                if (achievement.period !== 'POST_RECRUITMENT') {
-                    return false;
-                }
-
-                const medalType = achievement.medal_type?.toUpperCase();
-
-                return (
-                    medalType === 'GOLD' ||
-                    medalType === 'SILVER' ||
-                    medalType === 'BRONZE' ||
-                    medalType === 'MERIT'
-                );
-            })
-            .sort((a, b) => {
-                const aSort = a.sort_order ?? Number.MAX_SAFE_INTEGER;
-                const bSort = b.sort_order ?? Number.MAX_SAFE_INTEGER;
-
-                if (aSort !== bSort) {
-                    return aSort - bSort;
-                }
-
-                return (b.event_date ?? '').localeCompare(a.event_date ?? '');
-            });
-    }, [legacyAchievements]);
-
-    const legacyAchievementParticipationGroups = useMemo(() => {
-        const sessionById = new Map<
-            number,
-            {
-                id: number;
-                name: string;
-                is_current?: boolean;
-            }
-        >();
-
-        for (const session of sessions ?? []) {
-            sessionById.set(session.id, session);
-        }
-
-        const groups = new Map<number, ParticipationGroup>();
-
-        for (const group of participations ?? []) {
-            groups.set(group.session.id, {
-                ...group,
-                participations: [...group.participations],
-            });
-        }
-
-        const buildSyntheticParticipation = (
-            achievement: LegacyAchievement,
-        ): ParticipationEntry => {
-            const fallbackSessionName =
-                achievement.session?.name || t('Other session');
-            const tournamentName =
-                achievement.competition_details?.trim() || fallbackSessionName;
-            const eventName =
-                achievement.event?.trim() ||
-                achievement.competition_details?.trim() ||
-                fallbackSessionName;
-
-            return {
-                id: -achievement.id,
-                position: achievement.position,
-                media_files_count: 0,
-                tournament: {
-                    id: -achievement.id,
-                    name: tournamentName,
-                    tier_code: achievement.level || null,
-                    tier_weight: null,
-                    date_from: achievement.event_date ?? null,
-                    date_to: null,
-                    venue: achievement.venue ?? null,
-                    session_id: achievement.session?.id ?? null,
-                    sport: achievement.sport
-                        ? {
-                              id: achievement.sport.id,
-                              name: achievement.sport.name,
-                          }
-                        : null,
-                },
-                event: {
-                    id: -achievement.id,
-                    name: eventName,
-                    gender_class: achievement.gender_class ?? '',
-                    discipline:
-                        achievement.discipline ??
-                        achievement.sport_discipline ??
-                        null,
-                    weight_category: achievement.weight_category ?? null,
-                    sport: achievement.sport
-                        ? {
-                              id: achievement.sport.id,
-                              name: achievement.sport.name,
-                          }
-                        : null,
-                },
-                team: null,
-                achievement: {
-                    id: -achievement.id,
-                    medal_type: achievement.medal_type ?? '',
-                    position: achievement.position,
-                    remarks: achievement.remarks ?? null,
-                    benefits: achievement.benefits.map((benefit) => ({
-                        id: benefit.id,
-                        benefit_type: benefit.benefit_type,
-                        promoted_from_rank: benefit.promoted_from_rank,
-                        promoted_to_rank: benefit.promoted_to_rank,
-                        cash_amount: benefit.cash_amount,
-                        benefit_date: benefit.benefit_date,
-                        order_reference: benefit.order_reference,
-                        remarks: benefit.remarks,
-                    })),
-                },
-            };
-        };
-
-        for (const achievement of postRecruitmentLegacyMedalAchievements) {
-            const session = achievement.session;
-            const groupSessionId = session?.id ?? -achievement.id - 10_000_000;
-            const fallbackSessionName = session?.name || t('Other session');
-            const sessionCurrent = true;
-
-            const group = groups.get(groupSessionId);
-
-            if (group) {
-                group.participations = [
-                    ...group.participations,
-                    buildSyntheticParticipation(achievement),
-                ];
-                continue;
-            }
-
-            groups.set(groupSessionId, {
-                session: {
-                    id: groupSessionId,
-                    name:
-                        sessionById.get(session?.id ?? -1)?.name ??
-                        fallbackSessionName,
-                    is_current: sessionCurrent,
-                },
-                participations: [buildSyntheticParticipation(achievement)],
-            });
-        }
-
-        return Array.from(groups.values());
-    }, [postRecruitmentLegacyMedalAchievements, sessions, t, participations]);
 
     const formatReadableDate = useCallback(
         (value: string | null): string | null => {
@@ -874,20 +667,8 @@ export default function MembersShow({
             }
         }
 
-        for (const achievement of postRecruitmentLegacyMedalAchievements) {
-            if (isOtherTierOrLevel(achievement.level)) {
-                continue;
-            }
-
-            const medal = achievement.medal_type?.toUpperCase();
-
-            if (medal && medal in summary) {
-                summary[medal as keyof typeof summary] += 1;
-            }
-        }
-
         return summary;
-    }, [achievementsData, postRecruitmentLegacyMedalAchievements]);
+    }, [achievementsData]);
 
     const filteredSessionGroups = useMemo(() => {
         const isCurrentSession = (value: unknown): boolean =>
@@ -917,8 +698,6 @@ export default function MembersShow({
 
             const promotionRowsForItem = (() => {
                 const seen = new Map<number, PromotionRow>();
-                const legacyAchievementId =
-                    item.id < 0 ? Math.abs(item.id) : null;
 
                 for (const promotion of promotionLookup.get(
                     `participation:${item.id}`,
@@ -929,14 +708,6 @@ export default function MembersShow({
                 if (item.achievement?.id) {
                     for (const promotion of promotionLookup.get(
                         `achievement:${item.achievement.id}`,
-                    ) ?? []) {
-                        seen.set(promotion.id, promotion);
-                    }
-                }
-
-                if (legacyAchievementId !== null) {
-                    for (const promotion of promotionLookup.get(
-                        `member_legacy_achievement:${legacyAchievementId}`,
                     ) ?? []) {
                         seen.set(promotion.id, promotion);
                     }
@@ -1018,7 +789,7 @@ export default function MembersShow({
             return haystack.includes(search);
         };
 
-        return legacyAchievementParticipationGroups
+        return (participations ?? [])
             .filter((group) => {
                 if (sessionFilter === 'current') {
                     return isCurrentSession(group.session.is_current);
@@ -1047,7 +818,7 @@ export default function MembersShow({
         dateToFilter,
         eventSearch,
         medalFilter,
-        legacyAchievementParticipationGroups,
+        participations,
         achievementBenefitTypes,
         promotionLookup,
         promotionSummary,
@@ -1252,41 +1023,10 @@ export default function MembersShow({
                 }
             }
 
-            if (participation.id < 0) {
-                for (const promotion of promotionLookup.get(
-                    `member_legacy_achievement:${Math.abs(participation.id)}`,
-                ) ?? []) {
-                    seen.set(promotion.id, promotion);
-                }
-            }
-
             return Array.from(seen.values());
         },
         [promotionLookup],
     );
-
-    function isLegacyAchievementLinked(
-        participation: ParticipationEntry,
-    ): boolean {
-        return eventPromotionRows(participation).length > 0;
-    }
-
-    function confirmDeleteLegacyAchievement(
-        achievement: LegacyAchievement | null,
-    ): void {
-        if (!achievement) {
-            return;
-        }
-
-        router.delete(
-            destroyLegacyAchievement.url({
-                member: {
-                    id: member.id,
-                },
-                legacyAchievement: achievement,
-            }),
-        );
-    }
 
     function eventBadgeClass(
         kind: 'session' | 'tier' | 'class' | 'medal' | 'promotion' | 'benefit',
@@ -1927,34 +1667,26 @@ export default function MembersShow({
                                     })}
                                 </div>
                             )}
-                            <LegacyAchievementsTab
-                                member={member}
-                                sessions={sessions ?? []}
-                                sports={sportOptions}
-                                legacyAchievements={legacyAchievements}
-                                supplementaryNoPadding
-                                hidePostRecruitmentRows
-                                postRecruitmentContent={
-                                    loadingParticipations ||
-                                    participations === null ||
-                                    loadingAchievements ||
-                                    achievementsData === null ? (
-                                        <div className="space-y-2 p-4">
-                                            {[1, 2, 3].map((n) => (
-                                                <Skeleton
-                                                    key={n}
-                                                    className="h-10 w-full"
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : achievementTierGroups.length === 0 ? (
-                                        <div className="rounded-xl border bg-card p-6">
-                                            <p className="text-sm text-muted-foreground">
-                                                {t('No events.')}
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3 p-4">
+                            {loadingParticipations ||
+                            participations === null ||
+                            loadingAchievements ||
+                            achievementsData === null ? (
+                                <div className="space-y-2 p-4">
+                                    {[1, 2, 3].map((n) => (
+                                        <Skeleton
+                                            key={n}
+                                            className="h-10 w-full"
+                                        />
+                                    ))}
+                                </div>
+                            ) : achievementTierGroups.length === 0 ? (
+                                <div className="rounded-xl border bg-card p-6">
+                                    <p className="text-sm text-muted-foreground">
+                                        {t('No events.')}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3 p-4">
                                             <div className="sticky top-3 z-10 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/85">
                                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                                     <div className="flex min-w-0 flex-1 flex-wrap gap-1.5 text-xs text-muted-foreground">
@@ -2195,11 +1927,6 @@ export default function MembersShow({
                                                                                         'Prize money',
                                                                                     )}
                                                                                 </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Actions',
-                                                                                    )}
-                                                                                </TableHead>
                                                                             </TableRow>
                                                                         </TableHeader>
                                                                         <TableBody>
@@ -2208,17 +1935,6 @@ export default function MembersShow({
                                                                                     group,
                                                                                     participation,
                                                                                 }) => {
-                                                                                    const isSyntheticParticipation =
-                                                                                        participation.id <
-                                                                                        0;
-                                                                                    const legacyAchievement =
-                                                                                        legacyAchievements?.find(
-                                                                                            (
-                                                                                                achievement,
-                                                                                            ) =>
-                                                                                                achievement.id ===
-                                                                                                -participation.id,
-                                                                                        );
                                                                                     const promotionsForRow =
                                                                                         eventPromotionRows(
                                                                                             participation,
@@ -2229,13 +1945,6 @@ export default function MembersShow({
                                                                                                 .achievement
                                                                                                 ?.benefits,
                                                                                             promotionsForRow,
-                                                                                        );
-                                                                                    const legacyAchievementIsLinked =
-                                                                                        isSyntheticParticipation &&
-                                                                                        legacyAchievement !==
-                                                                                            null &&
-                                                                                        isLegacyAchievementLinked(
-                                                                                            participation,
                                                                                         );
                                                                                     const isHighlightedAchievement =
                                                                                         (highlightedAchievement.achievementId !==
@@ -2508,42 +2217,6 @@ export default function MembersShow({
                                                                                                     )}
                                                                                                 </div>
                                                                                             </TableCell>
-                                                                                            <TableCell>
-                                                                                                {isSyntheticParticipation &&
-                                                                                                legacyAchievement ? (
-                                                                                                    <div className="flex items-center justify-end gap-1">
-                                                                                                        <EditAchievementDialog
-                                                                                                            achievement={
-                                                                                                                legacyAchievement
-                                                                                                            }
-                                                                                                            member={{
-                                                                                                                id: member.id,
-                                                                                                            }}
-                                                                                                            sessions={
-                                                                                                                sessions ??
-                                                                                                                []
-                                                                                                            }
-                                                                                                            sports={
-                                                                                                                sportOptions
-                                                                                                            }
-                                                                                                        />
-                                                                                                        {!legacyAchievementIsLinked ? (
-                                                                                                            <Button
-                                                                                                                variant="ghost"
-                                                                                                                size="icon"
-                                                                                                                className="size-7 text-destructive hover:text-destructive"
-                                                                                                                onClick={() => {
-                                                                                                                    setPendingLegacyAchievementDelete(
-                                                                                                                        legacyAchievement,
-                                                                                                                    );
-                                                                                                                }}
-                                                                                                            >
-                                                                                                                <Trash2 className="size-4" />
-                                                                                                            </Button>
-                                                                                                        ) : null}
-                                                                                                    </div>
-                                                                                                ) : null}
-                                                                                            </TableCell>
                                                                                         </TableRow>
                                                                                     );
                                                                                 },
@@ -2557,9 +2230,7 @@ export default function MembersShow({
                                                 </div>
                                             )}
                                         </div>
-                                    )
-                                }
-                            />
+                            )}
                         </div>
                     </TabsContent>
                     <TabsContent value="performance">
@@ -2859,7 +2530,6 @@ export default function MembersShow({
                                 ranks={ranks ?? []}
                                 promotions={promotions}
                                 participations={participations ?? []}
-                                legacyAchievements={legacyAchievements}
                                 achievements={
                                     achievementsData?.achievements ?? []
                                 }
@@ -3323,7 +2993,7 @@ export default function MembersShow({
                                             <SelectItem value="all">
                                                 {t('All sessions')}
                                             </SelectItem>
-                                            {legacyAchievementParticipationGroups.map(
+                                            {(participations ?? []).map(
                                                 (group) => (
                                                     <SelectItem
                                                         key={group.session.id}
@@ -3463,7 +3133,7 @@ export default function MembersShow({
                                             </SelectItem>
                                             {Array.from(
                                                 new Set(
-                                                    legacyAchievementParticipationGroups.flatMap(
+                                                    (participations ?? []).flatMap(
                                                         (group) =>
                                                             group.participations
                                                                 .map(
@@ -3518,7 +3188,7 @@ export default function MembersShow({
                                             </SelectItem>
                                             {Array.from(
                                                 new Set(
-                                                    legacyAchievementParticipationGroups.flatMap(
+                                                    (participations ?? []).flatMap(
                                                         (group) =>
                                                             group.participations.map(
                                                                 (
@@ -3618,46 +3288,6 @@ export default function MembersShow({
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog
-                open={pendingLegacyAchievementDelete !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setPendingLegacyAchievementDelete(null);
-                    }
-                }}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            {t('Delete legacy achievement?')}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {t(
-                                'This will permanently remove the selected legacy achievement record.',
-                            )}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel
-                            onClick={() =>
-                                setPendingLegacyAchievementDelete(null)
-                            }
-                        >
-                            {t('Cancel')}
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={() => {
-                                confirmDeleteLegacyAchievement(
-                                    pendingLegacyAchievementDelete,
-                                );
-                                setPendingLegacyAchievementDelete(null);
-                            }}
-                        >
-                            {t('Delete')}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </>
     );
 }

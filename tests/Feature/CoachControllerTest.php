@@ -161,12 +161,13 @@ test('index filter nis_certified=1 returns only certified coaches', function () 
     $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
     $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
     $coach = Coach::factory()->nisCertified()->create(['organization_id' => $user->organization_id]);
-    CoachAssignment::factory()->create([
+    $assignment = CoachAssignment::factory()->create([
         'coach_id' => $coach->id,
         'team_id' => $team->id,
         'session_id' => $session->id,
         'is_current' => true,
     ]);
+    $assignment->update(['assigned_at' => '2026-01-05 00:00:00']);
     Coach::factory()->create(['organization_id' => $user->organization_id, 'nis_certified' => false]);
 
     $this->actingAs($user)
@@ -247,6 +248,182 @@ test('index inactive tab shows coaches without active current-session team assig
             ->where('coaches.total', 1)
             ->where('coaches.data.0.full_name', 'Available Coach')
         );
+});
+
+test('unauthenticated user is redirected from coaches print', function () {
+    $this->get(route('coaches.print'))->assertRedirect(route('login'));
+});
+
+test('user without coaches.view gets 403 on coaches print', function () {
+    $this->actingAs(coachUser())->get(route('coaches.print'))->assertForbidden();
+});
+
+test('coaches print active filter includes active current-session coaches only', function () {
+    $user = coachUser('coaches.view');
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
+    $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
+    $activeCoach = Coach::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'Print Active Coach']);
+    Coach::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'Print Inactive Coach']);
+
+    CoachAssignment::factory()->create([
+        'coach_id' => $activeCoach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.print', ['filter' => ['status_scope' => 'active']]))
+        ->assertOk()
+        ->assertSeeText('Active coaches')
+        ->assertSeeText('Print Active Coach')
+        ->assertDontSeeText('Print Inactive Coach');
+});
+
+test('coaches print inactive filter includes coaches without active current-session assignment', function () {
+    $user = coachUser('coaches.view');
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
+    $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
+    $activeCoach = Coach::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'Still Active Coach']);
+    Coach::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'Printable Inactive Coach']);
+
+    CoachAssignment::factory()->create([
+        'coach_id' => $activeCoach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.print', ['filter' => ['status_scope' => 'inactive']]))
+        ->assertOk()
+        ->assertSeeText('Inactive coaches')
+        ->assertSeeText('Printable Inactive Coach')
+        ->assertDontSeeText('Still Active Coach');
+});
+
+test('coaches print supports portrait and landscape page orientation', function () {
+    $user = coachUser('coaches.view');
+
+    $this->actingAs($user)
+        ->get(route('coaches.print', ['orientation' => 'portrait']))
+        ->assertOk()
+        ->assertSee('@page{size:A4 portrait', false);
+
+    $this->actingAs($user)
+        ->get(route('coaches.print', ['orientation' => 'landscape']))
+        ->assertOk()
+        ->assertSee('@page{size:A4 landscape', false);
+});
+
+test('coaches print follows coaches listing layout columns', function () {
+    $user = coachUser('coaches.view');
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
+    $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Athletics']);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Column Coach',
+        'pno' => 'PNO-777',
+        'mobile' => '9999999999',
+    ]);
+    $coach->sports()->attach($sport->id, ['sport_event' => '100m']);
+
+    $assignment = CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+    $assignment->update(['assigned_at' => '2026-01-05 00:00:00']);
+
+    $this->actingAs($user)
+        ->get(route('coaches.print', [
+            'filter' => ['status_scope' => 'active'],
+        ]))
+        ->assertOk()
+        ->assertSeeText('Coach')
+        ->assertSeeText('PNO')
+        ->assertSeeText('Playable Sport')
+        ->assertSeeText(__('Sport'))
+        ->assertSeeText(__('Event / Weight'))
+        ->assertSeeText(__('Teams'))
+        ->assertSeeText(__('Team'))
+        ->assertSeeText(__('Session'))
+        ->assertSeeText(__('Role'))
+        ->assertSeeText(__('Assigned at'))
+        ->assertSeeText('Posting')
+        ->assertSeeText('Column Coach')
+        ->assertSeeText('Athletics')
+        ->assertSeeText('100m')
+        ->assertSeeText('05-01-2026')
+        ->assertSeeText('PNO-777');
+});
+
+test('coaches.print de-dupes duplicate columns and rows', function () {
+    $user = coachUser('coaches.view');
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
+    $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Duplicate Column Coach',
+        'pno' => 'PNO-11',
+        'blood_group' => 'B+',
+    ]);
+
+    CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+
+    $response = $this->actingAs($user)->get(route('coaches.print', [
+        'filter' => ['status_scope' => 'active'],
+        'columns' => ['coach', 'coach', 'blood_group', 'blood_group'],
+    ]));
+
+    $content = (string) $response->getContent();
+
+    expect($response->getStatusCode())->toBe(200);
+    expect(substr_count($content, '<th>'))->toBe(2);
+    expect(substr_count($content, 'Duplicate Column Coach'))->toBe(1);
+});
+
+test('coaches print leaves empty playable sport cells blank', function () {
+    $user = coachUser('coaches.view');
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
+    $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'No Sport Coach',
+    ]);
+
+    CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.print', [
+            'filter' => ['status_scope' => 'active'],
+        ]))
+        ->assertOk()
+        ->assertSeeText('No Sport Coach')
+        ->assertDontSeeText(__('Not added'));
+});
+
+test('coaches print excludes coaches from other organizations', function () {
+    $user = coachUser('coaches.view');
+    $other = Organization::factory()->create();
+    Coach::factory()->create(['organization_id' => $other->id, 'full_name' => 'Other Org Coach']);
+
+    $this->actingAs($user)
+        ->get(route('coaches.print', ['filter' => ['status_scope' => 'inactive']]))
+        ->assertOk()
+        ->assertDontSeeText('Other Org Coach');
 });
 
 test('index includes own organization certificate type filter values', function () {

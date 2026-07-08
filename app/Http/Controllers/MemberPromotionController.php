@@ -8,7 +8,6 @@ use App\Http\Requests\Members\StoreMemberPromotionRequest;
 use App\Http\Requests\Members\UpdateMemberPromotionRequest;
 use App\Models\Achievement;
 use App\Models\Member;
-use App\Models\MemberLegacyAchievement;
 use App\Models\MemberPromotion;
 use App\Models\Participation;
 use App\Models\PromotionEvidence;
@@ -124,13 +123,11 @@ class MemberPromotionController extends Controller
      */
     private function syncEvidences(MemberPromotion $promotion, Member $member, array $evidences): void
     {
-        $legacyIds = MemberLegacyAchievement::where('member_id', $member->id)->pluck('id')->all();
         $achievementIds = Achievement::whereHas('participation', fn ($q) => $q->where('member_id', $member->id))->pluck('id')->all();
         $participationIds = Participation::where('member_id', $member->id)->pluck('id')->all();
 
         foreach ($evidences as $evidence) {
             $isAllowed = match ($evidence['type']) {
-                'member_legacy_achievement' => in_array($evidence['id'], $legacyIds, true),
                 'achievement' => in_array($evidence['id'], $achievementIds, true),
                 'participation' => in_array($evidence['id'], $participationIds, true),
             };

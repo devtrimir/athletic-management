@@ -34,7 +34,6 @@ use App\Http\Controllers\MediaFileController;
 use App\Http\Controllers\MemberAliasController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberExportController;
-use App\Http\Controllers\MemberLegacyAchievementController;
 use App\Http\Controllers\MemberPhotoController;
 use App\Http\Controllers\MemberProfileTabController;
 use App\Http\Controllers\MemberPromotionController;
@@ -111,6 +110,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('members/{member}/preview', [MemberController::class, 'preview'])->name('members.preview');
     Route::get('members/{member}/export', [MemberExportController::class, 'show'])->name('members.export.show');
     Route::get('coaches/export', [CoachExportController::class, 'index'])->name('coaches.export');
+    Route::get('coaches/print', [CoachController::class, 'print'])->name('coaches.print');
     Route::resource('coaches', CoachController::class);
     Route::get('coaches/{coach}/assignments', [CoachProfileTabController::class, 'assignments'])->name('coaches.assignments');
     Route::get('coaches/{coach}/sports', [CoachProfileTabController::class, 'sports'])->name('coaches.sports');
@@ -208,9 +208,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('members/{member}/aliases/{alias}', [MemberAliasController::class, 'destroy'])->name('members.aliases.destroy');
     Route::post('members/{member}/photo', [MemberPhotoController::class, 'store'])->name('members.photo.store');
     Route::delete('members/{member}/photo', [MemberPhotoController::class, 'destroy'])->name('members.photo.destroy');
-    Route::post('members/{member}/legacy-achievements', [MemberLegacyAchievementController::class, 'store'])->name('members.legacy-achievements.store');
-    Route::patch('members/{member}/legacy-achievements/{legacyAchievement}', [MemberLegacyAchievementController::class, 'update'])->name('members.legacy-achievements.update');
-    Route::delete('members/{member}/legacy-achievements/{legacyAchievement}', [MemberLegacyAchievementController::class, 'destroy'])->name('members.legacy-achievements.destroy');
     Route::post('members/{member}/special-achievements', [MemberSpecialAchievementController::class, 'store'])->name('members.special-achievements.store');
     Route::patch('members/{member}/special-achievements/{specialAchievement}', [MemberSpecialAchievementController::class, 'update'])->name('members.special-achievements.update');
     Route::delete('members/{member}/special-achievements/{specialAchievement}', [MemberSpecialAchievementController::class, 'destroy'])->name('members.special-achievements.destroy');

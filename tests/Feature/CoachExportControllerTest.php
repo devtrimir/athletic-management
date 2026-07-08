@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 use App\Exports\ReportExport;
 use App\Models\Coach;
+use App\Models\CoachAssignment;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sport;
+use App\Models\SportSession;
+use App\Models\Team;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -79,6 +82,17 @@ test('coaches.export defaults to listing columns', function () {
         'organization_id' => $user->organization_id,
         'name' => 'Athletics',
     ]);
+    $session = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => '2026-27',
+        'is_current' => true,
+    ]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'name' => 'Lucknow Team',
+        'is_active' => true,
+    ]);
     $coach = Coach::factory()->create([
         'organization_id' => $user->organization_id,
         'unit_id' => $unit->id,
@@ -89,21 +103,64 @@ test('coaches.export defaults to listing columns', function () {
         'mobile' => '9999999999',
         'nis_certified' => true,
     ]);
-    $coach->sports()->attach($sport->id);
+    $coach->sports()->attach($sport->id, ['sport_event' => '100m']);
+    $assignment = CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'role' => 'HEAD',
+        'is_current' => true,
+    ]);
+    $assignment->update(['assigned_at' => '2026-01-05 00:00:00']);
 
     $this->actingAs($user)->get(route('coaches.export'))->assertOk();
 
     Excel::assertDownloaded('coaches-'.now()->format('Y-m-d').'.xlsx', function (ReportExport $export): bool {
         expect($export->headings())->toBe([
-            'S.No.',
-            'Name',
-            'PNO',
-            'Blood Group',
-            'Gender',
-            'Playable Sport',
-            'Unit / District',
-            'Mobile Number',
-            'NIS Certified',
+            [
+                'S.No.',
+                'Coach',
+                'PNO',
+                'Blood Group',
+                'Gender',
+                'Playable Sport',
+                '',
+                __('Teams'),
+                '',
+                '',
+                '',
+                'Posting',
+                'Mobile Number',
+                'NIS Certified',
+            ],
+            [
+                '',
+                '',
+                '',
+                '',
+                '',
+                __('Sport'),
+                'Event / Weight',
+                __('Team'),
+                __('Session'),
+                __('Role'),
+                'Assigned at',
+                '',
+                '',
+                '',
+            ],
+        ]);
+        expect($export->mergeRanges())->toBe([
+            'A1:A2',
+            'B1:B2',
+            'C1:C2',
+            'D1:D2',
+            'E1:E2',
+            'F1:G1',
+            'H1:K1',
+            'L1:L2',
+            'M1:M2',
+            'N1:N2',
         ]);
 
         expect($export->collection()->first())->toBe([
@@ -111,8 +168,13 @@ test('coaches.export defaults to listing columns', function () {
             'Asha Coach',
             '12345',
             'O+',
-            'F',
+            'Female',
             'Athletics',
+            '100m',
+            'Lucknow Team',
+            '2026-27',
+            'HEAD',
+            '05-01-2026',
             'PAC Lucknow',
             '9999999999',
             'Yes',
@@ -144,6 +206,44 @@ test('coaches.export with q filter exports matching coaches', function () {
     $this->actingAs($user)->get(route('coaches.export', ['filter' => ['q' => 'राम']]))->assertOk();
 
     Excel::assertDownloaded('coaches-'.now()->format('Y-m-d').'.xlsx');
+});
+
+test('coaches.export de-dupes duplicate columns and ids', function () {
+    Excel::fake();
+
+    $user = coachExportUser('coaches.view');
+    $coachOne = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Repeat Coach 1',
+        'blood_group' => 'A+',
+        'pno' => 'PNO-1',
+    ]);
+    $coachTwo = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Repeat Coach 2',
+        'blood_group' => 'B+',
+        'pno' => 'PNO-2',
+    ]);
+
+    $this->actingAs($user)->get(route('coaches.export', [
+        'ids' => [$coachOne->id, $coachOne->id, $coachTwo->id],
+        'columns' => ['coach', 'coach', 'blood_group', 'blood_group'],
+    ]))->assertOk();
+
+    Excel::assertDownloaded('coaches-'.now()->format('Y-m-d').'.xlsx', function (ReportExport $export): bool {
+        expect($export->headings())->toBe([
+            'Coach',
+            'Blood Group',
+        ]);
+
+        expect($export->collection()->count())->toBe(2);
+        expect($export->collection()->map(fn (array $row): string => (string) $row[0])->values()->toArray())->toEqualCanonicalizing([
+            'Repeat Coach 1',
+            'Repeat Coach 2',
+        ]);
+
+        return true;
+    });
 });
 
 // ---------------------------------------------------------------------------

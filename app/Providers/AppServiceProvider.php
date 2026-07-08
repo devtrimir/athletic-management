@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Auth\Rbac;
 use App\Models\Achievement;
-use App\Models\MemberLegacyAchievement;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
@@ -34,7 +33,6 @@ class AppServiceProvider extends ServiceProvider
     protected function configureMorphMap(): void
     {
         Relation::morphMap([
-            'member_legacy_achievement' => MemberLegacyAchievement::class,
             'achievement' => Achievement::class,
         ]);
     }

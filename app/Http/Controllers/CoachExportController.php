@@ -6,10 +6,18 @@ namespace App\Http\Controllers;
 
 use App\Exports\ReportExport;
 use App\Models\Coach;
+use App\Models\CoachAssignment;
+use App\Models\Sport;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Maatwebsite\Excel\Events\AfterSheet;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -19,11 +27,12 @@ class CoachExportController extends Controller
     /** @var array<int, string> */
     private const DEFAULT_COLUMNS = [
         'serial_number',
-        'full_name',
+        'coach',
         'pno',
         'blood_group',
         'gender',
         'sports',
+        'current_assignments',
         'unit_district',
         'mobile',
         'nis_certified',
@@ -32,12 +41,13 @@ class CoachExportController extends Controller
     /** @var array<string, string> */
     private const COLUMN_LABELS = [
         'serial_number' => 'S.No.',
-        'full_name' => 'Name',
+        'coach' => 'Coach',
         'pno' => 'PNO',
         'blood_group' => 'Blood Group',
         'gender' => 'Gender',
         'sports' => 'Playable Sport',
-        'unit_district' => 'Unit / District',
+        'current_assignments' => 'Current team names',
+        'unit_district' => 'Posting',
         'mobile' => 'Mobile Number',
         'nis_certified' => 'NIS Certified',
         'display_name' => 'Display Name',
@@ -49,15 +59,21 @@ class CoachExportController extends Controller
         'linked_member' => 'Linked Member Code',
     ];
 
+    private const GENDER_LABELS = [
+        'M' => 'Male',
+        'F' => 'Female',
+        'O' => 'Other gender',
+    ];
+
     public function index(Request $request): BinaryFileResponse
     {
         Gate::authorize('viewAny', Coach::class);
 
         /** @var array<int, string> $columns */
-        $columns = $request->query('columns', self::DEFAULT_COLUMNS);
+        $columns = $this->selectedExportColumns($request->query('columns', self::DEFAULT_COLUMNS));
 
         /** @var array<int, string> $ids */
-        $ids = $request->query('ids', []);
+        $ids = $this->normalizedIds($request->query('ids', []));
 
         if (! empty($ids)) {
             $coaches = Coach::whereIn('id', array_map('intval', $ids))
@@ -65,122 +81,136 @@ class CoachExportController extends Controller
                     'district:id,name',
                     'unit:id,name',
                     'member:id,member_code',
-                    'sports:id,name',
+                    'sports' => fn ($q) => $q
+                        ->select('sports.id', 'sports.name')
+                        ->withPivot([
+                            'sport_event',
+                            'is_primary',
+                            'level_master_id',
+                            'level',
+                            'effective_from',
+                            'effective_to',
+                            'notes',
+                        ]),
                     'certifications:id,coach_id,name,certificate_type',
-                    'assignmentHistory:id,coach_id',
+                    'currentAssignments:id,coach_id,team_id,session_id,role,assigned_at',
+                    'currentAssignments.team:id,name,session_id',
+                    'currentAssignments.session:id,name',
                 ])
+                ->withCount(['assignmentHistory as assignments_count' => fn ($q) => $q->current()])
                 ->orderBy('full_name')
-                ->get();
+                ->get()
+                ->unique('id')
+                ->values();
         } else {
-            $coaches = QueryBuilder::for(Coach::class)
+            $coaches = QueryBuilder::for(Coach::query())
                 ->allowedFilters([
                     AllowedFilter::callback('status_scope', fn (Builder $query, mixed $value): Builder => $this->filterByStatusScope($query, (string) $value)),
                     AllowedFilter::exact('nis_certified'),
                     AllowedFilter::exact('blood_group'),
                     AllowedFilter::exact('district_id'),
                     AllowedFilter::exact('unit_id'),
-                    AllowedFilter::exact('nis_master_id'),
-                    AllowedFilter::exact('tier_master_id'),
-                    AllowedFilter::exact('rank_master_id'),
-                    AllowedFilter::exact('designation_master_id'),
                     AllowedFilter::exact('coach_status'),
-                    AllowedFilter::partial('designation', 'designation'),
-                    AllowedFilter::partial('email', 'email'),
-                    AllowedFilter::exact('gender'),
-                    AllowedFilter::callback('has_certification', function ($query, $value): void {
+                    AllowedFilter::exact('mobile'),
+                    AllowedFilter::callback('has_certification', function (Builder $query, mixed $value): void {
                         $query->when(
                             $value === 'true' || $value === true,
-                            fn ($q) => $q->whereHas('certifications'),
-                            fn ($q) => $q->whereDoesntHave('certifications')
+                            fn (Builder $q) => $q->whereHas('certifications'),
+                            fn (Builder $q) => $q->whereDoesntHave('certifications')
                         );
                     }),
-                    AllowedFilter::callback('certification_name', function ($query, $value): void {
+                    AllowedFilter::callback('certification_name', function (Builder $query, mixed $value): void {
                         if ($value === null || $value === '') {
                             return;
                         }
 
                         $term = '%'.mb_strtolower((string) $value).'%';
-                        $query->whereHas('certifications', fn ($q) => $q->whereRaw('LOWER(name) LIKE ?', [$term]));
+
+                        $query->whereHas('certifications', fn (Builder $q) => $q->whereRaw('LOWER(name) LIKE ?', [$term]));
                     }),
-                    AllowedFilter::callback('certification_type', function ($query, $value): void {
+                    AllowedFilter::callback('certification_type', function (Builder $query, mixed $value): void {
                         if ($value === null || $value === '') {
                             return;
                         }
 
-                        $query->whereHas('certifications', fn ($q) => $q->where('certificate_type', (string) $value));
+                        $query->whereHas('certifications', fn (Builder $q) => $q->where('certificate_type', (string) $value));
                     }),
-                    AllowedFilter::callback('sport_id', function ($query, $value): void {
+                    AllowedFilter::callback('sport_id', function (Builder $query, mixed $value): void {
                         if ($value === null || $value === '') {
                             return;
                         }
 
-                        $query->whereHas('sports', fn ($q) => $q->where('sports.id', (int) $value));
+                        $query->whereHas('sports', fn (Builder $q) => $q->where('sports.id', (int) $value));
                     }),
-                    AllowedFilter::callback('has_active_assignment', function ($query, $value): void {
+                    AllowedFilter::callback('has_active_assignment', function (Builder $query, mixed $value): void {
                         if ($value === 'true' || $value === true) {
                             $query->whereHas('currentAssignments');
                         } elseif ($value === 'false' || $value === false) {
                             $query->whereDoesntHave('currentAssignments');
                         }
                     }),
-                    AllowedFilter::callback('assignment_role', function ($query, $value): void {
-                        if ($value === null || $value === '') {
-                            return;
-                        }
-
-                        $query->whereHas('currentAssignments', fn ($q) => $q->where('role', (string) $value));
+                    AllowedFilter::callback('q', function (Builder $query, mixed $value): void {
+                        $term = '%'.mb_strtolower(trim((string) $value).'%');
+                        $query->where(function (Builder $q) use ($term): void {
+                            $q->whereRaw('LOWER(full_name) LIKE ?', [$term])
+                                ->orWhereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$term])
+                                ->orWhereRaw('LOWER(COALESCE(pno, \'\')) LIKE ?', [$term])
+                                ->orWhereHas('aliases', fn (Builder $aliasQuery) => $aliasQuery->whereRaw('LOWER(alias) LIKE ?', [$term]));
+                        });
                     }),
-                    AllowedFilter::callback('has_member', function ($query, $value): void {
-                        if ($value === 'true' || $value === true) {
-                            $query->whereNotNull('member_id');
-                        } else {
-                            $query->whereNull('member_id');
-                        }
-                    }),
-                    AllowedFilter::partial('q', 'full_name'),
                 ])
-                ->allowedSorts(['full_name', 'pno', 'created_at'])
+                ->allowedSorts(['full_name', 'pno', 'coach_status', 'designation', 'created_at'])
                 ->defaultSort('full_name')
                 ->with([
-                    'member:id,member_code',
                     'district:id,name',
                     'unit:id,name',
+                    'currentAssignments' => fn ($q) => $q
+                        ->select(['id', 'team_id', 'coach_id', 'session_id', 'role', 'assigned_at'])
+                        ->with([
+                            'team:id,name,session_id',
+                            'session:id,name',
+                        ])
+                        ->latest('assigned_at'),
+                    'member:id,member_code',
                     'certifications:id,coach_id,name,certificate_type',
-                    'sports:id,name',
-                    'assignmentHistory:id,coach_id',
+                    'sports' => fn ($q) => $q
+                        ->select('sports.id', 'sports.name')
+                        ->withPivot([
+                            'is_primary',
+                            'level_master_id',
+                            'level',
+                            'sport_event',
+                            'effective_from',
+                            'effective_to',
+                            'notes',
+                        ]),
                 ])
-                ->get();
+                ->withCount(['assignmentHistory as assignments_count' => fn ($q) => $q->current()])
+                ->get()
+                ->unique('id')
+                ->values();
         }
 
-        $validColumns = array_intersect($columns, array_keys(self::COLUMN_LABELS));
-        $headings = array_map(fn (string $col) => self::COLUMN_LABELS[$col], $validColumns);
+        $validColumns = array_values(array_intersect($columns, array_keys(self::COLUMN_LABELS)));
+        $layout = $this->exportColumnLayout($validColumns);
+        $headingRow = count($layout['headerRows']) + 1;
+        $lastColumn = Coordinate::stringFromColumnIndex(count($layout['headings']));
 
-        $rows = $coaches->map(function (Coach $coach, int $index) use ($validColumns) {
-            $row = [];
-            foreach ($validColumns as $col) {
-                $row[$col] = match ($col) {
-                    'serial_number' => $index + 1,
-                    'nis_certified' => $coach->nis_certified ? 'Yes' : 'No',
-                    'unit_district' => $coach->unit?->name ?? $coach->district?->name,
-                    'linked_member' => $coach->member?->member_code,
-                    'certifications' => $coach->certifications
-                        ->map(fn ($cert) => trim(($cert->name ?? '').' '.($cert->certificate_type ? "({$cert->certificate_type})" : '')))
-                        ->filter()
-                        ->join('|'),
-                    'sports' => $coach->sports
-                        ->map(fn ($sport) => $sport->name)
-                        ->filter()
-                        ->join('|'),
-                    'assignment_history_count' => $coach->assignmentHistory->count(),
-                    default => $coach->{$col},
-                };
-            }
-
-            return $row;
-        });
+        $rows = $coaches->map(fn (Coach $coach, int $index): array => $this->coachExportRow($coach, $layout['keys'], $index + 1));
 
         return Excel::download(
-            new ReportExport($rows, array_values($headings), 'Coaches'),
+            new ReportExport(
+                $rows,
+                $layout['headings'],
+                'Coaches',
+                headerRows: $layout['headerRows'],
+                mergeRanges: $layout['mergeRanges'],
+                afterSheet: fn (AfterSheet $event) => $this->styleCoachExportSheet(
+                    $event,
+                    $headingRow,
+                    $lastColumn,
+                ),
+            ),
             'coaches-'.now()->format('Y-m-d').'.xlsx',
         );
     }
@@ -194,45 +224,256 @@ class CoachExportController extends Controller
             'district:id,name',
             'unit:id,name',
             'certifications:id,coach_id,name,certificate_type',
-            'sports:id,name',
-            'assignmentHistory:id,coach_id',
+            'sports' => fn ($q) => $q
+                ->select('sports.id', 'sports.name')
+                ->withPivot([
+                    'is_primary',
+                    'level_master_id',
+                    'level',
+                    'sport_event',
+                    'effective_from',
+                    'effective_to',
+                    'notes',
+                ]),
+            'currentAssignments:id,coach_id,team_id,session_id,role,assigned_at',
+            'currentAssignments.team:id,name,session_id',
+            'currentAssignments.session:id,name',
         ]);
 
         /** @var array<int, string> $columns */
-        $columns = $request->query('columns', self::DEFAULT_COLUMNS);
-        $validColumns = array_intersect($columns, array_keys(self::COLUMN_LABELS));
-        $headings = array_map(fn (string $col) => self::COLUMN_LABELS[$col], $validColumns);
+        $columns = $this->selectedExportColumns($request->query('columns', self::DEFAULT_COLUMNS));
+        $validColumns = array_values(array_intersect($columns, array_keys(self::COLUMN_LABELS)));
+        $layout = $this->exportColumnLayout($validColumns);
+        $headingRow = count($layout['headerRows']) + 1;
+        $lastColumn = Coordinate::stringFromColumnIndex(count($layout['headings']));
 
-        $rows = collect([[]])->map(function () use ($coach, $validColumns) {
-            $row = [];
-            foreach ($validColumns as $col) {
-                $row[$col] = match ($col) {
-                    'serial_number' => 1,
-                    'nis_certified' => $coach->nis_certified ? 'Yes' : 'No',
-                    'unit_district' => $coach->unit?->name ?? $coach->district?->name,
-                    'linked_member' => $coach->member?->member_code,
-                    'certifications' => $coach->certifications
-                        ->map(fn ($cert) => trim(($cert->name ?? '').' '.($cert->certificate_type ? "({$cert->certificate_type})" : '')))
-                        ->filter()
-                        ->join('|'),
-                    'sports' => $coach->sports
-                        ->map(fn ($sport) => $sport->name)
-                        ->filter()
-                        ->join('|'),
-                    'assignment_history_count' => $coach->assignmentHistory->count(),
-                    default => $coach->{$col},
-                };
-            }
-
-            return $row;
-        });
+        $rows = collect([$this->coachExportRow($coach, $layout['keys'], 1)]);
 
         $filename = 'coach-'.($coach->pno ?? $coach->id).'-'.now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(
-            new ReportExport($rows, array_values($headings), $coach->full_name),
+            new ReportExport(
+                $rows,
+                $layout['headings'],
+                $coach->full_name,
+                headerRows: $layout['headerRows'],
+                mergeRanges: $layout['mergeRanges'],
+                afterSheet: fn (AfterSheet $event) => $this->styleCoachExportSheet(
+                    $event,
+                    $headingRow,
+                    $lastColumn,
+                ),
+            ),
             $filename,
         );
+    }
+
+    /**
+     * @param  list<string>  $columns
+     * @return array{headings:list<string>,headerRows:list<list<string>>,mergeRanges:list<string>,keys:list<string>}
+     */
+    private function exportColumnLayout(array $columns): array
+    {
+        $hasGroupedColumns = in_array('sports', $columns, true) || in_array('current_assignments', $columns, true);
+
+        if (! $hasGroupedColumns) {
+            return [
+                'headings' => array_map(fn (string $column): string => self::COLUMN_LABELS[$column], $columns),
+                'headerRows' => [],
+                'mergeRanges' => [],
+                'keys' => $columns,
+            ];
+        }
+
+        $mainHeadings = [];
+        $detailHeadings = [];
+        $mergeRanges = [];
+        $keys = [];
+        $columnIndex = 1;
+
+        foreach ($columns as $column) {
+            if ($column === 'sports') {
+                $mainHeadings[] = self::COLUMN_LABELS[$column];
+                $mainHeadings[] = '';
+                $detailHeadings[] = __('Sport');
+                $detailHeadings[] = __('Event / Weight');
+                $keys[] = 'sport_name';
+                $keys[] = 'sport_event';
+                $mergeRanges[] = Coordinate::stringFromColumnIndex($columnIndex).'1:'.Coordinate::stringFromColumnIndex($columnIndex + 1).'1';
+                $columnIndex += 2;
+
+                continue;
+            }
+
+            if ($column === 'current_assignments') {
+                $mainHeadings[] = __('Teams');
+                $mainHeadings[] = '';
+                $mainHeadings[] = '';
+                $mainHeadings[] = '';
+                $detailHeadings[] = __('Team');
+                $detailHeadings[] = __('Session');
+                $detailHeadings[] = __('Role');
+                $detailHeadings[] = __('Assigned at');
+                $keys[] = 'assignment_team';
+                $keys[] = 'assignment_session';
+                $keys[] = 'assignment_role';
+                $keys[] = 'assignment_assigned_at';
+                $mergeRanges[] = Coordinate::stringFromColumnIndex($columnIndex).'1:'.Coordinate::stringFromColumnIndex($columnIndex + 3).'1';
+                $columnIndex += 4;
+
+                continue;
+            }
+
+            $mainHeadings[] = self::COLUMN_LABELS[$column];
+            $detailHeadings[] = '';
+            $keys[] = $column;
+            $mergeRanges[] = Coordinate::stringFromColumnIndex($columnIndex).'1:'.Coordinate::stringFromColumnIndex($columnIndex).'2';
+            $columnIndex++;
+        }
+
+        return [
+            'headings' => $detailHeadings,
+            'headerRows' => [$mainHeadings],
+            'mergeRanges' => $mergeRanges,
+            'keys' => $keys,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $keys
+     * @return array<string, mixed>
+     */
+    private function coachExportRow(Coach $coach, array $keys, int $serialNumber): array
+    {
+        $sportRows = $coach->sports->map(fn (Sport $sport): array => [
+            'sport_name' => (string) $sport->name,
+            'sport_event' => (string) ($sport->pivot?->sport_event ?? ''),
+        ]);
+        $assignmentRows = $coach->currentAssignments->map(fn (CoachAssignment $assignment): array => [
+            'assignment_team' => (string) ($assignment->team?->name ?? ''),
+            'assignment_session' => (string) ($assignment->session?->name ?? $assignment->team?->session?->name ?? ''),
+            'assignment_role' => (string) ($assignment->role ?? ''),
+            'assignment_assigned_at' => (string) ($assignment->assigned_at?->format('d-m-Y') ?? ''),
+        ]);
+
+        $row = [];
+
+        foreach ($keys as $key) {
+            $row[$key] = match ($key) {
+                'serial_number' => $serialNumber,
+                'coach' => implode(' | ', array_filter([
+                    trim((string) ($coach->designation ?? '')) !== '' ? trim((string) $coach->designation) : null,
+                    $coach->full_name,
+                ])),
+                'pno' => $coach->pno,
+                'nis_certified' => $coach->nis_certified ? 'Yes' : 'No',
+                'gender' => self::GENDER_LABELS[$coach->gender] ?? ($coach->gender ?? ''),
+                'unit_district' => (string) ($coach->unit?->name ?? $coach->district?->name),
+                'sport_name', 'sport_event' => $this->stackedExportValue($sportRows, $key),
+                'assignment_team', 'assignment_session', 'assignment_role', 'assignment_assigned_at' => $this->stackedExportValue($assignmentRows, $key),
+                'current_assignments' => $this->flatAssignmentsValue($coach),
+                'linked_member' => $coach->member?->member_code,
+                'certifications' => $coach->certifications
+                    ->map(fn ($cert) => trim(($cert->name ?? '').' '.($cert->certificate_type ? "({$cert->certificate_type})" : '')))
+                    ->filter()
+                    ->join('|'),
+                'sports' => $coach->sports
+                    ->map(function (Sport $sport): string {
+                        $event = (string) ($sport->pivot?->sport_event ?? '');
+
+                        return $event !== '' ? $sport->name.' ('.$event.')' : $sport->name;
+                    })
+                    ->filter()
+                    ->join('|'),
+                'assignment_history_count' => (string) ($coach->assignments_count ?? 0),
+                default => $coach->{$key},
+            };
+        }
+
+        return $row;
+    }
+
+    /** @param  Collection<int, array<string, string>>  $rows */
+    private function stackedExportValue(Collection $rows, string $key): string
+    {
+        return $rows->pluck($key)->filter(fn (string $value): bool => $value !== '')->join("\n");
+    }
+
+    private function flatAssignmentsValue(Coach $coach): string
+    {
+        return $coach->currentAssignments
+            ->map(function (CoachAssignment $assignment): string {
+                $team = $assignment->team?->name ?? '';
+                $session = $assignment->session?->name ?? $assignment->team?->session?->name ?? '';
+                $role = (string) ($assignment->role ?? '');
+                $assignedAt = $assignment->assigned_at?->format('d-m-Y') ?? '';
+
+                return implode(' | ', array_filter([$team, $session, $role, $assignedAt]));
+            })
+            ->join('; ');
+    }
+
+    private function styleCoachExportSheet(AfterSheet $event, int $headingRow, string $lastColumn): void
+    {
+        $sheet = $event->sheet->getDelegate();
+        $lastRow = max($sheet->getHighestDataRow(), $headingRow);
+        $headerStartRow = 1;
+
+        $sheet->freezePane('A'.($headingRow + 1));
+        $sheet->getDefaultRowDimension()->setRowHeight(22);
+        $sheet->getStyle("A{$headerStartRow}:{$lastColumn}{$lastRow}")->applyFromArray([
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '9CA3AF'],
+                ],
+            ],
+        ]);
+
+        $sheet->getStyle("A{$headerStartRow}:{$lastColumn}{$headingRow}")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '1E3A8A'],
+            ],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        ]);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function normalizedIds(mixed $ids): array
+    {
+        if (! is_array($ids)) {
+            $ids = [$ids];
+        }
+
+        return array_values(
+            array_unique(
+                array_map(
+                    fn (mixed $id): int => (int) $id,
+                    array_filter($ids, fn (mixed $id): bool => is_numeric($id)),
+                )
+            )
+        );
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function selectedExportColumns(mixed $columns): array
+    {
+        $requested = is_array($columns) ? $columns : self::DEFAULT_COLUMNS;
+        $requested = array_values(array_filter(array_unique($requested), 'is_string'));
+        $valid = array_values(array_intersect($requested, array_keys(self::COLUMN_LABELS)));
+
+        return $valid === [] ? self::DEFAULT_COLUMNS : $valid;
     }
 
     private function filterByStatusScope(Builder $query, string $value): Builder

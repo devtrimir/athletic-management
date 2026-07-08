@@ -15,7 +15,6 @@ use App\Models\ExternalCoachPerformanceUpdate;
 use App\Models\ExternalTrainingAttendance;
 use App\Models\MediaFile;
 use App\Models\Member;
-use App\Models\MemberLegacyAchievement;
 use App\Models\MemberPromotion;
 use App\Models\MemberSpecialAchievement;
 use App\Models\Participation;
@@ -65,7 +64,6 @@ class MemberProfileData
             'activeTab' => 'events',
             'participations' => $this->participationsPayload($member),
             'achievementsData' => $this->achievementsPayload($member),
-            'legacyAchievements' => $this->legacyAchievementsPayload($member),
             'promotions' => $this->promotionsPayload($member),
         ];
     }
@@ -109,7 +107,6 @@ class MemberProfileData
             'activeTab' => 'promotions',
             'participations' => $this->participationsPayload($member),
             'achievementsData' => $this->achievementsPayload($member),
-            'legacyAchievements' => $this->legacyAchievementsPayload($member),
             'promotions' => $this->promotionsPayload($member),
         ];
     }
@@ -156,7 +153,6 @@ class MemberProfileData
                 $member->statusHistory()->with('recorder')->get()
             )->resolve(),
             'memberTeams' => $this->teamsPayload($member),
-            'legacyAchievements' => $this->legacyAchievementsPayload($member),
             'achievements' => $this->achievementsPayload($member)['achievements'],
             'specialAchievements' => $this->specialAchievementsPayload($member),
             'externalCoaching' => $this->externalCoachingPayload($member),
@@ -276,45 +272,6 @@ class MemberProfileData
                 ])
                 ->all(),
         ];
-    }
-
-    /** @return array<int, array<string, mixed>> */
-    private function legacyAchievementsPayload(Member $member): array
-    {
-        return $member->legacyAchievements()
-            ->with(['benefits', 'session:id,name', 'sport:id,name'])
-            ->orderBy('period')
-            ->orderBy('sort_order')
-            ->orderBy('event_date')
-            ->get()
-            ->map(fn (MemberLegacyAchievement $achievement): array => [
-                'id' => $achievement->id,
-                'period' => $achievement->period,
-                'session' => $achievement->session ? [
-                    'id' => $achievement->session->id,
-                    'name' => $achievement->session->name,
-                ] : null,
-                'level' => $achievement->level,
-                'competition_details' => $achievement->competition_details,
-                'event_date' => $achievement->event_date?->toDateString(),
-                'venue' => $achievement->venue,
-                'sport_id' => $achievement->sport_id,
-                'sport' => $achievement->sport ? [
-                    'id' => $achievement->sport->id,
-                    'name' => $achievement->sport->name,
-                ] : null,
-                'sport_discipline' => $achievement->sport_discipline,
-                'event' => $achievement->event,
-                'discipline' => $achievement->discipline,
-                'weight_category' => $achievement->weight_category,
-                'gender_class' => $achievement->gender_class,
-                'medal_type' => $achievement->medal_type,
-                'position' => $achievement->position,
-                'sort_order' => $achievement->sort_order,
-                'remarks' => $achievement->remarks,
-                'benefits' => $this->achievementBenefitsPayload($achievement->benefits),
-            ])
-            ->all();
     }
 
     /** @return array<string, mixed> */
@@ -637,46 +594,7 @@ class MemberProfileData
             ]);
         }
 
-        $legacyAchievement = MemberLegacyAchievement::query()
-            ->with('benefits', 'session:id,name')
-            ->find($evidence->evidencable_id);
-
-        if ($legacyAchievement === null) {
-            return $payload;
-        }
-
-        return array_merge($payload, [
-            'summary' => collect([
-                $legacyAchievement->session?->name,
-                $legacyAchievement->competition_details,
-                $legacyAchievement->event,
-                $legacyAchievement->event_date?->toDateString(),
-                $legacyAchievement->level,
-                $legacyAchievement->medal_type,
-            ])->filter()->join(' · '),
-            'session' => $legacyAchievement->session ? [
-                'id' => $legacyAchievement->session->id,
-                'name' => $legacyAchievement->session->name,
-            ] : null,
-            'legacy_achievement' => [
-                'id' => $legacyAchievement->id,
-                'period' => $legacyAchievement->period,
-                'level' => $legacyAchievement->level,
-                'competition_details' => $legacyAchievement->competition_details,
-                'event' => $legacyAchievement->event,
-                'event_date' => $legacyAchievement->event_date?->toDateString(),
-                'venue' => $legacyAchievement->venue,
-                'sport_discipline' => $legacyAchievement->sport_discipline,
-                'medal_type' => $legacyAchievement->medal_type,
-                'position' => $legacyAchievement->position,
-                'remarks' => $legacyAchievement->remarks,
-                'session' => $legacyAchievement->session ? [
-                    'id' => $legacyAchievement->session->id,
-                    'name' => $legacyAchievement->session->name,
-                ] : null,
-                'benefits' => $this->achievementBenefitsPayload($legacyAchievement->benefits),
-            ],
-        ]);
+        return $payload;
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -699,7 +617,6 @@ class MemberProfileData
         return match ($type) {
             'participation', Participation::class => 'participation',
             'achievement', Achievement::class => 'achievement',
-            'member_legacy_achievement', MemberLegacyAchievement::class => 'member_legacy_achievement',
             default => null,
         };
     }

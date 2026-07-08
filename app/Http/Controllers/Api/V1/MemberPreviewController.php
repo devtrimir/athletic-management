@@ -24,7 +24,6 @@ class MemberPreviewController extends Controller
             'sport',
             'playableSports',
             'statusHistory',
-            'legacyAchievements',
         ]);
 
         // Load team memberships via TeamMember without a direct relation on Member
@@ -80,15 +79,6 @@ class MemberPreviewController extends Controller
                 'reason' => $h->reason,
             ]),
             'team_history' => $teamHistory,
-            'achievements' => $member->legacyAchievements->map(fn ($a) => [
-                'period' => $a->period,
-                'level' => $a->level,
-                'competition_details' => $a->competition_details,
-                'event' => $a->event,
-                'medal_type' => $a->medal_type,
-                'event_date' => $a->event_date?->toDateString(),
-                'venue' => $a->venue,
-            ]),
         ]);
     }
 }

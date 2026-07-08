@@ -40,7 +40,7 @@ class UpdateMemberPromotionRequest extends FormRequest
             'reason' => ['sometimes', 'nullable', 'string'],
             'remarks' => ['sometimes', 'nullable', 'string'],
             'evidences' => ['sometimes', 'array', 'min:1'],
-            'evidences.*.type' => ['required_with:evidences', Rule::in(['member_legacy_achievement', 'achievement', 'participation'])],
+            'evidences.*.type' => ['required_with:evidences', Rule::in(['achievement', 'participation'])],
             'evidences.*.id' => ['required_with:evidences', 'integer', 'min:1'],
         ];
     }

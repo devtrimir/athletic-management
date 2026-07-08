@@ -7,7 +7,6 @@ use App\Models\AchievementBenefit;
 use App\Models\Event;
 use App\Models\MediaFile;
 use App\Models\Member;
-use App\Models\MemberLegacyAchievement;
 use App\Models\MemberPromotion;
 use App\Models\Organization;
 use App\Models\Participation;
@@ -44,14 +43,12 @@ function promotionUser(): User
 
 function promotionFixtures(Member $member): array
 {
-    $legacy = MemberLegacyAchievement::factory()->forMember($member)->create();
-
     $tournament = Tournament::factory()->forOrganization($member->organization)->create();
     $event = Event::factory()->forTournament($tournament)->create();
     $participation = Participation::factory()->for($member)->forEvent($event)->create();
     $achievement = Achievement::factory()->forParticipation($participation)->create();
 
-    return [$legacy, $participation, $achievement];
+    return [$participation, $achievement];
 }
 
 function promotionRanks(Organization $organization): array
@@ -85,7 +82,7 @@ test('member show exposes promotions tab data', function () {
     $user = promotionUser();
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     promotionRanks($member->organization);
-    [$legacy, $achievement] = promotionFixtures($member);
+    [$participation, $achievement] = promotionFixtures($member);
 
     $promotion = MemberPromotion::create([
         'organization_id' => $member->organization_id,
@@ -101,8 +98,8 @@ test('member show exposes promotions tab data', function () {
     $promotion->evidences()->createMany([
         [
             'organization_id' => $member->organization_id,
-            'evidencable_type' => 'member_legacy_achievement',
-            'evidencable_id' => $legacy->id,
+            'evidencable_type' => 'participation',
+            'evidencable_id' => $participation->id,
         ],
         [
             'organization_id' => $member->organization_id,
@@ -198,7 +195,7 @@ test('member promotion records evidence and appears in database', function () {
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     [$fromRank, $toRank] = promotionRanks($member->organization);
     $member->update(['rank' => $fromRank->code]);
-    [$legacy, $participation, $achievement] = promotionFixtures($member);
+    [$participation, $achievement] = promotionFixtures($member);
 
     $response = $this->actingAs($user)->post(route('members.promotions.store', $member), [
         'promotion_date' => now()->toDateString(),
@@ -212,7 +209,6 @@ test('member promotion records evidence and appears in database', function () {
         'remarks' => 'Multiple events reviewed.',
         'evidences' => [
             ['type' => 'participation', 'id' => $participation->id],
-            ['type' => 'member_legacy_achievement', 'id' => $legacy->id],
             ['type' => 'achievement', 'id' => $achievement->id],
         ],
     ]);
@@ -226,7 +222,26 @@ test('member promotion records evidence and appears in database', function () {
     expect($promotion?->cash_reward_reference)->toBe('ORDER-42');
     expect($member->refresh()->rank)->toBe($toRank->code);
     expect($member->refresh()->promotion_date?->toDateString())->toBe(now()->toDateString());
-    expect($promotion?->evidences()->count())->toBe(3);
+    expect($promotion?->evidences()->count())->toBe(2);
+});
+
+test('member promotion rejects legacy achievement evidence', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    [$fromRank, $toRank] = promotionRanks($member->organization);
+    $member->update(['rank' => $fromRank->code]);
+
+    $response = $this->actingAs($user)->post(route('members.promotions.store', $member), [
+        'promotion_date' => now()->toDateString(),
+        'from_rank' => $fromRank->code,
+        'to_rank' => $toRank->code,
+        'reason' => 'Legacy achievement evidence should not be accepted.',
+        'evidences' => [
+            ['type' => 'member_legacy_achievement', 'id' => 1],
+        ],
+    ]);
+
+    $response->assertInvalid(['evidences.0.type']);
 });
 
 test('cash reward only record does not change member rank or promotion date', function () {
@@ -234,7 +249,7 @@ test('cash reward only record does not change member rank or promotion date', fu
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     [$fromRank] = promotionRanks($member->organization);
     $member->update(['rank' => $fromRank->code, 'promotion_date' => null]);
-    [, $participation, $achievement] = promotionFixtures($member);
+    [$participation, $achievement] = promotionFixtures($member);
 
     $response = $this->actingAs($user)->post(route('members.promotions.store', $member), [
         'cash_reward_only' => true,
@@ -284,7 +299,7 @@ test('member promotion updates cash reward fields', function () {
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     [$fromRank, $toRank] = promotionRanks($member->organization);
     $member->update(['rank' => $fromRank->code]);
-    [, $participation, $achievement] = promotionFixtures($member);
+    [$participation, $achievement] = promotionFixtures($member);
 
     $promotion = MemberPromotion::create([
         'organization_id' => $member->organization_id,
@@ -352,22 +367,22 @@ test('cash reward validation explains when selected event has no achievement', f
     ]);
 });
 
-test('achievement benefit created from coach page redirects back to coach', function () {
+test('achievement benefit rejects legacy achievement source from coach page', function () {
     $user = promotionUser();
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
-    [$legacy] = promotionFixtures($member);
+    [$participation] = promotionFixtures($member);
 
-    $this->from('/coaches/123')
+    $this
         ->actingAs($user)
         ->post(route('achievement-benefits.store'), [
             'benefitable_type' => 'member_legacy_achievement',
-            'benefitable_id' => $legacy->id,
+            'benefitable_id' => $participation->id,
             'benefit_type' => 'CASH_AWARD',
             'cash_amount' => '5000.00',
             'benefit_date' => '2026-02-01',
             'order_reference' => 'REWARD-100',
         ])
-        ->assertRedirect('/coaches/123');
+        ->assertInvalid(['benefitable_type']);
 });
 
 test('member promotion accepts uploaded order documents', function () {
@@ -377,7 +392,7 @@ test('member promotion accepts uploaded order documents', function () {
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     [$fromRank, $toRank] = promotionRanks($member->organization);
     $member->update(['rank' => $fromRank->code]);
-    [, , $achievement] = promotionFixtures($member);
+    [, $achievement] = promotionFixtures($member);
 
     $promotion = MemberPromotion::create([
         'organization_id' => $member->organization_id,
