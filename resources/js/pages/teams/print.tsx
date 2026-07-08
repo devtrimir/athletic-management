@@ -93,6 +93,7 @@ function escapeHtml(value: string | null | undefined): string {
 
 function normalizeDate(value: string | null | undefined): string {
     const trimmed = value?.trim() ?? '';
+
     if (!trimmed) {
         return '';
     }
@@ -525,6 +526,7 @@ export default function TeamsPrint({
             );
 
             const removableSections: string[] = [];
+
             if (hasPlayerSection) {
                 if (showAll) {
                     removableSections.push(removedSection);

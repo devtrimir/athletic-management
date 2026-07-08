@@ -31,6 +31,7 @@ use App\Http\Controllers\InchargeSpecialAchievementController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MedalsExportController;
 use App\Http\Controllers\MediaFileController;
+use App\Http\Controllers\MemberAchievementContextController;
 use App\Http\Controllers\MemberAliasController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberExportController;
@@ -213,6 +214,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('members/{member}/special-achievements/{specialAchievement}', [MemberSpecialAchievementController::class, 'destroy'])->name('members.special-achievements.destroy');
     Route::get('members/{member}/special-achievements/{specialAchievement}/order-document', [MemberSpecialAchievementController::class, 'orderDocument'])->name('members.special-achievements.order-document');
     Route::get('members/{member}/special-achievements/{specialAchievement}/order-document/preview', [MemberSpecialAchievementController::class, 'previewOrderDocument'])->name('members.special-achievements.order-document.preview');
+    Route::post('members/{member}/achievements/resolve-and-store', [MemberAchievementContextController::class, 'store'])->name('members.achievements.resolve-and-store');
     Route::post('members/{member}/promotions', [MemberPromotionController::class, 'store'])->name('members.promotions.store');
     Route::patch('members/{member}/promotions/{promotion}', [MemberPromotionController::class, 'update'])->name('members.promotions.update');
     Route::delete('members/{member}/promotions/{promotion}', [MemberPromotionController::class, 'destroy'])->name('members.promotions.destroy');

@@ -16,10 +16,11 @@ import {
     Trophy,
     Printer,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { ComponentProps } from 'react';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
+import { store as storeAchievementContext } from '@/actions/App/Http/Controllers/MemberAchievementContextController';
 import {
     edit as editMember,
     index as membersIndex,
@@ -45,6 +46,7 @@ import {
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
+import AlertError from '@/components/alert-error';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
 import { MemberPerformanceTab } from '@/components/members/member-performance-tab';
 import type { MemberPerformanceData } from '@/components/members/member-performance-tab';
@@ -55,6 +57,7 @@ import { PromotionsTab } from '@/components/members/promotions-tab';
 import { SpecialAchievementsTab } from '@/components/members/special-achievements-tab';
 import type { SpecialAchievementsData } from '@/components/members/special-achievements-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
+import { Combobox } from '@/components/combobox';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
@@ -134,6 +137,45 @@ type StatusEntry = {
 };
 type Alias = { id: number; alias: string; source: string };
 
+type EventTeamRow = {
+    id: number;
+    name: string;
+    is_active: boolean;
+    sport: { id: number; name: string } | null;
+    session: { id: number; name: string; is_current?: boolean } | null;
+};
+
+type TournamentOption = {
+    id: number;
+    session_id: number;
+    tier_id: number;
+    sport_id: number | null;
+    name: string;
+    venue: string | null;
+    date_from: string | null;
+    date_to: string | null;
+    sports: { id: number; name: string }[];
+};
+
+type EventOption = {
+    id: number;
+    tournament_id: number;
+    sport_id: number;
+    name: string;
+    event_type: 'individual' | 'team';
+    participants_required: number | null;
+    gender_class: 'M' | 'F' | 'MIXED' | 'OPEN';
+    discipline: string | null;
+    weight_category: string | null;
+    sport: { id: number; name: string } | null;
+    team_achievements?: Array<{
+        team_id: number;
+        team_name: string | null;
+        medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | string | null;
+        position: number | null;
+    }>;
+};
+
 function displayPostingLocation(member: Member): string | null {
     return member.current_unit?.name ?? member.posting_district?.name ?? null;
 }
@@ -172,6 +214,28 @@ function statusLabel(
     const translated = t(value);
 
     return translated === value ? humanizeCode(value) : translated;
+}
+
+function isEventGenderCompatible(
+    memberGender: string | null | undefined,
+    eventGender: string | null | undefined,
+): boolean {
+    const normalizedMemberGender = (memberGender ?? '').toUpperCase();
+    const normalizedEventGender = (eventGender ?? '').toUpperCase();
+
+    if (normalizedEventGender === '' || ['OPEN', 'MIXED'].includes(normalizedEventGender)) {
+        return true;
+    }
+
+    if (['M', 'MALE'].includes(normalizedMemberGender)) {
+        return normalizedEventGender === 'M';
+    }
+
+    if (['F', 'FEMALE'].includes(normalizedMemberGender)) {
+        return normalizedEventGender === 'F';
+    }
+
+    return true;
 }
 
 function isOtherTierOrLevel(value: string | null | undefined): boolean {
@@ -228,6 +292,7 @@ type ParticipationEntry = {
     event: {
         id: number;
         name: string;
+        event_type?: 'individual' | 'team' | string | null;
         gender_class: string;
         discipline: string | null;
         weight_category: string | null;
@@ -331,6 +396,37 @@ type AchievementFiltersState = {
     benefit: 'all' | 'benefit' | 'promotion';
 };
 
+type QuickAddAchievementForm = {
+    tournament_id: string;
+    event_id: string;
+    reuse_mode: 'auto' | 'manual';
+    tournament_name: string;
+    session_id: string;
+    session_name: string;
+    session_start_year: string;
+    session_end_year: string;
+    is_historical_session: string;
+    tier_id: string;
+    sport_id: string;
+    venue: string;
+    date_from: string;
+    date_to: string;
+    event_name: string;
+    event_sport_id: string;
+    gender_class: 'M' | 'F' | 'MIXED' | 'OPEN';
+    event_type: 'individual' | 'team';
+    discipline: string;
+    weight_category: string;
+    participants_required: string;
+    team_id: string;
+    medal_type: '' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT';
+    position: string;
+    medal_position: string;
+    remarks: string;
+    provisional_reason: string;
+    allow_inactive_member: string;
+};
+
 type ExternalCoachingData = {
     assignments: Array<{
         id: number;
@@ -418,6 +514,12 @@ export default function MembersShow({
     externalCoaching,
     auditLog,
     media,
+    sessions = [],
+    sports = [],
+    tiers = [],
+    tournaments = [],
+    events = [],
+    eventTeams,
     ranks,
 }: {
     member: Member;
@@ -433,6 +535,12 @@ export default function MembersShow({
     externalCoaching?: ExternalCoachingData;
     auditLog?: AuditEntry[];
     media?: ComponentProps<typeof MemberMediaTab>['initialData'];
+    sessions?: { id: number; name: string }[];
+    sports?: { id: number; name: string }[];
+    tiers?: { id: number; code: string }[];
+    tournaments?: TournamentOption[];
+    events?: EventOption[];
+    eventTeams?: EventTeamRow[];
     ranks?: RankOption[];
 }) {
     const memberId = member.id;
@@ -445,6 +553,7 @@ export default function MembersShow({
     const loadingAchievements = false;
     const page = usePage();
     const permissions = page.props.auth.permissions;
+    const canManageMemberBenefits = permissions.includes('members.manageBenefits');
     const { t } = useTranslation();
     const { locale: pageLocale } = page.props;
     const canDeleteMedia = permissions.includes('media.delete');
@@ -509,6 +618,41 @@ export default function MembersShow({
     const [sessionFilter, setSessionFilter] = useState<
         'all' | 'current' | string
     >('all');
+    const [quickAddOpen, setQuickAddOpen] = useState(false);
+    const [quickAddErrors, setQuickAddErrors] = useState<
+        Record<string, string>
+    >({});
+    const [quickAddSaving, setQuickAddSaving] = useState(false);
+    const [quickAddForm, setQuickAddForm] = useState<QuickAddAchievementForm>({
+        tournament_id: '',
+        event_id: '',
+        reuse_mode: 'auto',
+        tournament_name: '',
+        session_id: '',
+        session_name: '',
+        session_start_year: '',
+        session_end_year: '',
+        is_historical_session: '',
+        tier_id: '',
+        sport_id: '',
+        venue: '',
+        date_from: '',
+        date_to: '',
+        event_name: '',
+        event_sport_id: '',
+        gender_class: 'OPEN',
+        event_type: 'individual',
+        discipline: '',
+        weight_category: '',
+        participants_required: '',
+        team_id: '',
+        medal_type: '',
+        position: '',
+        medal_position: '',
+        remarks: '',
+        provisional_reason: 'Match not found in system, create new context.',
+        allow_inactive_member: '',
+    });
     const [medalFilter, setMedalFilter] = useState<
         'all' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'none'
     >('all');
@@ -646,6 +790,418 @@ export default function MembersShow({
         },
         [],
     );
+
+    const resetQuickAddForm = useCallback((): QuickAddAchievementForm => {
+        const session = sessions[0];
+
+        return {
+            tournament_id: '',
+            event_id: '',
+            reuse_mode: 'auto',
+            tournament_name: '',
+            session_id: session ? String(session.id) : '',
+            session_name: '',
+            session_start_year: '',
+            session_end_year: '',
+            is_historical_session: '',
+            tier_id: '',
+            sport_id: '',
+            venue: '',
+            date_from: '',
+            date_to: '',
+            event_name: '',
+            event_sport_id: '',
+            gender_class: 'OPEN',
+            event_type: 'individual',
+            discipline: '',
+            weight_category: '',
+            participants_required: '',
+            team_id: '',
+            medal_type: '',
+            position: '',
+            medal_position: '',
+            remarks: '',
+            provisional_reason: 'Match not found in system, create new context.',
+            allow_inactive_member: '',
+        };
+    }, [sessions]);
+
+    const quickAddSelectedSessionId = Number.parseInt(quickAddForm.session_id || '0', 10) || 0;
+    const quickAddSelectedSportId = Number.parseInt(
+        (quickAddForm.event_sport_id || quickAddForm.sport_id || '0') as string,
+        10,
+    ) || 0;
+    const quickAddSelectedEvent = useMemo(
+        () =>
+            events.find(
+                (event) => String(event.id) === quickAddForm.event_id,
+            ) ?? null,
+        [events, quickAddForm.event_id],
+    );
+    const quickAddSelectedTeamAchievement = useMemo(() => {
+        if (quickAddSelectedEvent?.event_type !== 'team') {
+            return null;
+        }
+
+        const teamAchievements = quickAddSelectedEvent.team_achievements ?? [];
+
+        if (quickAddForm.team_id) {
+            return (
+                teamAchievements.find(
+                    (achievement) =>
+                        String(achievement.team_id) === quickAddForm.team_id,
+                ) ?? null
+            );
+        }
+
+        return teamAchievements.length === 1 ? teamAchievements[0] : null;
+    }, [quickAddForm.team_id, quickAddSelectedEvent]);
+    const isQuickAddHistorical = quickAddForm.is_historical_session === '1';
+    const hasQuickAddSessionContext =
+        quickAddSelectedSessionId > 0 ||
+        (isQuickAddHistorical && quickAddForm.session_name.trim() !== '');
+    const canSelectQuickAddTournament =
+        hasQuickAddSessionContext && quickAddForm.tier_id.trim() !== '';
+    const quickAddSelectedTournament = useMemo(
+        () =>
+            tournaments.find(
+                (tournament) =>
+                    String(tournament.id) === quickAddForm.tournament_id,
+            ) ?? null,
+        [quickAddForm.tournament_id, tournaments],
+    );
+    const quickAddTournamentItems = useMemo(
+        () => {
+            if (!canSelectQuickAddTournament) {
+                return [];
+            }
+
+            return tournaments
+                .filter((tournament): boolean =>
+                    quickAddSelectedSessionId > 0
+                        ? tournament.session_id === quickAddSelectedSessionId
+                        : true,
+                )
+                .filter((tournament): boolean =>
+                    quickAddForm.tier_id
+                        ? String(tournament.tier_id) === quickAddForm.tier_id
+                        : true,
+                )
+                .map((tournament) => ({
+                    value: String(tournament.id),
+                    label: tournament.name,
+                    description: [
+                        tournament.venue,
+                        tournament.date_from,
+                        tournament.sports.map((sport) => sport.name).join(', '),
+                    ]
+                        .filter(Boolean)
+                        .join(' · '),
+                }));
+        },
+        [
+            canSelectQuickAddTournament,
+            quickAddForm.tier_id,
+            quickAddSelectedSessionId,
+            tournaments,
+        ],
+    );
+    const quickAddSportItems = useMemo(() => {
+        const tournamentSports = quickAddSelectedTournament?.sports ?? [];
+        const attachedSportIds = new Set(
+            tournamentSports.map((sport) => sport.id),
+        );
+
+        return sports.map((sport) => ({
+            value: String(sport.id),
+            label: sport.name,
+            group:
+                quickAddSelectedTournament === null
+                    ? undefined
+                    : attachedSportIds.has(sport.id)
+                      ? t('Already in tournament')
+                      : t('Add to tournament'),
+            description:
+                quickAddSelectedTournament === null
+                    ? undefined
+                    : attachedSportIds.has(sport.id)
+                      ? t('Already attached to selected tournament')
+                      : t('Will be added to selected tournament on save'),
+        }));
+    }, [quickAddSelectedTournament, sports, t]);
+    const quickAddEventItems = useMemo(
+        () =>
+            events
+                .filter((event): boolean =>
+                    quickAddForm.tournament_id
+                        ? String(event.tournament_id) === quickAddForm.tournament_id
+                        : false,
+                )
+                .filter((event): boolean =>
+                    quickAddSelectedSportId > 0
+                        ? event.sport_id === quickAddSelectedSportId
+                        : true,
+                )
+                .filter((event): boolean =>
+                    isEventGenderCompatible(member.gender, event.gender_class),
+                )
+                .map((event) => ({
+                    value: String(event.id),
+                    label: event.name,
+                    badge: t(event.event_type === 'team' ? 'Team' : 'Individual'),
+                    badgeTone:
+                        event.event_type === 'team'
+                            ? ('team' as const)
+                            : ('individual' as const),
+                    description: [
+                        event.sport?.name,
+                        event.discipline,
+                        event.weight_category,
+                        event.gender_class,
+                    ]
+                        .filter(Boolean)
+                        .join(' · '),
+                })),
+        [events, member.gender, quickAddForm.tournament_id, quickAddSelectedSportId, t],
+    );
+
+    const quickAddTeamItems = useMemo(() => {
+        const teams = (eventTeams ?? [])
+            .filter((team): boolean => (isQuickAddHistorical ? true : team.is_active))
+            .filter((team): boolean =>
+                quickAddSelectedSessionId > 0 && team.session?.id
+                    ? team.session.id === quickAddSelectedSessionId
+                    : true,
+            )
+            .filter((team): boolean =>
+                quickAddSelectedSportId > 0 && team.sport
+                    ? team.sport.id === quickAddSelectedSportId
+                    : true,
+            )
+            .map((team) => ({
+                value: String(team.id),
+                label:
+                    `${team.name}` +
+                    (team.session?.name ? ` (${team.session.name})` : '') +
+                    (team.sport?.name ? ` - ${team.sport.name}` : ''),
+            }));
+
+        if (teams.length > 0) {
+            return teams;
+        }
+
+        if (quickAddSelectedSessionId > 0) {
+            return (eventTeams ?? [])
+                .filter((team): boolean => (isQuickAddHistorical ? true : team.is_active))
+                .filter((team): boolean => team.session?.id === quickAddSelectedSessionId)
+                .map((team) => ({
+                    value: String(team.id),
+                    label: team.name + (team.sport?.name ? ` - ${team.sport.name}` : ''),
+                }));
+        }
+
+        if (quickAddSelectedSportId > 0) {
+            return (eventTeams ?? [])
+                .filter((team): boolean => isQuickAddHistorical ? true : team.is_active)
+                .filter((team): boolean => team.sport?.id === quickAddSelectedSportId)
+                .map((team) => ({
+                    value: String(team.id),
+                    label: team.name + (team.session?.name ? ` (${team.session.name})` : ''),
+                }));
+        }
+
+        return [];
+    }, [eventTeams, quickAddSelectedSessionId, quickAddSelectedSportId, isQuickAddHistorical]);
+
+    useEffect(() => {
+        const hasSingleOption = quickAddTeamItems.length === 1;
+        const isSelected = quickAddTeamItems.some((team) => team.value === quickAddForm.team_id);
+
+        if (hasSingleOption && !isSelected) {
+            setQuickAddField('team_id', quickAddTeamItems[0].value);
+            return;
+        }
+
+        if (!isSelected) {
+            setQuickAddField('team_id', '');
+        }
+    }, [quickAddTeamItems, quickAddForm.team_id]);
+
+    useEffect(() => {
+        if (quickAddSelectedTournament === null) {
+            return;
+        }
+
+        setQuickAddForm((current) => {
+            const tournamentSportId =
+                quickAddSelectedTournament.sports[0]?.id ??
+                quickAddSelectedTournament.sport_id ??
+                null;
+
+            return {
+                ...current,
+                tournament_name: quickAddSelectedTournament.name,
+                venue: quickAddSelectedTournament.venue ?? current.venue,
+                date_from: quickAddSelectedTournament.date_from ?? current.date_from,
+                date_to: quickAddSelectedTournament.date_to ?? current.date_to,
+                sport_id: tournamentSportId ? String(tournamentSportId) : current.sport_id,
+                event_sport_id: tournamentSportId
+                    ? String(tournamentSportId)
+                    : current.event_sport_id,
+            };
+        });
+    }, [quickAddSelectedTournament]);
+
+    useEffect(() => {
+        if (!quickAddSelectedEvent) {
+            return;
+        }
+
+        const teamAchievement =
+            quickAddSelectedEvent.event_type === 'team' &&
+            (quickAddSelectedEvent.team_achievements ?? []).length === 1
+                ? (quickAddSelectedEvent.team_achievements ?? [])[0]
+                : null;
+
+        setQuickAddForm((current) => ({
+            ...current,
+            event_name: quickAddSelectedEvent.name,
+            event_sport_id: String(quickAddSelectedEvent.sport_id),
+            sport_id: current.sport_id || String(quickAddSelectedEvent.sport_id),
+            event_type: quickAddSelectedEvent.event_type,
+            participants_required: quickAddSelectedEvent.participants_required
+                ? String(quickAddSelectedEvent.participants_required)
+                : '',
+            gender_class: quickAddSelectedEvent.gender_class,
+            discipline: quickAddSelectedEvent.discipline ?? '',
+            weight_category: quickAddSelectedEvent.weight_category ?? '',
+            team_id: teamAchievement
+                ? String(teamAchievement.team_id)
+                : current.team_id,
+            medal_type: teamAchievement?.medal_type
+                ? (teamAchievement.medal_type as QuickAddAchievementForm['medal_type'])
+                : current.medal_type,
+            position:
+                teamAchievement?.position !== null &&
+                teamAchievement?.position !== undefined
+                    ? String(teamAchievement.position)
+                    : current.position,
+        }));
+    }, [quickAddSelectedEvent]);
+
+    useEffect(() => {
+        if (!quickAddSelectedTeamAchievement) {
+            return;
+        }
+
+        setQuickAddForm((current) => ({
+            ...current,
+            medal_type: quickAddSelectedTeamAchievement.medal_type
+                ? (quickAddSelectedTeamAchievement.medal_type as QuickAddAchievementForm['medal_type'])
+                : current.medal_type,
+            position:
+                quickAddSelectedTeamAchievement.position !== null &&
+                quickAddSelectedTeamAchievement.position !== undefined
+                    ? String(quickAddSelectedTeamAchievement.position)
+                    : current.position,
+        }));
+    }, [quickAddSelectedTeamAchievement]);
+
+    const submitQuickAchievement = (): void => {
+        setQuickAddErrors({});
+        const isHistorical = quickAddForm.is_historical_session === '1';
+        const normalizeNumericString = (value: string): string => {
+            const normalized = String(value).trim();
+
+            if (normalized === '' || normalized === '0') {
+                return '';
+            }
+
+            return /^\d+$/.test(normalized) ? normalized : '';
+        };
+        const payload: Record<string, string> = {
+            ...Object.fromEntries(
+                Object.entries(quickAddForm).map(([key, value]) => [
+                    key,
+                    key === 'session_id' ||
+                            key === 'team_id' ||
+                            key === 'sport_id' ||
+                            key === 'event_sport_id' ||
+                            key === 'tier_id' ||
+                            key === 'tournament_id' ||
+                            key === 'event_id'
+                        ? normalizeNumericString(String(value))
+                        : String(value),
+                ]),
+            ),
+        };
+
+        if (!payload.tournament_id) {
+            delete payload.tournament_id;
+        }
+
+        if (!payload.event_id) {
+            delete payload.event_id;
+        }
+
+        if (isHistorical && !payload.session_id) {
+            delete payload.session_id;
+        }
+
+        if (!payload.event_sport_id && payload.sport_id) {
+            payload.event_sport_id = payload.sport_id;
+        }
+
+        setQuickAddSaving(true);
+
+        router.post(storeAchievementContext.url(member), payload, {
+            forceFormData: true,
+            onError: (errors: Record<string, string>) => {
+                const normalized = Object.fromEntries(
+                    Object.entries(errors).map(([key, value]) => [
+                        key,
+                        Array.isArray(value) ? value[0] : String(value),
+                    ]),
+                ) as Record<string, string>;
+
+                setQuickAddErrors(normalized);
+                setQuickAddSaving(false);
+            },
+            onSuccess: () => {
+                setQuickAddSaving(false);
+                setQuickAddOpen(false);
+                setQuickAddForm(resetQuickAddForm());
+                setQuickAddErrors({});
+                router.reload();
+            },
+        });
+    };
+
+    const setQuickAddField = (field: keyof QuickAddAchievementForm, value: string): void => {
+        setQuickAddErrors((current) => {
+            if (!(field in current)) {
+                return current;
+            }
+
+            const next = { ...current };
+
+            delete next[field];
+
+            return next;
+        });
+        setQuickAddForm((current) => ({
+            ...current,
+            [field]: value,
+        }));
+    };
+
+    const getQuickAddError = (
+        field: keyof QuickAddAchievementForm,
+    ): string => {
+        const error = quickAddErrors[field];
+
+        return error ?? '';
+    };
 
     const achievementSummary = useMemo(() => {
         const summary = {
@@ -1029,7 +1585,15 @@ export default function MembersShow({
     );
 
     function eventBadgeClass(
-        kind: 'session' | 'tier' | 'class' | 'medal' | 'promotion' | 'benefit',
+        kind:
+            | 'session'
+            | 'tier'
+            | 'class'
+            | 'medal'
+            | 'promotion'
+            | 'benefit'
+            | 'team'
+            | 'individual',
     ): string {
         const base =
             'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium';
@@ -1047,6 +1611,10 @@ export default function MembersShow({
                 return `${base} border-blue-200 bg-blue-50 text-blue-700`;
             case 'benefit':
                 return `${base} border-violet-200 bg-violet-50 text-violet-700`;
+            case 'team':
+                return `${base} border-indigo-200 bg-indigo-50 text-indigo-700`;
+            case 'individual':
+                return `${base} border-emerald-200 bg-emerald-50 text-emerald-700`;
         }
     }
 
@@ -1623,7 +2191,7 @@ export default function MembersShow({
                     {/* Events */}
                     <TabsContent value="events">
                         <div className="space-y-3">
-                            <div>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
                                 <h3 className="text-base font-semibold">
                                     {t('Member achievements')}
                                 </h3>
@@ -1632,6 +2200,16 @@ export default function MembersShow({
                                         'Competition achievements recorded through tournaments, events, medals, and benefits.',
                                     )}
                                 </p>
+                                        {canManageMemberBenefits ? (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => {
+                                            setQuickAddOpen(true);
+                                        }}
+                                    >
+                                        {t('Add achievement')}
+                                    </Button>
+                                ) : null}
                             </div>
                             {loadingParticipations ||
                             participations === null ||
@@ -2046,28 +2624,51 @@ export default function MembersShow({
                                                                                             </TableCell>
                                                                                             <TableCell>
                                                                                                 <div className="space-y-1.5">
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className="text-left font-medium hover:underline"
-                                                                                                        onClick={() =>
-                                                                                                            setAchievementPreview(
-                                                                                                                {
-                                                                                                                    kind: 'event',
-                                                                                                                    tournament:
-                                                                                                                        participation.tournament,
-                                                                                                                    event: participation.event,
-                                                                                                                    session:
-                                                                                                                        group.session,
-                                                                                                                },
-                                                                                                            )
-                                                                                                        }
-                                                                                                    >
-                                                                                                        {
-                                                                                                            participation
+                                                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                                                        <button
+                                                                                                            type="button"
+                                                                                                            className="text-left font-medium hover:underline"
+                                                                                                            onClick={() =>
+                                                                                                                setAchievementPreview(
+                                                                                                                    {
+                                                                                                                        kind: 'event',
+                                                                                                                        tournament:
+                                                                                                                            participation.tournament,
+                                                                                                                        event: participation.event,
+                                                                                                                        session:
+                                                                                                                            group.session,
+                                                                                                                    },
+                                                                                                                )
+                                                                                                            }
+                                                                                                        >
+                                                                                                            {
+                                                                                                                participation
+                                                                                                                    .event
+                                                                                                                    .name
+                                                                                                            }
+                                                                                                        </button>
+                                                                                                        <span
+                                                                                                            className={eventBadgeClass(
+                                                                                                                participation
+                                                                                                                    .event
+                                                                                                                    .event_type ===
+                                                                                                                    'team'
+                                                                                                                    ? 'team'
+                                                                                                                    : 'individual',
+                                                                                                            )}
+                                                                                                        >
+                                                                                                            {participation
                                                                                                                 .event
-                                                                                                                .name
-                                                                                                        }
-                                                                                                    </button>
+                                                                                                                .event_type ===
+                                                                                                            'team'
+                                                                                                                ? t(
+                                                                                                                      'Team',
+                                                                                                                  )
+                                                                                                                : t(
+                                                                                                                      'Individual',
+                                                                                                                  )}
+                                                                                                        </span>
+                                                                                                    </div>
                                                                                                     {participation
                                                                                                         .event
                                                                                                         .discipline ? (
@@ -2654,6 +3255,562 @@ export default function MembersShow({
                     canDelete={canDeleteMedia}
                 />
             )}
+
+                <Dialog
+                    open={quickAddOpen}
+                    onOpenChange={(open) => setQuickAddOpen(open)}
+                >
+                <DialogContent
+                    className="w-[98vw] max-w-[95rem] sm:max-w-[95rem]"
+                    aria-describedby={undefined}
+                >
+                    <DialogHeader>
+                        <DialogTitle>{t('Add achievement')}</DialogTitle>
+                    </DialogHeader>
+                    {Object.keys(quickAddErrors).length > 0 ? (
+                        <AlertError
+                            errors={Object.values(quickAddErrors)}
+                            title={t('Please fix these errors before saving.')}
+                        />
+                    ) : null}
+
+                    <div className="space-y-5">
+                        <div className="rounded-md border p-4">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-semibold">
+                                        {t('Step 1: Tournament context')}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('Choose session, tier, then select an existing tournament or type a new one.')}
+                                    </p>
+                                </div>
+                                <Badge variant="outline">{t('Context')}</Badge>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label>{t('Session')}</Label>
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id="historical-session"
+                                        checked={
+                                            quickAddForm.is_historical_session === '1'
+                                        }
+                                        onCheckedChange={(checked) => {
+                                            const next = checked
+                                                ? '1'
+                                                : '';
+
+                                            setQuickAddField(
+                                                'is_historical_session',
+                                                next,
+                                            );
+                                            setQuickAddField('tournament_id', '');
+                                            setQuickAddField('event_id', '');
+
+                                            if (checked) {
+                                                setQuickAddField(
+                                                    'session_id',
+                                                    '',
+                                                );
+                                            }
+                                        }}
+                                    />
+                                    <Label
+                                        htmlFor="historical-session"
+                                        className="cursor-pointer"
+                                    >
+                                        {t('Session is not in list / historical entry')}
+                                    </Label>
+                                </div>
+                                {quickAddForm.is_historical_session !== '1' ? (
+                                    <>
+                                        <Combobox
+                                            value={quickAddForm.session_id}
+                                            onValueChange={(value) => {
+                                                setQuickAddField(
+                                                    'session_id',
+                                                    value,
+                                                );
+                                                setQuickAddField('tournament_id', '');
+                                                setQuickAddField('event_id', '');
+                                            }}
+                                            items={sessions.map((session) => ({
+                                                value: String(session.id),
+                                                label: session.name,
+                                            }))}
+                                            placeholder={t('Select session')}
+                                            searchPlaceholder={t('Search sessions')}
+                                            emptyMessage={t('No sessions found')}
+                                        />
+                                        {getQuickAddError('session_id') ? (
+                                            <p className="text-xs text-destructive">
+                                                {getQuickAddError('session_id')}
+                                            </p>
+                                        ) : null}
+                                    </>
+                                ) : (
+                                    <div className="space-y-1.5">
+                                        <Label>{t('Session name')}</Label>
+                                        <Input
+                                            value={quickAddForm.session_name}
+                                            onChange={(e) => {
+                                                setQuickAddField(
+                                                    'session_name',
+                                                    e.target.value,
+                                                );
+                                                setQuickAddField('tournament_id', '');
+                                                setQuickAddField('event_id', '');
+                                            }}
+                                        />
+                                        {getQuickAddError('session_name') ? (
+                                            <p className="text-xs text-destructive">
+                                                {getQuickAddError('session_name')}
+                                            </p>
+                                        ) : null}
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <div className="space-y-1.5">
+                                                <Label>{t('Start year')}</Label>
+                                                <Input
+                                                    value={quickAddForm.session_start_year}
+                                                    onChange={(e) => {
+                                                        setQuickAddField(
+                                                            'session_start_year',
+                                                            e.target.value,
+                                                        );
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label>{t('End year')}</Label>
+                                                <Input
+                                                    value={quickAddForm.session_end_year}
+                                                    onChange={(e) => {
+                                                        setQuickAddField(
+                                                            'session_end_year',
+                                                            e.target.value,
+                                                        );
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Allow inactive / backfill entry')}</Label>
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id="allow-inactive-member"
+                                        checked={
+                                            quickAddForm.allow_inactive_member === '1'
+                                        }
+                                        onCheckedChange={(checked) => {
+                                            setQuickAddField(
+                                                'allow_inactive_member',
+                                                checked ? '1' : '',
+                                            );
+                                        }}
+                                    />
+                                    <Label
+                                        htmlFor="allow-inactive-member"
+                                        className="cursor-pointer text-sm"
+                                    >
+                                        {t(
+                                            'Allow inactive member or historical roster entries',
+                                        )}
+                                    </Label>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Tier')}</Label>
+                                <Combobox
+                                    value={quickAddForm.tier_id}
+                                    onValueChange={(value) => {
+                                        setQuickAddField('tier_id', value);
+                                        setQuickAddField('tournament_id', '');
+                                        setQuickAddField('event_id', '');
+                                    }}
+                                    items={tiers.map((tier) => ({
+                                        value: String(tier.id),
+                                        label: tier.code,
+                                    }))}
+                                    placeholder={t('Select tier')}
+                                    searchPlaceholder={t('Search tiers')}
+                                    emptyMessage={t('No tiers found')}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Existing tournament')}</Label>
+                                <Combobox
+                                    value={quickAddForm.tournament_id}
+                                    onValueChange={(value) => {
+                                        setQuickAddField('tournament_id', value);
+                                    }}
+                                    items={quickAddTournamentItems}
+                                    placeholder={
+                                        canSelectQuickAddTournament
+                                            ? t('Select existing tournament')
+                                            : t('Select session and tier first')
+                                    }
+                                    searchPlaceholder={t('Search tournaments')}
+                                    emptyMessage={
+                                        canSelectQuickAddTournament
+                                            ? t('No matching tournament. Type new name below.')
+                                            : t('Select session and tier first')
+                                    }
+                                    disabled={!canSelectQuickAddTournament}
+                                />
+                                {getQuickAddError('tournament_id') ? (
+                                    <p className="text-xs text-destructive">
+                                        {getQuickAddError('tournament_id')}
+                                    </p>
+                                ) : null}
+                            </div>
+
+                            <div className="space-y-1.5 sm:col-span-2">
+                                <Label>{t('Tournament name')}</Label>
+                                <Input
+                                    value={quickAddForm.tournament_name}
+                                    onChange={(e) => {
+                                        setQuickAddField(
+                                            'tournament_id',
+                                            '',
+                                        );
+                                        setQuickAddField(
+                                            'tournament_name',
+                                            e.target.value,
+                                        );
+                                    }}
+                                />
+                                {getQuickAddError('tournament_name') ? (
+                                    <p className="text-xs text-destructive">
+                                        {getQuickAddError('tournament_name')}
+                                    </p>
+                                ) : null}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Venue')}</Label>
+                                <Input
+                                    value={quickAddForm.venue}
+                                    onChange={(e) => {
+                                        setQuickAddField('venue', e.target.value);
+                                    }}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Event date from')}</Label>
+                                <DatePicker
+                                    value={quickAddForm.date_from}
+                                    onChange={(value) => {
+                                        setQuickAddField('date_from', value);
+                                    }}
+                                    placeholder={t('Select date')}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Event date to')}</Label>
+                                <DatePicker
+                                    value={quickAddForm.date_to}
+                                    onChange={(value) => {
+                                        setQuickAddField('date_to', value);
+                                    }}
+                                    placeholder={t('Select date')}
+                                />
+                            </div>
+                        </div>
+                        </div>
+
+                        <div className="rounded-md border p-4">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-semibold">
+                                        {t('Step 2: Sport, event and team')}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('Pick tournament sport, reuse an event if found, or type a new event.')}
+                                    </p>
+                                </div>
+                                <Badge variant="outline">{t('Participation')}</Badge>
+                            </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label>{t('Tournament sport')}</Label>
+                                <Combobox
+                                    value={quickAddForm.sport_id}
+                                    onValueChange={(value) => {
+                                        setQuickAddField('sport_id', value);
+                                        setQuickAddField('event_sport_id', value);
+                                        setQuickAddField('event_id', '');
+                                    }}
+                                    items={quickAddSportItems}
+                                    placeholder={t('Select sport')}
+                                    searchPlaceholder={t('Search sports')}
+                                    emptyMessage={t('No sports found')}
+                                />
+                                {quickAddSelectedTournament?.sports.length ? (
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('Attached sports are listed first; other sports will be added to this tournament on save.')}
+                                    </p>
+                                ) : null}
+                                {getQuickAddError('event_sport_id') ? (
+                                    <p className="text-xs text-destructive">
+                                        {getQuickAddError('event_sport_id')}
+                                    </p>
+                                ) : null}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Existing event')}</Label>
+                                <Combobox
+                                    value={quickAddForm.event_id}
+                                    onValueChange={(value) => {
+                                        setQuickAddField('event_id', value);
+                                    }}
+                                    items={quickAddEventItems}
+                                    placeholder={t('Select existing event')}
+                                    searchPlaceholder={t('Search events')}
+                                    emptyMessage={t('No matching event. Type new event below.')}
+                                    disabled={!quickAddForm.tournament_id}
+                                />
+                                {quickAddSelectedEvent?.event_type === 'team' &&
+                                (quickAddSelectedEvent.team_achievements ?? []).length > 0 ? (
+                                    <p className="text-xs text-muted-foreground">
+                                        {quickAddSelectedTeamAchievement
+                                            ? t(
+                                                  'Team medal already exists for this event; team, medal and position are reused for this member participation.',
+                                              )
+                                            : t(
+                                                  'Team medals already exist for this event. Select a team to reuse its medal and position.',
+                                              )}
+                                    </p>
+                                ) : null}
+                            </div>
+
+                            <div className="space-y-1.5 sm:col-span-2">
+                                <Label>{t('Event name')}</Label>
+                                <Input
+                                    value={quickAddForm.event_name}
+                                    onChange={(e) => {
+                                        setQuickAddField('event_id', '');
+                                        setQuickAddField(
+                                            'event_name',
+                                            e.target.value,
+                                        );
+                                    }}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Event type')}</Label>
+                                <Combobox
+                                    value={quickAddForm.event_type}
+                                    onValueChange={(value) => {
+                                        setQuickAddField(
+                                            'event_type',
+                                            value as QuickAddAchievementForm['event_type'],
+                                        );
+                                    }}
+                                    items={[
+                                        {
+                                            value: 'individual',
+                                            label: t('Individual'),
+                                        },
+                                        {
+                                            value: 'team',
+                                            label: t('Team'),
+                                        },
+                                    ]}
+                                    placeholder={t('Select type')}
+                                    searchPlaceholder={t('Search type')}
+                                    emptyMessage={t('No types found')}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Gender class')}</Label>
+                                <Combobox
+                                    value={quickAddForm.gender_class}
+                                    onValueChange={(value) => {
+                                        setQuickAddField(
+                                            'gender_class',
+                                            value as QuickAddAchievementForm['gender_class'],
+                                        );
+                                    }}
+                                    items={[
+                                        { value: 'OPEN', label: t('Open') },
+                                        { value: 'M', label: t('Male') },
+                                        { value: 'F', label: t('Female') },
+                                        { value: 'MIXED', label: t('Mixed') },
+                                    ]}
+                                    placeholder={t('Select class')}
+                                    searchPlaceholder={t('Search class')}
+                                    emptyMessage={t('No class found')}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Discipline')}</Label>
+                                <Input
+                                    value={quickAddForm.discipline}
+                                    onChange={(e) => {
+                                        setQuickAddField(
+                                            'discipline',
+                                            e.target.value,
+                                        );
+                                    }}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Weight category')}</Label>
+                                <Input
+                                    value={quickAddForm.weight_category}
+                                    onChange={(e) => {
+                                        setQuickAddField(
+                                            'weight_category',
+                                            e.target.value,
+                                        );
+                                    }}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Participants required')}</Label>
+                                <Input
+                                    type="number"
+                                    value={quickAddForm.participants_required}
+                                    min={1}
+                                    onChange={(e) => {
+                                        setQuickAddField(
+                                            'participants_required',
+                                            e.target.value,
+                                        );
+                                    }}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Team')}</Label>
+                                <Combobox
+                                    value={quickAddForm.team_id}
+                                    onValueChange={(value) => {
+                                        setQuickAddField('team_id', value);
+                                    }}
+                                    items={quickAddTeamItems}
+                                    placeholder={t('Select team')}
+                                    searchPlaceholder={t('Search teams')}
+                                    emptyMessage={t('No teams found')}
+                                />
+                                {getQuickAddError('team_id') ? (
+                                    <p className="text-xs text-destructive">
+                                        {getQuickAddError('team_id')}
+                                    </p>
+                                ) : null}
+                            </div>
+                        </div>
+                        </div>
+
+                        <div className="rounded-md border p-4">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-semibold">
+                                        {t('Step 3: Medal and result')}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('Record the medal or position after participation is resolved.')}
+                                    </p>
+                                </div>
+                                <Badge variant="outline">{t('Result')}</Badge>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label>{t('Medal')}</Label>
+                                <Combobox
+                                    value={quickAddForm.medal_type}
+                                    onValueChange={(value) => {
+                                        const nextMedal =
+                                            value === '__no_medal__'
+                                                ? ''
+                                                : (value as QuickAddAchievementForm['medal_type']);
+
+                                        setQuickAddField(
+                                            'medal_type',
+                                            nextMedal,
+                                        );
+
+                                        if (nextMedal === 'GOLD') {
+                                            setQuickAddField('position', '1');
+                                        } else if (nextMedal === 'SILVER') {
+                                            setQuickAddField('position', '2');
+                                        } else if (nextMedal === 'BRONZE') {
+                                            setQuickAddField('position', '3');
+                                        }
+                                    }}
+                                    items={[
+                                        {
+                                            value: '__no_medal__',
+                                            label: t('No medal'),
+                                        },
+                                        { value: 'GOLD', label: t('Gold') },
+                                        { value: 'SILVER', label: t('Silver') },
+                                        { value: 'BRONZE', label: t('Bronze') },
+                                        { value: 'MERIT', label: t('Merit') },
+                                    ]}
+                                    placeholder={t('Select medal')}
+                                    searchPlaceholder={t('Search medals')}
+                                    emptyMessage={t('No medals found')}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>{t('Position')}</Label>
+                                <Input
+                                    type="number"
+                                    value={quickAddForm.position}
+                                    min={1}
+                                    max={20}
+                                    onChange={(e) => {
+                                        setQuickAddField('position', e.target.value);
+                                    }}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5 sm:col-span-2">
+                                <Label>{t('Remarks')}</Label>
+                                <Input
+                                    value={quickAddForm.remarks}
+                                    onChange={(e) => {
+                                        setQuickAddField('remarks', e.target.value);
+                                    }}
+                                />
+                            </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setQuickAddOpen(false)}
+                        >
+                            {t('Cancel')}
+                        </Button>
+                        <Button
+                            disabled={quickAddSaving}
+                            onClick={submitQuickAchievement}
+                        >
+                            {quickAddSaving ? t('Saving...') : t('Save')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Export column picker dialog */}
             <Dialog open={exportOpen} onOpenChange={setExportOpen}>

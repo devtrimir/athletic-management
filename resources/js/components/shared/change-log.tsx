@@ -59,6 +59,7 @@ function humanizeValue(value: string | null): string {
     }
 
     const trimmed = value.trim();
+
     if (!trimmed) {
         return '';
     }

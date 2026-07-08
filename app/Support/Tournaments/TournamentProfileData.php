@@ -149,7 +149,7 @@ class TournamentProfileData
             $participationId = (int) $row->participation_id;
             $teamKey = (int) ($row->team_id ?? 0);
             $dedupeKey = $eventType === 'team'
-                ? $eventType.':'.$eventId.':'.($teamKey > 0 ? (string) $teamKey : 'p'.$participationId)
+                ? $eventType.':'.$eventId.':'.($teamKey > 0 ? 'team:'.$teamKey : 'event:'.$eventId)
                 : 'individual:'.$participationId.':'.$medalType;
 
             if (isset($seenMedals[$dedupeKey])) {
@@ -317,7 +317,7 @@ class TournamentProfileData
         $teamMedalsCountByEvent = Achievement::query()
             ->select(
                 'participations.event_id',
-                DB::raw('COUNT(DISTINCT CASE WHEN participations.team_id IS NOT NULL THEN participations.team_id ELSE participations.id END) as total'),
+                DB::raw("COUNT(DISTINCT CASE WHEN participations.team_id IS NOT NULL THEN CONCAT('team:', participations.team_id) ELSE CONCAT('event:', participations.event_id) END) as total"),
             )
             ->join('participations', 'participations.id', '=', 'achievements.participation_id')
             ->join('events', 'events.id', '=', 'participations.event_id')
@@ -363,7 +363,7 @@ class TournamentProfileData
                 }
 
                 $ownerKey = $eventType === 'team'
-                    ? ($teamId > 0 ? "team:{$teamId}" : "participation:{$participationId}")
+                    ? ($teamId > 0 ? "team:{$teamId}" : "event:{$eventId}")
                     : "participation:{$participationId}";
                 $dedupeKey = "{$eventType}:{$eventId}:{$ownerKey}:{$medalType}";
 

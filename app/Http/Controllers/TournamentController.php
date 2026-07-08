@@ -276,7 +276,7 @@ class TournamentController extends Controller
             $participationId = (int) $achievement->participation_id;
             $teamKey = (int) ($achievement->team_id ?? 0);
             $dedupeKey = $eventType === 'team'
-                ? $eventType.':'.$eventId.':'.($teamKey > 0 ? (string) $teamKey : 'p'.$participationId)
+                ? $eventType.':'.$eventId.':'.($teamKey > 0 ? 'team:'.$teamKey : 'event:'.$eventId)
                 : 'individual:'.$participationId.':'.$medalType;
 
             if (isset($seenMedals[$dedupeKey])) {

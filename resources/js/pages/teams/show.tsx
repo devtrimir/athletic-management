@@ -27,12 +27,12 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import CoachController from '@/actions/App/Http/Controllers/CoachController';
+import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import {
     destroy as destroyTeamCoach,
     bulkDestroy as bulkDestroyCoaches,
 } from '@/actions/App/Http/Controllers/TeamCoachController';
-import CoachController from '@/actions/App/Http/Controllers/CoachController';
-import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import {
     edit as editTeam,
     index as teamsIndex,

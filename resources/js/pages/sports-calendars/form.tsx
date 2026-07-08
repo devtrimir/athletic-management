@@ -12,9 +12,9 @@ import type {
     update,
 } from '@/actions/App/Http/Controllers/SportsCalendarController';
 import { index } from '@/actions/App/Http/Controllers/SportsCalendarController';
-import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -305,6 +305,7 @@ export function SportsCalendarForm({
                                         'report_arrived',
                                         checked === true,
                                     );
+
                                     if (!checked) {
                                         form.clearErrors('report_pdf');
                                     }

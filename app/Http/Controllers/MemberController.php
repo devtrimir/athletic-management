@@ -20,6 +20,7 @@ use App\Models\PromotionEvidence;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\SportSession;
+use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\Unit;
 use App\Services\AuditLogBuilder;
@@ -396,6 +397,12 @@ class MemberController extends Controller
     private function memberViewProps(Member $member, AuditLogBuilder $auditLogBuilder, MemberPerformanceService $memberPerformance): array
     {
         $member = $member->load(['homeDistrict', 'postingDistrict', 'currentUnit', 'sport', 'playableSports']);
+        $teamIds = TeamMember::query()
+            ->where('member_id', $member->id)
+            ->pluck('team_id')
+            ->unique()
+            ->values()
+            ->all();
 
         return [
             'member' => (new MemberResource($member))->resolve(),
@@ -427,10 +434,31 @@ class MemberController extends Controller
                     'sport' => $tm->team?->sport ? ['id' => $tm->team->sport->id, 'name' => $tm->team->sport->name] : null,
                     'session' => $tm->session ? ['id' => $tm->session->id, 'name' => $tm->session->name] : null,
                 ])),
-            'achievements' => Achievement::whereHas(
-                'participation',
-                fn ($query) => $query->where('member_id', $member->id),
-            )
+            'eventTeams' => Inertia::defer(fn () => Team::query()
+                ->where('organization_id', (int) $member->organization_id)
+                ->with('sport:id,name', 'session:id,name,is_current')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (Team $team): array => [
+                    'id' => $team->id,
+                    'name' => $team->name,
+                    'is_active' => (bool) $team->is_active,
+                    'sport' => $team->sport ? [
+                        'id' => $team->sport->id,
+                        'name' => $team->sport->name,
+                    ] : null,
+                    'session' => $team->session ? [
+                        'id' => $team->session->id,
+                        'name' => $team->session->name,
+                        'is_current' => (bool) $team->session->is_current,
+                    ] : null,
+                ])),
+            'achievements' => Achievement::query()
+                ->whereHas('participation', function ($query) use ($member, $teamIds): void {
+                    $query
+                        ->where('member_id', $member->id)
+                        ->orWhereIn('team_id', $teamIds);
+                })
                 ->with([
                     'participation.session:id,name',
                     'participation.event:id,tournament_id,name',

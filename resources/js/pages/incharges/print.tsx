@@ -1,8 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useRef, useState } from 'react';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Incharge = {
