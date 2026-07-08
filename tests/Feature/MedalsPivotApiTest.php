@@ -72,7 +72,7 @@ function medalsSetup(User $user, string $tierCode = 'NATIONAL', string $medalTyp
         'medal_type' => $medalType,
     ]);
 
-    return compact('tier', 'session', 'sport', 'tournament', 'event', 'participation', 'achievement');
+    return compact('tier', 'session', 'sport', 'tournament', 'event', 'member', 'participation', 'achievement');
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +116,35 @@ test('medals pivot returns correct tier row with GOLD count', function () {
     expect($data[0]['MERIT'])->toBe(0);
 });
 
+test('medals pivot returns tier labels in selected user language', function () {
+    $user = medalsUser('reports.view');
+    $user->update(['locale' => 'en']);
+
+    $setup = medalsSetup($user, 'NATIONAL', 'GOLD');
+    $setup['tier']->update([
+        'label_hi' => 'राष्ट्रीय',
+        'label_en' => 'National',
+    ]);
+
+    $response = $this->actingAs($user)->getJson(route('v1.reports.medals'))->assertOk();
+
+    expect($response->json('data.0.tier.label'))->toBe('National');
+});
+
+test('medals pivot athlete search matches pno', function () {
+    $user = medalsUser('reports.view');
+    $setup = medalsSetup($user, 'NATIONAL', 'GOLD');
+    $setup['member']->update(['pno' => 'PNO-1001', 'full_name' => 'Amit Kumar']);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.reports.medals', ['member_name' => '1001']))
+        ->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.tier.code'))->toBe('NATIONAL');
+    expect($response->json('data.0.GOLD'))->toBe(1);
+});
+
 test('medals pivot session_id filter scopes correctly', function () {
     $user = medalsUser('reports.view');
     $setup = medalsSetup($user, 'NATIONAL', 'SILVER');
@@ -150,6 +179,47 @@ test('medals pivot session_id filter scopes correctly', function () {
     expect($codes)->toContain('NATIONAL');
     expect($codes)->not->toContain('STATE');
     expect($response->json('filters.session_ids'))->toBe([$setup['session']->id]);
+});
+
+test('medals pivot supports ui session_ids and year filters together', function () {
+    $user = medalsUser('reports.view');
+    $setup = medalsSetup($user, 'NATIONAL', 'SILVER');
+    $setup['tournament']->update(['date_from' => '2026-02-01']);
+
+    $otherSession = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $otherTier = TournamentTier::firstOrCreate(
+        ['code' => 'STATE'],
+        ['label_hi' => 'STATE', 'label_en' => 'State', 'weight' => 60],
+    );
+    $otherTournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $otherSession->id,
+        'tier_id' => $otherTier->id,
+        'date_from' => '2025-02-01',
+    ]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $otherEvent = Event::factory()->create(['tournament_id' => $otherTournament->id, 'sport_id' => $sport->id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $otherPart = Participation::factory()->create([
+        'member_id' => $member->id,
+        'event_id' => $otherEvent->id,
+        'session_id' => $otherSession->id,
+    ]);
+    Achievement::factory()->create(['participation_id' => $otherPart->id, 'medal_type' => 'GOLD']);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.reports.medals', [
+            'session_ids' => [$setup['session']->id],
+            'year_from' => 2026,
+            'year_to' => 2026,
+        ]))
+        ->assertOk();
+
+    $codes = collect($response->json('data'))->pluck('tier.code')->all();
+    expect($codes)->toBe(['NATIONAL']);
+    expect($response->json('filters.session_ids'))->toBe([$setup['session']->id]);
+    expect($response->json('filters.year_from'))->toBe(2026);
+    expect($response->json('filters.year_to'))->toBe(2026);
 });
 
 test('medals pivot supports combined multi-select filters', function () {
@@ -251,7 +321,7 @@ test('pivot counts match seeded fixture ground truth', function () {
         ->and($data['STATE']['MERIT'])->toBe(1);
 });
 
-test('team medal tally groups medals by participation team', function () {
+test('team medal tally groups team event medals by tier', function () {
     $user = medalsUser('reports.view');
     $setup = medalsSetup($user, 'NATIONAL', 'GOLD');
     $team = Team::factory()->create([
@@ -261,7 +331,12 @@ test('team medal tally groups medals by participation team', function () {
         'name' => 'Lucknow Athletics',
     ]);
 
-    $setup['participation']->update(['team_id' => $team->id]);
+    $setup['event']->update(['event_type' => 'team']);
+    $setup['participation']->update([
+        'member_id' => null,
+        'team_id' => $team->id,
+        'lineup_member_ids' => [$setup['participation']->member_id],
+    ]);
 
     $response = $this->actingAs($user)
         ->getJson(route('v1.reports.medals', ['group_by' => 'team']))
@@ -269,15 +344,16 @@ test('team medal tally groups medals by participation team', function () {
 
     expect($response->json('group_by'))->toBe('team');
     expect($response->json('data'))->toHaveCount(1);
-    expect($response->json('data.0.team.name'))->toBe('Lucknow Athletics');
+    expect($response->json('data.0.tier.code'))->toBe('NATIONAL');
     expect($response->json('data.0.GOLD'))->toBe(1);
     expect($response->json('data.0.SILVER'))->toBe(0);
     expect($response->json('data.0.display_only'))->toBe(0);
-    expect($response->json('data.0.players'))->toBe(1);
-    expect($response->json('data.0.events'))->toBe(1);
+    expect($response->json('data.0'))->not->toHaveKey('event');
+    expect($response->json('data.0'))->not->toHaveKey('teams');
+    expect($response->json('data.0'))->not->toHaveKey('players');
 });
 
-test('team medal tally counts one team medal when multiple players medal in the same event', function () {
+test('team medal tally counts one team medal for a multi player lineup', function () {
     $user = medalsUser('reports.view');
     $setup = medalsSetup($user, 'NATIONAL', 'GOLD');
     $team = Team::factory()->create([
@@ -287,17 +363,12 @@ test('team medal tally counts one team medal when multiple players medal in the 
         'name' => 'Cricket XI',
     ]);
     $secondMember = Member::factory()->create(['organization_id' => $user->organization_id]);
-    $secondParticipation = Participation::factory()->create([
-        'member_id' => $secondMember->id,
-        'event_id' => $setup['event']->id,
-        'session_id' => $setup['session']->id,
-        'team_id' => $team->id,
-    ]);
 
-    $setup['participation']->update(['team_id' => $team->id]);
-    Achievement::factory()->create([
-        'participation_id' => $secondParticipation->id,
-        'medal_type' => 'GOLD',
+    $setup['event']->update(['event_type' => 'team']);
+    $setup['participation']->update([
+        'member_id' => null,
+        'team_id' => $team->id,
+        'lineup_member_ids' => [$setup['participation']->member_id, $secondMember->id],
     ]);
 
     $response = $this->actingAs($user)
@@ -305,10 +376,11 @@ test('team medal tally counts one team medal when multiple players medal in the 
         ->assertOk();
 
     expect($response->json('data'))->toHaveCount(1);
-    expect($response->json('data.0.team.name'))->toBe('Cricket XI');
+    expect($response->json('data.0.tier.code'))->toBe('NATIONAL');
     expect($response->json('data.0.GOLD'))->toBe(1);
-    expect($response->json('data.0.players'))->toBe(2);
-    expect($response->json('data.0.events'))->toBe(1);
+    expect($response->json('data.0'))->not->toHaveKey('event');
+    expect($response->json('data.0'))->not->toHaveKey('teams');
+    expect($response->json('data.0'))->not->toHaveKey('players');
 });
 
 test('medal detail includes live medals when drilling into a session tier', function () {
@@ -351,6 +423,33 @@ test('medal detail includes live medals when drilling into a session tier', func
     expect(collect($response->json('data'))->pluck('tournament.name')->all())
         ->toContain('International Tournament');
     expect($response->json('medal_counts.GOLD'))->toBe(1);
+    expect($response->json('medal_total'))->toBe(1);
+});
+
+test('medal detail separates medal total from expanded team event player rows', function () {
+    $user = medalsUser('reports.view');
+    $setup = medalsSetup($user, 'NATIONAL', 'GOLD');
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $setup['sport']->id,
+        'session_id' => $setup['session']->id,
+    ]);
+    $secondMember = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    $setup['event']->update(['event_type' => 'team']);
+    $setup['participation']->update([
+        'member_id' => null,
+        'team_id' => $team->id,
+        'lineup_member_ids' => [$setup['participation']->member_id, $secondMember->id],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.reports.medals.detail'))
+        ->assertOk();
+
+    expect($response->json('total'))->toBe(2);
+    expect($response->json('medal_total'))->toBe(1);
+    expect($response->json('medal_counts.GOLD'))->toBe(1);
 });
 
 test('other tier medals are shown as display only and excluded from calculated medal counts', function () {
@@ -367,7 +466,7 @@ test('other tier medals are shown as display only and excluded from calculated m
     expect($tierResponse->json('data.0.display_only'))->toBe(1);
 });
 
-test('team medal tally export returns team rows', function () {
+test('team medal tally export returns tier rows scoped to team events', function () {
     $user = medalsUser('reports.view');
     $setup = medalsSetup($user, 'NATIONAL', 'SILVER');
     $team = Team::factory()->create([
@@ -377,7 +476,12 @@ test('team medal tally export returns team rows', function () {
         'name' => 'Kanpur Team',
     ]);
 
-    $setup['participation']->update(['team_id' => $team->id]);
+    $setup['event']->update(['event_type' => 'team']);
+    $setup['participation']->update([
+        'member_id' => null,
+        'team_id' => $team->id,
+        'lineup_member_ids' => [$setup['participation']->member_id],
+    ]);
 
     $response = $this->actingAs($user)
         ->get(route('reports.medals.export', ['group_by' => 'team']))
@@ -385,8 +489,8 @@ test('team medal tally export returns team rows', function () {
 
     $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
     expect($response->streamedContent())
-        ->toContain('Team')
-        ->toContain('Kanpur Team')
+        ->toContain('Rank,Tier')
+        ->toContain('NATIONAL')
         ->toContain('Gold,Silver,Bronze,Merit')
-        ->toContain(',0,1,0,0,1,0,1,1');
+        ->toContain(',0,1,0,0,1,0');
 });

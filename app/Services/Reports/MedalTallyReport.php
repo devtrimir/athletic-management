@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
+use App\Support\Reports\MedalMemberScope;
 use App\Support\Reports\MedalsFilters;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -34,22 +35,47 @@ class MedalTallyReport
 
         $query = DB::table('achievements as a')
             ->join('participations as p', 'p.id', '=', 'a.participation_id')
-            ->join('members as m', 'm.id', '=', 'p.member_id')
+            ->leftJoin('members as m', 'm.id', '=', 'p.member_id')
             ->join('events as e', 'e.id', '=', 'p.event_id')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
             ->leftJoin('tournament_tiers as tt', 'tt.id', '=', 't.tier_id')
             ->leftJoinSub($benefitSub, 'ab', 'ab.benefitable_id', '=', 'a.id')
-            ->select('tt.id', 'tt.code', 'tt.label_hi', 'tt.label_en', 'tt.weight', 'a.medal_type', DB::raw('COUNT(*) as cnt'))
+            ->select([
+                'tt.id',
+                'tt.code',
+                'tt.label_hi',
+                'tt.label_en',
+                'tt.weight',
+                'a.id as achievement_id',
+                'a.medal_type',
+                'e.id as event_id',
+                'e.event_type',
+                'p.lineup_member_ids',
+                'm.id as member_id',
+                'm.member_code',
+                'm.pno',
+                'm.full_name',
+                'm.rank',
+                'm.designation',
+                'm.gender',
+                'm.player_category',
+                'm.player_level',
+                'm.current_status',
+                'm.current_unit_id',
+                'm.posting_district_id',
+            ])
             ->where('t.organization_id', $orgId)
             ->whereNull('t.deleted_at')
-            ->whereNull('m.deleted_at');
+            ->where(fn ($query) => $query->whereNull('p.member_id')->orWhereNull('m.deleted_at'));
 
-        $rows = MedalsFilters::apply($query, $filters)
-            ->groupBy('tt.id', 'tt.code', 'tt.label_hi', 'tt.label_en', 'tt.weight', 'a.medal_type')
-            ->orderByDesc(DB::raw('COALESCE(tt.weight, 0)'))
-            ->get();
+        $rows = MedalsFilters::apply($query, MedalMemberScope::withoutMemberScopedFilters($filters))->get();
+        $lineupMembers = MedalMemberScope::lineupMembers($rows);
 
         return $rows
+            ->filter(fn (object $row): bool => MedalMemberScope::rowMatches($row, $lineupMembers, $filters))
+            ->unique(fn (object $row): string => $row->event_type === 'team'
+                ? 'team:'.$row->event_id.':'.$row->medal_type
+                : 'achievement:'.$row->achievement_id)
             ->groupBy(fn (object $row): string => (string) ($row->code ?? 'OTHER'))
             ->map(function (Collection $tierRows): array {
                 $first = $tierRows->first();
@@ -59,7 +85,7 @@ class MedalTallyReport
                 if (! $isDisplayOnly) {
                     foreach ($tierRows as $row) {
                         if (isset($counts[$row->medal_type])) {
-                            $counts[$row->medal_type] += (int) $row->cnt;
+                            $counts[$row->medal_type]++;
                         }
                     }
                 }
@@ -72,20 +98,20 @@ class MedalTallyReport
                             : ($first->label_hi ?? $first->label_en ?? 'Other'),
                         'weight' => (int) ($first->weight ?? 0),
                     ],
-                    'display_only' => $isDisplayOnly ? (int) $tierRows->sum('cnt') : 0,
+                    'display_only' => $isDisplayOnly ? $tierRows->count() : 0,
                 ] + $counts;
             })
             ->values();
     }
 
     /**
-     * Run a team medal-tally query.
+     * Run a team-event medal-tally query by tier.
      *
      * `OTHER` tier medals stay visible through display_only but are excluded
      * from medal columns and total/rank calculations.
      *
      * @param  array<string, mixed>  $filters
-     * @return Collection<int, array{team: array{id: int, name: string, sport_name: string|null, session_name: string|null, unit_name: string|null, district_name: string|null}, GOLD: int, SILVER: int, BRONZE: int, MERIT: int, display_only: int, events: int, players: int}>
+     * @return Collection<int, array{tier: array{code: string, label: string, weight: int}, GOLD: int, SILVER: int, BRONZE: int, MERIT: int, display_only: int}>
      */
     public function runTeams(int $orgId, array $filters): Collection
     {
@@ -98,97 +124,71 @@ class MedalTallyReport
                 'order_reference',
             ]);
 
-        $activeTeamMemberIds = DB::table('team_members as tm')
-            ->select('tm.member_id', 'tm.session_id', DB::raw('MAX(tm.id) as team_member_id'))
-            ->whereNull('tm.left_on')
-            ->groupBy('tm.member_id', 'tm.session_id');
-
         $query = DB::table('achievements as a')
             ->join('participations as p', 'p.id', '=', 'a.participation_id')
-            ->join('members as m', 'm.id', '=', 'p.member_id')
+            ->leftJoin('members as m', 'm.id', '=', 'p.member_id')
             ->join('events as e', 'e.id', '=', 'p.event_id')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
-            ->leftJoinSub($activeTeamMemberIds, 'active_tm', function ($join): void {
-                $join->on('active_tm.member_id', '=', 'p.member_id')
-                    ->on('active_tm.session_id', '=', 'p.session_id');
-            })
-            ->leftJoin('team_members as member_tm', 'member_tm.id', '=', 'active_tm.team_member_id')
-            ->leftJoin('teams as team', function ($join): void {
-                $join->whereRaw('team.id = COALESCE(p.team_id, member_tm.team_id)');
-            })
             ->leftJoin('tournament_tiers as tt', 'tt.id', '=', 't.tier_id')
-            ->leftJoin('sports as ts', 'ts.id', '=', 'team.sport_id')
-            ->leftJoin('sport_sessions as ss', 'ss.id', '=', 'team.session_id')
-            ->leftJoin('units as tu', 'tu.id', '=', 'team.unit_id')
-            ->leftJoin('districts as td', 'td.id', '=', 'team.district_id')
             ->leftJoinSub($benefitSub, 'ab', 'ab.benefitable_id', '=', 'a.id')
             ->select([
-                'team.id as team_id',
-                'team.name as team_name',
-                'ts.name as sport_name',
-                'ss.name as session_name',
-                'tu.name as unit_name',
-                'td.name as district_name',
+                'tt.id',
+                'tt.code',
+                'tt.label_hi',
+                'tt.label_en',
+                'tt.weight',
                 'e.id as event_id',
-                DB::raw("'live' as medal_source"),
+                'm.id as member_id',
+                'm.member_code',
+                'm.pno',
+                'm.full_name',
+                'm.rank',
+                'm.designation',
+                'm.gender',
+                'm.player_category',
+                'm.player_level',
+                'm.current_status',
+                'm.current_unit_id',
+                'm.posting_district_id',
                 'a.medal_type',
+                'p.lineup_member_ids',
                 DB::raw("COALESCE(tt.code, 'OTHER') as tier_code"),
-                DB::raw('COUNT(DISTINCT m.id) as player_count'),
             ])
             ->where('t.organization_id', $orgId)
-            ->where('team.organization_id', $orgId)
+            ->where('e.event_type', 'team')
             ->whereNull('t.deleted_at')
-            ->whereNull('m.deleted_at');
+            ->where(fn ($query) => $query->whereNull('p.member_id')->orWhereNull('m.deleted_at'));
 
-        $liveRows = MedalsFilters::apply($query, $filters)
-            ->whereNull('team.deleted_at')
-            ->whereNotNull('team.id')
-            ->groupBy(
-                'team.id',
-                'team.name',
-                'ts.name',
-                'ss.name',
-                'tu.name',
-                'td.name',
-                'e.id',
-                'medal_source',
-                'a.medal_type',
-                'tt.code',
-            )
-            ->get();
+        $liveRows = MedalsFilters::apply($query, MedalMemberScope::withoutMemberScopedFilters($filters))->get();
+        $lineupMembers = MedalMemberScope::lineupMembers($liveRows);
+        $liveRows = $liveRows->filter(fn (object $row): bool => MedalMemberScope::rowMatches($row, $lineupMembers, $filters));
 
         $medalUnits = $liveRows
-            ->groupBy('team_id')
+            ->unique(fn (object $row): string => $row->event_id.':'.$row->medal_type)
+            ->groupBy(fn (object $row): string => (string) ($row->code ?? 'OTHER'))
             ->map(function (Collection $rows): array {
                 $first = $rows->first();
+                $isDisplayOnly = ($first->code ?? 'OTHER') === 'OTHER';
                 $counts = self::BLANK;
 
-                foreach ($rows as $row) {
-                    if ($row->tier_code !== 'OTHER' && isset($counts[$row->medal_type])) {
-                        $counts[$row->medal_type]++;
+                if (! $isDisplayOnly) {
+                    foreach ($rows as $row) {
+                        if (isset($counts[$row->medal_type])) {
+                            $counts[$row->medal_type]++;
+                        }
                     }
                 }
 
                 return [
-                    'team' => [
-                        'id' => (int) $first->team_id,
-                        'name' => $first->team_name,
-                        'sport_name' => $first->sport_name,
-                        'session_name' => $first->session_name,
-                        'unit_name' => $first->unit_name,
-                        'district_name' => $first->district_name,
+                    'tier' => [
+                        'code' => $first->code ?? 'OTHER',
+                        'label' => app()->getLocale() === 'en'
+                            ? ($first->label_en ?? $first->label_hi ?? 'Other')
+                            : ($first->label_hi ?? $first->label_en ?? 'Other'),
+                        'weight' => (int) ($first->weight ?? 0),
                     ],
-                    'GOLD' => $counts['GOLD'],
-                    'SILVER' => $counts['SILVER'],
-                    'BRONZE' => $counts['BRONZE'],
-                    'MERIT' => $counts['MERIT'],
-                    'display_only' => $rows->where('tier_code', 'OTHER')->count(),
-                    'events' => $rows
-                        ->map(fn (object $row): string => $row->medal_source.':'.$row->event_id)
-                        ->unique()
-                        ->count(),
-                    'players' => $rows->sum('player_count'),
-                ];
+                    'display_only' => $isDisplayOnly ? $rows->count() : 0,
+                ] + $counts;
             });
 
         return $medalUnits
@@ -197,7 +197,7 @@ class MedalTallyReport
                 ['SILVER', 'desc'],
                 ['BRONZE', 'desc'],
                 ['MERIT', 'desc'],
-                ['team.name', 'asc'],
+                ['tier.weight', 'desc'],
             ])
             ->values();
     }

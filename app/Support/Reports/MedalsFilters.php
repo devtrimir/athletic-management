@@ -57,6 +57,9 @@ class MedalsFilters
             'tournament_name' => ['nullable', 'string', 'max:150'],
             'venue' => ['nullable', 'string', 'max:150'],
             'event_name' => ['nullable', 'string', 'max:100'],
+            'event_type' => ['nullable', 'string', 'in:individual,team'],
+            'event_types' => ['nullable', 'array'],
+            'event_types.*' => ['string', 'in:individual,team'],
             'event_id' => ['nullable', 'integer'],
             'event_ids' => ['nullable', 'array'],
             'event_ids.*' => ['integer'],
@@ -111,6 +114,7 @@ class MedalsFilters
             'tournament_name' => self::stringOrNull($request, 'tournament_name'),
             'venue' => self::stringOrNull($request, 'venue'),
             'event_name' => self::stringOrNull($request, 'event_name'),
+            'event_types' => self::strings($request, 'event_types', 'event_type'),
             'event_ids' => self::ids($request, 'event_ids', 'event_id'),
             'disciplines' => self::strings($request, 'disciplines'),
             'weight_categories' => self::strings($request, 'weight_categories'),
@@ -150,7 +154,11 @@ class MedalsFilters
             ->when($filters['player_categories'] ?? [], fn (Builder $query, array $values): Builder => $query->whereIn('m.player_category', $values))
             ->when($filters['player_levels'] ?? [], fn (Builder $query, array $values): Builder => $query->whereIn('m.player_level', $values))
             ->when($filters['statuses'] ?? [], fn (Builder $query, array $values): Builder => $query->whereIn('m.current_status', $values))
-            ->when($filters['member_name'] ?? null, fn (Builder $query, string $value): Builder => $query->where('m.full_name', 'like', "%{$value}%"))
+            ->when($filters['member_name'] ?? null, fn (Builder $query, string $value): Builder => $query->where(
+                fn (Builder $query): Builder => $query
+                    ->where('m.full_name', 'like', "%{$value}%")
+                    ->orWhere('m.pno', 'like', "%{$value}%")
+            ))
             ->when($filters['pno'] ?? null, fn (Builder $query, string $value): Builder => $query->where('m.pno', 'like', "%{$value}%"))
             ->when($filters['team_ids'] ?? [], fn (Builder $query, array $ids): Builder => $query->where(function (Builder $query) use ($ids): void {
                 $query
@@ -168,6 +176,7 @@ class MedalsFilters
             ->when($filters['tournament_name'] ?? null, fn (Builder $query, string $value): Builder => $query->where('t.name', 'like', "%{$value}%"))
             ->when($filters['venue'] ?? null, fn (Builder $query, string $value): Builder => $query->where('t.venue', 'like', "%{$value}%"))
             ->when($filters['event_name'] ?? null, fn (Builder $query, string $value): Builder => $query->where('e.name', 'like', "%{$value}%"))
+            ->when($filters['event_types'] ?? [], fn (Builder $query, array $values): Builder => $query->whereIn('e.event_type', $values))
             ->when($filters['event_ids'] ?? [], fn (Builder $query, array $ids): Builder => $query->whereIn('e.id', $ids))
             ->when($filters['disciplines'] ?? [], fn (Builder $query, array $values): Builder => $query->whereIn('e.discipline', $values))
             ->when($filters['weight_categories'] ?? [], fn (Builder $query, array $values): Builder => $query->whereIn('e.weight_category', $values))
@@ -198,6 +207,7 @@ class MedalsFilters
             'session_ids' => 'session_id',
             'team_ids' => 'team_id',
             'tournament_ids' => 'tournament_id',
+            'event_types' => 'event_type',
             'event_ids' => 'event_id',
             'medal_types' => 'medal_type',
             'genders' => 'gender',

@@ -68,7 +68,7 @@ test('user with reports.view gets 200 with correct Inertia component', function 
         ->assertInertia(fn ($page) => $page->component('reports/medals'));
 });
 
-test('page props include sessions, sports, tiers, tournaments, and events', function (): void {
+test('page props include report reference data without preloading tournaments or events', function (): void {
     $user = medalsPageUser('reports.view');
 
     $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'name' => '2024-25']);
@@ -92,15 +92,156 @@ test('page props include sessions, sports, tiers, tournaments, and events', func
         ->has('sessions', 1)
         ->has('sports', 1)
         ->has('tiers')
-        ->has('tournaments', 1)
-        ->has('events', 1)
+        ->missing('tournaments')
+        ->missing('events')
     );
 });
 
-test('defaultSessionId is the current session id when one exists', function (): void {
+test('tournament search requires an applied year or session filter', function (): void {
     $user = medalsPageUser('reports.view');
 
-    $current = SportSession::factory()->create([
+    Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'National Games',
+        'date_from' => '2026-01-10',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.search.tournaments', ['q' => 'National']))
+        ->assertOk();
+
+    expect($response->json('data'))->toBe([]);
+});
+
+test('tournament search is scoped by organisation and applied year', function (): void {
+    $user = medalsPageUser('reports.view');
+    $otherOrg = Organization::factory()->create();
+
+    $match = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'National Police Games',
+        'date_from' => '2026-01-10',
+    ]);
+    Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'National Old Games',
+        'date_from' => '2025-01-10',
+    ]);
+    Tournament::factory()->create([
+        'organization_id' => $otherOrg->id,
+        'name' => 'National Police Games',
+        'date_from' => '2026-01-10',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.search.tournaments', [
+            'q' => 'Police',
+            'year_from' => 2026,
+            'year_to' => 2026,
+        ]))
+        ->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.id'))->toBe($match->id);
+});
+
+test('tournament search is scoped by applied session', function (): void {
+    $user = medalsPageUser('reports.view');
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $otherSession = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+
+    $match = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'name' => 'Session Police Games',
+        'date_from' => '2026-01-10',
+    ]);
+    Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $otherSession->id,
+        'name' => 'Session Police Games',
+        'date_from' => '2026-01-10',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.search.tournaments', [
+            'q' => 'Police',
+            'session_ids' => [$session->id],
+        ]))
+        ->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.id'))->toBe($match->id);
+});
+
+test('event search requires sport or tournament context', function (): void {
+    $user = medalsPageUser('reports.view');
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.search.events', ['q' => 'Final']))
+        ->assertOk();
+
+    expect($response->json('data'))->toBe([]);
+});
+
+test('event search is scoped by tournament sport year and organisation', function (): void {
+    $user = medalsPageUser('reports.view');
+    $otherOrg = Organization::factory()->create();
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $otherSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'date_from' => '2026-01-10',
+    ]);
+    $match = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'name' => 'Freestyle Final',
+    ]);
+    Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $otherSport->id,
+        'name' => 'Freestyle Final',
+    ]);
+    $oldTournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'date_from' => '2025-01-10',
+    ]);
+    Event::factory()->create([
+        'tournament_id' => $oldTournament->id,
+        'sport_id' => $sport->id,
+        'name' => 'Freestyle Final',
+    ]);
+    $otherTournament = Tournament::factory()->create([
+        'organization_id' => $otherOrg->id,
+        'date_from' => '2026-01-10',
+    ]);
+    Event::factory()->create([
+        'tournament_id' => $otherTournament->id,
+        'sport_id' => $sport->id,
+        'name' => 'Freestyle Final',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.search.events', [
+            'q' => 'Final',
+            'tournament_ids' => [$tournament->id],
+            'sport_ids' => [$sport->id],
+            'year_from' => 2026,
+            'year_to' => 2026,
+        ]))
+        ->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.id'))->toBe($match->id);
+});
+
+test('medals page does not auto-apply the current session filter', function (): void {
+    $user = medalsPageUser('reports.view');
+
+    SportSession::factory()->create([
         'organization_id' => $user->organization_id,
         'is_current' => true,
     ]);
@@ -113,7 +254,9 @@ test('defaultSessionId is the current session id when one exists', function (): 
 
     $response->assertInertia(fn ($page) => $page
         ->component('reports/medals')
-        ->where('defaultSessionId', $current->id)
+        ->where('defaultSessionId', null)
+        ->where('defaultYearFrom', null)
+        ->where('defaultYearTo', null)
     );
 });
 

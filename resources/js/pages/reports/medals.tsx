@@ -1,7 +1,8 @@
-import { Head, Link, setLayoutProps, useHttp } from '@inertiajs/react';
+import { Head, Link, setLayoutProps, useHttp, usePage } from '@inertiajs/react';
 import {
     Check,
     ChevronDown,
+    ChevronsUpDown,
     Download,
     ListOrdered,
     Printer,
@@ -11,14 +12,24 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import EventSearchController from '@/actions/App/Http/Controllers/Api/V1/EventSearchController';
 import MedalsDetailController from '@/actions/App/Http/Controllers/Api/V1/MedalsDetailController';
 import MedalsPivotController from '@/actions/App/Http/Controllers/Api/V1/MedalsPivotController';
+import TournamentSearchController from '@/actions/App/Http/Controllers/Api/V1/TournamentSearchController';
 import MedalsExportController from '@/actions/App/Http/Controllers/MedalsExportController';
 import Heading from '@/components/heading';
 import { OptionMultiSelect } from '@/components/option-multi-select';
 import type { MultiSelectOption } from '@/components/option-multi-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
 import {
     Dialog,
     DialogContent,
@@ -33,13 +44,6 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Table,
@@ -70,7 +74,21 @@ type TournamentOption = {
     name: string;
     date_from: string | null;
 };
-type EventOption = { id: number; tournament_id: number; name: string };
+type EventOption = {
+    id: number;
+    tournament_id: number;
+    sport_id: number | null;
+    name: string;
+    tournament_name?: string | null;
+};
+
+type TournamentSearchResponse = {
+    data: TournamentOption[];
+};
+
+type EventSearchResponse = {
+    data: EventOption[];
+};
 
 type PivotRow = {
     tier: { code: string; label: string; weight: number };
@@ -81,30 +99,8 @@ type PivotRow = {
     display_only: number;
 };
 
-type TeamPivotRow = {
-    team: {
-        id: number;
-        name: string;
-        sport_name: string | null;
-        session_name: string | null;
-        unit_name: string | null;
-        district_name: string | null;
-    };
-    GOLD: number;
-    SILVER: number;
-    BRONZE: number;
-    MERIT: number;
-    display_only: number;
-    events: number;
-    players: number;
-};
-type TeamModalState = {
-    team_name: string;
-    filters: FilterQuery;
-};
-
 type PivotResponse = {
-    data: PivotRow[] | TeamPivotRow[];
+    data: PivotRow[];
     filters: Record<string, unknown>;
     group_by: 'tier' | 'team';
 };
@@ -147,6 +143,7 @@ type MedalRow = {
     event: {
         id: number;
         name: string;
+        event_type: string | null;
         discipline: string | null;
         weight_category: string | null;
         gender_class: string | null;
@@ -170,6 +167,7 @@ type DetailResponse = {
     from: number | null;
     to: number | null;
     medal_counts: MedalCounts;
+    medal_total: number;
 };
 
 type Filters = {
@@ -191,6 +189,7 @@ type Filters = {
     tournament_name: string;
     venue: string;
     event_name: string;
+    event_types: string[];
     event_ids: string[];
     disciplines: string[];
     weight_categories: string[];
@@ -215,6 +214,44 @@ const GENDER_OPTIONS = [
     { value: 'O', label: 'Other gender' },
 ] as const;
 const PER_PAGE_OPTIONS = [15, 25, 50, 100] as const;
+
+const ARRAY_FILTER_KEYS: Array<keyof Filters> = [
+    'session_ids',
+    'sport_ids',
+    'tier_ids',
+    'unit_ids',
+    'district_ids',
+    'rank_codes',
+    'designations',
+    'player_categories',
+    'player_levels',
+    'statuses',
+    'tournament_ids',
+    'event_types',
+    'event_ids',
+    'disciplines',
+    'weight_categories',
+    'event_gender_classes',
+    'medal_types',
+    'genders',
+    'benefit_types',
+];
+
+const STRING_FILTER_KEYS: Array<keyof Filters> = [
+    'year_from',
+    'year_to',
+    'date_from',
+    'date_to',
+    'tournament_name',
+    'venue',
+    'event_name',
+    'position_from',
+    'position_to',
+    'has_remarks',
+    'benefit_date_from',
+    'benefit_date_to',
+    'order_reference',
+];
 const PLAYER_CATEGORY_OPTIONS = ['GD', 'SPORTS_QUOTA'] as const;
 const PLAYER_LEVEL_OPTIONS = [
     'ZONAL',
@@ -238,10 +275,7 @@ const BENEFIT_TYPE_OPTIONS = [
     'NONE',
     'OTHER',
 ] as const;
-const isTierPivotRow = (row: PivotRow | TeamPivotRow): row is PivotRow =>
-    'tier' in row;
-const isTeamPivotRow = (row: PivotRow | TeamPivotRow): row is TeamPivotRow =>
-    'team' in row;
+const isTierPivotRow = (row: PivotRow): row is PivotRow => 'tier' in row;
 
 function parseDateValue(value: string | null | undefined): Date | null {
     if (!value) {
@@ -257,17 +291,37 @@ function parseDateValue(value: string | null | undefined): Date | null {
     return new Date(year, month - 1, day);
 }
 
-function formatDisplayDate(
-    value: string | null | undefined,
-    locale = 'hi',
-): string | null {
+function translateTemplate(
+    t: (key: string) => string,
+    key: string,
+    replacements: Record<string, string | number | null | undefined>,
+): string {
+    return Object.entries(replacements).reduce(
+        (text, [token, value]) =>
+            text.split(`:${token}`).join(String(value ?? '')),
+        t(key),
+    );
+}
+
+function translatedLabel(
+    t: (key: string) => string,
+    label: string,
+    value: string | number,
+): string {
+    return translateTemplate(t, ':label: :value', {
+        label: t(label),
+        value,
+    });
+}
+
+function formatDisplayDate(value: string | null | undefined): string | null {
     const date = parseDateValue(value);
 
     if (!date) {
         return null;
     }
 
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+    return new Intl.DateTimeFormat('en-IN', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
@@ -277,10 +331,9 @@ function formatDisplayDate(
 function formatDateRange(
     from: string | null | undefined,
     to: string | null | undefined,
-    locale = 'hi',
 ): string | null {
-    const formattedFrom = formatDisplayDate(from, locale);
-    const formattedTo = formatDisplayDate(to, locale);
+    const formattedFrom = formatDisplayDate(from);
+    const formattedTo = formatDisplayDate(to);
 
     if (formattedFrom && formattedTo) {
         return formattedFrom === formattedTo
@@ -289,6 +342,118 @@ function formatDateRange(
     }
 
     return formattedFrom ?? formattedTo;
+}
+
+function emptyFilters(): Filters {
+    return {
+        year_from: '',
+        year_to: '',
+        date_from: '',
+        date_to: '',
+        session_ids: [],
+        sport_ids: [],
+        tier_ids: [],
+        unit_ids: [],
+        district_ids: [],
+        rank_codes: [],
+        designations: [],
+        player_categories: [],
+        player_levels: [],
+        statuses: [],
+        tournament_ids: [],
+        tournament_name: '',
+        venue: '',
+        event_name: '',
+        event_types: [],
+        event_ids: [],
+        disciplines: [],
+        weight_categories: [],
+        event_gender_classes: [],
+        medal_types: [],
+        genders: [],
+        position_from: '',
+        position_to: '',
+        has_remarks: ALL,
+        benefit_types: [],
+        benefit_date_from: '',
+        benefit_date_to: '',
+        order_reference: '',
+    };
+}
+
+function queryValues(params: URLSearchParams, key: string): string[] {
+    return [...params.getAll(`${key}[]`), ...params.getAll(key)].filter(Boolean);
+}
+
+function readInitialReportQuery(): {
+    filters: Filters;
+    memberSearch: string;
+} {
+    const filters = emptyFilters();
+
+    if (typeof window === 'undefined') {
+        return { filters, memberSearch: '' };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    for (const key of STRING_FILTER_KEYS) {
+        const value = params.get(key);
+
+        if (value !== null) {
+            filters[key] = value as never;
+        }
+    }
+
+    for (const key of ARRAY_FILTER_KEYS) {
+        filters[key] = queryValues(params, key) as never;
+    }
+
+    return {
+        filters,
+        memberSearch: (params.get('member_name') ?? '').startsWith('Uncaught ')
+            ? ''
+            : (params.get('member_name') ?? ''),
+    };
+}
+
+function reportUrl(path: string, params: FilterQuery): string {
+    const query = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(params)) {
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                query.append(`${key}[]`, item);
+            }
+
+            continue;
+        }
+
+        query.set(key, value);
+    }
+
+    const queryString = query.toString();
+
+    return queryString ? `${path}?${queryString}` : path;
+}
+
+function isTeamEventMedal(row: MedalRow): boolean {
+    return row.event.event_type === 'team';
+}
+
+function teamEventGroupKey(row: MedalRow): string {
+    return [
+        row.tournament.id,
+        row.event.id,
+        row.medal_type,
+        row.position ?? '',
+    ].join(':');
+}
+
+function localizedTierLabel(tier: Tier, locale: string): string {
+    return locale === 'en'
+        ? tier.label_en || tier.label_hi || tier.code
+        : tier.label_hi || tier.label_en || tier.code;
 }
 
 // ── Medal badge ───────────────────────────────────────────────────────────────
@@ -463,6 +628,380 @@ function OptionList({
     );
 }
 
+function TournamentSearchFilter({
+    value,
+    yearFrom,
+    yearTo,
+    sessionIds,
+    selectedOption,
+    disabled = false,
+    onValueChange,
+}: {
+    value: string[];
+    yearFrom: string;
+    yearTo: string;
+    sessionIds: string[];
+    selectedOption: TournamentOption | null;
+    disabled?: boolean;
+    onValueChange: (value: string[], option: TournamentOption | null) => void;
+}) {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const [results, setResults] = useState<TournamentOption[]>([]);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+        undefined,
+    );
+    const { get, cancel, processing } = useHttp<
+        Record<string, never>,
+        TournamentSearchResponse
+    >({});
+
+    const selectedOptions =
+        selectedOption !== null && value.includes(String(selectedOption.id))
+            ? [selectedOption]
+            : [];
+
+    const loadResults = useCallback(
+        (query = '') => {
+            cancel();
+
+            get(
+                TournamentSearchController.url({
+                    query: {
+                        q: query,
+                        year_from: yearFrom,
+                        year_to: yearTo,
+                        session_ids: sessionIds,
+                    },
+                }),
+                {
+                    onSuccess: (response) => {
+                        setResults(
+                            (response as unknown as TournamentSearchResponse)
+                                .data ?? [],
+                        );
+                    },
+                    onError: () => setResults([]),
+                },
+            );
+        },
+        [cancel, get, sessionIds, yearFrom, yearTo],
+    );
+
+    useEffect(() => {
+        if (!open || disabled) {
+            return;
+        }
+
+        loadResults();
+    }, [disabled, loadResults, open]);
+
+    function handleSearch(query: string) {
+        if (disabled) {
+            return;
+        }
+
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => loadResults(query.trim()), 250);
+    }
+
+    function choose(option: TournamentOption) {
+        const id = String(option.id);
+        onValueChange(value.includes(id) ? [] : [id], value.includes(id) ? null : option);
+        setOpen(false);
+    }
+
+    function clearSelection(event: React.MouseEvent<HTMLButtonElement>): void {
+        event.preventDefault();
+        event.stopPropagation();
+        onValueChange([], null);
+    }
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    disabled={disabled}
+                    className={[
+                        'h-8 w-64 justify-between px-3 text-xs font-normal',
+                        selectedOptions.length === 0 &&
+                            'text-muted-foreground',
+                    ]
+                        .filter(Boolean)
+                        .join(' ')}
+                >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                        {selectedOptions.length === 0 ? (
+                            <span className="truncate">
+                                {t('Search tournament')}
+                            </span>
+                        ) : (
+                            <span className="truncate">
+                                {selectedOptions[0].name}
+                            </span>
+                        )}
+                    </span>
+                    <span className="ml-2 flex shrink-0 items-center gap-1">
+                        {selectedOptions.length > 0 && (
+                            <button
+                                type="button"
+                                className="rounded-sm p-0.5 opacity-60 hover:bg-muted hover:opacity-100"
+                                onClick={clearSelection}
+                                aria-label={t('Clear tournament')}
+                            >
+                                <X className="size-3" />
+                            </button>
+                        )}
+                        <ChevronsUpDown className="size-3.5 opacity-50" />
+                    </span>
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[360px] p-0" align="start">
+                <Command shouldFilter={false}>
+                    <CommandInput
+                        placeholder={t('Search tournaments…')}
+                        disabled={disabled}
+                        onValueChange={handleSearch}
+                    />
+                    <CommandList className="max-h-72">
+                        {processing && (
+                            <div className="space-y-1 p-2">
+                                <Skeleton className="h-8 w-full" />
+                                <Skeleton className="h-8 w-full" />
+                            </div>
+                        )}
+                        {!processing && results.length === 0 && (
+                            <CommandEmpty>{t('No results.')}</CommandEmpty>
+                        )}
+                        <CommandGroup>
+                            {results.map((option) => {
+                                const selected = value.includes(
+                                    String(option.id),
+                                );
+
+                                return (
+                                    <CommandItem
+                                        key={option.id}
+                                        value={`${option.name} ${option.date_from ?? ''}`}
+                                        onSelect={() => choose(option)}
+                                    >
+                                        <Check
+                                            className={[
+                                                'mr-2 size-4',
+                                                selected
+                                                    ? 'opacity-100'
+                                                    : 'opacity-0',
+                                            ].join(' ')}
+                                        />
+                                        <div className="min-w-0">
+                                            <div className="truncate font-medium">
+                                                {option.name}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {formatDisplayDate(
+                                                    option.date_from,
+                                                )}
+                                            </div>
+                                        </div>
+                                    </CommandItem>
+                                );
+                            })}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+function EventSearchFilter({
+    value,
+    yearFrom,
+    yearTo,
+    sportIds,
+    tournamentIds,
+    selectedOption,
+    onValueChange,
+}: {
+    value: string[];
+    yearFrom: string;
+    yearTo: string;
+    sportIds: string[];
+    tournamentIds: string[];
+    selectedOption: EventOption | null;
+    onValueChange: (value: string[], option: EventOption | null) => void;
+}) {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const [results, setResults] = useState<EventOption[]>([]);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+        undefined,
+    );
+    const { get, cancel, processing } = useHttp<
+        Record<string, never>,
+        EventSearchResponse
+    >({});
+
+    const selectedOptions =
+        selectedOption !== null && value.includes(String(selectedOption.id))
+            ? [selectedOption]
+            : [];
+
+    const loadResults = useCallback(
+        (query = '') => {
+            cancel();
+            get(
+                EventSearchController.url({
+                    query: {
+                        q: query,
+                        year_from: yearFrom,
+                        year_to: yearTo,
+                        sport_ids: sportIds,
+                        tournament_ids: tournamentIds,
+                    },
+                }),
+                {
+                    onSuccess: (response) => {
+                        setResults(
+                            (response as unknown as EventSearchResponse)
+                                .data ?? [],
+                        );
+                    },
+                    onError: () => setResults([]),
+                },
+            );
+        },
+        [cancel, get, sportIds, tournamentIds, yearFrom, yearTo],
+    );
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        loadResults();
+    }, [loadResults, open]);
+
+    function handleSearch(query: string) {
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => loadResults(query.trim()), 250);
+    }
+
+    function choose(option: EventOption) {
+        const id = String(option.id);
+        const selected = value.includes(id);
+
+        onValueChange(selected ? [] : [id], selected ? null : option);
+        setOpen(false);
+    }
+
+    function clearSelection(event: React.MouseEvent<HTMLButtonElement>): void {
+        event.preventDefault();
+        event.stopPropagation();
+        onValueChange([], null);
+    }
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className={[
+                        'h-8 w-56 justify-between px-3 text-xs font-normal',
+                        selectedOptions.length === 0 &&
+                            'text-muted-foreground',
+                    ]
+                        .filter(Boolean)
+                        .join(' ')}
+                >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                        {selectedOptions.length === 0 ? (
+                            <span className="truncate">
+                                {t('Search event')}
+                            </span>
+                        ) : (
+                            <span className="truncate">
+                                {selectedOptions[0].name}
+                            </span>
+                        )}
+                    </span>
+                    <span className="ml-2 flex shrink-0 items-center gap-1">
+                        {selectedOptions.length > 0 && (
+                            <button
+                                type="button"
+                                className="rounded-sm p-0.5 opacity-60 hover:bg-muted hover:opacity-100"
+                                onClick={clearSelection}
+                                aria-label={t('Clear event')}
+                            >
+                                <X className="size-3" />
+                            </button>
+                        )}
+                        <ChevronsUpDown className="size-3.5 opacity-50" />
+                    </span>
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[360px] p-0" align="start">
+                <Command shouldFilter={false}>
+                    <CommandInput
+                        placeholder={t('Search events…')}
+                        onValueChange={handleSearch}
+                    />
+                    <CommandList className="max-h-72">
+                        {processing && (
+                            <div className="space-y-1 p-2">
+                                <Skeleton className="h-8 w-full" />
+                                <Skeleton className="h-8 w-full" />
+                            </div>
+                        )}
+                        {!processing && results.length === 0 && (
+                            <CommandEmpty>{t('No results.')}</CommandEmpty>
+                        )}
+                        <CommandGroup>
+                            {results.map((option) => {
+                                const selected = value.includes(
+                                    String(option.id),
+                                );
+
+                                return (
+                                    <CommandItem
+                                        key={option.id}
+                                        value={`${option.name} ${option.tournament_name ?? ''}`}
+                                        onSelect={() => choose(option)}
+                                    >
+                                        <Check
+                                            className={[
+                                                'mr-2 size-4',
+                                                selected
+                                                    ? 'opacity-100'
+                                                    : 'opacity-0',
+                                            ].join(' ')}
+                                        />
+                                        <div className="min-w-0">
+                                            <div className="truncate font-medium">
+                                                {option.name}
+                                            </div>
+                                            {option.tournament_name && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {option.tournament_name}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CommandItem>
+                                );
+                            })}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
 // ── Print orientation dialog ──────────────────────────────────────────────────
 
 function PrintDialog({
@@ -582,7 +1121,11 @@ function exportRelatedCsv(rows: MedalRow[], filename: string): void {
     URL.revokeObjectURL(url);
 }
 
-function printRelated(rows: MedalRow[], title: string): void {
+function printRelated(
+    rows: MedalRow[],
+    title: string,
+    t: (key: string) => string,
+): void {
     const win = window.open('', '_blank', 'width=1000,height=700');
 
     if (!win) {
@@ -631,11 +1174,11 @@ function printRelated(rows: MedalRow[], title: string): void {
         </style>
     </head><body>
         <h2>${title}</h2>
-        <p class="sub">Printed: ${new Intl.DateTimeFormat('hi-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date())}</p>
+        <p class="sub">${translateTemplate(t, 'Printed: :date', { date: formatDisplayDate(new Date().toISOString()) ?? '' })}</p>
         <table>
             <thead><tr>
-                <th>Medal</th><th>Name</th><th>PNO</th><th>Rank</th><th>Posting</th>
-                <th>Sport</th><th>Event</th><th>Tournament</th><th>Session</th><th>Date</th><th>Position</th><th>Remarks</th>
+                <th>${t('Medal')}</th><th>${t('Name')}</th><th>${t('PNO')}</th><th>${t('Rank')}</th><th>${t('Posting')}</th>
+                <th>${t('Sport')}</th><th>${t('Event')}</th><th>${t('Tournament')}</th><th>${t('Session')}</th><th>${t('Date')}</th><th>${t('Position')}</th><th>${t('Remarks')}</th>
             </tr></thead>
             <tbody>${tableRows}</tbody>
         </table>
@@ -830,9 +1373,18 @@ function RelatedMedalsModal({
                 {hasRows && (
                     <div className="flex items-center justify-between gap-2 border-t bg-muted/30 px-4 py-3">
                         <span className="text-xs text-muted-foreground">
-                            {rows.length}
-                            {total > rows.length ? ` / ${total}` : ''}{' '}
-                            {t('records')}
+                            {total > rows.length
+                                ? translateTemplate(
+                                      t,
+                                      ':shown / :total records',
+                                      {
+                                          shown: rows.length,
+                                          total,
+                                      },
+                                  )
+                                : translateTemplate(t, ':total records', {
+                                      total: rows.length,
+                                  })}
                         </span>
                         <div className="flex gap-2">
                             <Button
@@ -852,7 +1404,7 @@ function RelatedMedalsModal({
                                 size="sm"
                                 variant="outline"
                                 className="gap-1.5"
-                                onClick={() => printRelated(rows, title)}
+                                onClick={() => printRelated(rows, title, t)}
                             >
                                 <Printer className="size-3.5" />
                                 {t('Print / PDF')}
@@ -1040,7 +1592,11 @@ function MedalDetailModal({
                             </div>
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                                 {row.member.pno && (
-                                    <span>PNO: {row.member.pno}</span>
+                                    <span>
+                                        {translateTemplate(t, 'PNO: :pno', {
+                                            pno: row.member.pno,
+                                        })}
+                                    </span>
                                 )}
                                 {row.member.rank && (
                                     <span>{row.member.rank}</span>
@@ -1251,9 +1807,6 @@ function MedalDetailModal({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ReportsMedals({
-    defaultYearFrom,
-    defaultYearTo,
-    defaultSessionId,
     sessions,
     sports,
     tiers,
@@ -1261,15 +1814,13 @@ export default function ReportsMedals({
     districts,
     ranks,
     designations,
-    tournaments,
-    events,
     venues,
     disciplines,
     weightCategories,
     initialTab,
 }: {
-    defaultYearFrom: number;
-    defaultYearTo: number;
+    defaultYearFrom: number | null;
+    defaultYearTo: number | null;
     defaultSessionId: number | null;
     sessions: Session[];
     sports: Sport[];
@@ -1278,14 +1829,13 @@ export default function ReportsMedals({
     districts: District[];
     ranks: RankOption[];
     designations: DesignationOption[];
-    tournaments: TournamentOption[];
-    events: EventOption[];
     venues: string[];
     disciplines: string[];
     weightCategories: string[];
     initialTab?: 'tally' | 'detail';
 }) {
     const { t } = useTranslation();
+    const { locale = 'en' } = usePage().props as { locale?: string };
     const [tab, setTab] = useState<'tally' | 'detail'>(
         initialTab === 'detail' ? 'detail' : 'tally',
     );
@@ -1295,43 +1845,22 @@ export default function ReportsMedals({
         breadcrumbs: [{ title: t('Reports') }, { title: pageTitle }],
     });
 
-    const [filters, setFilters] = useState<Filters>({
-        year_from: String(defaultYearFrom),
-        year_to: String(defaultYearTo),
-        date_from: '',
-        date_to: '',
-        session_ids: defaultSessionId ? [String(defaultSessionId)] : [],
-        sport_ids: [],
-        tier_ids: [],
-        unit_ids: [],
-        district_ids: [],
-        rank_codes: [],
-        designations: [],
-        player_categories: [],
-        player_levels: [],
-        statuses: [],
-        tournament_ids: [],
-        tournament_name: '',
-        venue: '',
-        event_name: '',
-        event_ids: [],
-        disciplines: [],
-        weight_categories: [],
-        event_gender_classes: [],
-        medal_types: [],
-        genders: [],
-        position_from: '',
-        position_to: '',
-        has_remarks: ALL,
-        benefit_types: [],
-        benefit_date_from: '',
-        benefit_date_to: '',
-        order_reference: '',
-    });
+    const [initialQuery] = useState(readInitialReportQuery);
+    const [filters, setFilters] = useState<Filters>(initialQuery.filters);
 
-    const [memberSearch, setMemberSearch] = useState('');
+    const [memberSearch, setMemberSearch] = useState(initialQuery.memberSearch);
     const memberSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [memberSearchDraft, setMemberSearchDraft] = useState('');
+    const [memberSearchDraft, setMemberSearchDraft] = useState(
+        initialQuery.memberSearch,
+    );
+    const [yearDraft, setYearDraft] = useState({
+        year_from: initialQuery.filters.year_from,
+        year_to: initialQuery.filters.year_to,
+    });
+    const [selectedTournamentOption, setSelectedTournamentOption] =
+        useState<TournamentOption | null>(null);
+    const [selectedEventOption, setSelectedEventOption] =
+        useState<EventOption | null>(null);
 
     const [tallyMode, setTallyMode] = useState<'tier' | 'team'>('tier');
     const [perPage, setPerPage] = useState(25);
@@ -1340,7 +1869,7 @@ export default function ReportsMedals({
 
     // Pivot (tally)
     const [pivotRows, setPivotRows] = useState<
-        (PivotRow | TeamPivotRow)[] | null
+        PivotRow[] | null
     >(null);
     const pivotRequestId = useRef(0);
     const { get: getPivot, processing: pivotLoading } = useHttp<
@@ -1359,8 +1888,6 @@ export default function ReportsMedals({
     // Modals
     const [selectedRow, setSelectedRow] = useState<MedalRow | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
-    const [teamModalParams, setTeamModalParams] =
-        useState<TeamModalState | null>(null);
     const [printOpen, setPrintOpen] = useState(false);
 
     const hasFilterValue = (value: string | string[]): boolean =>
@@ -1499,40 +2026,37 @@ export default function ReportsMedals({
         setFilters((prev) => ({ ...prev, [key]: value }));
     };
 
-    const clearAll = () => {
-        setFilters({
+    const applyYearFilter = () => {
+        setSelectedTournamentOption(null);
+        setSelectedEventOption(null);
+        setFilters((prev) => ({
+            ...prev,
+            year_from: yearDraft.year_from.trim(),
+            year_to: yearDraft.year_to.trim(),
+            tournament_ids: [],
+            event_ids: [],
+        }));
+        setSelectedTournamentOption(null);
+    };
+
+    const clearYearFilter = () => {
+        setYearDraft({ year_from: '', year_to: '' });
+        setSelectedTournamentOption(null);
+        setSelectedEventOption(null);
+        setFilters((prev) => ({
+            ...prev,
             year_from: '',
             year_to: '',
-            date_from: '',
-            date_to: '',
-            session_ids: [],
-            sport_ids: [],
-            tier_ids: [],
-            unit_ids: [],
-            district_ids: [],
-            rank_codes: [],
-            designations: [],
-            player_categories: [],
-            player_levels: [],
-            statuses: [],
             tournament_ids: [],
-            tournament_name: '',
-            venue: '',
-            event_name: '',
             event_ids: [],
-            disciplines: [],
-            weight_categories: [],
-            event_gender_classes: [],
-            medal_types: [],
-            genders: [],
-            position_from: '',
-            position_to: '',
-            has_remarks: ALL,
-            benefit_types: [],
-            benefit_date_from: '',
-            benefit_date_to: '',
-            order_reference: '',
-        });
+        }));
+    };
+
+    const clearAll = () => {
+        setYearDraft({ year_from: '', year_to: '' });
+        setSelectedTournamentOption(null);
+        setSelectedEventOption(null);
+        setFilters(emptyFilters());
         setMemberSearchDraft('');
         setMemberSearch('');
     };
@@ -1571,12 +2095,6 @@ export default function ReportsMedals({
         return MedalsExportController.url() + (qs ? `?${qs}` : '');
     };
 
-    const teamExportUrl = useCallback((query: FilterQuery) => {
-        const qs = buildQueryString(query);
-
-        return MedalsExportController.url() + (qs ? `?${qs}` : '');
-    }, []);
-
     const optionLabels = (
         options: MultiSelectOption[],
         values: string[],
@@ -1604,7 +2122,7 @@ export default function ReportsMedals({
     }));
     const tierOptions = tiers.map((tier) => ({
         value: String(tier.id),
-        label: tier.label_hi,
+        label: localizedTierLabel(tier, locale),
     }));
     const unitOptions = units.map((unit) => ({
         value: String(unit.id),
@@ -1624,31 +2142,7 @@ export default function ReportsMedals({
             .filter(Boolean)
             .join(' · '),
     }));
-    const selectedSessionId = filters.session_ids[0] ?? ALL;
     const selectedTournamentId = filters.tournament_ids[0] ?? ALL;
-    const selectedEventId = filters.event_ids[0] ?? ALL;
-    const visibleTournaments = tournaments.filter(
-        (tournament) =>
-            selectedSessionId === ALL ||
-            String(tournament.session_id) === selectedSessionId,
-    );
-    const visibleEvents = events.filter((event) =>
-        selectedTournamentId !== ALL
-            ? String(event.tournament_id) === selectedTournamentId
-            : visibleTournaments.some(
-                  (tournament) => tournament.id === event.tournament_id,
-              ),
-    );
-    const tournamentOptions = visibleTournaments.map((tournament) => ({
-        value: String(tournament.id),
-        label: [tournament.name, formatDisplayDate(tournament.date_from)]
-            .filter(Boolean)
-            .join(' · '),
-    }));
-    const eventOptions = visibleEvents.map((event) => ({
-        value: String(event.id),
-        label: event.name,
-    }));
     const venueOptions = venues.map((venue) => ({
         value: venue,
         label: venue,
@@ -1716,11 +2210,28 @@ export default function ReportsMedals({
     const sessionLabel = optionLabels(sessionOptions, filters.session_ids);
     const sportLabel = optionLabels(sportOptions, filters.sport_ids);
     const tournamentLabel = optionLabels(
-        tournamentOptions,
+        selectedTournamentOption === null
+            ? []
+            : [
+                  {
+                      value: String(selectedTournamentOption.id),
+                      label: selectedTournamentOption.name,
+                  },
+              ],
         filters.tournament_ids,
     );
-    const eventLabel = optionLabels(eventOptions, filters.event_ids);
-    const tierLabel = optionLabels(tierOptions, filters.tier_ids);
+    const eventLabel = optionLabels(
+        selectedEventOption === null
+            ? []
+            : [
+                  {
+                      value: String(selectedEventOption.id),
+                      label: selectedEventOption.name,
+                  },
+              ],
+        filters.event_ids,
+    );
+    const selectedTierLabel = optionLabels(tierOptions, filters.tier_ids);
     const unitLabel = optionLabels(unitOptions, filters.unit_ids);
     const medalLabel = optionLabels(medalOptions, filters.medal_types);
     const genderLabel = optionLabels(genderOptions, filters.genders);
@@ -1736,7 +2247,7 @@ export default function ReportsMedals({
         : null;
     const isTeamPivot = tab === 'tally' && pivotGrouping === 'team';
     const tierRows = (pivotRows ?? []).filter(isTierPivotRow);
-    const teamRows = (pivotRows ?? []).filter(isTeamPivotRow);
+    const tabQuery = buildParams();
 
     return (
         <>
@@ -1774,7 +2285,7 @@ export default function ReportsMedals({
                     <div className="relative w-48 shrink-0">
                         <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder={t('Search athlete…')}
+                            placeholder={t('Search athlete / PNO…')}
                             value={memberSearchDraft}
                             onChange={(e) =>
                                 handleMemberSearchChange(e.target.value)
@@ -1787,13 +2298,7 @@ export default function ReportsMedals({
                     <FilterPill
                         label={t('Year')}
                         activeLabel={yearRangeLabel}
-                        onClear={() =>
-                            setFilters((prev) => ({
-                                ...prev,
-                                year_from: '',
-                                year_to: '',
-                            }))
-                        }
+                        onClear={clearYearFilter}
                     >
                         <div className="flex w-52 flex-col gap-3 p-3">
                             <div className="space-y-1">
@@ -1805,12 +2310,12 @@ export default function ReportsMedals({
                                     min={1900}
                                     max={2099}
                                     placeholder="e.g. 2019"
-                                    value={filters.year_from}
+                                    value={yearDraft.year_from}
                                     onChange={(e) =>
-                                        setFilter(
-                                            'year_from',
-                                            e.target.value.trim(),
-                                        )
+                                        setYearDraft((prev) => ({
+                                            ...prev,
+                                            year_from: e.target.value,
+                                        }))
                                     }
                                     className="h-8 text-sm"
                                 />
@@ -1824,113 +2329,117 @@ export default function ReportsMedals({
                                     min={1900}
                                     max={2099}
                                     placeholder="e.g. 2026"
-                                    value={filters.year_to}
+                                    value={yearDraft.year_to}
                                     onChange={(e) =>
-                                        setFilter(
-                                            'year_to',
-                                            e.target.value.trim(),
-                                        )
+                                        setYearDraft((prev) => ({
+                                            ...prev,
+                                            year_to: e.target.value,
+                                        }))
                                     }
                                     className="h-8 text-sm"
                                 />
                             </div>
+                            <div className="flex items-center justify-end gap-2 border-t pt-3">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={clearYearFilter}
+                                >
+                                    {t('Clear')}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={applyYearFilter}
+                                >
+                                    {t('Apply')}
+                                </Button>
+                            </div>
                         </div>
                     </FilterPill>
 
-                    <Select
-                        value={selectedSessionId}
+                    <OptionMultiSelect
+                        value={filters.session_ids}
                         onValueChange={(value) => {
+                            setSelectedTournamentOption(null);
+                            setSelectedEventOption(null);
                             setFilters((prev) => ({
                                 ...prev,
-                                session_ids: value === ALL ? [] : [value],
+                                session_ids: value,
                                 tournament_ids: [],
                                 event_ids: [],
                             }));
                         }}
-                    >
-                        <SelectTrigger className="h-8 w-44 text-xs">
-                            <SelectValue placeholder={t('Session')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL}>
-                                {t('All Sessions')}
-                            </SelectItem>
-                            {sessionOptions.map((session) => (
-                                <SelectItem
-                                    key={session.value}
-                                    value={session.value}
-                                >
-                                    {session.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        options={sessionOptions}
+                        placeholder={t('All Sessions')}
+                        searchPlaceholder={t('Search sessions…')}
+                        className="w-44"
+                    />
 
-                    <Select
-                        value={selectedTournamentId}
-                        onValueChange={(value) => {
+                    <OptionMultiSelect
+                        value={filters.tier_ids}
+                        onValueChange={(value) =>
+                            setArrayFilter('tier_ids', value)
+                        }
+                        options={tierOptions}
+                        placeholder={t('All Tiers')}
+                        searchPlaceholder={t('Search tiers…')}
+                        className="w-40"
+                    />
+
+                    <TournamentSearchFilter
+                        value={filters.tournament_ids}
+                        yearFrom={filters.year_from}
+                        yearTo={filters.year_to}
+                        sessionIds={filters.session_ids}
+                        selectedOption={selectedTournamentOption}
+                        disabled={!yearRangeLabel && filters.session_ids.length === 0}
+                        onValueChange={(value, option) => {
+                            setSelectedTournamentOption(option);
+                            setSelectedEventOption(null);
                             setFilters((prev) => ({
                                 ...prev,
-                                tournament_ids: value === ALL ? [] : [value],
+                                tournament_ids: value,
                                 event_ids: [],
                             }));
                         }}
-                    >
-                        <SelectTrigger className="h-8 w-64 text-xs">
-                            <SelectValue placeholder={t('Tournament')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL}>
-                                {t('All Tournaments')}
-                            </SelectItem>
-                            {tournamentOptions.map((tournament) => (
-                                <SelectItem
-                                    key={tournament.value}
-                                    value={tournament.value}
-                                >
-                                    {tournament.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    <Select
-                        value={selectedEventId}
-                        onValueChange={(value) =>
-                            setArrayFilter(
-                                'event_ids',
-                                value === ALL ? [] : [value],
-                            )
-                        }
-                    >
-                        <SelectTrigger className="h-8 w-56 text-xs">
-                            <SelectValue placeholder={t('Event')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL}>
-                                {t('All Events')}
-                            </SelectItem>
-                            {eventOptions.map((event) => (
-                                <SelectItem
-                                    key={event.value}
-                                    value={event.value}
-                                >
-                                    {event.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    />
 
                     <OptionMultiSelect
                         value={filters.sport_ids}
-                        onValueChange={(value) =>
-                            setArrayFilter('sport_ids', value)
-                        }
+                        onValueChange={(value) => {
+                            setSelectedEventOption(null);
+                            setFilters((prev) => ({
+                                ...prev,
+                                sport_ids: value,
+                                event_ids: [],
+                            }));
+                        }}
                         options={sportOptions}
                         placeholder={t('All Sports')}
                         searchPlaceholder={t('Search sports…')}
                         className="w-44"
                     />
+
+                    {(selectedTournamentId !== ALL ||
+                        filters.sport_ids.length > 0) && (
+                        <EventSearchFilter
+                            value={filters.event_ids}
+                            yearFrom={filters.year_from}
+                            yearTo={filters.year_to}
+                            sportIds={filters.sport_ids}
+                            tournamentIds={filters.tournament_ids}
+                            selectedOption={selectedEventOption}
+                            onValueChange={(value, option) => {
+                                setSelectedEventOption(option);
+                                setFilters((prev) => ({
+                                    ...prev,
+                                    event_ids: value,
+                                }));
+                            }}
+                        />
+                    )}
 
                     <OptionMultiSelect
                         value={filters.medal_types}
@@ -1951,40 +2460,52 @@ export default function ReportsMedals({
                         {t('Advanced filters')}
                     </Button>
 
-                    {hasAnyFilter && (
-                        <button
-                            type="button"
-                            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                            onClick={clearAll}
-                        >
-                            <X className="mr-1 inline size-3" />
-                            {t('Clear filters')}
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={clearAll}
+                    >
+                        <X className="mr-1 inline size-3" />
+                        {t('Clear filters')}
+                    </button>
                 </div>
 
                 {hasAnyFilter && (
                     <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
                         {[
                             yearRangeLabel
-                                ? `${t('Year')}: ${yearRangeLabel}`
+                                ? translatedLabel(t, 'Year', yearRangeLabel)
                                 : null,
                             sessionLabel
-                                ? `${t('Session')}: ${sessionLabel}`
+                                ? translatedLabel(t, 'Session', sessionLabel)
                                 : null,
                             tournamentLabel
-                                ? `${t('Tournament')}: ${tournamentLabel}`
+                                ? translatedLabel(
+                                      t,
+                                      'Tournament',
+                                      tournamentLabel,
+                                  )
                                 : null,
-                            eventLabel ? `${t('Event')}: ${eventLabel}` : null,
-                            sportLabel ? `${t('Sport')}: ${sportLabel}` : null,
-                            tierLabel ? `${t('Tier')}: ${tierLabel}` : null,
-                            unitLabel ? `${t('Posting')}: ${unitLabel}` : null,
-                            medalLabel ? `${t('Medal')}: ${medalLabel}` : null,
+                            eventLabel
+                                ? translatedLabel(t, 'Event', eventLabel)
+                                : null,
+                            sportLabel
+                                ? translatedLabel(t, 'Sport', sportLabel)
+                                : null,
+                            selectedTierLabel
+                                ? translatedLabel(t, 'Tier', selectedTierLabel)
+                                : null,
+                            unitLabel
+                                ? translatedLabel(t, 'Posting', unitLabel)
+                                : null,
+                            medalLabel
+                                ? translatedLabel(t, 'Medal', medalLabel)
+                                : null,
                             genderLabel
-                                ? `${t('Gender')}: ${genderLabel}`
+                                ? translatedLabel(t, 'Gender', genderLabel)
                                 : null,
                             memberSearch
-                                ? `${t('Athlete')}: ${memberSearch}`
+                                ? translatedLabel(t, 'Athlete', memberSearch)
                                 : null,
                         ]
                             .filter(Boolean)
@@ -2079,14 +2600,6 @@ export default function ReportsMedals({
                             <h3 className="text-xs font-semibold text-muted-foreground uppercase">
                                 {t('Tournament')}
                             </h3>
-                            <OptionMultiSelect
-                                value={filters.tier_ids}
-                                onValueChange={(value) =>
-                                    setArrayFilter('tier_ids', value)
-                                }
-                                options={tierOptions}
-                                placeholder={t('All Tiers')}
-                            />
                             <OptionMultiSelect
                                 value={filters.venue ? [filters.venue] : []}
                                 onValueChange={(value) =>
@@ -2270,14 +2783,17 @@ export default function ReportsMedals({
                                     label: t('Medal Tally'),
                                     description: t('Summary and aggregates'),
                                     icon: Trophy,
-                                    href: '/reports/medals',
+                                    href: reportUrl('/reports/medals', tabQuery),
                                 },
                                 {
                                     key: 'detail' as const,
                                     label: t('Medal Detail'),
                                     description: t('Athlete-level records'),
                                     icon: ListOrdered,
-                                    href: '/reports/medals/detail',
+                                    href: reportUrl(
+                                        '/reports/medals/detail',
+                                        tabQuery,
+                                    ),
                                 },
                             ].map((item) => {
                                 const Icon = item.icon;
@@ -2321,13 +2837,22 @@ export default function ReportsMedals({
                                     {(
                                         [
                                             ['tier', t('By Tier')],
-                                            ['team', t('By Team')],
+                                            ['team', t('By Team Events')],
                                         ] as const
                                     ).map(([value, label]) => (
                                         <button
                                             key={value}
                                             type="button"
-                                            onClick={() => setTallyMode(value)}
+                                            onClick={() => {
+                                                setTallyMode(value);
+
+                                                if (value === 'tier') {
+                                                    setFilters((prev) => ({
+                                                        ...prev,
+                                                        event_types: [],
+                                                    }));
+                                                }
+                                            }}
                                             className={[
                                                 'rounded px-3 text-xs font-medium transition-colors',
                                                 tallyMode === value
@@ -2344,7 +2869,7 @@ export default function ReportsMedals({
                             {/* Medal counts shown near the switch */}
                             {tab === 'detail' &&
                                 detailData !== null &&
-                                detailData.total > 0 && (
+                                detailData.medal_total > 0 && (
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                                         {(
                                             [
@@ -2391,7 +2916,7 @@ export default function ReportsMedals({
                                         <span className="text-muted-foreground">
                                             {t('Total')}:{' '}
                                             <strong className="text-foreground">
-                                                {detailData.total}
+                                                {detailData.medal_total}
                                             </strong>
                                         </span>
                                     </div>
@@ -2407,14 +2932,14 @@ export default function ReportsMedals({
                                 <div className="text-sm font-semibold">
                                     {t(
                                         tallyMode === 'team'
-                                            ? 'Team medal tally'
+                                            ? 'Team event medal tally'
                                             : 'Tier medal tally',
                                     )}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                     {t(
                                         tallyMode === 'team'
-                                            ? 'Team medals are counted once per team, event, and medal type.'
+                                            ? 'Only events marked as team events are shown here.'
                                             : 'Tier totals exclude display-only medals.',
                                     )}
                                 </div>
@@ -2457,29 +2982,11 @@ export default function ReportsMedals({
                                     <TableHeader className="sticky top-0 z-10 bg-muted/60">
                                         <TableRow>
                                             <TableHead className="w-12 text-center">
-                                                {t(
-                                                    isTeamPivot
-                                                        ? 'S No'
-                                                        : 'Rank',
-                                                )}
+                                                {t('Rank')}
                                             </TableHead>
                                             <TableHead className="min-w-56">
-                                                {t(
-                                                    isTeamPivot
-                                                        ? 'Team'
-                                                        : 'Tier',
-                                                )}
+                                                {t('Tier')}
                                             </TableHead>
-                                            {isTeamPivot && (
-                                                <>
-                                                    <TableHead className="min-w-36">
-                                                        {t('Sport')}
-                                                    </TableHead>
-                                                    <TableHead className="min-w-32">
-                                                        {t('Session')}
-                                                    </TableHead>
-                                                </>
-                                            )}
                                             <TableHead className="w-24 text-center">
                                                 <span
                                                     className={[
@@ -2526,275 +3033,100 @@ export default function ReportsMedals({
                                             <TableHead className="w-28 text-center">
                                                 {t('Display only')}
                                             </TableHead>
-                                            {isTeamPivot && (
-                                                <>
-                                                    <TableHead className="w-24 text-center">
-                                                        {t('Events')}
-                                                    </TableHead>
-                                                    <TableHead className="w-24 text-center">
-                                                        {t('Players')}
-                                                    </TableHead>
-                                                </>
-                                            )}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {!isTeamPivot &&
-                                            tierRows.map((row, index) => {
-                                                const total =
-                                                    row.GOLD +
-                                                    row.SILVER +
-                                                    row.BRONZE +
-                                                    row.MERIT;
+                                        {tierRows.map((row, index) => {
+                                            const total =
+                                                row.GOLD +
+                                                row.SILVER +
+                                                row.BRONZE +
+                                                row.MERIT;
 
-                                                return (
-                                                    <TableRow
-                                                        key={row.tier.code}
-                                                        className="cursor-pointer border-b hover:bg-muted/40"
-                                                        onClick={() => {
-                                                            const tierId =
-                                                                tiers.find(
-                                                                    (ti) =>
-                                                                        ti.code ===
-                                                                        row.tier
-                                                                            .code,
-                                                                )?.id;
+                                            return (
+                                                <TableRow
+                                                    key={row.tier.code}
+                                                    className="cursor-pointer border-b hover:bg-muted/40"
+                                                    onClick={() => {
+                                                        const tierId =
+                                                            tiers.find(
+                                                                (ti) =>
+                                                                    ti.code ===
+                                                                    row.tier
+                                                                        .code,
+                                                            )?.id;
 
-                                                            if (tierId) {
-                                                                setFilters(
-                                                                    (prev) => ({
-                                                                        ...prev,
-                                                                        tier_ids:
-                                                                            [
-                                                                                String(
-                                                                                    tierId,
-                                                                                ),
-                                                                            ],
-                                                                    }),
-                                                                );
+                                                        setFilters((prev) => ({
+                                                            ...prev,
+                                                            tier_ids: tierId
+                                                                ? [
+                                                                      String(
+                                                                          tierId,
+                                                                      ),
+                                                                  ]
+                                                                : [],
+                                                            event_types:
+                                                                isTeamPivot
+                                                                    ? ['team']
+                                                                    : [],
+                                                        }));
+
+                                                        setTab('detail');
+                                                    }}
+                                                >
+                                                    <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                                                        {index + 1}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="font-medium">
+                                                            {row.tier.label}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {row.tier.code}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <CountCell
+                                                            value={row.GOLD}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <CountCell
+                                                            value={row.SILVER}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <CountCell
+                                                            value={row.BRONZE}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <CountCell
+                                                            value={row.MERIT}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <CountCell
+                                                            value={total}
+                                                            strong={total > 0}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <DisplayOnlyCell
+                                                            value={
+                                                                row.display_only
                                                             }
-
-                                                            setTab('detail');
-                                                        }}
-                                                    >
-                                                        <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                                                            {index + 1}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="font-medium">
-                                                                {row.tier.label}
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {row.tier.code}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={row.GOLD}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={
-                                                                    row.SILVER
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={
-                                                                    row.BRONZE
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={
-                                                                    row.MERIT
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={total}
-                                                                strong={
-                                                                    total > 0
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <DisplayOnlyCell
-                                                                value={
-                                                                    row.display_only
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                        {isTeamPivot &&
-                                            teamRows.map((row, index) => {
-                                                const total =
-                                                    row.GOLD +
-                                                    row.SILVER +
-                                                    row.BRONZE +
-                                                    row.MERIT;
-                                                const teamName =
-                                                    row.team?.name ?? '—';
-                                                const teamSport =
-                                                    row.team?.sport_name ?? '—';
-                                                const teamSession =
-                                                    row.team?.session_name ??
-                                                    '—';
-                                                const teamUnit =
-                                                    row.team?.unit_name;
-                                                const teamDistrict =
-                                                    row.team?.district_name;
-
-                                                return (
-                                                    <TableRow
-                                                        key={
-                                                            row.team?.id ??
-                                                            `team-row-${index}`
-                                                        }
-                                                        className="cursor-pointer border-b hover:bg-muted/40"
-                                                        onClick={() => {
-                                                            if (
-                                                                row.team?.id ===
-                                                                    undefined ||
-                                                                row.team?.id ===
-                                                                    null
-                                                            ) {
-                                                                return;
-                                                            }
-
-                                                            setTeamModalParams({
-                                                                team_name:
-                                                                    teamName,
-                                                                filters:
-                                                                    buildDownloadQuery(
-                                                                        {
-                                                                            team_id:
-                                                                                String(
-                                                                                    row
-                                                                                        .team
-                                                                                        .id,
-                                                                                ),
-                                                                        },
-                                                                    ),
-                                                            });
-                                                        }}
-                                                    >
-                                                        <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                                                            {index + 1}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="max-w-72 truncate font-medium">
-                                                                {teamName}
-                                                            </div>
-                                                            <div className="mt-1 flex flex-wrap gap-1">
-                                                                {[
-                                                                    teamUnit,
-                                                                    teamDistrict,
-                                                                ]
-                                                                    .filter(
-                                                                        Boolean,
-                                                                    )
-                                                                    .map(
-                                                                        (
-                                                                            label,
-                                                                        ) => (
-                                                                            <Badge
-                                                                                key={
-                                                                                    label
-                                                                                }
-                                                                                variant="outline"
-                                                                                className="px-1.5 py-0 text-[11px] font-normal"
-                                                                            >
-                                                                                {
-                                                                                    label
-                                                                                }
-                                                                            </Badge>
-                                                                        ),
-                                                                    )}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-sm">
-                                                            {teamSport}
-                                                        </TableCell>
-                                                        <TableCell className="text-sm text-muted-foreground">
-                                                            {teamSession}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={row.GOLD}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={
-                                                                    row.SILVER
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={
-                                                                    row.BRONZE
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={
-                                                                    row.MERIT
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={total}
-                                                                strong={
-                                                                    total > 0
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <DisplayOnlyCell
-                                                                value={
-                                                                    row.display_only
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={
-                                                                    row.events
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <CountCell
-                                                                value={
-                                                                    row.players
-                                                                }
-                                                            />
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
+                                                        />
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
                                         {pivotRows.length > 1 && (
                                             <TableRow className="border-t-2 bg-muted/40 font-bold">
-                                                {isTeamPivot && <TableCell />}
+                                                <TableCell />
                                                 <TableCell>
                                                     {t('Total')}
                                                 </TableCell>
-                                                {isTeamPivot && (
-                                                    <>
-                                                        <TableCell />
-                                                        <TableCell />
-                                                    </>
-                                                )}
                                                 <TableCell className="text-center">
                                                     <CountCell
                                                         value={pivotRows.reduce(
@@ -2845,12 +3177,6 @@ export default function ReportsMedals({
                                                         }
                                                     />
                                                 </TableCell>
-                                                {isTeamPivot && (
-                                                    <>
-                                                        <TableCell />
-                                                        <TableCell />
-                                                    </>
-                                                )}
                                             </TableRow>
                                         )}
                                     </TableBody>
@@ -2877,7 +3203,14 @@ export default function ReportsMedals({
                         <div className="flex items-center justify-between gap-4">
                             <span className="text-xs text-muted-foreground">
                                 {detailData !== null
-                                    ? `${detailData.total} ${t('results')}`
+                                    ? translateTemplate(
+                                          t,
+                                          ':medals medals · :rows player rows',
+                                          {
+                                              medals: detailData.medal_total,
+                                              rows: detailData.total,
+                                          },
+                                      )
                                     : ''}
                             </span>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -2914,19 +3247,15 @@ export default function ReportsMedals({
                                 </div>
                                 {detailData !== null && (
                                     <div className="text-xs text-muted-foreground">
-                                        {t('Showing :from–:to of :total')
-                                            .replace(
-                                                ':from',
-                                                String(detailData.from ?? 0),
-                                            )
-                                            .replace(
-                                                ':to',
-                                                String(detailData.to ?? 0),
-                                            )
-                                            .replace(
-                                                ':total',
-                                                String(detailData.total),
-                                            )}
+                                        {translateTemplate(
+                                            t,
+                                            'Showing :from–:to of :total',
+                                            {
+                                                from: detailData.from ?? 0,
+                                                to: detailData.to ?? 0,
+                                                total: detailData.total,
+                                            },
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -2951,7 +3280,7 @@ export default function ReportsMedals({
                                         <TableHeader className="sticky top-0 z-10 bg-muted/60">
                                             <TableRow>
                                                 <TableHead className="w-12 text-center">
-                                                    #
+                                                    {t('S No')}
                                                 </TableHead>
                                                 <TableHead className="w-28">
                                                     {t('Medal')}
@@ -2965,8 +3294,11 @@ export default function ReportsMedals({
                                                 <TableHead className="min-w-36">
                                                     {t('Posting')}
                                                 </TableHead>
+                                                <TableHead className="min-w-36">
+                                                    {t('Sport')}
+                                                </TableHead>
                                                 <TableHead className="min-w-56">
-                                                    {t('Sport / Event')}
+                                                    {t('Event / Weight')}
                                                 </TableHead>
                                                 <TableHead className="min-w-64">
                                                     {t('Tournament')}
@@ -2980,94 +3312,275 @@ export default function ReportsMedals({
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {detailData.data.map((row, idx) => (
-                                                <TableRow
-                                                    key={row.id}
-                                                    className="cursor-pointer border-b hover:bg-muted/40"
-                                                    onClick={() => {
-                                                        setSelectedRow(row);
-                                                        setModalOpen(true);
-                                                    }}
-                                                >
-                                                    <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                                                        {(detailData.from ??
-                                                            0) + idx}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <MedalBadge
-                                                            type={
-                                                                row.medal_type
+                                            {(() => {
+                                                let medalSerial =
+                                                    (detailData.from ?? 1) - 1;
+                                                let previousMedalKey = '';
+
+                                                return detailData.data.flatMap(
+                                                    (row, idx) => {
+                                                    const rows: React.ReactNode[] =
+                                                        [];
+                                                    const isTeam =
+                                                        isTeamEventMedal(row);
+                                                    const medalKey = isTeam
+                                                        ? `team:${teamEventGroupKey(row)}`
+                                                        : `individual:${row.id}:${row.member.id ?? idx}`;
+                                                    const startsMedal =
+                                                        medalKey !==
+                                                        previousMedalKey;
+
+                                                    if (startsMedal) {
+                                                        medalSerial++;
+                                                        previousMedalKey =
+                                                            medalKey;
+                                                    }
+
+                                                    let teamRowSpan = 1;
+
+                                                    if (isTeam && startsMedal) {
+                                                        for (
+                                                            let nextIndex =
+                                                                idx + 1;
+                                                            nextIndex <
+                                                            detailData.data
+                                                                .length;
+                                                            nextIndex++
+                                                        ) {
+                                                            const nextRow =
+                                                                detailData.data[
+                                                                    nextIndex
+                                                                ];
+
+                                                            if (
+                                                                !isTeamEventMedal(
+                                                                    nextRow,
+                                                                ) ||
+                                                                `team:${teamEventGroupKey(nextRow)}` !==
+                                                                    medalKey
+                                                            ) {
+                                                                break;
                                                             }
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="max-w-56 truncate font-medium">
-                                                            {
-                                                                row.member
-                                                                    .full_name
-                                                            }
-                                                        </div>
-                                                        <div className="mt-0.5 text-xs text-muted-foreground">
-                                                            {row.member.pno ??
-                                                                '—'}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        {row.member.rank ?? '—'}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        {row.member.unit_name ??
-                                                            '—'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="max-w-52 truncate text-sm font-medium">
-                                                            {row.sport.name}
-                                                        </div>
-                                                        <div className="max-w-52 truncate text-xs text-muted-foreground">
-                                                            {row.event.name}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="max-w-64 truncate text-sm font-medium">
-                                                            {
-                                                                row.tournament
-                                                                    .name
-                                                            }
-                                                        </div>
-                                                        {row.tournament
-                                                            .date_from && (
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {formatDisplayDate(
-                                                                    row
+
+                                                            teamRowSpan++;
+                                                        }
+                                                    }
+
+                                                    rows.push(
+                                                        <TableRow
+                                                            key={`${row.id}-${row.member.id}-${idx}`}
+                                                            className={[
+                                                                'cursor-pointer border-b hover:bg-muted/40',
+                                                                isTeam
+                                                                    ? 'bg-muted/10'
+                                                                    : '',
+                                                            ].join(' ')}
+                                                            onClick={() => {
+                                                                setSelectedRow(
+                                                                    row,
+                                                                );
+                                                                setModalOpen(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                        >
+                                                            {(!isTeam ||
+                                                                startsMedal) && (
+                                                                <TableCell
+                                                                    rowSpan={
+                                                                        isTeam
+                                                                            ? teamRowSpan
+                                                                            : undefined
+                                                                    }
+                                                                    className="text-center font-mono text-xs text-muted-foreground align-middle"
+                                                                >
+                                                                    {
+                                                                        medalSerial
+                                                                    }
+                                                                </TableCell>
+                                                            )}
+                                                            {(!isTeam ||
+                                                                startsMedal) && (
+                                                                <TableCell
+                                                                    rowSpan={
+                                                                        isTeam
+                                                                            ? teamRowSpan
+                                                                            : undefined
+                                                                    }
+                                                                    className="align-middle"
+                                                                >
+                                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                                        <MedalBadge
+                                                                            type={
+                                                                                row.medal_type
+                                                                            }
+                                                                        />
+                                                                    </div>
+                                                                </TableCell>
+                                                            )}
+                                                            <TableCell>
+                                                                <div className="max-w-56 truncate font-medium">
+                                                                    {
+                                                                        row
+                                                                            .member
+                                                                            .full_name
+                                                                    }
+                                                                </div>
+                                                                <div className="mt-0.5 text-xs text-muted-foreground">
+                                                                    {row.member
+                                                                        .pno ??
+                                                                        '—'}
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="text-sm">
+                                                                {row.member
+                                                                    .rank ??
+                                                                    '—'}
+                                                            </TableCell>
+                                                            <TableCell className="text-sm">
+                                                                {row.member
+                                                                    .unit_name ??
+                                                                    '—'}
+                                                            </TableCell>
+                                                            {(!isTeam ||
+                                                                startsMedal) && (
+                                                                <TableCell
+                                                                    rowSpan={
+                                                                        isTeam
+                                                                            ? teamRowSpan
+                                                                            : undefined
+                                                                    }
+                                                                    className="align-middle"
+                                                                >
+                                                                    <div className="max-w-36 truncate text-sm font-medium">
+                                                                        {
+                                                                            row
+                                                                                .sport
+                                                                                .name
+                                                                        }
+                                                                    </div>
+                                                                </TableCell>
+                                                            )}
+                                                            {(!isTeam ||
+                                                                startsMedal) && (
+                                                                <TableCell
+                                                                    rowSpan={
+                                                                        isTeam
+                                                                            ? teamRowSpan
+                                                                            : undefined
+                                                                    }
+                                                                    className="align-middle"
+                                                                >
+                                                                    <div className="flex max-w-52 flex-wrap items-center gap-1.5 text-sm font-medium">
+                                                                        <span className="truncate">
+                                                                            {
+                                                                                row
+                                                                                    .event
+                                                                                    .name
+                                                                            }
+                                                                        </span>
+                                                                        {isTeam && (
+                                                                            <Badge
+                                                                                variant="outline"
+                                                                                className="text-[11px]"
+                                                                            >
+                                                                                {t(
+                                                                                    'Team',
+                                                                                )}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                    {row.event
+                                                                        .weight_category && (
+                                                                        <div className="mt-0.5 max-w-52 truncate text-xs text-muted-foreground">
+                                                                            {
+                                                                                row
+                                                                                    .event
+                                                                                    .weight_category
+                                                                            }
+                                                                        </div>
+                                                                    )}
+                                                                </TableCell>
+                                                            )}
+                                                            {(!isTeam ||
+                                                                startsMedal) && (
+                                                                <TableCell
+                                                                    rowSpan={
+                                                                        isTeam
+                                                                            ? teamRowSpan
+                                                                            : undefined
+                                                                    }
+                                                                    className="align-middle"
+                                                                >
+                                                                    <div className="max-w-64 truncate text-sm font-medium">
+                                                                        {
+                                                                            row
+                                                                                .tournament
+                                                                                .name
+                                                                        }
+                                                                    </div>
+                                                                    {row
                                                                         .tournament
-                                                                        .date_from,
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {row.tournament
-                                                            .tier_label ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="text-xs"
-                                                            >
-                                                                {
-                                                                    row
+                                                                        .date_from && (
+                                                                        <div className="text-xs text-muted-foreground">
+                                                                            {formatDisplayDate(
+                                                                                row
+                                                                                    .tournament
+                                                                                    .date_from,
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </TableCell>
+                                                            )}
+                                                            {(!isTeam ||
+                                                                startsMedal) && (
+                                                                <TableCell
+                                                                    rowSpan={
+                                                                        isTeam
+                                                                            ? teamRowSpan
+                                                                            : undefined
+                                                                    }
+                                                                    className="align-middle"
+                                                                >
+                                                                    {row
                                                                         .tournament
-                                                                        .tier_label
-                                                                }
-                                                            </Badge>
-                                                        ) : (
-                                                            '—'
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">
-                                                        {row.session_name ??
-                                                            '—'}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
+                                                                        .tier_label ? (
+                                                                        <Badge
+                                                                            variant="outline"
+                                                                            className="text-xs"
+                                                                        >
+                                                                            {
+                                                                                row
+                                                                                    .tournament
+                                                                                    .tier_label
+                                                                            }
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        '—'
+                                                                    )}
+                                                                </TableCell>
+                                                            )}
+                                                            {(!isTeam ||
+                                                                startsMedal) && (
+                                                                <TableCell
+                                                                    rowSpan={
+                                                                        isTeam
+                                                                            ? teamRowSpan
+                                                                            : undefined
+                                                                    }
+                                                                    className="text-sm text-muted-foreground align-middle"
+                                                                >
+                                                                    {row.session_name ??
+                                                                        '—'}
+                                                                </TableCell>
+                                                            )}
+                                                        </TableRow>,
+                                                    );
+
+                                                    return rows;
+                                                    },
+                                                );
+                                            })()}
                                         </TableBody>
                                     </Table>
                                 </div>
@@ -3078,19 +3591,15 @@ export default function ReportsMedals({
                         {detailData !== null && detailData.last_page > 1 && (
                             <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
                                 <span>
-                                    {t('Showing :from–:to of :total')
-                                        .replace(
-                                            ':from',
-                                            String(detailData.from ?? 0),
-                                        )
-                                        .replace(
-                                            ':to',
-                                            String(detailData.to ?? 0),
-                                        )
-                                        .replace(
-                                            ':total',
-                                            String(detailData.total),
-                                        )}
+                                    {translateTemplate(
+                                        t,
+                                        'Showing :from–:to of :total',
+                                        {
+                                            from: detailData.from ?? 0,
+                                            to: detailData.to ?? 0,
+                                            total: detailData.total,
+                                        },
+                                    )}
                                 </span>
                                 <div className="flex items-center gap-1">
                                     {Array.from(
@@ -3161,20 +3670,6 @@ export default function ReportsMedals({
                 open={modalOpen}
                 onOpenChange={setModalOpen}
             />
-            {teamModalParams !== null && (
-                <RelatedMedalsModal
-                    open={teamModalParams !== null}
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            setTeamModalParams(null);
-                        }
-                    }}
-                    title={teamModalParams.team_name}
-                    description={t('All medals for this team')}
-                    params={teamModalParams.filters}
-                    exportUrl={teamExportUrl(teamModalParams.filters)}
-                />
-            )}
             <PrintDialog
                 open={printOpen}
                 onOpenChange={setPrintOpen}

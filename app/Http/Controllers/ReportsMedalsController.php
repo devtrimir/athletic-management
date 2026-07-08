@@ -9,7 +9,6 @@ use App\Models\District;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\SportSession;
-use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\Unit;
 use Illuminate\Http\Request;
@@ -54,8 +53,6 @@ class ReportsMedalsController extends Controller
             ->orderByDesc('start_year')
             ->get(['id', 'name', 'is_current']);
 
-        $currentSessionId = $sessions->firstWhere('is_current', true)?->id;
-
         $districts = District::query()
             ->orderBy('name')
             ->get(['id', 'name']);
@@ -68,13 +65,6 @@ class ReportsMedalsController extends Controller
             ->ordered()
             ->get(['code', 'name', 'short_name']);
 
-        $tournaments = Tournament::query()
-            ->where('organization_id', $orgId)
-            ->whereNull('deleted_at')
-            ->orderByDesc('date_from')
-            ->limit(500)
-            ->get(['id', 'session_id', 'name', 'date_from']);
-
         $eventOptions = DB::table('events as e')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
             ->where('t.organization_id', $orgId)
@@ -82,9 +72,9 @@ class ReportsMedalsController extends Controller
 
         return Inertia::render('reports/medals', [
             'initialTab' => $initialTab,
-            'defaultYearFrom' => (int) now()->year,
-            'defaultYearTo' => (int) now()->year,
-            'defaultSessionId' => $currentSessionId,
+            'defaultYearFrom' => null,
+            'defaultYearTo' => null,
+            'defaultSessionId' => null,
             'sessions' => $sessions,
             'sports' => $sports,
             'tiers' => $tiers,
@@ -92,10 +82,6 @@ class ReportsMedalsController extends Controller
             'districts' => $districts,
             'ranks' => $ranks,
             'designations' => $designations,
-            'tournaments' => $tournaments,
-            'events' => (clone $eventOptions)
-                ->orderBy('e.name')
-                ->get(['e.id', 'e.tournament_id', 'e.name']),
             'venues' => (clone $eventOptions)
                 ->distinct()
                 ->whereNotNull('t.venue')

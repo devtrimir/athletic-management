@@ -1,11 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AchievementHistoryController;
-use App\Http\Controllers\Api\V1\InchargeAuditLogController;
 use App\Http\Controllers\Api\V1\CoachAuditLogController;
 use App\Http\Controllers\Api\V1\CoachPreviewController;
 use App\Http\Controllers\Api\V1\CoachSearchController;
 use App\Http\Controllers\Api\V1\CoachTeamsController;
+use App\Http\Controllers\Api\V1\EventSearchController;
+use App\Http\Controllers\Api\V1\InchargeAuditLogController;
 use App\Http\Controllers\Api\V1\MedalsByMemberController;
 use App\Http\Controllers\Api\V1\MedalsDetailController;
 use App\Http\Controllers\Api\V1\MedalsPivotController;
@@ -21,14 +22,18 @@ use App\Http\Controllers\Api\V1\ReferenceDataController;
 use App\Http\Controllers\Api\V1\ResignationDismissalController;
 use App\Http\Controllers\Api\V1\TeamPreviewController;
 use App\Http\Controllers\Api\V1\TeamRosterController;
+use App\Http\Controllers\Api\V1\TournamentSearchController;
 use App\Http\Controllers\Api\V1\UnitHeadcountController;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
 
-Route::middleware(['auth'])->prefix('v1')->name('v1.')->group(function () {
+Route::middleware(['auth', SetLocale::class])->prefix('v1')->name('v1.')->group(function () {
     Route::get('search/members', MemberSearchController::class)->name('search.members');
     Route::get('search/coaches', CoachSearchController::class)->name('search.coaches');
+    Route::get('search/tournaments', TournamentSearchController::class)->name('search.tournaments');
+    Route::get('search/events', EventSearchController::class)->name('search.events');
     Route::get('members/{member}/preview', MemberPreviewController::class)->name('members.preview');
     Route::get('members/{member}/teams', MemberTeamsController::class)->name('members.teams.index');
     Route::get('members/{member}/participations', MemberParticipationsController::class)->name('members.participations.index');
