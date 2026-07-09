@@ -400,7 +400,6 @@ export default function TournamentsIndex({
                     <td class="num medal-bronze">${escapePrintValue(tournament.bronze_medals_count)}</td>
                     <td class="num medal-merit">${escapePrintValue(tournament.merit_medals_count)}</td>
                     <td class="num medal-total">${escapePrintValue(tournament.medals_count)}</td>
-                    <td>${escapePrintValue(formatDisplayDate(tournament.created_at))}</td>
                 </tr>`,
             )
             .join('');
@@ -415,35 +414,55 @@ export default function TournamentsIndex({
             <style>
                 @page{size:A4 landscape;margin:6mm}
                 body{font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#111;margin:0;padding:6px}
-                .letterhead{text-align:center;border:1px solid #1e3a8a;border-bottom:3px solid #1e3a8a;margin-bottom:8px;padding:7px 8px;background:#eff6ff}
-                .letterhead h1{font-size:16px;margin:0;text-transform:uppercase;color:#1e3a8a;letter-spacing:.3px}
-                .letterhead p{margin:2px 0 0;font-size:10px;color:#1f2937}
+                .watermark{position:fixed;top:50%;left:50%;width:520px;height:520px;transform:translate(-50%,-50%);object-fit:contain;opacity:.045;z-index:0}
+                .print-content{position:relative;z-index:1}
+                .letterhead{display:flex;align-items:center;gap:12px;border-bottom:2px solid #171717;margin-bottom:8px;padding:0 0 7px}
+                .letterhead-logo{width:58px;height:58px;object-fit:contain;flex-shrink:0}
+                .letterhead-spacer{width:58px;flex-shrink:0}
+                .letterhead-body{min-width:0;flex:1;text-align:center}
+                .letterhead h1{font-size:16px;margin:0;text-transform:uppercase;color:#111;letter-spacing:.3px}
+                .letterhead p{margin:3px 0 0;font-size:10px;color:#404040}
                 h2{font-size:14px;text-align:center;margin:0 0 8px}
-                table{width:100%;border-collapse:collapse}
+                table{width:100%;border-collapse:collapse;table-layout:fixed}
                 th,td{border:1px solid #999;padding:4px;vertical-align:middle;text-align:center}
-                thead th{background:#1f2937;color:#fff;font-weight:700}
+                thead th{background:#fff;color:#111;font-weight:700}
                 td{text-align:center;word-break:break-word}
-                tbody tr:nth-child(even)>td{background:#f8fafc}
+                tbody tr:nth-child(even)>td{background:#fff}
                 .num{white-space:nowrap;text-align:center}
                 .sub-table{background:#fff}
                 .sub-table th,.sub-table td{border:1px solid #94a3b8;padding:3px;font-size:9px;background:#fff}
-                .sub-table th{width:38%;background:#dbeafe;color:#1e3a8a;font-weight:700}
-                .sub-table .sno{width:24px;font-weight:700;color:#1e3a8a;background:#dbeafe}
+                .sub-table th{width:38%;background:#fff;color:#111;font-weight:700}
+                .sub-table .sno{width:24px;font-weight:700;color:#111;background:#fff}
                 .sports-sub-table td:last-child{font-weight:600;color:#111827}
-                .medal-gold{background:#fef3c7!important;color:#92400e;font-weight:700}
-                .medal-silver{background:#f1f5f9!important;color:#334155;font-weight:700}
-                .medal-bronze{background:#ffedd5!important;color:#9a3412;font-weight:700}
-                .medal-merit{background:#dcfce7!important;color:#166534;font-weight:700}
-                .medal-total{background:#e0f2fe!important;color:#075985;font-weight:700}
+                .medal-gold,.medal-silver,.medal-bronze,.medal-merit,.medal-total{background:#fff!important;color:#111;font-weight:700}
                 @media print{body{padding:0}th,td{padding:3px}.sub-table th,.sub-table td{padding:2px}.letterhead{padding:5px 8px}}
             </style></head><body>
+            <img class="watermark" src="/logo.jpg" alt="">
+            <div class="print-content">
             <div class="letterhead">
-                <h1>${escapePrintValue(t('UP Police Sport Control Board (UPPSCB)'))}</h1>
-                <p>${escapePrintValue(t('Tournament Listing'))}</p>
-                <p>${escapePrintValue(t('Printed at'))}: ${escapePrintValue(new Date().toLocaleString('en-IN'))}</p>
+                <img class="letterhead-logo" src="/logo.jpg" alt="${escapePrintValue(t('UP Police Sport Control Board (UPPSCB)'))}">
+                <div class="letterhead-body">
+                    <h1>${escapePrintValue(t('UP Police Sport Control Board (UPPSCB)'))}</h1>
+                    <p>${escapePrintValue(t('Tournament Listing'))}</p>
+                    <p>${escapePrintValue(t('Official print preview'))}</p>
+                </div>
+                <div class="letterhead-spacer" aria-hidden="true"></div>
             </div>
             <h2>${escapePrintValue(title)}</h2>
             <table>
+                <colgroup>
+                    <col style="width:4%">
+                    <col style="width:13%">
+                    <col style="width:8%">
+                    <col style="width:13%">
+                    <col style="width:20%">
+                    <col style="width:12%">
+                    <col style="width:5%">
+                    <col style="width:5%">
+                    <col style="width:5%">
+                    <col style="width:5%">
+                    <col style="width:10%">
+                </colgroup>
                 <thead><tr>
                     <th>${escapePrintValue(t('S.No.'))}</th>
                     <th>${escapePrintValue(t('Tournament'))}</th>
@@ -456,10 +475,10 @@ export default function TournamentsIndex({
                     <th>${escapePrintValue(t('Bronze'))}</th>
                     <th>${escapePrintValue(t('Merit'))}</th>
                     <th>${escapePrintValue(t('Medals'))}</th>
-                    <th>${escapePrintValue(t('Created'))}</th>
                 </tr></thead>
-                <tbody>${bodyRows || `<tr><td colspan="12">${escapePrintValue(t('No tournaments to print.'))}</td></tr>`}</tbody>
+                <tbody>${bodyRows || `<tr><td colspan="11">${escapePrintValue(t('No tournaments to print.'))}</td></tr>`}</tbody>
             </table>
+            </div>
             <script>window.onload=function(){window.print();}</script>
         </body></html>`);
         printWindow.document.close();

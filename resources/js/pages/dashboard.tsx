@@ -403,6 +403,24 @@ export default function Dashboard({
     const teamSessionFilter = selectedSession
         ? { query: { filter: { session_id: selectedSession.id } } }
         : undefined;
+    const coachStatusLinks = {
+        active: {
+            query: {
+                filter: {
+                    status_scope: 'active',
+                    has_active_assignment: 'true',
+                },
+            },
+        },
+        inactive: {
+            query: {
+                filter: {
+                    status_scope: 'inactive',
+                    has_active_assignment: 'false',
+                },
+            },
+        },
+    };
 
     return (
         <>
@@ -528,21 +546,17 @@ export default function Dashboard({
                                 {
                                     label: t('Active'),
                                     value: stats.coaches.active,
-                                    href: CoachController.index.url({
-                                        query: {
-                                            filter: { status_scope: 'active' },
-                                        },
-                                    }),
+                                    href: CoachController.index.url(
+                                        coachStatusLinks.active,
+                                    ),
                                     tone: 'active',
                                 },
                                 {
                                     label: t('Inactive'),
                                     value: stats.coaches.inactive,
-                                    href: CoachController.index.url({
-                                        query: {
-                                            filter: { status_scope: 'inactive' },
-                                        },
-                                    }),
+                                    href: CoachController.index.url(
+                                        coachStatusLinks.inactive,
+                                    ),
                                     tone: 'inactive',
                                 },
                             ]}
@@ -987,7 +1001,9 @@ export default function Dashboard({
                         )}
                         {permissions.viewCoaches && (
                             <Link
-                                href={CoachController.index.url()}
+                                href={CoachController.index.url(
+                                    coachStatusLinks.active,
+                                )}
                                 className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
                             >
                                 <UsersRound className="h-3.5 w-3.5" />
