@@ -69,17 +69,22 @@ class CoachExportController extends Controller
     {
         Gate::authorize('viewAny', Coach::class);
 
-        /** @var array<int, string> $columns */
-        $columns = $this->selectedExportColumns($request->query('columns', self::DEFAULT_COLUMNS));
-
         /** @var array<int, string> $ids */
         $ids = $this->normalizedIds($request->query('ids', []));
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+        $statusScope = $this->statusScopeFromFilters($filters);
+        $sportsById = Sport::query()
+            ->where('organization_id', $request->user()->organization_id)
+            ->pluck('name', 'id')
+            ->all();
 
         if (! empty($ids)) {
             $coaches = Coach::whereIn('id', array_map('intval', $ids))
                 ->with([
                     'district:id,name',
                     'unit:id,name',
+                    'rankMaster:id,code,name,short_name',
                     'member:id,member_code',
                     'sports' => fn ($q) => $q
                         ->select('sports.id', 'sports.name')
@@ -94,7 +99,8 @@ class CoachExportController extends Controller
                         ]),
                     'certifications:id,coach_id,name,certificate_type',
                     'currentAssignments:id,coach_id,team_id,session_id,role,assigned_at',
-                    'currentAssignments.team:id,name,session_id',
+                    'currentAssignments.team:id,name,sport_id,session_id',
+                    'currentAssignments.team.sport:id,name',
                     'currentAssignments.session:id,name',
                 ])
                 ->withCount(['assignmentHistory as assignments_count' => fn ($q) => $q->current()])
@@ -103,7 +109,7 @@ class CoachExportController extends Controller
                 ->unique('id')
                 ->values();
         } else {
-            $coaches = QueryBuilder::for(Coach::query())
+            $coaches = QueryBuilder::for($this->filterByStatusScope(Coach::query(), $statusScope))
                 ->allowedFilters([
                     AllowedFilter::callback('status_scope', fn (Builder $query, mixed $value): Builder => $this->filterByStatusScope($query, (string) $value)),
                     AllowedFilter::exact('nis_certified'),
@@ -140,7 +146,12 @@ class CoachExportController extends Controller
                             return;
                         }
 
-                        $query->whereHas('sports', fn (Builder $q) => $q->where('sports.id', (int) $value));
+                        $sportId = (int) $value;
+
+                        $query->where(function (Builder $query) use ($sportId): void {
+                            $query->whereHas('currentAssignments', fn (Builder $q) => $q->whereHas('team', fn (Builder $teamQuery) => $teamQuery->where('sport_id', $sportId)));
+                            $query->orWhereHas('sports', fn (Builder $q) => $q->where('sports.id', $sportId));
+                        });
                     }),
                     AllowedFilter::callback('has_active_assignment', function (Builder $query, mixed $value): void {
                         if ($value === 'true' || $value === true) {
@@ -164,10 +175,12 @@ class CoachExportController extends Controller
                 ->with([
                     'district:id,name',
                     'unit:id,name',
+                    'rankMaster:id,code,name,short_name',
                     'currentAssignments' => fn ($q) => $q
                         ->select(['id', 'team_id', 'coach_id', 'session_id', 'role', 'assigned_at'])
                         ->with([
-                            'team:id,name,session_id',
+                            'team:id,name,sport_id,session_id',
+                            'team.sport:id,name',
                             'session:id,name',
                         ])
                         ->latest('assigned_at'),
@@ -191,20 +204,35 @@ class CoachExportController extends Controller
                 ->values();
         }
 
-        $validColumns = array_values(array_intersect($columns, array_keys(self::COLUMN_LABELS)));
-        $layout = $this->exportColumnLayout($validColumns);
-        $headingRow = count($layout['headerRows']) + 1;
-        $lastColumn = Coordinate::stringFromColumnIndex(count($layout['headings']));
-
-        $rows = $coaches->map(fn (Coach $coach, int $index): array => $this->coachExportRow($coach, $layout['keys'], $index + 1));
+        $layout = $this->coachListingExportRows($coaches, $sportsById);
+        $headingRow = 2;
+        $lastColumn = 'J';
+        $mergeRanges = array_merge([
+            'A1:A2',
+            'B1:B2',
+            'C1:C2',
+            'D1:J1',
+        ], $layout['mergeRanges']);
 
         return Excel::download(
             new ReportExport(
-                $rows,
-                $layout['headings'],
+                $layout['rows'],
+                ['', '', '', __('Rank'), __('Name'), __('PNO'), __('Mobile'), __('Role'), __('Posting'), __('NIS')],
                 'Coaches',
-                headerRows: $layout['headerRows'],
-                mergeRanges: $layout['mergeRanges'],
+                headerRows: [[__('S.No.'), __('Sport'), __('Team'), __('Coaches in team'), '', '', '', '', '', '']],
+                mergeRanges: $mergeRanges,
+                columnWidths: [
+                    'A' => 6,
+                    'B' => 14,
+                    'C' => 28,
+                    'D' => 16,
+                    'E' => 28,
+                    'F' => 15,
+                    'G' => 15,
+                    'H' => 14,
+                    'I' => 18,
+                    'J' => 8,
+                ],
                 afterSheet: fn (AfterSheet $event) => $this->styleCoachExportSheet(
                     $event,
                     $headingRow,
@@ -266,6 +294,151 @@ class CoachExportController extends Controller
             ),
             $filename,
         );
+    }
+
+    /**
+     * @param  Collection<int, Coach>  $coaches
+     * @param  array<int|string, string>  $sportsById
+     * @return array{rows: Collection<int, array<int, string|int>>, mergeRanges: list<string>}
+     */
+    private function coachListingExportRows(Collection $coaches, array $sportsById): array
+    {
+        $coachRoleOrder = static fn (string $role): int => match (mb_strtolower(trim($role))) {
+            'head', 'head coach' => 0,
+            'assistant', 'assistant coach' => 1,
+            default => 2,
+        };
+
+        $coachRoleLabel = static fn (string $role): string => match (mb_strtolower(trim($role))) {
+            'head', 'head coach' => __('Head Coach'),
+            'assistant', 'assistant coach' => __('Assistant Coach'),
+            default => $role ?: __('Coach'),
+        };
+
+        $groups = collect();
+
+        foreach ($coaches as $coach) {
+            $assignments = $coach->currentAssignments ?? collect();
+
+            if ($assignments->isEmpty()) {
+                $groups->put('inactive:'.$coach->id, [
+                    'sport' => __('Unassigned'),
+                    'team' => '-',
+                    'coaches' => [[
+                        'id' => (string) $coach->id,
+                        'rank' => (string) ($coach->rankMaster?->name ?? $coach->rankMaster?->short_name ?? ''),
+                        'full_name' => (string) $coach->full_name,
+                        'pno' => (string) ($coach->pno ?? ''),
+                        'mobile' => (string) ($coach->mobile ?? ''),
+                        'role' => __('Inactive'),
+                        'posting' => trim(implode(' - ', array_filter([$coach->unit?->name, $coach->district?->name]))),
+                        'nis_certified' => $coach->nis_certified ? __('Yes') : __('No'),
+                    ]],
+                ]);
+
+                continue;
+            }
+
+            $teamGrouped = $assignments
+                ->unique(fn (CoachAssignment $assignment): int => (int) $assignment->id)
+                ->groupBy(fn (CoachAssignment $assignment): string => (($assignment->team?->sport_id ?? 0).':'.($assignment->team?->id ?? 0)));
+
+            foreach ($teamGrouped as $rows) {
+                $team = $rows->first()?->team;
+                $teamName = (string) ($team?->name ?? __('Unspecified team'));
+                $teamSportName = $team?->sport?->name;
+                $teamSportId = $team?->sport_id;
+                $sportName = (string) ($teamSportName !== null
+                    ? $teamSportName
+                    : ($teamSportId !== null && isset($sportsById[$teamSportId])
+                        ? $sportsById[$teamSportId]
+                        : __('Unspecified sport')));
+                $groupKey = ($teamSportId ?? 0).':'.($team?->id ?? 0);
+
+                $groupedCoaches = $rows->values()->map(function (CoachAssignment $assignment) use ($coach, $coachRoleLabel): array {
+                    return [
+                        'id' => (string) $coach->id,
+                        'rank' => (string) ($coach->rankMaster?->name ?? $coach->rankMaster?->short_name ?? ''),
+                        'full_name' => (string) $coach->full_name,
+                        'pno' => (string) ($coach->pno ?? ''),
+                        'mobile' => (string) ($coach->mobile ?? ''),
+                        'role' => $coachRoleLabel((string) ($assignment->role ?? '')),
+                        'posting' => trim(implode(' - ', array_filter([$coach->unit?->name, $coach->district?->name]))),
+                        'nis_certified' => $coach->nis_certified ? __('Yes') : __('No'),
+                    ];
+                })->toArray();
+
+                $existingGroup = $groups->get($groupKey);
+
+                if (is_array($existingGroup)) {
+                    $groupedCoaches = array_merge($existingGroup['coaches'], $groupedCoaches);
+                }
+
+                $coachIds = [];
+                $groupedCoaches = collect($groupedCoaches)
+                    ->filter(function (array $coachData) use (&$coachIds): bool {
+                        if (in_array($coachData['id'], $coachIds, true)) {
+                            return false;
+                        }
+
+                        $coachIds[] = $coachData['id'];
+
+                        return true;
+                    })
+                    ->values()
+                    ->toArray();
+
+                $groups->put($groupKey, [
+                    'sport' => $sportName,
+                    'team' => $teamName,
+                    'coaches' => $groupedCoaches,
+                ]);
+            }
+        }
+
+        $rows = collect();
+        $mergeRanges = [];
+        $excelRow = 3;
+
+        $groups->sortBy([['sport', 'asc'], ['team', 'asc']])
+            ->values()
+            ->each(function (array $group, int $groupIndex) use (&$excelRow, &$mergeRanges, $coachRoleOrder, $rows): void {
+                $coachRows = collect($group['coaches'])
+                    ->sortBy([
+                        fn (array $coachData): int => $coachRoleOrder((string) $coachData['role']),
+                        fn (array $coachData): string => (string) $coachData['rank'],
+                    ])
+                    ->values();
+                $startRow = $excelRow;
+
+                foreach ($coachRows as $coachIndex => $coachData) {
+                    $rows->push([
+                        $coachIndex === 0 ? $groupIndex + 1 : '',
+                        $coachIndex === 0 ? $group['sport'] : '',
+                        $coachIndex === 0 ? $group['team'] : '',
+                        $coachData['rank'],
+                        $coachData['full_name'],
+                        $coachData['pno'],
+                        $coachData['mobile'],
+                        $coachData['role'],
+                        $coachData['posting'],
+                        $coachData['nis_certified'],
+                    ]);
+                    $excelRow++;
+                }
+
+                if ($coachRows->count() > 1) {
+                    $endRow = $excelRow - 1;
+                    $mergeRanges[] = "A{$startRow}:A{$endRow}";
+                    $mergeRanges[] = "B{$startRow}:B{$endRow}";
+                    $mergeRanges[] = "C{$startRow}:C{$endRow}";
+                }
+            });
+
+        return [
+            'rows' => $rows,
+            'mergeRanges' => $mergeRanges,
+        ];
     }
 
     /**
@@ -423,7 +596,7 @@ class CoachExportController extends Controller
         $sheet->getDefaultRowDimension()->setRowHeight(22);
         $sheet->getStyle("A{$headerStartRow}:{$lastColumn}{$lastRow}")->applyFromArray([
             'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
                 'vertical' => Alignment::VERTICAL_CENTER,
                 'wrapText' => true,
             ],
@@ -479,8 +652,26 @@ class CoachExportController extends Controller
     private function filterByStatusScope(Builder $query, string $value): Builder
     {
         return match ($value) {
-            'inactive' => $query->whereDoesntHave('activeCurrentSessionAssignments'),
-            default => $query->whereHas('activeCurrentSessionAssignments'),
+            'inactive' => $query->whereDoesntHave('currentAssignments'),
+            default => $query->whereHas('currentAssignments'),
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function statusScopeFromFilters(array $filters): string
+    {
+        $assignmentScope = $filters['has_active_assignment'] ?? null;
+
+        if ($assignmentScope === false || $assignmentScope === 'false' || $assignmentScope === '0' || $assignmentScope === 0) {
+            return 'inactive';
+        }
+
+        if ($assignmentScope === true || $assignmentScope === 'true' || $assignmentScope === '1' || $assignmentScope === 1) {
+            return 'active';
+        }
+
+        return ($filters['status_scope'] ?? null) === 'inactive' ? 'inactive' : 'active';
     }
 }
