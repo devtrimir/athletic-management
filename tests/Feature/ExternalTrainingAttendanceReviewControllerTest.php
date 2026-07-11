@@ -14,7 +14,15 @@ use Illuminate\Support\Facades\Storage;
 
 function reviewAttendanceFixture(array $attendanceOverrides = []): array
 {
-    $user = rcUser('external-training-attendances.view', 'external-training-attendances.review');
+    $user = rcUser(
+        'external-training-attendances.view',
+        'external-training-attendances.review',
+        'external-training-attendances.accept',
+        'external-training-attendances.reject',
+        'external-training-attendances.correct',
+        'external-training-attendances.manual-review',
+        'external-training-attendances.lock',
+    );
     $member = Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);
     $coach = ExternalCoach::factory()->create(['organization_id' => $user->organization_id, 'status' => 'active']);
     $venue = TrainingVenue::factory()->create([
@@ -60,6 +68,106 @@ test('external training attendance review index requires permission', function (
     $this->actingAs($user)
         ->get(route('external-training-attendances.index'))
         ->assertForbidden();
+});
+
+test('view only user can list attendance but cannot access review details', function (): void {
+    Storage::fake('local');
+    $fixture = reviewAttendanceFixture();
+    $viewer = rcUser('external-training-attendances.view');
+
+    $fixture['attendance']->update(['organization_id' => $viewer->organization_id]);
+
+    $this->actingAs($viewer)
+        ->get(route('external-training-attendances.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('external-training-attendances/index')
+            ->where('canReviewAttendanceDetails', false));
+
+    $this->actingAs($viewer)
+        ->get(route('external-training-attendances.show', $fixture['attendance']))
+        ->assertForbidden();
+});
+
+test('admin can filter external training attendances with one search box', function (): void {
+    $fixture = reviewAttendanceFixture();
+    reviewAttendanceFixture();
+
+    $fixture['member']->update(['full_name' => 'Searchable Athlete', 'pno' => 'PNO-ATT-99']);
+
+    $this->actingAs($fixture['user'])
+        ->get(route('external-training-attendances.index', [
+            'filter' => ['q' => 'PNO-ATT-99'],
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('external-training-attendances/index')
+            ->where('filters.q', 'PNO-ATT-99')
+            ->where('attendances.total', 1)
+            ->where('attendances.data.0.member.full_name', 'Searchable Athlete'));
+});
+
+test('admin can change external training attendance rows per page', function (): void {
+    $fixture = reviewAttendanceFixture();
+
+    foreach (range(1, 14) as $index) {
+        ExternalTrainingAttendance::factory()->create([
+            'organization_id' => $fixture['user']->organization_id,
+            'external_coaching_assignment_id' => $fixture['assignment']->id,
+            'member_id' => $fixture['member']->id,
+            'external_coach_id' => $fixture['coach']->id,
+            'training_venue_id' => $fixture['venue']->id,
+            'attendance_date' => today()->subDays($index),
+            'coach_remarks' => "Extra attendance {$index}",
+        ]);
+    }
+
+    $this->actingAs($fixture['user'])
+        ->get(route('external-training-attendances.index', ['per_page' => 10]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('external-training-attendances/index')
+            ->where('attendances.per_page', 10)
+            ->has('attendances.data', 10));
+});
+
+test('admin can narrow external training attendances by coach and review queue', function (): void {
+    $fixture = reviewAttendanceFixture([
+        'geo_status' => 'outside_radius',
+        'flag_reason' => 'Coach submitted from outside the approved venue.',
+    ]);
+    reviewAttendanceFixture(['geo_status' => 'valid', 'flag_reason' => null]);
+
+    $this->actingAs($fixture['user'])
+        ->get(route('external-training-attendances.index', [
+            'filter' => [
+                'external_coach_id' => (string) $fixture['coach']->id,
+                'flagged_only' => '1',
+            ],
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('external-training-attendances/index')
+            ->where('filters.external_coach_id', (string) $fixture['coach']->id)
+            ->where('filters.flagged_only', '1')
+            ->where('attendances.total', 1)
+            ->where('attendances.data.0.external_coach.name', $fixture['coach']->name));
+});
+
+test('admin can narrow external training attendances by selected ids', function (): void {
+    $fixture = reviewAttendanceFixture();
+    reviewAttendanceFixture();
+
+    $this->actingAs($fixture['user'])
+        ->get(route('external-training-attendances.index', [
+            'filter' => ['ids' => [(string) $fixture['attendance']->id]],
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('external-training-attendances/index')
+            ->where('filters.ids.0', $fixture['attendance']->id)
+            ->where('attendances.total', 1)
+            ->where('attendances.data.0.id', $fixture['attendance']->id));
 });
 
 test('admin can export filtered external training attendance records', function (): void {
@@ -156,9 +264,9 @@ test('rejecting or accepting flagged attendance requires remarks', function (): 
         ->assertSessionHasErrors(['review_remarks']);
 });
 
-test('admin can correct attendance status and locked attendance cannot be reviewed again', function (): void {
+test('admin correction stores a separate status and locked attendance cannot be reviewed again', function (): void {
     Storage::fake('local');
-    $fixture = reviewAttendanceFixture(['geo_status' => 'valid']);
+    $fixture = reviewAttendanceFixture(['attendance_status' => 'present', 'geo_status' => 'valid']);
 
     $this->actingAs($fixture['user'])
         ->patch(route('external-training-attendances.review', $fixture['attendance']), [
@@ -168,8 +276,19 @@ test('admin can correct attendance status and locked attendance cannot be review
         ])
         ->assertRedirect(route('external-training-attendances.show', $fixture['attendance']));
 
-    expect($fixture['attendance']->refresh()->attendance_status)->toBe('late')
+    expect($fixture['attendance']->refresh()->attendance_status)->toBe('present')
+        ->and($fixture['attendance']->corrected_attendance_status)->toBe('late')
         ->and($fixture['attendance']->review_status)->toBe('corrected');
+
+    $audit = AuditLog::query()
+        ->where('entity', 'ExternalTrainingAttendance')
+        ->where('entity_id', $fixture['attendance']->id)
+        ->where('action', 'updated')
+        ->latest('id')
+        ->firstOrFail();
+
+    expect($audit->diff['new']['corrected_attendance_status'] ?? null)->toBe('late')
+        ->and($audit->diff['new'])->not->toHaveKey('attendance_status');
 
     $fixture['attendance']->update(['review_status' => 'locked']);
 
@@ -178,6 +297,33 @@ test('admin can correct attendance status and locked attendance cannot be review
             'action' => 'accept',
         ])
         ->assertForbidden();
+});
+
+test('attendance correction requires explicit override permission', function (): void {
+    Storage::fake('local');
+    $fixture = reviewAttendanceFixture(['attendance_status' => 'present', 'geo_status' => 'valid']);
+    $reviewer = rcUser(
+        'external-training-attendances.view',
+        'external-training-attendances.review',
+        'external-training-attendances.accept',
+        'external-training-attendances.reject',
+        'external-training-attendances.manual-review',
+    );
+
+    $fixture['attendance']->update(['organization_id' => $reviewer->organization_id]);
+
+    $this->actingAs($reviewer)
+        ->patch(route('external-training-attendances.review', $fixture['attendance']), [
+            'action' => 'correct',
+            'attendance_status' => 'late',
+            'review_remarks' => 'Trying to override without permission.',
+        ])
+        ->assertForbidden();
+
+    $attendance = $fixture['attendance']->refresh();
+
+    expect($attendance->attendance_status)->toBe('present')
+        ->and($attendance->corrected_attendance_status)->toBeNull();
 });
 
 test('attendance route binding does not expose another organization records', function (): void {

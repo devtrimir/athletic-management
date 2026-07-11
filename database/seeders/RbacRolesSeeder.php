@@ -15,7 +15,13 @@ class RbacRolesSeeder extends Seeder
      *
      * @var array<int, string>
      */
-    private const ADMIN_ONLY = ['users.manage', 'settings.manage', 'reference_data.manage'];
+    private const ADMIN_ONLY = [
+        'users.manage',
+        'settings.manage',
+        'reference_data.manage',
+        'external-training-attendances.correct',
+        'external-training-attendances.lock',
+    ];
 
     /**
      * Permissions that are delete actions (not granted to data_entry role).

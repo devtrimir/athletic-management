@@ -11,8 +11,8 @@ use App\Models\ExternalTrainingAttendance;
 use App\Models\Member;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -26,12 +26,15 @@ class ExternalCoachController extends Controller
         $filters = $request->query('filter', []);
         $filters = is_array($filters) ? $filters : [];
         $orgId = (int) $request->user()->organization_id;
+        $statusFilter = $this->filterString($filters['status'] ?? null);
+        $search = $this->filterString($filters['q'] ?? null);
+        $perPage = min(max((int) $request->query('per_page', 25), 10), 100);
 
         $externalCoaches = ExternalCoach::query()
             ->where('organization_id', $orgId)
-            ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->when($filters['q'] ?? null, function ($query, string $term): void {
-                $like = '%'.mb_strtolower($term).'%';
+            ->when($statusFilter !== null, fn ($query) => $query->where('status', $statusFilter))
+            ->when($search !== null, function ($query) use ($search): void {
+                $like = '%'.mb_strtolower($search).'%';
 
                 $query->where(function ($builder) use ($like): void {
                     $builder->whereRaw('LOWER(name) LIKE ?', [$like])
@@ -50,12 +53,17 @@ class ExternalCoachController extends Controller
                 },
             ])
             ->latest('id')
-            ->paginate(25)
+            ->paginate($perPage)
             ->withQueryString();
 
         return Inertia::render('external-coaches/index', [
             'externalCoaches' => $externalCoaches,
-            'filters' => $filters,
+            'filters' => [
+                'q' => $search,
+                'status' => $statusFilter,
+            ],
+            'statuses' => $this->statuses(),
+            'perPage' => $perPage,
         ]);
     }
 
@@ -66,6 +74,17 @@ class ExternalCoachController extends Controller
         return Inertia::render('external-coaches/create', [
             'statuses' => $this->statuses(),
         ]);
+    }
+
+    private function filterString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' || $value === 'all' ? null : $value;
     }
 
     public function store(StoreExternalCoachRequest $request): RedirectResponse

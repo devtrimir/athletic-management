@@ -14,6 +14,13 @@ class UpdateExternalCoachRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'phone' => $this->normalizeIndianMobile($this->input('phone')),
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -24,7 +31,7 @@ class UpdateExternalCoachRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20', Rule::unique('external_coaches', 'phone')->ignore($externalCoachId)],
+            'phone' => ['nullable', 'string', 'regex:/^[6-9]\d{9}$/', Rule::unique('external_coaches', 'phone')->ignore($externalCoachId)],
             'email' => ['required', 'email', 'max:255', Rule::unique('external_coaches', 'email')->ignore($externalCoachId)],
             'password' => ['nullable', 'string', 'min:8'],
             'gender' => ['nullable', Rule::in(['M', 'F', 'O'])],
@@ -39,5 +46,38 @@ class UpdateExternalCoachRequest extends FormRequest
             'status' => ['required', Rule::in(['pending_invite', 'active', 'inactive', 'suspended', 'blacklisted'])],
             'status_reason' => ['nullable', 'string', 'max:4000', Rule::requiredIf(fn (): bool => in_array($this->string('status')->toString(), ['suspended', 'blacklisted'], true))],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'phone.regex' => __('Enter a valid Indian mobile number.'),
+        ];
+    }
+
+    private function normalizeIndianMobile(mixed $value): mixed
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        $digits = preg_replace('/\D+/', '', trim($value));
+
+        if ($digits === '') {
+            return null;
+        }
+
+        if (strlen($digits) === 12 && str_starts_with($digits, '91')) {
+            return substr($digits, 2);
+        }
+
+        if (strlen($digits) === 11 && str_starts_with($digits, '0')) {
+            return substr($digits, 1);
+        }
+
+        return $digits;
     }
 }

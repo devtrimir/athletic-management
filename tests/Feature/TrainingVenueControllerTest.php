@@ -40,6 +40,49 @@ test('training venue index requires permission', function (): void {
         ->assertForbidden();
 });
 
+test('training venue index can be filtered and paginated', function (): void {
+    $user = rcUser('training-venues.view');
+
+    TrainingVenue::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'Central Athletics Ground',
+        'code' => 'CAG',
+        'city' => 'Lucknow',
+        'status' => 'active',
+    ]);
+    TrainingVenue::factory()->inactive()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'Reserve Swimming Pool',
+        'code' => 'RSP',
+        'city' => 'Kanpur',
+    ]);
+    TrainingVenue::factory()->create([
+        'name' => 'Other Org Ground',
+        'code' => 'OOG',
+        'city' => 'Noida',
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('training-venues.index', [
+            'filter' => [
+                'q' => 'central',
+                'status' => 'active',
+            ],
+            'per_page' => 10,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('training-venues/index')
+            ->where('filters.q', 'central')
+            ->where('filters.status', 'active')
+            ->where('perPage', 10)
+            ->where('trainingVenues.total', 1)
+            ->where('trainingVenues.data.0.name', 'Central Athletics Ground')
+            ->where('statuses', ['active', 'inactive', 'under_review'])
+            ->etc());
+});
+
 test('admin can create update view and delete training venue', function (): void {
     $user = rcUser(
         'training-venues.view',

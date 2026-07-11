@@ -17,9 +17,17 @@ class ReviewExternalTrainingAttendanceRequest extends FormRequest
     public function authorize(): bool
     {
         $attendance = $this->route('external_training_attendance');
+        $ability = match ($this->input('action')) {
+            'accept' => 'accept',
+            'reject' => 'reject',
+            'correct' => 'correct',
+            'manual_review' => 'manualReview',
+            'lock' => 'lock',
+            default => 'update',
+        };
 
         return $attendance instanceof ExternalTrainingAttendance
-            && $this->user()?->can('update', $attendance) === true;
+            && $this->user()?->can($ability, $attendance) === true;
     }
 
     /**

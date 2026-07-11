@@ -3,9 +3,11 @@ import { format, isValid, parse } from 'date-fns';
 import {
     ArrowLeft,
     CalendarCheck,
+    Clock,
     Download,
     FileCheck2,
     Upload,
+    X,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -70,6 +72,7 @@ export type Assignment = {
         preview_url: string;
         download_url: string;
     } | null;
+    has_attendances?: boolean;
 };
 
 type Props = {
@@ -195,6 +198,74 @@ function isYmdDate(value: string): boolean {
     return /^\d{4}-\d{2}-\d{2}$/.test(value) && parsed === value;
 }
 
+function normalizeTimeForSubmit(value: string): string {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+
+    if (match === null) {
+        return trimmed;
+    }
+
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        return trimmed;
+    }
+
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+type TimeFieldProps = {
+    id: string;
+    label: string;
+    value: string;
+    error?: string;
+    onChange: (value: string) => void;
+    onClear: () => void;
+};
+
+function TimeField({
+    id,
+    label,
+    value,
+    error,
+    onChange,
+    onClear,
+}: TimeFieldProps) {
+    return (
+        <div className="grid min-w-0 gap-2">
+            <Label htmlFor={id}>{label}</Label>
+            <div className="flex min-w-0 items-center overflow-hidden rounded-md border bg-background shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+                <span className="flex h-9 w-10 shrink-0 items-center justify-center border-r bg-muted/40 text-muted-foreground">
+                    <Clock className="size-4" />
+                </span>
+                <Input
+                    id={id}
+                    type="time"
+                    step="60"
+                    value={normalizeTimeForSubmit(value)}
+                    onChange={(event) => onChange(event.target.value)}
+                    className="h-9 min-w-0 flex-1 rounded-none border-0 shadow-none focus-visible:ring-0"
+                />
+                {value ? (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 rounded-none text-muted-foreground hover:text-foreground"
+                        onClick={onClear}
+                        aria-label={`Clear ${label}`}
+                    >
+                        <X className="size-4" />
+                    </Button>
+                ) : null}
+            </div>
+            <InputError message={error} />
+        </div>
+    );
+}
+
 export function AssignmentForm({
     title,
     description,
@@ -238,8 +309,12 @@ export function AssignmentForm({
         start_date: assignment?.start_date ?? '',
         end_date: assignment?.end_date ?? '',
         training_days: assignment?.training_days ?? [],
-        training_start_time: assignment?.training_start_time ?? '',
-        training_end_time: assignment?.training_end_time ?? '',
+        training_start_time: normalizeTimeForSubmit(
+            assignment?.training_start_time ?? '',
+        ),
+        training_end_time: normalizeTimeForSubmit(
+            assignment?.training_end_time ?? '',
+        ),
         attendance_mode: assignment?.attendance_mode ?? 'single_mark',
         permission_reference_number:
             assignment?.permission_reference_number ?? '',
@@ -249,18 +324,36 @@ export function AssignmentForm({
         completion_remarks: assignment?.completion_remarks ?? '',
         remarks: assignment?.remarks ?? '',
     });
+    const canEditDates = assignment?.has_attendances !== true;
 
     function submit(event: React.FormEvent<HTMLFormElement>): void {
         event.preventDefault();
 
-        form.clearErrors('start_date', 'end_date');
+        form.clearErrors(
+            'start_date',
+            'end_date',
+            'training_start_time',
+            'training_end_time',
+        );
 
         const normalizedStartDate = normalizeDateForSubmit(
             form.data.start_date,
         );
         const normalizedEndDate = normalizeDateForSubmit(form.data.end_date);
+        const normalizedStartTime = normalizeTimeForSubmit(
+            form.data.training_start_time,
+        );
+        const normalizedEndTime = normalizeTimeForSubmit(
+            form.data.training_end_time,
+        );
         const validationErrors: Partial<
-            Record<'start_date' | 'end_date', string>
+            Record<
+                | 'start_date'
+                | 'end_date'
+                | 'training_start_time'
+                | 'training_end_time',
+                string
+            >
         > = {};
 
         if (!normalizedStartDate) {
@@ -289,6 +382,26 @@ export function AssignmentForm({
             );
         }
 
+        if (normalizedEndTime && !normalizedStartTime) {
+            validationErrors.training_start_time = t(
+                'The start time field is required when end time is present.',
+            );
+        }
+
+        if (normalizedStartTime && !normalizedEndTime) {
+            validationErrors.training_end_time = t(
+                'The end time field is required when start time is present.',
+            );
+        } else if (
+            normalizedStartTime &&
+            normalizedEndTime &&
+            normalizedEndTime <= normalizedStartTime
+        ) {
+            validationErrors.training_end_time = t(
+                'The end time must be after the start time.',
+            );
+        }
+
         if (Object.keys(validationErrors).length > 0) {
             form.setError(validationErrors);
 
@@ -299,6 +412,8 @@ export function AssignmentForm({
             ...data,
             start_date: normalizedStartDate,
             end_date: normalizedEndDate,
+            training_start_time: normalizedStartTime,
+            training_end_time: normalizedEndTime,
         }));
 
         const method = action.method.toLowerCase();
@@ -364,18 +479,20 @@ export function AssignmentForm({
     const storedPermissionDocument = assignment?.permission_document;
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Heading title={title} description={description} />
-                <Button asChild variant="outline">
-                    <Link href={index.url()}>
-                        <ArrowLeft className="size-4" />
-                        {t('Back')}
-                    </Link>
-                </Button>
+        <div className="min-w-0 space-y-6 overflow-x-hidden">
+            <div className="min-w-0">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                    <Heading title={title} description={description} />
+                    <Button asChild variant="outline">
+                        <Link href={index.url()}>
+                            <ArrowLeft className="size-4" />
+                            {t('Back')}
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
-            <form onSubmit={submit} className="space-y-4">
+            <form onSubmit={submit} className="w-full min-w-0 space-y-4">
                 <div className="overflow-hidden rounded-xl border bg-card">
                     <div className="flex items-center gap-3 border-b px-6 py-4">
                         <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -393,9 +510,9 @@ export function AssignmentForm({
                         </div>
                     </div>
 
-                    <div className="space-y-6 p-6">
-                        <div className="grid gap-5 lg:grid-cols-2">
-                            <div className="grid gap-2">
+                    <div className="min-w-0 space-y-6 p-6">
+                        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="member_id">
                                     {t('Member')}{' '}
                                     <span className="text-destructive">*</span>
@@ -417,7 +534,7 @@ export function AssignmentForm({
                                 />
                             </div>
 
-                            <div className="grid gap-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="external_coach_id">
                                     {t('External coach')}{' '}
                                     <span className="text-destructive">*</span>
@@ -447,7 +564,7 @@ export function AssignmentForm({
                                 />
                             </div>
 
-                            <div className="grid gap-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="training_venue_id">
                                     {t('Training venue')}{' '}
                                     <span className="text-destructive">*</span>
@@ -477,7 +594,7 @@ export function AssignmentForm({
                                 />
                             </div>
 
-                            <div className="grid gap-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="sport_id">
                                     {t('Sport')}{' '}
                                     <span className="text-destructive">*</span>
@@ -505,14 +622,25 @@ export function AssignmentForm({
                             </div>
                         </div>
 
-                        <div className="grid gap-5 lg:grid-cols-2">
-                            <div className="grid gap-2">
+                        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                            {!canEditDates ? (
+                                <div className="col-span-full">
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Assignment dates cannot be modified after attendance has been posted.',
+                                        )}
+                                    </p>
+                                </div>
+                            ) : null}
+
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="start_date">
                                     {t('Start date')}{' '}
                                     <span className="text-destructive">*</span>
                                 </Label>
                                 <DatePicker
                                     id="start_date"
+                                    disabled={!canEditDates}
                                     value={form.data.start_date}
                                     onChange={(value) => {
                                         form.setData('start_date', value);
@@ -527,7 +655,7 @@ export function AssignmentForm({
                                     )}
                                 />
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="end_date">
                                     {t('End date')}{' '}
                                     <span className="text-destructive">*</span>
@@ -540,6 +668,7 @@ export function AssignmentForm({
                                         form.clearErrors('end_date');
                                     }}
                                     minDate={form.data.start_date}
+                                    disabled={!canEditDates}
                                     placeholder={t('Select end date')}
                                 />
                                 <InputError
@@ -549,57 +678,45 @@ export function AssignmentForm({
                                     )}
                                 />
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="training_start_time">
-                                    {t('Start time')}
-                                </Label>
-                                <Input
-                                    id="training_start_time"
-                                    type="time"
-                                    value={form.data.training_start_time}
-                                    onChange={(event) => {
-                                        form.setData(
-                                            'training_start_time',
-                                            event.target.value,
-                                        );
-                                        form.clearErrors('training_start_time');
-                                    }}
-                                />
-                                <InputError
-                                    message={fieldError(
-                                        form.errors,
-                                        'training_start_time',
-                                    )}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="training_end_time">
-                                    {t('End time')}
-                                </Label>
-                                <Input
-                                    id="training_end_time"
-                                    type="time"
-                                    value={form.data.training_end_time}
-                                    onChange={(event) => {
-                                        form.setData(
-                                            'training_end_time',
-                                            event.target.value,
-                                        );
-                                        form.clearErrors('training_end_time');
-                                    }}
-                                />
-                                <InputError
-                                    message={fieldError(
-                                        form.errors,
-                                        'training_end_time',
-                                    )}
-                                />
-                            </div>
+                            <TimeField
+                                id="training_start_time"
+                                label={t('Start time')}
+                                value={form.data.training_start_time}
+                                onChange={(value) => {
+                                    form.setData('training_start_time', value);
+                                    form.clearErrors('training_start_time');
+                                }}
+                                onClear={() => {
+                                    form.setData('training_start_time', '');
+                                    form.clearErrors('training_start_time');
+                                }}
+                                error={fieldError(
+                                    form.errors,
+                                    'training_start_time',
+                                )}
+                            />
+                            <TimeField
+                                id="training_end_time"
+                                label={t('End time')}
+                                value={form.data.training_end_time}
+                                onChange={(value) => {
+                                    form.setData('training_end_time', value);
+                                    form.clearErrors('training_end_time');
+                                }}
+                                onClear={() => {
+                                    form.setData('training_end_time', '');
+                                    form.clearErrors('training_end_time');
+                                }}
+                                error={fieldError(
+                                    form.errors,
+                                    'training_end_time',
+                                )}
+                            />
                         </div>
 
-                        <div className="grid gap-2">
+                        <div className="grid min-w-0 gap-2">
                             <Label>{t('Training days')}</Label>
-                            <div className="grid gap-2 sm:grid-cols-4">
+                            <div className="grid min-w-0 gap-2 sm:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-[repeat(4,minmax(0,1fr))]">
                                 {DAYS.map((day) => (
                                     <label
                                         key={day}
@@ -631,8 +748,8 @@ export function AssignmentForm({
                             />
                         </div>
 
-                        <div className="grid gap-5 lg:grid-cols-2">
-                            <div className="grid gap-2">
+                        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="attendance_mode">
                                     {t('Attendance mode')}
                                 </Label>
@@ -662,7 +779,7 @@ export function AssignmentForm({
                                     )}
                                 />
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="status">{t('Status')}</Label>
                                 <Select
                                     value={form.data.status}
@@ -710,9 +827,9 @@ export function AssignmentForm({
                             </p>
                         </div>
                     </div>
-                    <div className="space-y-5 p-6">
-                        <div className="grid gap-5 lg:grid-cols-2">
-                            <div className="grid gap-2">
+                    <div className="min-w-0 space-y-5 p-6">
+                        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="permission_reference_number">
                                     {t('Permission reference')}
                                 </Label>
@@ -738,7 +855,7 @@ export function AssignmentForm({
                                     )}
                                 />
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label>{t('Document file')}</Label>
                                 {storedPermissionDocument &&
                                 form.data.permission_document === null ? (
@@ -845,7 +962,7 @@ export function AssignmentForm({
                             </div>
                         </div>
 
-                        <div className="grid gap-2">
+                        <div className="grid min-w-0 gap-2">
                             <Label htmlFor="remarks">{t('Remarks')}</Label>
                             <Textarea
                                 id="remarks"

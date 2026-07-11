@@ -97,6 +97,7 @@ type Member = {
 type UnitOption = { id: number; name: string };
 type DistrictOption = { id: number; name: string };
 type SportOption = { id: number; name: string };
+type LevelOption = { code: string; label_en: string; label_hi: string };
 type MasterOption = { code: string; name: string; short_name: string | null };
 
 type PaginatedMembers = {
@@ -116,7 +117,6 @@ type Filters = {
     player_category?: string;
     player_level?: string;
     rank?: string;
-    designation?: string;
     current_unit_id?: string;
     home_district_id?: string;
     posting_district_id?: string;
@@ -152,7 +152,6 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
 ];
 
 const CATEGORY_OPTIONS = ['GD', 'SPORTS_QUOTA'] as const;
-const LEVEL_OPTIONS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'] as const;
 const GENDER_OPTIONS: { value: string; label: string }[] = [
     { value: 'M', label: 'Male' },
     { value: 'F', label: 'Female' },
@@ -515,26 +514,40 @@ const PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
 export default function MembersIndex({
     members,
     filters,
+    levels,
     units,
     districts,
     sports,
     ranks,
-    designations,
     totalCount,
     perPage,
 }: {
     members: PaginatedMembers;
     filters: Filters;
+    levels: LevelOption[];
     units: UnitOption[];
     districts: DistrictOption[];
     sports: SportOption[];
     ranks: MasterOption[];
-    designations: MasterOption[];
     totalCount: number;
     perPage: number;
 }) {
     const { t } = useTranslation();
-    const { locale } = usePage().props;
+    const { locale } = usePage().props as { locale: string };
+
+    const levelLabel = useCallback(
+        (code: string | null | undefined): string =>
+            code
+                ? (
+                      levels.find((l) => l.code === code) ?? {
+                          code,
+                          label_en: code,
+                          label_hi: code,
+                      }
+                  )[locale === 'en' ? 'label_en' : 'label_hi']
+                : '',
+        [locale, levels],
+    );
 
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -567,7 +580,6 @@ export default function MembersIndex({
                 player_category: filters.player_category,
                 player_level: filters.player_level,
                 rank: filters.rank,
-                designation: filters.designation,
                 current_unit_id: filters.current_unit_id,
                 home_district_id: filters.home_district_id,
                 posting_district_id: filters.posting_district_id,
@@ -588,7 +600,6 @@ export default function MembersIndex({
                 ['player_category', 'filter[player_category]'],
                 ['player_level', 'filter[player_level]'],
                 ['rank', 'filter[rank]'],
-                ['designation', 'filter[designation]'],
                 ['current_unit_id', 'filter[current_unit_id]'],
                 ['home_district_id', 'filter[home_district_id]'],
                 ['posting_district_id', 'filter[posting_district_id]'],
@@ -637,7 +648,6 @@ export default function MembersIndex({
                 player_category: filters.player_category,
                 player_level: filters.player_level,
                 rank: filters.rank,
-                designation: filters.designation,
                 current_unit_id: filters.current_unit_id,
                 home_district_id: filters.home_district_id,
                 posting_district_id: filters.posting_district_id,
@@ -657,7 +667,6 @@ export default function MembersIndex({
                 ['player_category', 'filter[player_category]'],
                 ['player_level', 'filter[player_level]'],
                 ['rank', 'filter[rank]'],
-                ['designation', 'filter[designation]'],
                 ['current_unit_id', 'filter[current_unit_id]'],
                 ['home_district_id', 'filter[home_district_id]'],
                 ['posting_district_id', 'filter[posting_district_id]'],
@@ -735,7 +744,6 @@ export default function MembersIndex({
         filters.player_category,
         filters.player_level,
         filters.rank,
-        filters.designation,
         filters.current_unit_id,
         filters.home_district_id,
         filters.posting_district_id,
@@ -775,7 +783,6 @@ export default function MembersIndex({
                 ['player_category', 'filter[player_category]'],
                 ['player_level', 'filter[player_level]'],
                 ['rank', 'filter[rank]'],
-                ['designation', 'filter[designation]'],
                 ['current_unit_id', 'filter[current_unit_id]'],
                 ['home_district_id', 'filter[home_district_id]'],
                 ['posting_district_id', 'filter[posting_district_id]'],
@@ -996,17 +1003,17 @@ export default function MembersIndex({
                         label={t('Level')}
                         activeLabel={
                             filters.player_level
-                                ? t(filters.player_level)
-                                : undefined
+                            ? levelLabel(filters.player_level)
+                            : undefined
                         }
                         onClear={() =>
                             applyFilters({ player_level: undefined })
                         }
                     >
                         <OptionList
-                            options={LEVEL_OPTIONS.map((l) => ({
-                                value: l,
-                                label: t(l),
+                            options={levels.map((level) => ({
+                                value: level.code,
+                                label: levelLabel(level.code),
                             }))}
                             value={filters.player_level}
                             onSelect={(v) => applyFilters({ player_level: v })}
@@ -1032,30 +1039,6 @@ export default function MembersIndex({
                             value={filters.rank}
                             onSelect={(v) => applyFilters({ rank: v })}
                             searchPlaceholder={t('Search ranks…')}
-                        />
-                    </FilterPill>
-
-                    <FilterPill
-                        label={t('Designation')}
-                        activeLabel={
-                            filters.designation
-                                ? (designations.find(
-                                      (designation) =>
-                                          designation.code ===
-                                          filters.designation,
-                                  )?.name ?? filters.designation)
-                                : undefined
-                        }
-                        onClear={() => applyFilters({ designation: undefined })}
-                    >
-                        <SearchableOptionList
-                            options={designations.map((designation) => ({
-                                value: designation.code,
-                                label: designation.name ?? designation.code,
-                            }))}
-                            value={filters.designation}
-                            onSelect={(v) => applyFilters({ designation: v })}
-                            searchPlaceholder={t('Search designations…')}
                         />
                     </FilterPill>
 
@@ -1495,7 +1478,7 @@ export default function MembersIndex({
                                                     ]
                                                 }
                                             >
-                                                {t(member.player_level)}
+                                                {levelLabel(member.player_level)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">

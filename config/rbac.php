@@ -67,6 +67,11 @@ return [
         // ── External training attendance ────────────────────────────────────
         ['code' => 'external-training-attendances.view', 'group' => 'external_training_attendances', 'name_hi' => 'बाहरी प्रशिक्षण उपस्थिति देखें', 'name_en' => 'View external training attendance'],
         ['code' => 'external-training-attendances.review', 'group' => 'external_training_attendances', 'name_hi' => 'बाहरी प्रशिक्षण उपस्थिति समीक्षा करें', 'name_en' => 'Review external training attendance'],
+        ['code' => 'external-training-attendances.accept', 'group' => 'external_training_attendances', 'name_hi' => 'बाहरी प्रशिक्षण उपस्थिति स्वीकार करें', 'name_en' => 'Accept external training attendance'],
+        ['code' => 'external-training-attendances.reject', 'group' => 'external_training_attendances', 'name_hi' => 'बाहरी प्रशिक्षण उपस्थिति अस्वीकार करें', 'name_en' => 'Reject external training attendance'],
+        ['code' => 'external-training-attendances.correct', 'group' => 'external_training_attendances', 'name_hi' => 'बाहरी प्रशिक्षण उपस्थिति सुधारें', 'name_en' => 'Correct external training attendance'],
+        ['code' => 'external-training-attendances.manual-review', 'group' => 'external_training_attendances', 'name_hi' => 'बाहरी प्रशिक्षण उपस्थिति मैनुअल समीक्षा में भेजें', 'name_en' => 'Send external training attendance to manual review'],
+        ['code' => 'external-training-attendances.lock', 'group' => 'external_training_attendances', 'name_hi' => 'बाहरी प्रशिक्षण उपस्थिति लॉक करें', 'name_en' => 'Lock external training attendance'],
 
         // ── External coach performance updates ─────────────────────────────
         ['code' => 'external-coach-performance-updates.view', 'group' => 'external_coach_performance_updates', 'name_hi' => 'बाहरी कोच प्रदर्शन अपडेट देखें', 'name_en' => 'View external coach performance updates'],

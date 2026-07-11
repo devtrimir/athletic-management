@@ -28,6 +28,7 @@ type Attendance = {
     id: number;
     attendance_date: string;
     attendance_status: string;
+    corrected_attendance_status: string | null;
     geo_status: string;
     review_status: string;
     flag_reason: string | null;
@@ -91,10 +92,15 @@ export default function ExternalTrainingAttendanceShow({
     const { t } = useTranslation();
     const [reviewAction, setReviewAction] = useState('');
     const [correctedStatus, setCorrectedStatus] = useState(
-        attendance.attendance_status,
+        attendance.corrected_attendance_status ?? attendance.attendance_status,
     );
+    const canCorrectAttendance = reviewActions.includes('correct');
 
     function updateCorrectedStatus(status: string): void {
+        if (!canCorrectAttendance) {
+            return;
+        }
+
         setCorrectedStatus(status);
         setReviewAction('correct');
     }
@@ -120,10 +126,19 @@ export default function ExternalTrainingAttendanceShow({
                                     attendance.attendance_status,
                                 )}
                             >
-                                {attendance.review_status === 'corrected'
-                                    ? `${t('Corrected to')} ${t(attendance.attendance_status)}`
-                                    : t(attendance.attendance_status)}
+                                {t(attendance.attendance_status)}
                             </Badge>
+                            {attendance.review_status === 'corrected' &&
+                            attendance.corrected_attendance_status ? (
+                                <Badge
+                                    variant="outline"
+                                    className={attendanceStatusBadgeClass(
+                                        attendance.corrected_attendance_status,
+                                    )}
+                                >
+                                    {`${t('Corrected to')} ${t(attendance.corrected_attendance_status)}`}
+                                </Badge>
+                            ) : null}
                             <Badge
                                 variant={
                                     attendance.geo_status === 'valid'
@@ -197,11 +212,17 @@ export default function ExternalTrainingAttendanceShow({
                                     value={attendance.training_venue.name}
                                 />
                                 <DetailItem
-                                    label={t('Attendance status')}
+                                    label={t('Coach submitted status')}
+                                    value={t(attendance.attendance_status)}
+                                />
+                                <DetailItem
+                                    label={t('Corrected status')}
                                     value={
-                                        attendance.review_status === 'corrected'
-                                            ? `${t('Corrected to')} ${t(attendance.attendance_status)}`
-                                            : t(attendance.attendance_status)
+                                        attendance.corrected_attendance_status
+                                            ? t(
+                                                  attendance.corrected_attendance_status,
+                                              )
+                                            : '-'
                                     }
                                 />
                             </dl>
@@ -462,45 +483,49 @@ export default function ExternalTrainingAttendanceShow({
                                         <InputError message={errors.action} />
                                     </div>
 
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="attendance_status">
-                                            {t('Corrected status')}
-                                        </Label>
-                                        <Select
-                                            value={correctedStatus}
-                                            onValueChange={
-                                                updateCorrectedStatus
-                                            }
-                                        >
-                                            <SelectTrigger id="attendance_status">
-                                                <SelectValue
-                                                    placeholder={t(
-                                                        'Select status',
+                                    {canCorrectAttendance ? (
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="attendance_status">
+                                                {t('Corrected status')}
+                                            </Label>
+                                            <Select
+                                                value={correctedStatus}
+                                                onValueChange={
+                                                    updateCorrectedStatus
+                                                }
+                                            >
+                                                <SelectTrigger id="attendance_status">
+                                                    <SelectValue
+                                                        placeholder={t(
+                                                            'Select status',
+                                                        )}
+                                                    />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {attendanceStatuses.map(
+                                                        (status) => (
+                                                            <SelectItem
+                                                                key={status}
+                                                                value={status}
+                                                            >
+                                                                {t(status)}
+                                                            </SelectItem>
+                                                        ),
                                                     )}
-                                                />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {attendanceStatuses.map(
-                                                    (status) => (
-                                                        <SelectItem
-                                                            key={status}
-                                                            value={status}
-                                                        >
-                                                            {t(status)}
-                                                        </SelectItem>
-                                                    ),
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-muted-foreground">
+                                                {t(
+                                                    'Changing this value will save the review as Correct status.',
                                                 )}
-                                            </SelectContent>
-                                        </Select>
-                                        <p className="text-xs text-muted-foreground">
-                                            {t(
-                                                'Changing this value will save the review as Correct status.',
-                                            )}
-                                        </p>
-                                        <InputError
-                                            message={errors.attendance_status}
-                                        />
-                                    </div>
+                                            </p>
+                                            <InputError
+                                                message={
+                                                    errors.attendance_status
+                                                }
+                                            />
+                                        </div>
+                                    ) : null}
 
                                     <div className="grid gap-2">
                                         <Label htmlFor="review_remarks">

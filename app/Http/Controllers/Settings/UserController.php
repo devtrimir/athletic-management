@@ -35,6 +35,7 @@ class UserController extends Controller
                 'is_active' => $u->is_active,
                 'must_change_password' => $u->must_change_password,
                 'created_at' => $u->created_at,
+                'can_delete' => $request->user()->can('delete', $u),
                 'roles' => $u->roles($orgId)->map(fn (Role $r) => [
                     'id' => $r->id,
                     'code' => $r->code,

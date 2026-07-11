@@ -30,6 +30,7 @@ type User = {
     is_active: boolean;
     must_change_password: boolean;
     created_at: string;
+    can_delete: boolean;
     roles: Role[];
 };
 
@@ -172,25 +173,29 @@ export default function Index({ users }: { users: User[] }) {
                                                         <Pencil className="h-4 w-4" />
                                                     </Link>
                                                 </Button>
-                                                <Form
-                                                    {...UserController.destroy.form(
-                                                        user.id,
-                                                    )}
-                                                >
-                                                    {({ processing }) => (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            title={t('Delete')}
-                                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                            disabled={
-                                                                processing
-                                                            }
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
-                                                </Form>
+                                                {user.can_delete ? (
+                                                    <Form
+                                                        {...UserController.destroy.form(
+                                                            user.id,
+                                                        )}
+                                                    >
+                                                        {({ processing }) => (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                title={t(
+                                                                    'Delete',
+                                                                )}
+                                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                disabled={
+                                                                    processing
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </Form>
+                                                ) : null}
                                             </div>
                                         </TableCell>
                                     </TableRow>
