@@ -353,6 +353,74 @@ test('external coach admin routes require permission', function () {
         ->assertForbidden();
 });
 
+test('external coaches index can be filtered and paginated', function () {
+    $user = rcUser('external-coaches.view');
+
+    ExternalCoach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'Asha Sprint Coach',
+        'email' => 'asha.sprint@example.test',
+        'status' => 'active',
+    ]);
+    ExternalCoach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'Inactive Swimming Coach',
+        'email' => 'swim.coach@example.test',
+        'status' => 'inactive',
+    ]);
+    ExternalCoach::factory()->create([
+        'name' => 'Other Organization Coach',
+        'email' => 'other.org.coach@example.test',
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('external-coaches.index', [
+            'filter' => [
+                'q' => 'asha',
+                'status' => 'active',
+            ],
+            'per_page' => 10,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('external-coaches/index')
+            ->where('filters.q', 'asha')
+            ->where('filters.status', 'active')
+            ->where('perPage', 10)
+            ->where('externalCoaches.total', 1)
+            ->where('externalCoaches.data.0.name', 'Asha Sprint Coach')
+            ->where('statuses', ['pending_invite', 'active', 'inactive', 'suspended', 'blacklisted'])
+            ->etc());
+});
+
+test('external coach phone must be a valid indian mobile number', function () {
+    $user = rcUser('external-coaches.view', 'external-coaches.create');
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), [
+            'name' => 'Invalid Phone Coach',
+            'phone' => '1234567890',
+            'email' => 'invalid.phone.coach@example.test',
+            'password' => 'password',
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors('phone');
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), [
+            'name' => 'Valid Phone Coach',
+            'phone' => '+91 98765 43210',
+            'email' => 'valid.phone.coach@example.test',
+            'password' => 'password',
+            'status' => 'active',
+        ])
+        ->assertRedirect();
+
+    expect(ExternalCoach::query()->where('email', 'valid.phone.coach@example.test')->value('phone'))
+        ->toBe('9876543210');
+});
+
 test('admin can create update and delete external coaches with status history', function () {
     $user = rcUser(
         'external-coaches.view',

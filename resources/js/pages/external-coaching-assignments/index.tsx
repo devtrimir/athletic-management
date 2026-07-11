@@ -1,7 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Calendar, Eye, Pencil, Plus, Search, X } from 'lucide-react';
+import { Eye, Pencil, Plus, Search, X } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
     create,
@@ -32,6 +32,8 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { DatePicker } from '@/components/date-picker';
+import { useAuthorization } from '@/hooks/use-authorization';
 import { useTranslation } from '@/hooks/use-translation';
 
 type Assignment = {
@@ -83,7 +85,12 @@ export default function ExternalCoachingAssignmentsIndex({
     sports,
 }: Props) {
     const { t } = useTranslation();
-    const { locale } = usePage().props as { locale: string };
+    const { can } = useAuthorization();
+    const canCreateAssignment = can('external-coaching-assignments.create');
+    const canUpdateAssignment = can('external-coaching-assignments.update');
+    const page = usePage();
+    const { locale } = page.props as { locale: string };
+    const { url } = page;
 
     const [memberQuery, setMemberQuery] = useState<string>(
         filters.member_query ?? '',
@@ -106,18 +113,39 @@ export default function ExternalCoachingAssignmentsIndex({
         label: sport.name,
     }));
 
-    const hasFilters =
-        memberQuery.trim() !== '' ||
-        coachQuery.trim() !== '' ||
-        statusFilter !== 'all' ||
-        sportFilter !== 'all' ||
-        fromDate !== '' ||
-        toDate !== '';
+    const hasDateError = fromDate !== '' && toDate !== '' && fromDate > toDate;
 
-    function applyFilters(event?: FormEvent<HTMLFormElement>) {
-        event?.preventDefault();
+    useEffect(() => {
+        const query = new URLSearchParams(window.location.search);
 
+        setMemberQuery(filters.member_query ?? '');
+        setCoachQuery(filters.coach_query ?? '');
+        setStatusFilter(filters.status ?? 'all');
+        setSportFilter(filters.sport_id ?? 'all');
+
+        setFromDate(
+            query.get('filter[start_date_from]') ??
+                filters.start_date_from ??
+                '',
+        );
+
+        setToDate(
+            query.get('filter[start_date_to]') ?? filters.start_date_to ?? '',
+        );
+    }, [filters, url]);
+
+    function dateToValue(value: Date): string {
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
+    }
+
+    function applyFiltersWithRange(startDate: string, endDate: string) {
         const params: Record<string, string> = {};
+        const hasRangeError =
+            startDate !== '' && endDate !== '' && startDate > endDate;
 
         if (memberQuery.trim() !== '') {
             params['filter[member_query]'] = memberQuery.trim();
@@ -135,12 +163,16 @@ export default function ExternalCoachingAssignmentsIndex({
             params['filter[sport_id]'] = sportFilter;
         }
 
-        if (fromDate !== '') {
-            params['filter[start_date_from]'] = fromDate;
+        if (startDate !== '') {
+            params['filter[start_date_from]'] = startDate;
         }
 
-        if (toDate !== '') {
-            params['filter[start_date_to]'] = toDate;
+        if (endDate !== '') {
+            params['filter[start_date_to]'] = endDate;
+        }
+
+        if (hasRangeError) {
+            return;
         }
 
         router.get(index.url(), params, {
@@ -148,6 +180,49 @@ export default function ExternalCoachingAssignmentsIndex({
             preserveScroll: true,
             preserveState: true,
         });
+    }
+
+    function applyPreset(daysBack: number) {
+        const to = new Date();
+        const from = new Date();
+
+        from.setDate(from.getDate() - daysBack);
+        const fromValue = dateToValue(from);
+        const toValue = dateToValue(to);
+
+        setFromDate(fromValue);
+        setToDate(toValue);
+        applyFiltersWithRange(fromValue, toValue);
+    }
+
+    function applyMonthPreset() {
+        const from = new Date();
+        const to = new Date();
+
+        from.setDate(1);
+        to.setMonth(to.getMonth() + 1);
+        to.setDate(0);
+
+        const fromValue = dateToValue(from);
+        const toValue = dateToValue(to);
+
+        setFromDate(fromValue);
+        setToDate(toValue);
+        applyFiltersWithRange(fromValue, toValue);
+    }
+
+    const hasFilters =
+        memberQuery.trim() !== '' ||
+        coachQuery.trim() !== '' ||
+        statusFilter !== 'all' ||
+        sportFilter !== 'all' ||
+        fromDate !== '' ||
+        toDate !== '';
+
+    function applyFilters(event?: FormEvent<HTMLFormElement>) {
+        event?.preventDefault();
+
+        applyFiltersWithRange(fromDate, toDate);
     }
 
     function clearFilters() {
@@ -176,20 +251,22 @@ export default function ExternalCoachingAssignmentsIndex({
                             'Manage member assignments to external coaches and venues.',
                         )}
                     />
-                    <Button asChild>
-                        <Link href={create.url()}>
-                            <Plus className="size-4" />
-                            {t('Add assignment')}
-                        </Link>
-                    </Button>
+                    {canCreateAssignment ? (
+                        <Button asChild>
+                            <Link href={create.url()}>
+                                <Plus className="size-4" />
+                                {t('Add assignment')}
+                            </Link>
+                        </Button>
+                    ) : null}
                 </div>
 
                 <form
                     className="space-y-4 rounded-xl border bg-card p-4"
                     onSubmit={applyFilters}
                 >
-                    <div className="grid [grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))] items-end gap-2">
-                        <div className="space-y-1">
+                    <div className="flex flex-wrap items-end gap-2">
+                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
                             <Label
                                 htmlFor="member_query"
                                 className="text-sm font-medium"
@@ -213,7 +290,7 @@ export default function ExternalCoachingAssignmentsIndex({
                             </div>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
                             <Label
                                 htmlFor="coach_query"
                                 className="text-sm font-medium"
@@ -237,51 +314,69 @@ export default function ExternalCoachingAssignmentsIndex({
                             </div>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
                             <Label
                                 htmlFor="start_date_from"
                                 className="text-sm font-medium"
                             >
                                 {t('Start date from')}
                             </Label>
-                            <div className="relative">
-                                <Calendar className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="start_date_from"
-                                    name="start_date_from"
-                                    type="date"
-                                    value={fromDate}
-                                    onChange={(event) =>
-                                        setFromDate(event.target.value)
-                                    }
-                                    className="pl-9"
-                                />
-                            </div>
+                            <DatePicker
+                                id="start_date_from"
+                                value={fromDate}
+                                onChange={setFromDate}
+                                placeholder={t('Select start date')}
+                            />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
                             <Label
                                 htmlFor="start_date_to"
                                 className="text-sm font-medium"
                             >
                                 {t('Start date to')}
                             </Label>
-                            <div className="relative">
-                                <Calendar className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="start_date_to"
-                                    name="start_date_to"
-                                    type="date"
-                                    value={toDate}
-                                    onChange={(event) =>
-                                        setToDate(event.target.value)
-                                    }
-                                    className="pl-9"
-                                />
-                            </div>
+                            <DatePicker
+                                id="start_date_to"
+                                value={toDate}
+                                onChange={setToDate}
+                                placeholder={t('Select end date')}
+                            />
+                            {hasDateError ? (
+                                <p className="text-xs text-destructive">
+                                    {t('Date from cannot be after date to.')}
+                                </p>
+                            ) : null}
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="flex min-w-[17rem] flex-1 flex-wrap gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => applyPreset(6)}
+                            >
+                                {t('Last 7 days')}
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => applyPreset(29)}
+                            >
+                                {t('Last 30 days')}
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => applyMonthPreset()}
+                            >
+                                {t('This month')}
+                            </Button>
+                        </div>
+
+                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
                             <Label
                                 htmlFor="status_filter"
                                 className="text-sm font-medium"
@@ -313,7 +408,7 @@ export default function ExternalCoachingAssignmentsIndex({
                             </Select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
                             <Label
                                 htmlFor="sport_filter"
                                 className="text-sm font-medium"
@@ -333,7 +428,7 @@ export default function ExternalCoachingAssignmentsIndex({
                             />
                         </div>
 
-                        <div className="flex items-end justify-end gap-2">
+                        <div className="ml-auto flex flex-none items-end gap-2">
                             <div className="flex items-center gap-2">
                                 {hasFilters ? (
                                     <Button
@@ -346,8 +441,11 @@ export default function ExternalCoachingAssignmentsIndex({
                                         {t('Clear filters')}
                                     </Button>
                                 ) : null}
-
-                                <Button type="submit" className="h-9">
+                                <Button
+                                    type="submit"
+                                    className="h-9"
+                                    disabled={hasDateError}
+                                >
                                     {t('Apply filters')}
                                 </Button>
                             </div>
@@ -441,18 +539,22 @@ export default function ExternalCoachingAssignmentsIndex({
                                                     <Eye className="size-4" />
                                                 </Link>
                                             </Button>
-                                            <Button
-                                                asChild
-                                                size="icon"
-                                                variant="ghost"
-                                            >
-                                                <Link
-                                                    href={edit.url(assignment)}
-                                                    aria-label={t('Edit')}
+                                            {canUpdateAssignment ? (
+                                                <Button
+                                                    asChild
+                                                    size="icon"
+                                                    variant="ghost"
                                                 >
-                                                    <Pencil className="size-4" />
-                                                </Link>
-                                            </Button>
+                                                    <Link
+                                                        href={edit.url(
+                                                            assignment,
+                                                        )}
+                                                        aria-label={t('Edit')}
+                                                    >
+                                                        <Pencil className="size-4" />
+                                                    </Link>
+                                                </Button>
+                                            ) : null}
                                         </div>
                                     </TableCell>
                                 </TableRow>

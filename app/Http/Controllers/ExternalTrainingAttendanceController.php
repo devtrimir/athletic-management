@@ -57,6 +57,7 @@ class ExternalTrainingAttendanceController extends Controller
         'training_end_time' => 'Training End Time',
         'attendance_mode' => 'Attendance Mode',
         'attendance_status' => 'Attendance Status',
+        'corrected_attendance_status' => 'Corrected Attendance Status',
         'geo_status' => 'Geo Status',
         'review_status' => 'Review Status',
         'flag_reason' => 'Flag Reason',
@@ -104,12 +105,13 @@ class ExternalTrainingAttendanceController extends Controller
         $attendances = $this->attendanceQuery($filters)
             ->latest('attendance_date')
             ->latest('id')
-            ->paginate(25)
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         return Inertia::render('external-training-attendances/index', [
             'attendances' => $attendances,
             'filters' => [
+                'q' => $filters['query'],
                 'date_from' => $filters['dateFrom'],
                 'date_to' => $filters['dateTo'],
                 'member_query' => $filters['memberQuery'],
@@ -127,6 +129,7 @@ class ExternalTrainingAttendanceController extends Controller
                 'outside_radius_only' => $filters['outsideRadiusOnly'] ? '1' : '0',
                 'missing_location_only' => $filters['missingLocationOnly'] ? '1' : '0',
                 'low_accuracy_only' => $filters['lowAccuracyOnly'] ? '1' : '0',
+                'ids' => $filters['ids'],
             ],
             'members' => Member::query()->orderBy('full_name')->get(['id', 'member_code', 'pno', 'full_name']),
             'externalCoaches' => ExternalCoach::query()->orderBy('name')->get(['id', 'name']),
@@ -135,6 +138,7 @@ class ExternalTrainingAttendanceController extends Controller
             'attendanceStatuses' => $this->attendanceStatuses((int) $request->user()->organization_id),
             'geoStatuses' => $this->geoStatuses((int) $request->user()->organization_id),
             'reviewStatuses' => $this->reviewStatuses((int) $request->user()->organization_id),
+            'canReviewAttendanceDetails' => $request->user()->can('external-training-attendances.review'),
         ]);
     }
 
@@ -170,6 +174,7 @@ class ExternalTrainingAttendanceController extends Controller
                 'training_end_time' => $attendance->assignment?->training_end_time,
                 'attendance_mode' => $attendance->assignment?->attendance_mode,
                 'attendance_status' => $attendance->attendance_status,
+                'corrected_attendance_status' => $attendance->corrected_attendance_status,
                 'geo_status' => $attendance->geo_status,
                 'review_status' => $attendance->review_status,
                 'flag_reason' => $attendance->flag_reason,
@@ -217,13 +222,13 @@ class ExternalTrainingAttendanceController extends Controller
         );
     }
 
-    public function show(ExternalTrainingAttendance $externalTrainingAttendance): Response
+    public function show(Request $request, ExternalTrainingAttendance $externalTrainingAttendance): Response
     {
-        Gate::authorize('view', $externalTrainingAttendance);
+        Gate::authorize('reviewDetails', $externalTrainingAttendance);
 
         return Inertia::render('external-training-attendances/show', [
             'attendance' => $this->attendancePayload($externalTrainingAttendance),
-            'reviewActions' => ['accept', 'reject', 'correct', 'manual_review', 'lock'],
+            'reviewActions' => $this->allowedReviewActions($request, $externalTrainingAttendance),
             'attendanceStatuses' => ['present', 'absent', 'late', 'excused', 'not_marked'],
         ]);
     }
@@ -282,14 +287,14 @@ class ExternalTrainingAttendanceController extends Controller
     private function reviewData(array $payload): array
     {
         return match ($payload['action']) {
-            'accept' => ['review_status' => 'accepted'],
-            'reject' => ['review_status' => 'rejected'],
+            'accept' => ['review_status' => 'accepted', 'corrected_attendance_status' => null],
+            'reject' => ['review_status' => 'rejected', 'corrected_attendance_status' => null],
             'correct' => [
                 'review_status' => 'corrected',
-                'attendance_status' => $payload['attendance_status'],
+                'corrected_attendance_status' => $payload['attendance_status'],
             ],
-            'manual_review' => ['review_status' => 'pending', 'geo_status' => 'manual_review_required'],
-            'lock' => ['review_status' => 'locked'],
+            'manual_review' => ['review_status' => 'pending', 'geo_status' => 'manual_review_required', 'corrected_attendance_status' => null],
+            'lock' => ['review_status' => 'locked', 'corrected_attendance_status' => null],
         };
     }
 
@@ -327,7 +332,32 @@ class ExternalTrainingAttendanceController extends Controller
     }
 
     /**
+     * @return list<string>
+     */
+    private function allowedReviewActions(Request $request, ExternalTrainingAttendance $attendance): array
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return [];
+        }
+
+        return collect([
+            'accept' => 'accept',
+            'reject' => 'reject',
+            'correct' => 'correct',
+            'manual_review' => 'manualReview',
+            'lock' => 'lock',
+        ])
+            ->filter(fn (string $ability): bool => $user->can($ability, $attendance))
+            ->keys()
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return array{
+     *     query: ?string,
      *     memberQuery: ?string,
      *     coachQuery: ?string,
      *     venueQuery: ?string,
@@ -344,7 +374,8 @@ class ExternalTrainingAttendanceController extends Controller
      *     flaggedOnly: bool,
      *     outsideRadiusOnly: bool,
      *     missingLocationOnly: bool,
-     *     lowAccuracyOnly: bool
+     *     lowAccuracyOnly: bool,
+     *     ids: list<int>
      * }
      */
     private function attendanceFilters(Request $request): array
@@ -353,6 +384,7 @@ class ExternalTrainingAttendanceController extends Controller
         $filters = is_array($filters) ? $filters : [];
 
         return [
+            'query' => $this->filterString($filters['q'] ?? $filters['search'] ?? null),
             'memberQuery' => $this->filterString($filters['member_query'] ?? $filters['member'] ?? null),
             'coachQuery' => $this->filterString($filters['coach_query'] ?? $filters['coach'] ?? null),
             'venueQuery' => $this->filterString($filters['venue_query'] ?? $filters['training_venue'] ?? null),
@@ -370,6 +402,7 @@ class ExternalTrainingAttendanceController extends Controller
             'outsideRadiusOnly' => ($filters['outside_radius_only'] ?? null) === '1',
             'missingLocationOnly' => ($filters['missing_location_only'] ?? null) === '1',
             'lowAccuracyOnly' => ($filters['low_accuracy_only'] ?? null) === '1',
+            'ids' => $this->filterIds($filters['ids'] ?? $request->query('ids', [])),
         ];
     }
 
@@ -390,6 +423,32 @@ class ExternalTrainingAttendanceController extends Controller
             ])
             ->when($filters['dateFrom'] !== null, fn (Builder $query) => $query->whereDate('attendance_date', '>=', $filters['dateFrom']))
             ->when($filters['dateTo'] !== null, fn (Builder $query) => $query->whereDate('attendance_date', '<=', $filters['dateTo']))
+            ->when($filters['query'] !== null, function (Builder $query) use ($filters): void {
+                $query->where(function (Builder $searchQuery) use ($filters): void {
+                    $searchQuery
+                        ->where('flag_reason', 'like', "%{$filters['query']}%")
+                        ->orWhere('coach_remarks', 'like', "%{$filters['query']}%")
+                        ->orWhere('venue_name_snapshot', 'like', "%{$filters['query']}%")
+                        ->orWhereHas('member', function (Builder $memberQueryBuilder) use ($filters): void {
+                            $memberQueryBuilder
+                                ->where('full_name', 'like', "%{$filters['query']}%")
+                                ->orWhere('member_code', 'like', "%{$filters['query']}%")
+                                ->orWhere('pno', 'like', "%{$filters['query']}%");
+                        })
+                        ->orWhereHas('externalCoach', function (Builder $coachQueryBuilder) use ($filters): void {
+                            $coachQueryBuilder
+                                ->where('name', 'like', "%{$filters['query']}%")
+                                ->orWhere('phone', 'like', "%{$filters['query']}%")
+                                ->orWhere('email', 'like', "%{$filters['query']}%");
+                        })
+                        ->orWhereHas('trainingVenue', function (Builder $venueQueryBuilder) use ($filters): void {
+                            $venueQueryBuilder->where('name', 'like', "%{$filters['query']}%");
+                        })
+                        ->orWhereHas('assignment.sport', function (Builder $sportQueryBuilder) use ($filters): void {
+                            $sportQueryBuilder->where('name', 'like', "%{$filters['query']}%");
+                        });
+                });
+            })
             ->when($filters['memberQuery'] !== null, function (Builder $query) use ($filters): void {
                 $query->whereHas('member', function (Builder $memberQueryBuilder) use ($filters): void {
                     $memberQueryBuilder
@@ -426,7 +485,8 @@ class ExternalTrainingAttendanceController extends Controller
             ->when($filters['flaggedOnly'], fn (Builder $query) => $query->where('geo_status', '!=', 'valid'))
             ->when($filters['outsideRadiusOnly'], fn (Builder $query) => $query->where('geo_status', 'outside_radius'))
             ->when($filters['missingLocationOnly'], fn (Builder $query) => $query->where('geo_status', 'location_missing'))
-            ->when($filters['lowAccuracyOnly'], fn (Builder $query) => $query->where('geo_status', 'low_accuracy'));
+            ->when($filters['lowAccuracyOnly'], fn (Builder $query) => $query->where('geo_status', 'low_accuracy'))
+            ->when($filters['ids'] !== [], fn (Builder $query) => $query->whereIn('id', $filters['ids']));
     }
 
     /**
@@ -456,6 +516,7 @@ class ExternalTrainingAttendanceController extends Controller
             'venue',
             'sport',
             'attendance_status',
+            'corrected_attendance_status',
             'geo_status',
             'review_status',
             'distance_meters',
@@ -581,5 +642,27 @@ class ExternalTrainingAttendanceController extends Controller
         $value = trim($value);
 
         return $value === '' ? null : $value;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function filterIds(mixed $value): array
+    {
+        $values = is_array($value) ? $value : [$value];
+
+        return collect($values)
+            ->map(fn (mixed $id): ?int => $this->filterInt($id))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function perPage(Request $request): int
+    {
+        $perPage = $request->integer('per_page', 25);
+
+        return in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 25;
     }
 }

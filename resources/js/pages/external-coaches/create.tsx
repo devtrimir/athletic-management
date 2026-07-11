@@ -141,8 +141,22 @@ function ExternalCoachForm({
                                         <Input
                                             id="phone"
                                             name="phone"
+                                            type="tel"
+                                            inputMode="tel"
+                                            pattern="(?:\+91[-\s]?|0)?[6-9][0-9]{9}"
+                                            title={t(
+                                                'Enter a valid Indian mobile number.',
+                                            )}
+                                            placeholder={t(
+                                                '10-digit Indian mobile number',
+                                            )}
                                             defaultValue={coach?.phone ?? ''}
                                         />
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                'Use a 10-digit Indian mobile number, with optional +91.',
+                                            )}
+                                        </p>
                                         <InputError message={errors.phone} />
                                     </div>
                                     <div className="grid gap-2">

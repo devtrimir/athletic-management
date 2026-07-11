@@ -79,13 +79,20 @@ class ExternalCoachingAssignmentController extends Controller
                     }
 
                     if ($startDateTo === null) {
-                        $query->whereDate('end_date', '>=', $startDateFrom);
+                        $query->where(function ($query) use ($startDateFrom): void {
+                            $query->whereDate('end_date', '>=', $startDateFrom)
+                                ->orWhereNull('end_date');
+                        });
 
                         return;
                     }
 
-                    $query->whereDate('start_date', '<=', $startDateTo)
-                        ->whereDate('end_date', '>=', $startDateFrom);
+                    $query
+                        ->whereDate('start_date', '<=', $startDateTo)
+                        ->where(function ($query) use ($startDateFrom): void {
+                            $query->whereDate('end_date', '>=', $startDateFrom)
+                                ->orWhereNull('end_date');
+                        });
                 },
             )
             ->latest('id')
@@ -319,6 +326,7 @@ class ExternalCoachingAssignmentController extends Controller
 
         return [
             ...$assignment->toArray(),
+            'has_attendances' => $assignment->attendances()->exists(),
             'permission_document' => $assignment->permission_document_path === null ? null : [
                 'name' => $assignment->permission_document_original_name,
                 'original_name' => $assignment->permission_document_original_name,

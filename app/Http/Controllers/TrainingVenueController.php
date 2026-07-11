@@ -21,12 +21,15 @@ class TrainingVenueController extends Controller
 
         $filters = $request->query('filter', []);
         $filters = is_array($filters) ? $filters : [];
+        $statusFilter = $this->filterString($filters['status'] ?? null);
+        $search = $this->filterString($filters['q'] ?? null);
+        $perPage = min(max((int) $request->query('per_page', 25), 10), 100);
 
         $trainingVenues = TrainingVenue::query()
             ->with(['district:id,name', 'unit:id,name'])
-            ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->when($filters['q'] ?? null, function ($query, string $term): void {
-                $like = '%'.mb_strtolower($term).'%';
+            ->when($statusFilter !== null, fn ($query) => $query->where('status', $statusFilter))
+            ->when($search !== null, function ($query) use ($search): void {
+                $like = '%'.mb_strtolower($search).'%';
 
                 $query->where(function ($builder) use ($like): void {
                     $builder->whereRaw('LOWER(name) LIKE ?', [$like])
@@ -35,12 +38,17 @@ class TrainingVenueController extends Controller
                 });
             })
             ->orderBy('name')
-            ->paginate(25)
+            ->paginate($perPage)
             ->withQueryString();
 
         return Inertia::render('training-venues/index', [
             'trainingVenues' => $trainingVenues,
-            'filters' => $filters,
+            'filters' => [
+                'q' => $search,
+                'status' => $statusFilter,
+            ],
+            'statuses' => ['active', 'inactive', 'under_review'],
+            'perPage' => $perPage,
         ]);
     }
 
@@ -119,5 +127,16 @@ class TrainingVenueController extends Controller
         return [
             'statuses' => ['active', 'inactive', 'under_review'],
         ];
+    }
+
+    private function filterString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' || $value === 'all' ? null : $value;
     }
 }

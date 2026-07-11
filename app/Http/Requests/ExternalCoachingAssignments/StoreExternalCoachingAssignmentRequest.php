@@ -21,6 +21,8 @@ class StoreExternalCoachingAssignmentRequest extends FormRequest
         $this->merge([
             'start_date' => $this->normalizeDateInput($this->input('start_date')),
             'end_date' => $this->normalizeDateInput($this->input('end_date')),
+            'training_start_time' => $this->normalizeTimeInput($this->input('training_start_time')),
+            'training_end_time' => $this->normalizeTimeInput($this->input('training_end_time')),
         ]);
     }
 
@@ -41,8 +43,8 @@ class StoreExternalCoachingAssignmentRequest extends FormRequest
             'end_date' => ['required', Rule::date()->format('Y-m-d'), 'after_or_equal:start_date'],
             'training_days' => ['nullable', 'array'],
             'training_days.*' => ['string', Rule::in(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])],
-            'training_start_time' => ['nullable', 'date_format:H:i'],
-            'training_end_time' => ['nullable', 'date_format:H:i', 'after:training_start_time'],
+            'training_start_time' => ['nullable', 'required_with:training_end_time', 'date_format:H:i'],
+            'training_end_time' => ['nullable', 'required_with:training_start_time', 'date_format:H:i', 'after:training_start_time'],
             'attendance_mode' => ['required', Rule::in(['single_mark', 'check_in_check_out'])],
             'permission_reference_number' => ['nullable', 'string', 'max:100'],
             'permission_document' => ['nullable', 'file', 'mimes:pdf,jpeg,jpg,png,webp', 'max:5120'],
@@ -128,5 +130,29 @@ class StoreExternalCoachingAssignmentRequest extends FormRequest
         }
 
         return \sprintf('%04d-%02d-%02d', $yearValue, $monthValue, $dayValue);
+    }
+
+    private function normalizeTimeInput(mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        $normalized = trim($value);
+
+        if ($normalized === '') {
+            return $normalized;
+        }
+
+        if (\preg_match('/^(\\d{1,2}):(\\d{2})(?::\\d{2})?$/', $normalized, $matches)) {
+            $hour = (int) $matches[1];
+            $minute = (int) $matches[2];
+
+            if ($hour >= 0 && $hour <= 23 && $minute >= 0 && $minute <= 59) {
+                return \sprintf('%02d:%02d', $hour, $minute);
+            }
+        }
+
+        return $normalized;
     }
 }

@@ -51,8 +51,10 @@ type PaginatedAssignments = PaginatedListing & {
 
 const PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
 
-const MINI_TABLE_CLASS = 'w-full text-xs border border-muted/40 border-separate border-spacing-0';
-const MINI_HEADER_CELL_CLASS = 'border-r border-b border-muted/40 bg-muted/20 px-2 py-1 text-muted-foreground';
+const MINI_TABLE_CLASS =
+    'w-full text-xs border border-muted/40 border-separate border-spacing-0';
+const MINI_HEADER_CELL_CLASS =
+    'border-r border-b border-muted/40 bg-muted/20 px-2 py-1 text-muted-foreground';
 const MINI_VALUE_CELL_CLASS = 'border-b border-muted/40 px-2 py-1';
 
 type Props = {
@@ -96,13 +98,30 @@ const ATTENDANCE_MODE_LABELS: Record<string, string> = {
     check_in_check_out: 'Check In / Check Out',
 };
 
-function formatAttendanceMode(value: string, t: (key: string) => string): string {
+function formatStatusLabel(value: string, t: (key: string) => string): string {
+    const label = value
+        .replaceAll('_', ' ')
+        .toLowerCase()
+        .split(' ')
+        .filter(Boolean)
+        .map((word) => `${word[0]?.toUpperCase()}${word.slice(1)}`)
+        .join(' ');
+
+    return t(label);
+}
+
+function formatAttendanceMode(
+    value: string,
+    t: (key: string) => string,
+): string {
     const label = ATTENDANCE_MODE_LABELS[value] ?? value;
 
     return t(
         label
             .split(' ')
-            .map((word) => (word ? `${word[0]?.toUpperCase()}${word.slice(1)}` : ''))
+            .map((word) =>
+                word ? `${word[0]?.toUpperCase()}${word.slice(1)}` : '',
+            )
             .join(' '),
     );
 }
@@ -112,7 +131,9 @@ function assignmentStatusHistory(
     t: (key: string) => string,
     locale: string,
 ): string {
-    const items = [`${t('Created')}: ${formatDate(assignment.created_at, locale)}`];
+    const items = [
+        `${t('Created')}: ${formatDate(assignment.created_at, locale)}`,
+    ];
     const extra = [
         `${t('Last update')}: ${formatDate(assignment.updated_at, locale)}`,
         assignment.approved_at
@@ -127,7 +148,10 @@ function assignmentStatusHistory(
         assignment.remarks ? `${t('Remarks')}: ${assignment.remarks}` : null,
     ];
 
-    return [...items, ...extra.filter((item): item is string => item !== null)].join(' | ');
+    return [
+        ...items,
+        ...extra.filter((item): item is string => item !== null),
+    ].join(' | ');
 }
 
 function escapeHtml(value: string): string {
@@ -146,10 +170,19 @@ function assignmentStatusRows(
     locale: string,
 ): AssignmentStatusRow[] {
     return [
-        { label: t('Created'), value: formatDate(assignment.created_at, locale) },
-        { label: t('Last update'), value: formatDate(assignment.updated_at, locale) },
+        {
+            label: t('Created'),
+            value: formatDate(assignment.created_at, locale),
+        },
+        {
+            label: t('Last update'),
+            value: formatDate(assignment.updated_at, locale),
+        },
         assignment.approved_at
-            ? { label: t('Approved'), value: formatDate(assignment.approved_at, locale) }
+            ? {
+                  label: t('Approved'),
+                  value: formatDate(assignment.approved_at, locale),
+              }
             : null,
         assignment.cancellation_reason
             ? {
@@ -163,7 +196,9 @@ function assignmentStatusRows(
                   value: assignment.completion_remarks,
               }
             : null,
-        assignment.remarks ? { label: t('Remarks'), value: assignment.remarks } : null,
+        assignment.remarks
+            ? { label: t('Remarks'), value: assignment.remarks }
+            : null,
     ].filter((item): item is AssignmentStatusRow => item !== null);
 }
 
@@ -217,7 +252,7 @@ export default function ExternalCoachesAssignments({
             (index + 1).toString(),
             `${t('Player')}: ${assignment.member?.full_name ?? '-'} | ${t('Rank')}: ${assignment.member?.rank ?? '-'} | ${t('PNO')}: ${assignment.member?.pno ?? '-'} | ${t('Phone')}: ${assignment.member?.mobile ?? '-'}`,
             `${t('Sport')}: ${assignment.sport?.name ?? '-'} | ${t('Venue')}: ${assignment.training_venue?.name ?? '-'} | ${t('Attendance')}: ${formatAttendanceMode(assignment.attendance_mode, t)} | ${t('Period')}: ${formatDate(assignment.start_date, locale)} - ${formatDate(assignment.end_date, locale)}`,
-            `${t('Assignment status')}: ${t(assignment.status)} | ${t('Player status')}: ${assignment.member?.current_status ? t(assignment.member.current_status) : '-'} | ${t('Active now')}: ${isActiveNow(assignment) ? t('Yes') : t('No')}`,
+            `${t('Assignment status')}: ${formatStatusLabel(assignment.status, t)} | ${t('Player status')}: ${assignment.member?.current_status ? formatStatusLabel(assignment.member.current_status, t) : '-'} | ${t('Active now')}: ${isActiveNow(assignment) ? t('Yes') : t('No')}`,
             assignmentStatusHistory(assignment, t, locale),
         ]);
 
@@ -249,7 +284,11 @@ export default function ExternalCoachesAssignments({
     function printAssignments() {
         const rows = assignments.data
             .map((assignment, index) => {
-                const timelineRows = assignmentStatusRows(assignment, t, locale);
+                const timelineRows = assignmentStatusRows(
+                    assignment,
+                    t,
+                    locale,
+                );
 
                 return `
                     <tr>
@@ -282,7 +321,10 @@ export default function ExternalCoachesAssignments({
                                         assignment.training_venue?.name ?? '-',
                                     )}</td></tr>
                                     <tr><td class="mini-label">${escapeHtml(t('Attendance'))}</td><td class="mini-value">${escapeHtml(
-                                        formatAttendanceMode(assignment.attendance_mode, t),
+                                        formatAttendanceMode(
+                                            assignment.attendance_mode,
+                                            t,
+                                        ),
                                     )}</td></tr>
                                     <tr><td class="mini-label">${escapeHtml(t('Period'))}</td><td class="mini-value">${escapeHtml(
                                         `${formatDate(assignment.start_date, locale)} - ${formatDate(assignment.end_date, locale)}`,
@@ -294,13 +336,21 @@ export default function ExternalCoachesAssignments({
                             <table class="mini">
                                 <tbody>
                                     <tr><td class="mini-label">${escapeHtml(t('Assignment status'))}</td><td class="mini-value">${escapeHtml(
-                                        t(assignment.status),
+                                        formatStatusLabel(assignment.status, t),
                                     )}</td></tr>
                                     <tr><td class="mini-label">${escapeHtml(t('Player status'))}</td><td class="mini-value">${escapeHtml(
-                                        assignment.member?.current_status ? t(assignment.member.current_status) : '-',
+                                        assignment.member?.current_status
+                                            ? formatStatusLabel(
+                                                  assignment.member
+                                                      .current_status,
+                                                  t,
+                                              )
+                                            : '-',
                                     )}</td></tr>
                                     <tr><td class="mini-label">${escapeHtml(t('Active now'))}</td><td class="mini-value">${escapeHtml(
-                                        isActiveNow(assignment) ? t('Yes') : t('No'),
+                                        isActiveNow(assignment)
+                                            ? t('Yes')
+                                            : t('No'),
                                     )}</td></tr>
                                 </tbody>
                             </table>
@@ -392,7 +442,9 @@ export default function ExternalCoachesAssignments({
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <Button asChild variant="outline">
-                            <Link href={`/external-coaches/${externalCoach.id}`}>
+                            <Link
+                                href={`/external-coaches/${externalCoach.id}`}
+                            >
                                 {t('Back to coach')}
                             </Link>
                         </Button>
@@ -402,12 +454,16 @@ export default function ExternalCoachesAssignments({
                 <Tabs defaultValue="assignments">
                     <TabsList className="w-fit">
                         <TabsTrigger value="details" asChild>
-                            <Link href={`/external-coaches/${externalCoach.id}`}>
+                            <Link
+                                href={`/external-coaches/${externalCoach.id}`}
+                            >
                                 {t('Details')}
                             </Link>
                         </TabsTrigger>
                         <TabsTrigger value="assignments" asChild>
-                            <Link href={`/external-coaches/${externalCoach.id}/assignments`}>
+                            <Link
+                                href={`/external-coaches/${externalCoach.id}/assignments`}
+                            >
                                 <List className="mr-2 size-4" />
                                 {t('Assignments')}
                             </Link>
@@ -421,7 +477,8 @@ export default function ExternalCoachesAssignments({
                                     {t('Player assignments')}
                                 </h2>
                                 <span className="text-sm text-muted-foreground">
-                                    {t('Active players')}: {activeAssignmentsCount}
+                                    {t('Active players')}:{' '}
+                                    {activeAssignmentsCount}
                                 </span>
                             </div>
                             <form
@@ -432,7 +489,9 @@ export default function ExternalCoachesAssignments({
                                 <input
                                     className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                                     name="search"
-                                    placeholder={t('Search player / PNO / phone')}
+                                    placeholder={t(
+                                        'Search player / PNO / phone',
+                                    )}
                                     type="text"
                                     defaultValue={searchText}
                                 />
@@ -441,10 +500,12 @@ export default function ExternalCoachesAssignments({
                                     name="status"
                                     defaultValue={statusFilter}
                                 >
-                                    <option value="all">{t('All assignment statuses')}</option>
+                                    <option value="all">
+                                        {t('All assignment statuses')}
+                                    </option>
                                     {statusOptions.map((status) => (
                                         <option key={status} value={status}>
-                                            {t(status)}
+                                            {formatStatusLabel(status, t)}
                                         </option>
                                     ))}
                                 </select>
@@ -453,9 +514,15 @@ export default function ExternalCoachesAssignments({
                                     name="active"
                                     defaultValue={activeFilter}
                                 >
-                                    <option value="all">{t('All activity')}</option>
-                                    <option value="active">{t('Active now')}</option>
-                                    <option value="inactive">{t('Inactive now')}</option>
+                                    <option value="all">
+                                        {t('All activity')}
+                                    </option>
+                                    <option value="active">
+                                        {t('Active now')}
+                                    </option>
+                                    <option value="inactive">
+                                        {t('Inactive now')}
+                                    </option>
                                 </select>
                                 <input
                                     name="per_page"
@@ -465,12 +532,10 @@ export default function ExternalCoachesAssignments({
                                 <Button type="submit" variant="outline">
                                     {t('Apply')}
                                 </Button>
-                                <Button
-                                    asChild
-                                    type="button"
-                                    variant="outline"
-                                >
-                                    <Link href={`/external-coaches/${externalCoach.id}/assignments`}>
+                                <Button asChild type="button" variant="outline">
+                                    <Link
+                                        href={`/external-coaches/${externalCoach.id}/assignments`}
+                                    >
                                         {t('Reset')}
                                     </Link>
                                 </Button>
@@ -524,181 +589,355 @@ export default function ExternalCoachesAssignments({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {assignments.data.map((assignment, index) => {
-                                                const timelineRows = assignmentStatusRows(assignment, t, locale);
+                                            {assignments.data.map(
+                                                (assignment, index) => {
+                                                    const timelineRows =
+                                                        assignmentStatusRows(
+                                                            assignment,
+                                                            t,
+                                                            locale,
+                                                        );
 
-                                                return (
-                                                    <tr
-                                                        key={assignment.id}
-                                                        className="border-t align-top"
-                                                    >
-                                                        <td className="border p-3 text-xs">
-                                                            <span className="font-medium">{index + 1}</span>
-                                                        </td>
-                                                        <td className="border p-3 text-xs">
-                                                            <table className={MINI_TABLE_CLASS}>
-                                                                <tbody>
-                                                                    <tr>
-                                                                        <td className={`${MINI_HEADER_CELL_CLASS} w-[90px]`}>
-                                                                            {t('Player')}
-                                                                        </td>
-                                                                        <td className={`${MINI_VALUE_CELL_CLASS} font-medium`}>
-                                                                            {assignment.member?.id ? (
-                                                                                <Link
-                                                                                    href={`/external-coaches/${externalCoach.id}/members/${assignment.member.id}/assignments`}
-                                                                                    className="font-bold text-primary underline"
-                                                                                >
-                                                                                    {assignment.member?.full_name ?? '-'}
-                                                                                </Link>
-                                                                            ) : (
-                                                                                <span className="font-bold">
-                                                                                    {assignment.member?.full_name ?? '-'}
-                                                                                </span>
-                                                                            )}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className={MINI_HEADER_CELL_CLASS}>
-                                                                            {t('Rank')}
-                                                                        </td>
-                                                                        <td className={MINI_VALUE_CELL_CLASS}>
-                                                                            {assignment.member?.rank ?? '-'}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className={MINI_HEADER_CELL_CLASS}>
-                                                                            {t('PNO')}
-                                                                        </td>
-                                                                        <td className={MINI_VALUE_CELL_CLASS}>
-                                                                            {assignment.member?.pno ?? '-'}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className={`${MINI_HEADER_CELL_CLASS} border-b-0`}>
-                                                                            {t('Phone')}
-                                                                        </td>
-                                                                        <td className={`${MINI_VALUE_CELL_CLASS} border-b-0`}>
-                                                                            {assignment.member?.mobile ?? '-'}
-                                                                        </td>
-                                                                    </tr>
-                                                                </tbody>
-                                                            </table>
-                                                        </td>
-                                                        <td className="border p-3 text-xs">
-                                                            <table className={MINI_TABLE_CLASS}>
-                                                                <tbody>
-                                                                    <tr>
-                                                                        <td className={`${MINI_HEADER_CELL_CLASS} w-[130px]`}>
-                                                                            {t('Sport')}
-                                                                        </td>
-                                                                        <td className={MINI_VALUE_CELL_CLASS}>
-                                                                            {assignment.sport?.name ?? '-'}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className={MINI_HEADER_CELL_CLASS}>
-                                                                            {t('Venue')}
-                                                                        </td>
-                                                                        <td className={MINI_VALUE_CELL_CLASS}>
-                                                                            {assignment.training_venue?.name ?? '-'}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className={MINI_HEADER_CELL_CLASS}>
-                                                                            {t('Attendance')}
-                                                                        </td>
-                                                                        <td className={MINI_VALUE_CELL_CLASS}>
-                                                                            {formatAttendanceMode(assignment.attendance_mode, t)}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className={`${MINI_HEADER_CELL_CLASS} border-b-0`}>
-                                                                            {t('Period')}
-                                                                        </td>
-                                                                        <td className={`${MINI_VALUE_CELL_CLASS} border-b-0`}>
-                                                                            {`${formatDate(assignment.start_date, locale)} - ${formatDate(
-                                                                                assignment.end_date,
-                                                                                locale,
-                                                                            )}`}
-                                                                        </td>
-                                                                    </tr>
-                                                                </tbody>
-                                                            </table>
-                                                        </td>
-                                                        <td className="border p-3 text-xs">
-                                                            <table className={MINI_TABLE_CLASS}>
-                                                                <tbody>
-                                                                    <tr>
-                                                                        <td className={`${MINI_HEADER_CELL_CLASS} w-[150px]`}>
-                                                                            {t('Assignment status')}
-                                                                        </td>
-                                                                        <td className={MINI_VALUE_CELL_CLASS}>
-                                                                            <Badge variant="outline">
-                                                                                {t(assignment.status)}
-                                                                            </Badge>
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className={MINI_HEADER_CELL_CLASS}>
-                                                                            {t('Player status')}
-                                                                        </td>
-                                                                        <td className={MINI_VALUE_CELL_CLASS}>
-                                                                            <Badge variant="outline">
-                                                                                {assignment.member?.current_status
-                                                                                    ? t(assignment.member.current_status)
-                                                                                    : '-'}
-                                                                            </Badge>
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className={`${MINI_HEADER_CELL_CLASS} border-b-0`}>
-                                                                            {t('Active now')}
-                                                                        </td>
-                                                                        <td className={`${MINI_VALUE_CELL_CLASS} border-b-0`}>
-                                                                            <Badge
-                                                                                variant={
-                                                                                    isActiveNow(assignment)
-                                                                                        ? 'default'
-                                                                                        : 'outline'
-                                                                                }
-                                                                            >
-                                                                                {isActiveNow(assignment) ? t('Yes') : t('No')}
-                                                                            </Badge>
-                                                                        </td>
-                                                                    </tr>
-                                                                </tbody>
-                                                            </table>
-                                                        </td>
-                                                        <td className="border p-3 text-xs">
-                                                            <table className={MINI_TABLE_CLASS}>
-                                                                <tbody>
-                                                                    {timelineRows.map((statusRow, statusIndex) => (
-                                                                        <tr key={`${assignment.id}-${statusIndex}`}>
+                                                    return (
+                                                        <tr
+                                                            key={assignment.id}
+                                                            className="border-t align-top"
+                                                        >
+                                                            <td className="border p-3 text-xs">
+                                                                <span className="font-medium">
+                                                                    {index + 1}
+                                                                </span>
+                                                            </td>
+                                                            <td className="border p-3 text-xs">
+                                                                <table
+                                                                    className={
+                                                                        MINI_TABLE_CLASS
+                                                                    }
+                                                                >
+                                                                    <tbody>
+                                                                        <tr>
                                                                             <td
-                                                                                className={`${MINI_HEADER_CELL_CLASS} w-[130px] ${statusIndex === timelineRows.length - 1 ? 'border-b-0' : ''}`}
+                                                                                className={`${MINI_HEADER_CELL_CLASS} w-[90px]`}
                                                                             >
-                                                                                {statusRow.label}
+                                                                                {t(
+                                                                                    'Player',
+                                                                                )}
                                                                             </td>
                                                                             <td
-                                                                                className={`${MINI_VALUE_CELL_CLASS} ${statusIndex === timelineRows.length - 1 ? 'border-b-0' : ''}`}
+                                                                                className={`${MINI_VALUE_CELL_CLASS} font-medium`}
                                                                             >
-                                                                                {statusRow.value}
+                                                                                {assignment
+                                                                                    .member
+                                                                                    ?.id ? (
+                                                                                    <Link
+                                                                                        href={`/external-coaches/${externalCoach.id}/members/${assignment.member.id}/assignments`}
+                                                                                        className="font-bold text-primary underline"
+                                                                                    >
+                                                                                        {assignment
+                                                                                            .member
+                                                                                            ?.full_name ??
+                                                                                            '-'}
+                                                                                    </Link>
+                                                                                ) : (
+                                                                                    <span className="font-bold">
+                                                                                        {assignment
+                                                                                            .member
+                                                                                            ?.full_name ??
+                                                                                            '-'}
+                                                                                    </span>
+                                                                                )}
                                                                             </td>
                                                                         </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
+                                                                        <tr>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_HEADER_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {t(
+                                                                                    'Rank',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_VALUE_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {assignment
+                                                                                    .member
+                                                                                    ?.rank ??
+                                                                                    '-'}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_HEADER_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {t(
+                                                                                    'PNO',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_VALUE_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {assignment
+                                                                                    .member
+                                                                                    ?.pno ??
+                                                                                    '-'}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td
+                                                                                className={`${MINI_HEADER_CELL_CLASS} border-b-0`}
+                                                                            >
+                                                                                {t(
+                                                                                    'Phone',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={`${MINI_VALUE_CELL_CLASS} border-b-0`}
+                                                                            >
+                                                                                {assignment
+                                                                                    .member
+                                                                                    ?.mobile ??
+                                                                                    '-'}
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                            <td className="border p-3 text-xs">
+                                                                <table
+                                                                    className={
+                                                                        MINI_TABLE_CLASS
+                                                                    }
+                                                                >
+                                                                    <tbody>
+                                                                        <tr>
+                                                                            <td
+                                                                                className={`${MINI_HEADER_CELL_CLASS} w-[130px]`}
+                                                                            >
+                                                                                {t(
+                                                                                    'Sport',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_VALUE_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {assignment
+                                                                                    .sport
+                                                                                    ?.name ??
+                                                                                    '-'}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_HEADER_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {t(
+                                                                                    'Venue',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_VALUE_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {assignment
+                                                                                    .training_venue
+                                                                                    ?.name ??
+                                                                                    '-'}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_HEADER_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {t(
+                                                                                    'Attendance',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_VALUE_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {formatAttendanceMode(
+                                                                                    assignment.attendance_mode,
+                                                                                    t,
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td
+                                                                                className={`${MINI_HEADER_CELL_CLASS} border-b-0`}
+                                                                            >
+                                                                                {t(
+                                                                                    'Period',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={`${MINI_VALUE_CELL_CLASS} border-b-0`}
+                                                                            >
+                                                                                {`${formatDate(assignment.start_date, locale)} - ${formatDate(
+                                                                                    assignment.end_date,
+                                                                                    locale,
+                                                                                )}`}
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                            <td className="border p-3 text-xs">
+                                                                <table
+                                                                    className={
+                                                                        MINI_TABLE_CLASS
+                                                                    }
+                                                                >
+                                                                    <tbody>
+                                                                        <tr>
+                                                                            <td
+                                                                                className={`${MINI_HEADER_CELL_CLASS} w-[150px]`}
+                                                                            >
+                                                                                {t(
+                                                                                    'Assignment status',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_VALUE_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                <Badge variant="outline">
+                                                                                    {formatStatusLabel(
+                                                                                        assignment.status,
+                                                                                        t,
+                                                                                    )}
+                                                                                </Badge>
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_HEADER_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                {t(
+                                                                                    'Player status',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={
+                                                                                    MINI_VALUE_CELL_CLASS
+                                                                                }
+                                                                            >
+                                                                                <Badge variant="outline">
+                                                                                    {assignment
+                                                                                        .member
+                                                                                        ?.current_status
+                                                                                        ? formatStatusLabel(
+                                                                                              assignment
+                                                                                                  .member
+                                                                                                  .current_status,
+                                                                                              t,
+                                                                                          )
+                                                                                        : '-'}
+                                                                                </Badge>
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td
+                                                                                className={`${MINI_HEADER_CELL_CLASS} border-b-0`}
+                                                                            >
+                                                                                {t(
+                                                                                    'Active now',
+                                                                                )}
+                                                                            </td>
+                                                                            <td
+                                                                                className={`${MINI_VALUE_CELL_CLASS} border-b-0`}
+                                                                            >
+                                                                                <Badge
+                                                                                    variant={
+                                                                                        isActiveNow(
+                                                                                            assignment,
+                                                                                        )
+                                                                                            ? 'default'
+                                                                                            : 'outline'
+                                                                                    }
+                                                                                >
+                                                                                    {isActiveNow(
+                                                                                        assignment,
+                                                                                    )
+                                                                                        ? t(
+                                                                                              'Yes',
+                                                                                          )
+                                                                                        : t(
+                                                                                              'No',
+                                                                                          )}
+                                                                                </Badge>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                            <td className="border p-3 text-xs">
+                                                                <table
+                                                                    className={
+                                                                        MINI_TABLE_CLASS
+                                                                    }
+                                                                >
+                                                                    <tbody>
+                                                                        {timelineRows.map(
+                                                                            (
+                                                                                statusRow,
+                                                                                statusIndex,
+                                                                            ) => (
+                                                                                <tr
+                                                                                    key={`${assignment.id}-${statusIndex}`}
+                                                                                >
+                                                                                    <td
+                                                                                        className={`${MINI_HEADER_CELL_CLASS} w-[130px] ${statusIndex === timelineRows.length - 1 ? 'border-b-0' : ''}`}
+                                                                                    >
+                                                                                        {
+                                                                                            statusRow.label
+                                                                                        }
+                                                                                    </td>
+                                                                                    <td
+                                                                                        className={`${MINI_VALUE_CELL_CLASS} ${statusIndex === timelineRows.length - 1 ? 'border-b-0' : ''}`}
+                                                                                    >
+                                                                                        {
+                                                                                            statusRow.value
+                                                                                        }
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ),
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                },
+                                            )}
                                             {assignments.data.length === 0 ? (
                                                 <tr>
-                                                <td
+                                                    <td
                                                         colSpan={5}
                                                         className="border p-4 text-center text-muted-foreground"
                                                     >
-                                                        {t('No assignments found.')}
+                                                        {t(
+                                                            'No assignments found.',
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ) : null}

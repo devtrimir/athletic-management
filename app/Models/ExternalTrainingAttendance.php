@@ -44,6 +44,7 @@ use Illuminate\Support\Carbon;
     'training_venue_id',
     'attendance_date',
     'attendance_status',
+    'corrected_attendance_status',
     'review_status',
     'reviewed_by',
     'reviewed_at',

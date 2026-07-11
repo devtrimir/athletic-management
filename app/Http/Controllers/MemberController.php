@@ -22,6 +22,7 @@ use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamMember;
+use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\AuditLogBuilder;
 use App\Services\MemberCodeGenerator;
@@ -114,6 +115,18 @@ class MemberController extends Controller
         });
 
         $statusScope = $this->statusScopeFromFilters($filters);
+        $levels = TournamentTier::query()
+            ->orderByDesc('weight')
+            ->get(['code', 'label_en', 'label_hi'])
+            ->map(
+                fn (TournamentTier $tier): array => [
+                    'code' => $tier->code,
+                    'label_en' => $tier->label_en,
+                    'label_hi' => $tier->label_hi,
+                ],
+            )
+            ->values()
+            ->all();
 
         return Inertia::render('members/index', [
             'members' => $members,
@@ -123,6 +136,7 @@ class MemberController extends Controller
                 ...$filters,
             ],
             'perPage' => min((int) ($request->query('per_page', 25)), 100),
+            'levels' => $levels,
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name']),
