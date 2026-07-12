@@ -15,8 +15,8 @@ use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
-use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Events\AfterSheet;
+use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -27,7 +27,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class TeamExportController extends Controller
 {
     /** @var array<string, string> */
-    private const PRINT_COLUMN_LABELS = [
+    private const ROSTER_PRINT_COLUMN_LABELS = [
         'section' => 'Section',
         'serial_no' => 'S.No.',
         'event_weight' => 'Event / Weight',
@@ -40,6 +40,25 @@ class TeamExportController extends Controller
         'left_on' => 'Left on',
         'mobile' => 'Mobile',
         'level' => 'Level',
+    ];
+
+    /** @var array<string, string> */
+    private const SUMMARY_REPORT_COLUMN_LABELS = [
+        'serial_no' => 'S.No.',
+        'team' => 'Team',
+        'sport' => 'Sport',
+        'incharge' => 'Team prabhari',
+        'status' => 'Status',
+        'men' => 'Men',
+        'men_gd' => 'Men GD',
+        'men_sport_quota' => 'Men Sports Quota',
+        'women' => 'Women',
+        'women_gd' => 'Women GD',
+        'women_sport_quota' => 'Women Sports Quota',
+        'players' => 'Players',
+        'coaches' => 'Coaches',
+        'captains' => 'Captains',
+        'reserves' => 'Reserves',
     ];
 
     public function index(Request $request): BinaryFileResponse
@@ -146,10 +165,20 @@ class TeamExportController extends Controller
             });
         }
 
-        $headings = $this->translatedLabels(self::PRINT_COLUMN_LABELS);
-        $rows = $this->buildPrintRows($teams->values(), $exportSections);
-        $lastColumn = $this->lastPrintColumn();
-        $headerRows = $this->teamExportHeaderRows();
+        $report = (string) $request->query('report', 'roster');
+        $isSankhyatmakReport = $report === 'sankhyatmak';
+
+        $columnLabels = $isSankhyatmakReport
+            ? self::SUMMARY_REPORT_COLUMN_LABELS
+            : self::ROSTER_PRINT_COLUMN_LABELS;
+        $headings = $this->translatedLabels($columnLabels);
+        $rows = $isSankhyatmakReport
+            ? $this->buildSankhyatmakRows($teams->values())
+            : $this->buildPrintRows($teams->values(), $exportSections);
+        $lastColumn = $this->lastPrintColumn($columnLabels);
+        $reportTitle = $isSankhyatmakReport ? 'Sankhyatmak' : 'Team Players Details';
+        $headerRows = $this->teamExportHeaderRows($columnLabels, $reportTitle, $isSankhyatmakReport);
+        $outputName = $isSankhyatmakReport ? 'teams-sankhyatmak-' : 'teams-';
 
         return Excel::download(
             new ReportExport(
@@ -158,23 +187,43 @@ class TeamExportController extends Controller
                 'Teams',
                 $headerRows,
                 ["A1:{$lastColumn}1", "A2:{$lastColumn}2", "A3:{$lastColumn}3"],
-                $this->teamExportColumnWidths(),
-                afterSheet: fn (AfterSheet $event) => $this->styleTeamExportSheet($event, count($headerRows) + 1),
+                $this->teamExportColumnWidths($isSankhyatmakReport),
+                afterSheet: fn (AfterSheet $event) => $this->styleTeamExportSheet(
+                    $event,
+                    count($headerRows) + 1,
+                    $columnLabels,
+                    $isSankhyatmakReport,
+                ),
             ),
-            'teams-'.now()->format('Y-m-d').'.xlsx',
+            $outputName.now()->format('Y-m-d').'.xlsx',
         );
     }
 
     /**
      * @return array<int, array<int, string>>
      */
-    private function teamExportHeaderRows(): array
+    private function teamExportHeaderRows(array $columnLabels, string $title, bool $isSummaryReport = false): array
     {
-        $columnCount = count(self::PRINT_COLUMN_LABELS);
+        $columnCount = count($columnLabels);
+
+        if ($isSummaryReport) {
+            return [
+                array_pad(['UP Police Sport Control Board (UPPSCB)'], $columnCount, ''),
+                array_pad([$title], $columnCount, ''),
+                array_pad(['Generated on '.now()->format('d M Y')], $columnCount, ''),
+                array_pad([
+                    '', '', '', '', '',
+                    'Skilled players', '', '',
+                    'General players', '', '',
+                    'Players', 'Coaches', 'Captains', 'Reserves',
+                ], $columnCount, ''),
+                $columnLabels,
+            ];
+        }
 
         return [
             array_pad(['UP Police Sport Control Board (UPPSCB)'], $columnCount, ''),
-            array_pad(['Team Players Details'], $columnCount, ''),
+            array_pad([$title], $columnCount, ''),
             array_pad(['Generated on '.now()->format('d M Y')], $columnCount, ''),
         ];
     }
@@ -182,34 +231,56 @@ class TeamExportController extends Controller
     /**
      * @return array<string, int>
      */
-    private function teamExportColumnWidths(): array
+    private function teamExportColumnWidths(bool $isSummary = false): array
     {
+        if (! $isSummary) {
+            return [
+                'A' => 22,
+                'B' => 8,
+                'C' => 24,
+                'D' => 16,
+                'E' => 16,
+                'F' => 28,
+                'G' => 16,
+                'H' => 26,
+                'I' => 16,
+                'J' => 16,
+                'K' => 16,
+                'L' => 16,
+            ];
+        }
+
         return [
-            'A' => 22,
-            'B' => 8,
-            'C' => 24,
-            'D' => 16,
-            'E' => 16,
-            'F' => 28,
-            'G' => 16,
-            'H' => 26,
+            'A' => 8,
+            'B' => 24,
+            'C' => 34,
+            'D' => 22,
+            'E' => 22,
+            'F' => 14,
+            'G' => 12,
+            'H' => 12,
             'I' => 16,
-            'J' => 16,
-            'K' => 16,
+            'J' => 12,
+            'K' => 12,
             'L' => 16,
+            'M' => 12,
+            'N' => 12,
+            'O' => 12,
         ];
     }
 
-    private function styleTeamExportSheet(AfterSheet $event, int $headingRow): void
+    private function styleTeamExportSheet(AfterSheet $event, int $headingRow, array $columnLabels, bool $isSummaryReport = false): void
     {
         $sheet = $event->sheet->getDelegate();
         $lastRow = max($sheet->getHighestDataRow(), $headingRow);
-        $lastColumn = $this->lastPrintColumn();
+        $lastColumn = $this->lastPrintColumn($columnLabels);
+        $headerLastRow = $isSummaryReport ? $headingRow - 1 : 3;
 
         $sheet->freezePane('A'.($headingRow + 1));
         $sheet->getDefaultRowDimension()->setRowHeight(22);
         $sheet->getRowDimension(1)->setRowHeight(30);
         $sheet->getRowDimension(2)->setRowHeight(24);
+        $sheet->getRowDimension($headingRow - 1)->setRowHeight(24);
 
         $sheet->getStyle("A1:{$lastColumn}{$lastRow}")->applyFromArray([
             'alignment' => [
@@ -239,8 +310,9 @@ class TeamExportController extends Controller
                 'startColor' => ['rgb' => 'DBEAFE'],
             ],
         ]);
+        $sheet->mergeCells("A1:{$lastColumn}1");
 
-        $sheet->getStyle("A{$headingRow}:{$lastColumn}{$headingRow}")->applyFromArray([
+        $sheet->getStyle("A4:{$lastColumn}{$headerLastRow}")->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
@@ -284,11 +356,75 @@ class TeamExportController extends Controller
                 ]);
             }
         }
+
+        if ($isSummaryReport) {
+            $sheet->mergeCells('A4:A5');
+            $sheet->mergeCells('B4:B5');
+            $sheet->mergeCells('C4:C5');
+            $sheet->mergeCells('D4:D5');
+            $sheet->mergeCells('E4:E5');
+            $sheet->mergeCells('F4:H4');
+            $sheet->mergeCells('I4:K4');
+            $sheet->mergeCells('L4:L5');
+            $sheet->mergeCells('M4:M5');
+            $sheet->mergeCells('N4:N5');
+            $sheet->mergeCells('O4:O5');
+
+            $sheet->getStyle('A4:O5')->getAlignment()->setWrapText(true);
+        }
     }
 
-    private function lastPrintColumn(): string
+    private function lastPrintColumn(array $columnLabels): string
     {
-        return chr(64 + count(self::PRINT_COLUMN_LABELS));
+        return chr(64 + count($columnLabels));
+    }
+
+    private function sankhyatmakTeamInchargeLine(Team $team): string
+    {
+        return collect([
+            $team->current_incharge_name,
+            $team->current_incharge_pno,
+            $team->currentInchargeAssignment?->rank,
+            $team->currentInchargeAssignment?->mobile,
+        ])->filter()->implode(' / ');
+    }
+
+    /**
+     * @param  Collection<int, Team>  $teams
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function buildSankhyatmakRows(Collection $teams): Collection
+    {
+        $rows = collect();
+
+        foreach ($teams as $index => $team) {
+            $rows->push($this->sankhyatmakPrintRow($team, $index + 1));
+        }
+
+        return $rows;
+    }
+
+    private function sankhyatmakPrintRow(Team $team, int $index): array
+    {
+        $teamIncharge = $this->sankhyatmakTeamInchargeLine($team);
+
+        return $this->printRow([
+            'serial_no' => $index,
+            'team' => $team->name,
+            'sport' => $team->sport?->name,
+            'incharge' => $teamIncharge !== '' ? $teamIncharge : null,
+            'status' => $team->session_status_label,
+            'men' => $team->men_players_count,
+            'men_gd' => $team->men_gd_players_count,
+            'men_sport_quota' => $team->men_non_gd_players_count,
+            'women' => $team->women_players_count,
+            'women_gd' => $team->women_gd_players_count,
+            'women_sport_quota' => $team->women_non_gd_players_count,
+            'players' => $team->players_count,
+            'coaches' => $team->coaches_count,
+            'captains' => $team->captains_count,
+            'reserves' => $team->reserves_count,
+        ], self::SUMMARY_REPORT_COLUMN_LABELS);
     }
 
     /**
@@ -697,9 +833,9 @@ class TeamExportController extends Controller
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>
      */
-    private function printRow(array $values = []): array
+    private function printRow(array $values = [], array $columnLabels = self::ROSTER_PRINT_COLUMN_LABELS): array
     {
-        return array_replace(array_fill_keys(array_keys(self::PRINT_COLUMN_LABELS), null), $values);
+        return array_replace(array_fill_keys(array_keys($columnLabels), null), $values);
     }
 
     private function formatDate(?CarbonInterface $value): ?string

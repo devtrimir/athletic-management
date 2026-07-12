@@ -101,6 +101,7 @@ class MedalTallyReport
                     'display_only' => $isDisplayOnly ? $tierRows->count() : 0,
                 ] + $counts;
             })
+            ->sortByDesc('tier.weight')
             ->values();
     }
 
@@ -192,13 +193,7 @@ class MedalTallyReport
             });
 
         return $medalUnits
-            ->sortBy([
-                ['GOLD', 'desc'],
-                ['SILVER', 'desc'],
-                ['BRONZE', 'desc'],
-                ['MERIT', 'desc'],
-                ['tier.weight', 'desc'],
-            ])
+            ->sortByDesc('tier.weight')
             ->values();
     }
 }
