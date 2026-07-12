@@ -86,7 +86,7 @@ class TeamListingService
     /**
      * @return array{teams: Collection<int, Team>, selectedSessionId: int|null}
      */
-    public function forPrintRequest(Request $request, int $orgId): array
+    public function forPrintRequest(Request $request, int $orgId, bool $includeInactiveInReport = false): array
     {
         $defaultSessionId = SportSession::where('organization_id', $orgId)
             ->where('is_current', true)
@@ -106,7 +106,7 @@ class TeamListingService
                 'currentInchargeAssignment',
             ])
             ->when(
-                ! $request->has('filter.is_active'),
+                ! $request->has('filter.is_active') && ! $includeInactiveInReport,
                 fn (Builder $query): Builder => $query->where('is_active', true)
             )
             ->get();

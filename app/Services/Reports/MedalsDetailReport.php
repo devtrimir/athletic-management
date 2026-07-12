@@ -151,7 +151,9 @@ class MedalsDetailReport
                 'tt.code as tier_code',
                 'tt.label_hi as tier_label_hi',
                 'tt.label_en as tier_label_en',
+                'tt.weight as tier_weight',
                 'ss.name as session_name',
+                'ss.start_year as session_start_year',
                 's.id as sport_id',
                 's.name as sport_name',
                 'e.id as event_id',
@@ -189,14 +191,25 @@ class MedalsDetailReport
 
         $rows = $liveRows
             ->sortBy([
+                ['sort_tier_weight', 'desc'],
+                ['sort_tier_label', 'asc'],
                 ['sort_medal', 'asc'],
+                ['sort_session_start_year', 'desc'],
                 ['sort_date', 'desc'],
                 ['sort_group', 'asc'],
                 ['sort_name', 'asc'],
             ])
             ->values()
             ->map(function (array $row): array {
-                unset($row['sort_medal'], $row['sort_date'], $row['sort_group'], $row['sort_name']);
+                unset(
+                    $row['sort_tier_weight'],
+                    $row['sort_tier_label'],
+                    $row['sort_medal'],
+                    $row['sort_session_start_year'],
+                    $row['sort_date'],
+                    $row['sort_group'],
+                    $row['sort_name'],
+                );
 
                 return $row;
             });
@@ -220,7 +233,10 @@ class MedalsDetailReport
 
         return [
             'id' => (int) $row->achievement_id,
+            'sort_tier_weight' => (int) ($row->tier_weight ?? 0),
+            'sort_tier_label' => $tierLabel ?? 'Other',
             'sort_medal' => $this->medalSort($row->medal_type),
+            'sort_session_start_year' => (int) ($row->session_start_year ?? 0),
             'sort_date' => $row->date_from !== null ? substr((string) $row->date_from, 0, 10) : '',
             'sort_group' => $row->event_type === 'team'
                 ? sprintf('team:%s:%s:%s', $row->event_id, $row->medal_type, $row->position ?? '')

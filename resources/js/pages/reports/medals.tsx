@@ -1126,6 +1126,10 @@ function printRelated(
     title: string,
     t: (key: string) => string,
 ): void {
+    if (!rows.length) {
+        return;
+    }
+
     const win = window.open('', '_blank', 'width=1000,height=700');
 
     if (!win) {
@@ -1144,22 +1148,22 @@ function printRelated(
             (r) => `
         <tr>
             <td style="color:${MEDAL_COLOR[r.medal_type] ?? '#000'};font-weight:600">${r.medal_type}</td>
-            <td>${r.member.full_name}</td>
-            <td>${r.member.pno ?? ''}</td>
-            <td>${r.member.rank ?? ''}</td>
-            <td>${r.member.unit_name ?? ''}</td>
-            <td>${r.sport.name}</td>
-            <td>${r.event.name}</td>
-            <td>${r.tournament.name}</td>
+            <td>${r.member?.full_name ?? ''}</td>
+            <td>${r.member?.pno ?? ''}</td>
+            <td>${r.member?.rank ?? ''}</td>
+            <td>${r.member?.unit_name ?? ''}</td>
+            <td>${r.sport?.name ?? ''}</td>
+            <td>${r.event?.name ?? ''}</td>
+            <td>${r.tournament?.name ?? ''}</td>
             <td>${r.session_name ?? ''}</td>
-            <td>${formatDisplayDate(r.tournament.date_from) ?? ''}</td>
+            <td>${formatDisplayDate(r.tournament?.date_from) ?? ''}</td>
             <td>${r.position ?? ''}</td>
             <td>${r.remarks ?? ''}</td>
         </tr>`,
         )
         .join('');
 
-    win.document.write(`<!DOCTYPE html><html><head>
+    const html = `<!DOCTYPE html><html><head>
         <meta charset="utf-8"/>
         <title>${title}</title>
         <style>
@@ -1182,10 +1186,46 @@ function printRelated(
             </tr></thead>
             <tbody>${tableRows}</tbody>
         </table>
-    </body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
+    </body></html>`;
+
+    try {
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+    } catch {
+        return;
+    }
+
+    let printed = false;
+    const printDocument = () => {
+        if (printed) {
+            return;
+        }
+        printed = true;
+        win.focus();
+        win.print();
+    };
+
+    const ensurePrinted = () => {
+        const hasBody = !!(
+            win.document.body &&
+            win.document.body.querySelector('table') !== null
+        );
+
+        if (
+            (win.document.readyState === 'complete' ||
+                win.document.readyState === 'interactive') &&
+            hasBody
+        ) {
+            printDocument();
+            return;
+        }
+
+        setTimeout(ensurePrinted, 80);
+    };
+
+    win.addEventListener('load', ensurePrinted, { once: true });
+    setTimeout(ensurePrinted, 120);
 }
 
 function RelatedMedalsModal({
@@ -1322,23 +1362,23 @@ function RelatedMedalsModal({
                                                     />
                                                 </TableCell>
                                                 <TableCell className="font-medium">
-                                                    {r.member.full_name}
+                                                    {r.member?.full_name ?? '—'}
                                                 </TableCell>
                                                 <TableCell className="text-xs">
-                                                    {r.member.pno ?? '—'}
+                                                    {r.member?.pno ?? '—'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {r.member.rank ?? '—'}
+                                                    {r.member?.rank ?? '—'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {r.member.unit_name ?? '—'}
+                                                    {r.member?.unit_name ?? '—'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div>{r.sport.name}</div>
+                                                    <div>{r.sport?.name ?? '—'}</div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div>{r.event.name}</div>
-                                                    {r.event.discipline && (
+                                                    <div>{r.event?.name ?? '—'}</div>
+                                                    {r.event?.discipline && (
                                                         <div className="text-xs text-muted-foreground">
                                                             {r.event.discipline}
                                                         </div>
@@ -1346,12 +1386,11 @@ function RelatedMedalsModal({
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="truncate">
-                                                        {r.tournament.name}
+                                                        {r.tournament?.name ?? '—'}
                                                     </div>
                                                     <div className="text-xs text-muted-foreground">
                                                         {formatDisplayDate(
-                                                            r.tournament
-                                                                .date_from,
+                                                            r.tournament?.date_from,
                                                         )}
                                                     </div>
                                                 </TableCell>
@@ -1888,7 +1927,6 @@ export default function ReportsMedals({
     // Modals
     const [selectedRow, setSelectedRow] = useState<MedalRow | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
-    const [printOpen, setPrintOpen] = useState(false);
 
     const hasFilterValue = (value: string | string[]): boolean =>
         Array.isArray(value) ? value.length > 0 : value !== '' && value !== ALL;
@@ -2061,26 +2099,20 @@ export default function ReportsMedals({
         setMemberSearch('');
     };
 
-    const handlePrint = (orientation: 'portrait' | 'landscape') => {
-        const styleEl = document.createElement('style');
-        styleEl.id = '__medals-print-style__';
-        styleEl.textContent = `@page { size: A4 ${orientation}; margin: 1.2cm; } @media print { body > *:not(#medals-print-root) { display: none !important; } #medals-print-root { display: block !important; } }`;
-        document.head.appendChild(styleEl);
-        window.print();
-        document.head.removeChild(styleEl);
-    };
+    const printUrl = useCallback(() => {
+        const query = buildParams({
+            tab,
+            ...(tab === 'tally' ? { group_by: tallyMode } : {}),
+            page_mode: 'landscape',
+            print_sections: tab,
+        });
+        const qs = buildQueryString(query);
+
+        return `/reports/medals/print${qs ? `?${qs}` : ''}`;
+    }, [buildParams, tab, tallyMode]);
 
     const triggerPrint = () => {
-        const rowCount =
-            tab === 'tally'
-                ? (pivotRows?.length ?? 0)
-                : (detailData?.total ?? 0);
-
-        if (rowCount > 20) {
-            setPrintOpen(true);
-        } else {
-            handlePrint('portrait');
-        }
+        window.location.href = printUrl();
     };
 
     const buildExportUrl = () => {
@@ -3304,9 +3336,6 @@ export default function ReportsMedals({
                                                     {t('Tournament')}
                                                 </TableHead>
                                                 <TableHead className="min-w-28">
-                                                    {t('Tier')}
-                                                </TableHead>
-                                                <TableHead className="min-w-28">
                                                     {t('Session')}
                                                 </TableHead>
                                             </TableRow>
@@ -3316,11 +3345,16 @@ export default function ReportsMedals({
                                                 let medalSerial =
                                                     (detailData.from ?? 1) - 1;
                                                 let previousMedalKey = '';
+                                                let previousTierLabel = '';
 
                                                 return detailData.data.flatMap(
                                                     (row, idx) => {
                                                     const rows: React.ReactNode[] =
                                                         [];
+                                                    const tierLabel =
+                                                        row.tournament
+                                                            .tier_label ??
+                                                        t('Other');
                                                     const isTeam =
                                                         isTeamEventMedal(row);
                                                     const medalKey = isTeam
@@ -3329,6 +3363,27 @@ export default function ReportsMedals({
                                                     const startsMedal =
                                                         medalKey !==
                                                         previousMedalKey;
+                                                    const startsTier =
+                                                        tierLabel !==
+                                                        previousTierLabel;
+
+                                                    if (startsTier) {
+                                                        previousTierLabel =
+                                                            tierLabel;
+                                                        rows.push(
+                                                            <TableRow
+                                                                key={`tier-${tierLabel}-${idx}`}
+                                                                className="bg-muted/60"
+                                                            >
+                                                                <TableCell
+                                                                    colSpan={9}
+                                                                    className="py-2 text-center text-xs font-bold tracking-wide text-foreground uppercase"
+                                                                >
+                                                                    {tierLabel}
+                                                                </TableCell>
+                                                            </TableRow>,
+                                                        );
+                                                    }
 
                                                     if (startsMedal) {
                                                         medalSerial++;
@@ -3540,34 +3595,6 @@ export default function ReportsMedals({
                                                                             ? teamRowSpan
                                                                             : undefined
                                                                     }
-                                                                    className="align-middle"
-                                                                >
-                                                                    {row
-                                                                        .tournament
-                                                                        .tier_label ? (
-                                                                        <Badge
-                                                                            variant="outline"
-                                                                            className="text-xs"
-                                                                        >
-                                                                            {
-                                                                                row
-                                                                                    .tournament
-                                                                                    .tier_label
-                                                                            }
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        '—'
-                                                                    )}
-                                                                </TableCell>
-                                                            )}
-                                                            {(!isTeam ||
-                                                                startsMedal) && (
-                                                                <TableCell
-                                                                    rowSpan={
-                                                                        isTeam
-                                                                            ? teamRowSpan
-                                                                            : undefined
-                                                                    }
                                                                     className="text-sm text-muted-foreground align-middle"
                                                                 >
                                                                     {row.session_name ??
@@ -3669,11 +3696,6 @@ export default function ReportsMedals({
                 row={selectedRow}
                 open={modalOpen}
                 onOpenChange={setModalOpen}
-            />
-            <PrintDialog
-                open={printOpen}
-                onOpenChange={setPrintOpen}
-                onPrint={handlePrint}
             />
         </>
     );

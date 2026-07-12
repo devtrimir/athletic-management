@@ -111,6 +111,7 @@ type PaginatedTeams = {
 type Filters = {
     q?: string;
     pno?: string;
+    is_active?: string;
     session_id?: string;
     sport_id?: string;
     district_id?: string;
@@ -225,6 +226,10 @@ export default function TeamsIndex({
 
             if (merged.location_type) {
                 clean['filter[location_type]'] = merged.location_type;
+            }
+
+            if (merged.is_active) {
+                clean['filter[is_active]'] = merged.is_active;
             }
 
             router.get(TeamController.index.url(), clean, {
@@ -370,7 +375,9 @@ export default function TeamsIndex({
         return <span className="text-border select-none" />;
     }
 
-    function buildExportUrl(): string {
+    function buildExportUrl(
+        report: 'roster' | 'sankhyatmak' = 'roster',
+    ): string {
         const params = new URLSearchParams();
 
         if (selectedIds.size > 0) {
@@ -405,6 +412,9 @@ export default function TeamsIndex({
             if (filters.location_type) {
                 params.append('filter[location_type]', filters.location_type);
             }
+            if (filters.is_active) {
+                params.append('filter[is_active]', filters.is_active);
+            }
         }
 
         params.append(
@@ -414,6 +424,10 @@ export default function TeamsIndex({
                 teams.data.some((team) => team.removed_players_count > 0),
             ),
         );
+
+        if (report === 'sankhyatmak') {
+            params.append('report', report);
+        }
 
         return exportTeamsUrl.url() + '?' + params.toString();
     }
@@ -482,6 +496,9 @@ export default function TeamsIndex({
         if (filters.session_id) {
             params.append('filter[session_id]', filters.session_id);
         }
+        if (filters.is_active) {
+            params.append('filter[is_active]', filters.is_active);
+        }
 
         params.append(
             'export_sections',
@@ -526,7 +543,10 @@ export default function TeamsIndex({
         return selected.length === 0 ? 'all' : selected.join(',');
     }
 
-    function teamsPrintUrl(printOptions: PrintSheets = printSheets): string {
+    function teamsPrintUrl(
+        printOptions: PrintSheets = printSheets,
+        report: 'roster' | 'sankhyatmak' = 'roster',
+    ): string {
         const params = new URLSearchParams();
 
         if (filters.session_id) {
@@ -556,14 +576,39 @@ export default function TeamsIndex({
         if (filters.location_type) {
             params.append('filter[location_type]', filters.location_type);
         }
+        if (filters.is_active) {
+            params.append('filter[is_active]', filters.is_active);
+        }
 
         params.append(
             'print_sections',
             selectedPrintSections(printOptions, true),
         );
+
+        if (report === 'sankhyatmak') {
+            params.set('print_sections', 'all');
+            params.append('report', report);
+        }
+
         params.append('page_mode', printPageMode);
 
         return `/teams/print?${params.toString()}`;
+    }
+
+    function openSankhyatmakPrint() {
+        const url = teamsPrintUrl(printSheets, 'sankhyatmak');
+        const printWindow = window.open(
+            url,
+            '_blank',
+            'noopener,noreferrer',
+        );
+
+        if (printWindow) {
+            return;
+        }
+
+        toast.error(t('Popup blocked. Opening report in current tab.'));
+        window.location.href = url;
     }
 
     function openPrintOptions(team: Team) {
@@ -646,7 +691,10 @@ export default function TeamsIndex({
         setPrintAllTeams(false);
     }
 
+    const teamActiveTab = filters.is_active === '0' ? 'inactive' : 'active';
+
     const hasActiveFilters = !!(
+        filters.is_active ||
         filters.q ||
         filters.pno ||
         filters.sport_id ||
@@ -737,6 +785,28 @@ export default function TeamsIndex({
                             <Printer className="mr-1.5 h-4 w-4" />
                             {t('Print teams')}
                         </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={teams.total === 0}
+                            onClick={() => {
+                                window.location.href = buildExportUrl(
+                                    'sankhyatmak',
+                                );
+                            }}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Export sankhyatmak')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={teams.total === 0}
+                            onClick={openSankhyatmakPrint}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            {t('Print sankhyatmak')}
+                        </Button>
                         <Button asChild size="sm">
                             <Link href={TeamController.create.url()}>
                                 <Plus className="mr-1.5 h-4 w-4" />
@@ -744,6 +814,30 @@ export default function TeamsIndex({
                             </Link>
                         </Button>
                     </div>
+                </div>
+                <div className="flex gap-2">
+                    <Button
+                        size="sm"
+                        variant={
+                            teamActiveTab === 'active'
+                                ? 'default'
+                                : 'outline'
+                        }
+                        onClick={() => applyFilters({ is_active: undefined })}
+                    >
+                        {t('Active teams')}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant={
+                            teamActiveTab === 'inactive'
+                                ? 'default'
+                                : 'outline'
+                        }
+                        onClick={() => applyFilters({ is_active: '0' })}
+                    >
+                        {t('Inactive teams')}
+                    </Button>
                 </div>
                 {viewingArchivedSession && currentSession && selectedSession ? (
                     <div className="rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/30 dark:text-amber-200">

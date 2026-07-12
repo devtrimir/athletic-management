@@ -12,6 +12,18 @@ type Team = {
     current_incharge_pno: string | null;
     current_incharge_designation: string | null;
     current_incharge_mobile: string | null;
+    session_status_label?: string | null;
+    men_players_count?: number;
+    men_gd_players_count?: number;
+    men_non_gd_players_count?: number;
+    women_players_count?: number;
+    women_gd_players_count?: number;
+    women_non_gd_players_count?: number;
+    players_count?: number;
+    coaches_count?: number;
+    captains_count?: number;
+    reserves_count?: number;
+    removed_players_count?: number;
     sport: {
         id: number;
         name: string;
@@ -144,6 +156,13 @@ export default function TeamsPrint({
     const selectedSession = sessions.find(
         (session) => session.id === selectedSessionId,
     );
+
+    const reportParam =
+        typeof window === 'undefined'
+            ? null
+            : new URLSearchParams(window.location.search).get('report');
+    const isSankhyatmakPrint =
+        reportParam?.trim().toLowerCase() === 'sankhyatmak';
 
     const isGDPlayer = (member: TeamMemberRow) =>
         (member.member?.player_category ?? '').toUpperCase() === 'GD';
@@ -415,6 +434,8 @@ export default function TeamsPrint({
             params.get('page_mode')?.trim().toLowerCase() === 'portrait'
                 ? 'portrait'
                 : 'landscape';
+        const isSankhyatmakReport =
+            params.get('report')?.trim().toLowerCase() === 'sankhyatmak';
 
         const sectionSet = new Set(printSections);
         const includeDefaultSections =
@@ -427,14 +448,76 @@ export default function TeamsPrint({
         const showGD = sectionSet.has('gd');
         const showSportQuota = sectionSet.has('sport_quota');
         const showRemoved =
-            hasRemovedMembers &&
-            (includeDefaultSections || sectionSet.has('removed'));
+            hasRemovedMembers && sectionSet.has('removed');
         const showCoaches = includeDefaultSections || sectionSet.has('coaches');
 
         const reports: TeamPrintReport[] =
             printTeams.length > 0
                 ? printTeams
                 : [{ team, members, removedMembers, coaches }];
+
+        const renderSummarySection = (reportRows: TeamPrintReport[]): string => {
+            const summaryRows = reportRows
+                .map(
+                    (report, index) => `
+                                <tr>
+                                    <td>${index + 1}</td>
+                                    <td>${escapeHtml(report.team.name ?? '')}</td>
+                                    <td>${escapeHtml(report.team.sport?.name ?? '')}</td>
+                                    <td>${escapeHtml(report.team.current_incharge_name ?? '')}</td>
+                                    <td>${escapeHtml(report.team.session_status_label ?? '')}</td>
+                                    <td>${report.team.men_players_count ?? 0}</td>
+                                    <td>${report.team.men_gd_players_count ?? 0}</td>
+                                    <td>${report.team.men_non_gd_players_count ?? 0}</td>
+                                    <td>${report.team.women_players_count ?? 0}</td>
+                                    <td>${report.team.women_gd_players_count ?? 0}</td>
+                                    <td>${report.team.women_non_gd_players_count ?? 0}</td>
+                                    <td>${report.team.players_count ?? 0}</td>
+                                    <td>${report.team.coaches_count ?? 0}</td>
+                                    <td>${report.team.captains_count ?? 0}</td>
+                                    <td>${report.team.reserves_count ?? 0}</td>
+                                </tr>`,
+                )
+                .join('');
+
+            return `
+                    <section class="sheet">
+                        <h2>${escapeHtml(t('Summary'))}</h2>
+                        <div class="table-wrap">
+                            <table class="summary-table">
+                                <thead>
+                                    <tr>
+                                        <th class="num" rowspan="2">${t('S.No.')}</th>
+                                        <th rowspan="2">${t('Team')}</th>
+                                        <th rowspan="2">${t('Sport')}</th>
+                                        <th rowspan="2">${t('Team prabhari')}</th>
+                                        <th rowspan="2">${t('Status')}</th>
+                                        <th colspan="3">${t('Skilled players')}</th>
+                                        <th colspan="3">${t('General players')}</th>
+                                        <th rowspan="2">${t('Players')}</th>
+                                        <th rowspan="2">${t('Coaches')}</th>
+                                        <th rowspan="2">${t('Captains')}</th>
+                                        <th rowspan="2">${t('Reserves')}</th>
+                                    </tr>
+                                    <tr>
+                                        <th>${t('Men')}</th>
+                                        <th>${t('Men GD')}</th>
+                                        <th>${t('Men Sports Quota')}</th>
+                                        <th>${t('Women')}</th>
+                                        <th>${t('Women GD')}</th>
+                                        <th>${t('Women Sports Quota')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${
+                                        summaryRows || `<tr><td colspan="15" class="muted">${t('No teams found.')}</td></tr>`
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>`;
+        };
+
         const renderTeamReport = (report: TeamPrintReport): string => {
             const reportMembers = report.members;
             const reportRemovedMembers = report.removedMembers;
@@ -526,21 +609,10 @@ export default function TeamsPrint({
             );
 
             const removableSections: string[] = [];
-
-            if (hasPlayerSection) {
-                if (showAll) {
-                    removableSections.push(removedSection);
-                }
-
-                if (showGD && !showAll) {
-                    removableSections.push(gdRemovedSection);
-                }
-
-                if (showSportQuota && !showAll) {
-                    removableSections.push(sportQuotaRemovedSection);
-                }
-            } else if (reportShowRemoved) {
+            if (reportShowRemoved) {
                 removableSections.push(removedSection);
+                removableSections.push(gdRemovedSection);
+                removableSections.push(sportQuotaRemovedSection);
             }
 
             const reportInchargeLine = inchargeLineFor(report.team);
@@ -555,17 +627,21 @@ export default function TeamsPrint({
                             <p class="meta"><strong>${t('Team prabhari')}</strong>: ${escapeHtml(reportInchargeLine || t('Not assigned'))}</p>
                         </header>
                         ${coachSection}
-                        ${showAll ? sectionOne : ''}
-                        ${showGD ? sectionGD : ''}
-                        ${showSportQuota ? sectionSportQuota : ''}
+                        ${sectionOne}
+                        ${sectionGD}
+                        ${sectionSportQuota}
                         ${removableSections.join('')}
                     </section>`;
         };
-        const teamBlocks = reports.map(renderTeamReport).join('');
+        const teamBlocks = isSankhyatmakReport
+            ? renderSummarySection(reports)
+            : reports.map(renderTeamReport).join('');
         const isBulkPrint = printTeams.length > 0;
-        const documentTitle = isBulkPrint
-            ? t('Teams roster')
-            : `${team.name} - ${t('Team roster')}`;
+        const documentTitle = isSankhyatmakReport
+            ? t('Sankhyatmak')
+            : isBulkPrint
+              ? t('Teams roster')
+              : `${team.name} - ${t('Team roster')}`;
 
         const style = `
             :root{
@@ -630,8 +706,6 @@ export default function TeamsPrint({
             }
             .team-block{
                 margin-top:10px;
-                break-inside:avoid;
-                page-break-inside:avoid;
             }
             .team-block + .team-block{
                 break-before:page;
@@ -650,7 +724,6 @@ export default function TeamsPrint({
                 margin-top:12px;
                 border:1px solid var(--line);
                 padding:6px 6px 2px;
-                break-inside:avoid;
             }
             h2{
                 margin:0 0 4px;
@@ -733,6 +806,26 @@ export default function TeamsPrint({
                 font-weight:600;
                 color:var(--head);
             }
+            .summary-table{
+                width:100%;
+                border-collapse:collapse;
+                table-layout:fixed;
+            }
+            .summary-table th,
+            .summary-table td{
+                border:1px solid var(--line);
+                padding:3px 4px;
+                text-align:center;
+                vertical-align:middle;
+                font-size:8px;
+                line-height:1.2;
+                word-break:break-word;
+            }
+            .summary-table th{
+                background:var(--head-bg);
+                font-weight:600;
+                color:var(--head);
+            }
             .muted{color:var(--muted)}
             .print-toolbar{
                 display:flex;
@@ -754,12 +847,21 @@ export default function TeamsPrint({
                 gap:6px;
                 font-size:11px;
             }
+            .print-option .option-title{
+                font-size:10px;
+                color:var(--muted);
+            }
             .print-option input{
                 width:14px;
                 height:14px;
                 accent-color:#0f172a;
             }
             .print-button{padding:8px 14px;background:#0f172a;color:#ffffff;border:0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+            .print-button-secondary{
+                background:#f8fafc;
+                color:#0f172a;
+                border:1px solid #0f172a;
+            }
             .no-print{display:none}
             @media screen{
                 .sheet{
@@ -779,17 +881,19 @@ export default function TeamsPrint({
                     font-size:8px !important;
                 }
                 .sheet{
-                    break-inside:avoid;
-                    page-break-inside:avoid;
+                    break-inside:auto;
+                    page-break-inside:auto;
                 }
                 .print-toolbar{display:none !important}
             }
         `;
         const safeDate = normalizeDate(new Date().toISOString()).replace(/-/g, '');
         const safeName = slugifyFileName(
-            isBulkPrint
-                ? `uppscb-teams-${selectedSession?.name ?? 'session'}-${safeDate}`
-                : `uppscb-team-${team.name}-${team.id}-${safeDate}`,
+            isSankhyatmakReport
+                ? `uppscb-team-sankhyatmak-${selectedSession?.name ?? 'session'}-${safeDate}`
+                : isBulkPrint
+                  ? `uppscb-teams-${selectedSession?.name ?? 'session'}-${safeDate}`
+                  : `uppscb-team-${team.name}-${team.id}-${safeDate}`,
         );
 
         const html = `<!doctype html>
@@ -802,55 +906,108 @@ export default function TeamsPrint({
                 </head>
                 <body>
                     <div class="print-toolbar">
-                        <div class="print-controls">
-                            <label class="print-option">
-                                <input
-                                    type="checkbox"
-                                    id="toggle-section-all"
-                                    data-print-toggle="all"
-                                    ${showAll ? 'checked' : ''}
-                                />
-                                <span>${t('Active players')}</span>
-                            </label>
-                            <label class="print-option">
-                                <input
-                                    type="checkbox"
-                                    id="toggle-section-gd"
-                                    data-print-toggle="gd"
-                                    ${showGD ? 'checked' : ''}
-                                />
-                                <span>${t('GD players')}</span>
-                            </label>
-                            <label class="print-option">
-                                <input
-                                    type="checkbox"
-                                    id="toggle-section-sport-quota"
-                                    data-print-toggle="sport_quota"
-                                    ${showSportQuota ? 'checked' : ''}
-                                />
-                                <span>${t('Sport quota players')}</span>
-                            </label>
-                            <label class="print-option">
-                                <input
-                                    type="checkbox"
-                                    id="toggle-section-coaches"
-                                    data-print-toggle="coaches"
-                                    ${showCoaches ? 'checked' : ''}
-                                />
-                                <span>${t('Coaches')}</span>
-                            </label>
-                            ${hasRemovedMembers ? `<label class="print-option">
-                                <input
-                                    type="checkbox"
-                                    id="toggle-section-removed"
-                                    data-print-toggle="removed"
-                                    ${showRemoved ? 'checked' : ''}
-                                />
-                                <span>${t('Removed players')}</span>
-                            </label>` : ''}
-                        </div>
+                        ${isSankhyatmakReport
+                            ? `<div class="print-controls">
+                                <label class="print-option">
+                                    <span class="option-title">${t('Page orientation')}:</span>
+                                </label>
+                                <label class="print-option">
+                                    <input
+                                        type="radio"
+                                        name="print-orientation"
+                                        data-print-orientation="portrait"
+                                        ${printPageMode === 'portrait' ? 'checked' : ''}
+                                    />
+                                    <span>${t('Portrait')}</span>
+                                </label>
+                                <label class="print-option">
+                                    <input
+                                        type="radio"
+                                        name="print-orientation"
+                                        data-print-orientation="landscape"
+                                        ${printPageMode === 'landscape' ? 'checked' : ''}
+                                    />
+                                    <span>${t('Landscape')}</span>
+                                </label>
+                            </div>`
+                            : `<div class="print-controls">
+                                <label class="print-option">
+                                    <span class="option-title">${t('Sections')}:</span>
+                                </label>
+                                <label class="print-option">
+                                    <input
+                                        type="checkbox"
+                                        id="toggle-section-all"
+                                        data-print-toggle="all"
+                                        ${showAll ? 'checked' : ''}
+                                    />
+                                    <span>${t('Active players')}</span>
+                                </label>
+                                <label class="print-option">
+                                    <input
+                                        type="checkbox"
+                                        id="toggle-section-gd"
+                                        data-print-toggle="gd"
+                                        ${showGD ? 'checked' : ''}
+                                    />
+                                    <span>${t('GD players')}</span>
+                                </label>
+                                <label class="print-option">
+                                    <input
+                                        type="checkbox"
+                                        id="toggle-section-sport-quota"
+                                        data-print-toggle="sport_quota"
+                                        ${showSportQuota ? 'checked' : ''}
+                                    />
+                                    <span>${t('Sport quota players')}</span>
+                                </label>
+                                <label class="print-option">
+                                    <input
+                                        type="checkbox"
+                                        id="toggle-section-coaches"
+                                        data-print-toggle="coaches"
+                                        ${showCoaches ? 'checked' : ''}
+                                    />
+                                    <span>${t('Coaches')}</span>
+                                </label>
+                                ${hasRemovedMembers
+                                    ? `<label class="print-option">
+                                        <input
+                                            type="checkbox"
+                                            id="toggle-section-removed"
+                                            data-print-toggle="removed"
+                                            ${showRemoved ? 'checked' : ''}
+                                        />
+                                        <span>${t('Removed players')}</span>
+                                    </label>`
+                                    : ''}
+                                <label class="print-option">
+                                    <span class="option-title">${t('Page orientation')}:</span>
+                                </label>
+                                <label class="print-option">
+                                    <input
+                                        type="radio"
+                                        name="print-orientation"
+                                        data-print-orientation="portrait"
+                                        ${printPageMode === 'portrait' ? 'checked' : ''}
+                                    />
+                                    <span>${t('Portrait')}</span>
+                                </label>
+                                <label class="print-option">
+                                    <input
+                                        type="radio"
+                                        name="print-orientation"
+                                        data-print-orientation="landscape"
+                                        ${printPageMode === 'landscape' ? 'checked' : ''}
+                                    />
+                                    <span>${t('Landscape')}</span>
+                                </label>
+                        </div>`}
                         <button type="button" class="print-button" id="team-print-btn">${t(
                             'Print',
+                        )}</button>
+                        <button type="button" class="print-button print-button-secondary" id="team-print-back-btn">${t(
+                            'Back',
                         )}</button>
                     </div>
                     <div class="letterhead">
@@ -864,7 +1021,11 @@ export default function TeamsPrint({
                                 t(PRINT_HEADING),
                             )}</div>
                             <div class="letterhead-subtitle">${escapeHtml(
-                                t('Team roster report'),
+                                t(
+                                    isSankhyatmakReport
+                                    ? 'Summary report'
+                                        : 'Team roster report',
+                                ),
                             )}</div>
                         </div>
                     </div>
@@ -876,6 +1037,91 @@ export default function TeamsPrint({
                     ${teamBlocks}
                     <script>
                         (function () {
+                            const isSummaryReport = ${isSankhyatmakReport ? 'true' : 'false'};
+
+                            function setOrientation(orientation) {
+                                const normalized = orientation === 'portrait' ? 'portrait' : 'landscape';
+                                const params = new URLSearchParams(window.location.search);
+                                params.set('page_mode', normalized);
+                                window.location.href =
+                                    window.location.pathname + '?' + params.toString();
+                            }
+
+                            const orientationControls = [
+                                'portrait',
+                                'landscape',
+                            ]
+                                .map((orientation) => {
+                                    const element = document.querySelector(
+                                        '[data-print-orientation=\"' +
+                                            orientation +
+                                            '\"]',
+                                    );
+
+                                    return element instanceof HTMLInputElement
+                                        ? element
+                                        : null;
+                                })
+                                .filter((element) => element !== null);
+
+                            orientationControls.forEach((control) => {
+                                control?.addEventListener('change', function () {
+                                    if (!control.checked) {
+                                        return;
+                                    }
+
+                                    orientationControls.forEach((other) => {
+                                        if (other !== control) {
+                                            other.checked = false;
+                                        }
+                                    });
+
+                                    setOrientation(control.dataset.printOrientation);
+                                });
+                            });
+
+                            if (orientationControls.length === 1) {
+                                orientationControls[0].checked = true;
+                            } else if (
+                                !orientationControls.some((control) => control.checked)
+                            ) {
+                                orientationControls.forEach((control) => {
+                                    control.checked = control.dataset.printOrientation === 'landscape';
+                                });
+                            }
+
+                            function navigateBackToListing() {
+                                const currentParams = new URLSearchParams(
+                                    window.location.search,
+                                );
+                                const backParams = new URLSearchParams();
+                                const sessionId = currentParams.get('filter[session_id]');
+
+                                if (sessionId) {
+                                    backParams.set('filter[session_id]', sessionId);
+                                }
+
+                                const query = backParams.toString();
+
+                                window.location.href =
+                                    '/teams' + (query ? '?' + query : '');
+                            }
+
+                            if (isSummaryReport) {
+                                document
+                                    .getElementById('team-print-btn')
+                                    ?.addEventListener('click', function () {
+                                        window.print();
+                                    });
+                                document
+                                    .getElementById('team-print-back-btn')
+                                    ?.addEventListener('click', function () {
+                                        navigateBackToListing();
+                                    });
+
+                                return;
+                            }
+
                             const controls = [
                                 'all',
                                 'gd',
@@ -893,9 +1139,14 @@ export default function TeamsPrint({
                                     element:
                                         element instanceof HTMLInputElement
                                             ? element
-                                            : null,
+                                    : null,
                                 };
                             });
+                            const playerSectionKeys = new Set([
+                                'all',
+                                'gd',
+                                'sport_quota',
+                            ]);
 
                             function selectedSections() {
                                 return controls
@@ -935,6 +1186,38 @@ export default function TeamsPrint({
                             }
 
                             function ensureSelection() {
+                                const playerSelections = controls.filter(
+                                    (control) =>
+                                        playerSectionKeys.has(control.key) &&
+                                        control.element?.checked,
+                                );
+
+                                if (playerSelections.length === 0) {
+                                    const activeSection = controls.find(
+                                        (control) => control.key === 'all',
+                                    )?.element;
+
+                                    if (activeSection) {
+                                        activeSection.checked = true;
+                                    }
+                                } else if (playerSelections.length > 1) {
+                                    const primaryPlayerKey = playerSelections.find(
+                                        (control) => control.key === 'all',
+                                    )
+                                        ? 'all'
+                                        : playerSelections[0].key;
+
+                                    controls.forEach((control) => {
+                                        if (
+                                            playerSectionKeys.has(control.key) &&
+                                            control.element
+                                        ) {
+                                            control.element.checked =
+                                                control.key === primaryPlayerKey;
+                                        }
+                                    });
+                                }
+
                                 const anyChecked = controls.some(
                                     (control) => control.element?.checked,
                                 );
@@ -946,40 +1229,67 @@ export default function TeamsPrint({
                                 syncSections();
                             }
 
-                            function attachToggleListeners() {
-                                controls.forEach((control) => {
-                                    control.element?.addEventListener('change', () => {
-                                        const hasOtherChecked = controls.some(
-                                            (item) => item.element?.checked,
-                                        );
+                            function applySectionSelectionsFromControls() {
+                                const selected = controls
+                                    .filter((control) => control.element?.checked)
+                                    .map((control) => control.key);
 
-                                        if (!hasOtherChecked) {
-                                            control.element.checked = true;
-                                        }
+                                const next = new URLSearchParams(window.location.search);
 
-                                        syncSections();
-                                    });
-                                });
+                                next.set(
+                                    'print_sections',
+                                    selected.length ? selected.join(',') : 'all',
+                                );
+
+                                window.location.href =
+                                    window.location.pathname + '?' + next.toString();
                             }
 
-                            attachToggleListeners();
+                            controls.forEach((control) => {
+                                control.element?.addEventListener('change', () => {
+                                    if (
+                                        playerSectionKeys.has(control.key) &&
+                                        control.element?.checked
+                                    ) {
+                                        controls.forEach((item) => {
+                                            if (
+                                                item.key !== control.key &&
+                                                playerSectionKeys.has(item.key) &&
+                                                item.element
+                                            ) {
+                                                item.element.checked = false;
+                                            }
+                                        });
+                                    }
+
+                                    const hasAnyPlayerChecked = controls.some(
+                                        (item) =>
+                                            playerSectionKeys.has(item.key) &&
+                                            item.element?.checked,
+                                    );
+
+                                    if (!hasAnyPlayerChecked) {
+                                        if (control.element) {
+                                            control.element.checked = true;
+                                        }
+                                    }
+
+                                    syncSections();
+                                    applySectionSelectionsFromControls();
+                                });
+                            });
+
                             ensureSelection();
 
                             document
                                 .getElementById('team-print-btn')
                                 ?.addEventListener('click', function () {
-                                    if (selectedSections().length === 0) {
-                                        alert(
-                                            '${escapeHtml(
-                                                t(
-                                                    'Select at least one section to print.',
-                                                ),
-                                            )}',
-                                        );
-                                        return;
-                                    }
-
                                     window.print();
+                                });
+                            document
+                                .getElementById('team-print-back-btn')
+                                ?.addEventListener('click', function () {
+                                    navigateBackToListing();
                                 });
                         })();
                     </script>
@@ -1002,7 +1312,7 @@ export default function TeamsPrint({
 
     return (
             <Head
-                title={`${team.name} — ${t('Team roster')} ${
+                title={`${isSankhyatmakPrint ? t('Sankhyatmak') : `${team.name} — ${t('Team roster')}`} ${
                     selectedSession?.name ? `(${selectedSession.name})` : ''
                 }`}
             />

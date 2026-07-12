@@ -67,7 +67,8 @@ class TeamController extends Controller
         Gate::authorize('viewAny', Team::class);
 
         $orgId = (int) $request->user()->organization_id;
-        $listing = $teamListing->forPrintRequest($request, $orgId);
+        $isSankhyatmakReport = $request->query('report') === 'sankhyatmak';
+        $listing = $teamListing->forPrintRequest($request, $orgId, $isSankhyatmakReport);
 
         return Inertia::render('teams/print', $profileData->printTeams(
             $listing['teams'],
