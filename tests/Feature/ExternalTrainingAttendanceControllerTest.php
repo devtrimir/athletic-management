@@ -275,6 +275,17 @@ test('attendance is rejected when assignment is inactive or date is outside rang
     expect(ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)->count())->toBe(0);
 });
 
+test('external coach attendance can only be submitted for today', function (): void {
+    Storage::fake('local');
+    $fixture = externalAttendanceFixture();
+
+    $this->actingAs($fixture['coach'], 'external_coach')
+        ->post(route('external-coach.attendance.store'), externalAttendancePayload($fixture['assignment'], [
+            'attendance_date' => today()->subDay()->toDateString(),
+        ]))
+        ->assertSessionHasErrors(['attendance_date']);
+});
+
 test('example', function () {
     $response = $this->get('/');
 

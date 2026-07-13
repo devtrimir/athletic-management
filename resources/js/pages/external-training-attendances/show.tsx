@@ -397,7 +397,10 @@ export default function ExternalTrainingAttendanceShow({
                                 {attendance.flag_reason ? (
                                     <RemarkBlock
                                         label={t('Flag reason')}
-                                        value={attendance.flag_reason}
+                                        value={attendanceFlagReasonLabel(
+                                            attendance.flag_reason,
+                                            t,
+                                        )}
                                         tone="danger"
                                     />
                                 ) : null}
@@ -672,6 +675,19 @@ function photoSourceLabel(
     }
 
     return '-';
+}
+
+function attendanceFlagReasonLabel(
+    reason: string,
+    t: (key: string) => string,
+): string {
+    const labels: Record<string, string> = {
+        coach_not_submitted_attendance: t(
+            'Coach did not submit attendance for the day',
+        ),
+    };
+
+    return labels[reason] ?? reason;
 }
 
 function reviewFormActionLabel(

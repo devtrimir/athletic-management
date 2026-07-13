@@ -253,6 +253,8 @@ const defaultExportColumns = [
     'reviewed_by',
 ];
 
+const AUTO_MARKED_ATTENDANCE_REASON = 'coach_not_submitted_attendance';
+
 export default function ExternalTrainingAttendanceIndex({
     attendances,
     filters,
@@ -1366,10 +1368,10 @@ export default function ExternalTrainingAttendanceIndex({
                             </Dialog>
                         </div>
                     </div>
-                    <Table className="min-w-[980px] text-[11px]">
+                    <Table className="min-w-[980px] text-[12px]">
                         <TableHeader>
                             <TableRow className="border-b bg-muted/60 hover:bg-muted/60">
-                                <TableHead className="sticky left-0 z-20 h-8 w-10 border-r bg-muted px-2 text-[10px] print:hidden">
+                                <TableHead className="sticky left-0 z-20 h-8 w-10 border-r bg-muted px-2 text-[11px] print:hidden">
                                     <Checkbox
                                         checked={allPageRowsSelected}
                                         onCheckedChange={(checked) =>
@@ -1382,40 +1384,43 @@ export default function ExternalTrainingAttendanceIndex({
                                         )}
                                     />
                                 </TableHead>
-                                <TableHead className="sticky left-10 z-20 h-8 w-12 border-r bg-muted px-2 text-[10px]">
+                                <TableHead className="sticky left-10 z-20 h-8 w-12 border-r bg-muted px-2 text-[11px]">
                                     {t('S.No.')}
                                 </TableHead>
-                                <TableHead className="sticky left-22 z-20 h-8 w-20 border-r bg-muted px-2 text-[10px] shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)]">
+                                <TableHead className="sticky left-22 z-20 h-8 w-20 border-r bg-muted px-2 text-[11px] shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)]">
                                     {t('Review')}
                                 </TableHead>
-                                <TableHead className="h-8 w-24 px-2 text-[10px]">
+                                <TableHead className="h-8 w-24 px-2 text-[11px]">
                                     {t('Date')}
                                 </TableHead>
-                                <TableHead className="h-8 min-w-40 px-2 text-[10px]">
+                                <TableHead className="h-8 w-20 px-2 text-[11px]">
+                                    {t('Entry source')}
+                                </TableHead>
+                                <TableHead className="h-8 min-w-40 px-2 text-[11px]">
                                     {t('Member')}
                                 </TableHead>
-                                <TableHead className="h-8 min-w-36 px-2 text-[10px]">
+                                <TableHead className="h-8 min-w-36 px-2 text-[11px]">
                                     {t('External coach')}
                                 </TableHead>
-                                <TableHead className="h-8 min-w-28 px-2 text-[10px]">
+                                <TableHead className="h-8 min-w-28 px-2 text-[11px]">
                                     {t('Venue')}
                                 </TableHead>
-                                <TableHead className="h-8 min-w-24 px-2 text-[10px]">
+                                <TableHead className="h-8 min-w-24 px-2 text-[11px]">
                                     {t('Sport')}
                                 </TableHead>
-                                <TableHead className="h-8 w-24 px-2 text-[10px]">
+                                <TableHead className="h-8 w-24 px-2 text-[11px]">
                                     {t('Attendance')}
                                 </TableHead>
-                                <TableHead className="h-8 w-28 px-2 text-[10px]">
+                                <TableHead className="h-8 w-28 px-2 text-[11px]">
                                     {t('Corrected status')}
                                 </TableHead>
-                                <TableHead className="h-8 w-24 px-2 text-[10px]">
+                                <TableHead className="h-8 w-24 px-2 text-[11px]">
                                     {t('Geo status')}
                                 </TableHead>
-                                <TableHead className="h-8 w-28 px-2 text-[10px]">
+                                <TableHead className="h-8 w-28 px-2 text-[11px]">
                                     {t('Review action')}
                                 </TableHead>
-                                <TableHead className="h-8 w-20 px-2 text-right text-[10px]">
+                                <TableHead className="h-8 w-20 px-2 text-right text-[11px]">
                                     {t('Distance')}
                                 </TableHead>
                             </TableRow>
@@ -1424,7 +1429,7 @@ export default function ExternalTrainingAttendanceIndex({
                             {attendances.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={13}
+                                        colSpan={14}
                                         className="h-24 text-center text-sm text-muted-foreground"
                                     >
                                         {t('No attendance records found.')}
@@ -1459,7 +1464,7 @@ export default function ExternalTrainingAttendanceIndex({
                                             <Button
                                                 asChild
                                                 size="sm"
-                                                className="h-6 px-1.5 text-[11px]"
+                                                className="h-6 px-1.5 text-[12px]"
                                             >
                                                 <Link
                                                     href={`/external-training-attendances/${attendance.id}`}
@@ -1469,7 +1474,7 @@ export default function ExternalTrainingAttendanceIndex({
                                                 </Link>
                                             </Button>
                                         ) : (
-                                            <span className="text-[11px] text-muted-foreground">
+                                            <span className="text-[12px] text-muted-foreground">
                                                 {t('No access')}
                                             </span>
                                         )}
@@ -1480,6 +1485,22 @@ export default function ExternalTrainingAttendanceIndex({
                                             locale,
                                         )}
                                     </TableCell>
+                                    <TableCell className="px-2 py-1.5 whitespace-nowrap">
+                                        <Badge
+                                            variant={
+                                                attendance.flag_reason ===
+                                                AUTO_MARKED_ATTENDANCE_REASON
+                                                    ? 'default'
+                                                    : 'outline'
+                                            }
+                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendance.flag_reason === AUTO_MARKED_ATTENDANCE_REASON ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : ''}`}
+                                        >
+                                            {attendanceMarkingSource(
+                                                attendance.flag_reason,
+                                                t,
+                                            )}
+                                        </Badge>
+                                    </TableCell>
                                     <TableCell className="min-w-40 px-2 py-1.5">
                                         <Link
                                             href={`/members/${attendance.member.id}`}
@@ -1488,7 +1509,7 @@ export default function ExternalTrainingAttendanceIndex({
                                             {attendance.member.full_name}
                                         </Link>
                                         {attendance.member.pno ? (
-                                            <div className="text-[10px] text-muted-foreground">
+                                            <div className="text-[11px] text-muted-foreground">
                                                 {attendance.member.pno}
                                             </div>
                                         ) : null}
@@ -1512,7 +1533,7 @@ export default function ExternalTrainingAttendanceIndex({
                                         <div className="flex flex-col items-start gap-1">
                                             <Badge
                                                 variant="outline"
-                                                className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}
+                                                className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}
                                             >
                                                 {t(
                                                     attendance.attendance_status,
@@ -1526,14 +1547,14 @@ export default function ExternalTrainingAttendanceIndex({
                                         attendance.corrected_attendance_status ? (
                                             <Badge
                                                 variant="outline"
-                                                className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${attendanceStatusBadgeClass(attendance.corrected_attendance_status)}`}
+                                                className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendanceStatusBadgeClass(attendance.corrected_attendance_status)}`}
                                             >
                                                 {t(
                                                     attendance.corrected_attendance_status,
                                                 )}
                                             </Badge>
                                         ) : (
-                                            <span className="text-[11px] text-muted-foreground">
+                                            <span className="text-[12px] text-muted-foreground">
                                                 -
                                             </span>
                                         )}
@@ -1546,7 +1567,7 @@ export default function ExternalTrainingAttendanceIndex({
                                                     ? 'secondary'
                                                     : 'destructive'
                                             }
-                                            className="rounded-full px-1.5 py-0 text-[10px] font-semibold"
+                                            className="rounded-full px-1.5 py-0 text-[11px] font-semibold"
                                         >
                                             {t(attendance.geo_status)}
                                         </Badge>
@@ -1554,7 +1575,7 @@ export default function ExternalTrainingAttendanceIndex({
                                     <TableCell className="px-2 py-1.5 whitespace-nowrap">
                                         <Badge
                                             variant="outline"
-                                            className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${reviewActionBadgeClass(attendance.review_status)}`}
+                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${reviewActionBadgeClass(attendance.review_status)}`}
                                         >
                                             {reviewActionLabel(
                                                 attendance.review_status,
@@ -1781,6 +1802,17 @@ function attendanceStatusBadgeClass(status: string): string {
         default:
             return 'border-muted bg-muted text-muted-foreground';
     }
+}
+
+function attendanceMarkingSource(
+    flagReason: string | null,
+    t: (key: string) => string,
+): string {
+    if (flagReason === AUTO_MARKED_ATTENDANCE_REASON) {
+        return t('Auto mark');
+    }
+
+    return t('Manual');
 }
 
 function reviewActionLabel(status: string, t: (key: string) => string): string {

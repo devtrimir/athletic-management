@@ -594,21 +594,10 @@ export default function ExternalCoachAttendance({
                                                 id="attendance_date"
                                                 value={attendanceDate}
                                                 onChange={setAttendanceDate}
+                                                disabled
                                                 placeholder={t('Select date')}
                                                 className="min-w-0 flex-1"
                                             />
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() =>
-                                                    setAttendanceDate(
-                                                        todayIsoDate(),
-                                                    )
-                                                }
-                                                className="w-full min-w-0 whitespace-normal"
-                                            >
-                                                {t('Today')}
-                                            </Button>
                                         </div>
                                         <InputError
                                             message={errors.attendance_date}
