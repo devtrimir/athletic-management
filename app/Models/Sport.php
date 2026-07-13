@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $organization_id
  * @property string $name
+ * @property string|null $name_en
  * @property string|null $code
  * @property string $category
  * @property string $slug
@@ -27,7 +28,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-#[Fillable(['organization_id', 'name', 'code', 'category', 'slug', 'description', 'is_active', 'sort_order'])]
+#[Fillable(['organization_id', 'name', 'name_en', 'code', 'category', 'slug', 'description', 'is_active', 'sort_order'])]
 #[ObservedBy([AuditObserver::class])]
 class Sport extends Model
 {

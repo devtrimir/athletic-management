@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'sport_id',
     'gender_category_id',
     'name',
+    'name_en',
     'code',
     'min_weight',
     'max_weight',

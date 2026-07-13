@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['sport_id', 'name', 'code', 'discipline_type', 'is_active', 'sort_order'])]
+#[Fillable(['sport_id', 'name', 'name_en', 'code', 'discipline_type', 'is_active', 'sort_order'])]
 class SportEvent extends Model
 {
     /** @return array<string, string> */

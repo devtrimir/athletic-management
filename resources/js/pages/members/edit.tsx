@@ -36,7 +36,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type District = { id: number; name: string };
 type Unit = { id: number; name: string };
-type SportOption = { id: number; name: string };
+type SportOption = { id: number; name: string; name_en?: string | null };
 type PlayableSport = { id: number; name: string };
 type MasterOption = { code: string; name: string; short_name: string | null };
 
@@ -1069,6 +1069,9 @@ export default function MembersEdit({
                                                                         sport.id,
                                                                     ),
                                                                     label: sport.name,
+                                                                    description:
+                                                                        sport.name_en ??
+                                                                        '',
                                                                 }),
                                                             )}
                                                             placeholder={t(

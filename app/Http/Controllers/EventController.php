@@ -74,7 +74,7 @@ class EventController extends Controller
         ]);
 
         $orgId = $tournament->organization_id;
-        $sports = Sport::select(['id', 'name'])
+        $sports = Sport::select(['id', 'name', 'name_en'])
             ->where('organization_id', $orgId)
             ->orderBy('name')
             ->get();

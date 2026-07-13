@@ -88,6 +88,7 @@ class UnitSeeder extends Seeder
             $rows[] = [
                 'organization_id' => $org->id,
                 'name' => $name,
+                'name_en' => $name,
                 'unit_type' => $unitType,
                 'commandant' => null,
                 'district_id' => $districtId,

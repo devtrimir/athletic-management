@@ -43,6 +43,7 @@ class SportSeeder extends Seeder
                     'name' => $name,
                 ],
                 [
+                    'name_en' => $sportMetadata['name_en'] ?? null,
                     'code' => $sportMetadata['code'] ?? strtoupper($this->slugForName($name)),
                     'category' => $category,
                     'slug' => $this->slugForName($name),

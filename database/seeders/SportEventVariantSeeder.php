@@ -129,10 +129,12 @@ class SportEventVariantSeeder extends Seeder
 
         $codeParts = [$sport->code, $event['code'], $gender->code];
         $nameParts = [$sportEvent->name, $gender->name];
+        $nameEnParts = [$sportEvent->name_en ?? $sportEvent->name, $gender->name_en ?? $gender->name];
 
         if ($weightCategory !== null) {
             $codeParts[] = $weightCategory->code;
             $nameParts[] = $weightCategory->name;
+            $nameEnParts[] = $weightCategory->name_en ?? $weightCategory->name;
         }
 
         $mixed = $event['mixed'] ?? null;
@@ -151,6 +153,7 @@ class SportEventVariantSeeder extends Seeder
                 'measurement_unit_id' => $unit?->id,
                 'result_type_id' => $resultType?->id,
                 'name' => implode(' - ', $nameParts),
+                'name_en' => implode(' - ', $nameEnParts),
                 'min_participants' => $event['min'] ?? $format->min_players,
                 'max_participants' => $event['max'] ?? $format->max_players,
                 'min_male_participants' => is_array($mixed) ? $mixed[0] : null,

@@ -284,7 +284,7 @@ class CoachController extends Controller
             ],
             'activeCoachCount' => $this->coachStatusScopeQuery('active')->count(),
             'inactiveCoachCount' => $this->coachStatusScopeQuery('inactive')->count(),
-            'sports' => Sport::select(['id', 'name'])
+            'sports' => Sport::select(['id', 'name', 'name_en'])
                 ->where('organization_id', $request->user()->organization_id)
                 ->orderBy('name')
                 ->get(),
@@ -417,7 +417,7 @@ class CoachController extends Controller
                 'unit:id,name',
                 'rankMaster:id,code,name,short_name',
                 'sports' => fn ($q) => $q
-                    ->select('sports.id', 'sports.name')
+                    ->select('sports.id', 'sports.name', 'sports.name_en')
                     ->withPivot([
                         'is_primary',
                         'level_master_id',

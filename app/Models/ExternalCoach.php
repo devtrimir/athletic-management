@@ -36,6 +36,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'organization_id',
     'name',
+    'name_en',
     'phone',
     'email',
     'password',
@@ -45,6 +46,7 @@ use Illuminate\Support\Carbon;
     'address',
     'district_id',
     'city',
+    'city_en',
     'experience_years',
     'certification_details',
     'id_proof_path',

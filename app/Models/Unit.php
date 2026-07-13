@@ -23,7 +23,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-#[Fillable(['organization_id', 'name', 'unit_type', 'commandant', 'district_id'])]
+#[Fillable(['organization_id', 'name', 'name_en', 'unit_type', 'commandant', 'district_id'])]
 #[ObservedBy([AuditObserver::class])]
 class Unit extends Model
 {

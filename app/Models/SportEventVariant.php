@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'measurement_unit_id',
     'result_type_id',
     'name',
+    'name_en',
     'code',
     'min_participants',
     'max_participants',

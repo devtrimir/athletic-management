@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable([
     'code',
     'name',
+    'name_en',
     'short_name',
     'designation_order',
     'mapped_rank_code',

@@ -57,7 +57,7 @@ class TournamentProfileData
         return [
             'tournament' => (new TournamentResource($tournament))->resolve(),
             'eventSummary' => $this->eventSummary($tournament),
-            'sports' => Sport::select(['id', 'name'])
+            'sports' => Sport::select(['id', 'name', 'name_en'])
                 ->where('organization_id', $tournament->organization_id)
                 ->orderBy('name')
                 ->get(),

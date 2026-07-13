@@ -140,7 +140,7 @@ class MemberController extends Controller
             'levels' => $levels,
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'districts' => District::orderBy('name')->get(['id', 'name']),
-            'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'totalCount' => Member::count(),
@@ -204,7 +204,7 @@ class MemberController extends Controller
         return Inertia::render('members/create', [
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
-            'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
             'sessions' => SportSession::select(['id', 'name', 'is_current'])
                 ->orderByDesc('start_year')
                 ->orderByDesc('id')
@@ -258,7 +258,7 @@ class MemberController extends Controller
             'member' => $member->load(['playableSports']),
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
-            'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
@@ -429,7 +429,7 @@ class MemberController extends Controller
             )->resolve()),
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
-            'sports' => Sport::orderBy('name')->get(['id', 'name']),
+            'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
             'sessions' => SportSession::select(['id', 'name', 'is_current'])
                 ->orderByDesc('start_year')
                 ->orderByDesc('id')
