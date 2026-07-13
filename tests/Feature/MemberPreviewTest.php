@@ -73,6 +73,7 @@ test('member preview includes posting unit fallback and sport details', function
         $sport->id => [
             'role' => 'Batsman',
             'position' => '3',
+            'weight' => '55 kg',
             'notes' => 'Top order',
         ],
     ]);
@@ -87,6 +88,7 @@ test('member preview includes posting unit fallback and sport details', function
         ->assertJsonPath('playable_sports.0.id', $sport->id)
         ->assertJsonPath('playable_sports.0.role', 'Batsman')
         ->assertJsonPath('playable_sports.0.position', '3')
+        ->assertJsonPath('playable_sports.0.weight', '55 kg')
         ->assertJsonPath('playable_sports.0.notes', 'Top order');
 });
 

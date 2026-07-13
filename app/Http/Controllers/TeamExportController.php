@@ -531,7 +531,7 @@ class TeamExportController extends Controller
                     'member.postingDistrict:id,name',
                     'member.playableSports' => fn ($q) => $q
                         ->select(['sports.id', 'sports.name'])
-                        ->withPivot(['sport_event', 'role', 'position']),
+                        ->withPivot(['sport_event', 'weight', 'role', 'position']),
                     'session:id,name',
                 ])
                 ->orderBy('id'),
@@ -754,8 +754,8 @@ class TeamExportController extends Controller
 
         return collect([
             $this->withoutSportName($sport->pivot?->sport_event, $team->sport?->name),
+            filled($sport->pivot?->weight) ? (string) $sport->pivot->weight : null,
             filled($sport->pivot?->position) ? (string) $sport->pivot->position : null,
-            filled($sport->pivot?->role) ? (string) $sport->pivot->role : null,
         ])->filter()->implode(' / ') ?: null;
     }
 

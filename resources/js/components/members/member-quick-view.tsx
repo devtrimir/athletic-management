@@ -79,6 +79,8 @@ type MemberPreview = {
         name: string;
         role: string | null;
         position: string | null;
+        sport_event: string | null;
+        weight: string | null;
         notes: string | null;
     }>;
     status_history: StatusHistoryItem[];
@@ -175,6 +177,20 @@ function postingLocation(data: MemberPreview): string | null {
     return data.posting_district?.name ?? data.current_unit?.name ?? null;
 }
 
+function normalizePreview(data: MemberPreview): MemberPreview {
+    return {
+        ...data,
+        playable_sports: Array.isArray(data.playable_sports)
+            ? data.playable_sports
+            : [],
+        status_history: Array.isArray(data.status_history)
+            ? data.status_history
+            : [],
+        team_history: Array.isArray(data.team_history) ? data.team_history : [],
+        achievements: Array.isArray(data.achievements) ? data.achievements : [],
+    };
+}
+
 function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     const row = (label: string, value: string | null | undefined) =>
         value
@@ -238,7 +254,7 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     ${row(t('Promotion date'), formatDisplayDate(data.promotion_date, 'hi'))}
     ${row(t('Appointment'), data.appointment)}
     ${row(t('Sport'), data.sport?.name)}
-    ${data.playable_sports.length ? `<div class="section"><h2>${t('Playable sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name}</span><span class="val">${[sport.role, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
+    ${data.playable_sports.length ? `<div class="section"><h2>${t('Playable sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name}</span><span class="val">${[sport.role, sport.sport_event, sport.weight, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
     ${row(t('Home address'), data.home_address)}
     ${row(t('Other notes'), data.other_notes)}
     ${row(t('Player level'), data.player_level ? t(data.player_level) : null)}
@@ -295,7 +311,8 @@ export function MemberQuickView({
             setError(false);
         });
         get(MemberPreviewController.url(memberId), {
-            onSuccess: (res) => setData(res as unknown as MemberPreview),
+            onSuccess: (res) =>
+                setData(normalizePreview(res as unknown as MemberPreview)),
             onError: () => setError(true),
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -504,6 +521,8 @@ export function MemberQuickView({
                                                 <p className="text-xs text-muted-foreground">
                                                     {[
                                                         sport.role,
+                                                        sport.sport_event,
+                                                        sport.weight,
                                                         sport.position,
                                                         sport.notes,
                                                     ]

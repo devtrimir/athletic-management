@@ -53,7 +53,9 @@ type FormData = {
     playable_sports: {
         sport_id: string;
         role: string;
+        position: string;
         sport_event: string;
+        weight: string;
         notes: string;
     }[];
     other_notes: string;
@@ -111,7 +113,7 @@ export default function MembersCreate({
             home_address: '',
             recruitment_type: '',
             playable_sports: [
-                { sport_id: '', role: '', sport_event: '', notes: '' },
+                { sport_id: '', role: '', position: '', sport_event: '', weight: '', notes: '' },
             ],
             sport_event: '',
             other_notes: '',
@@ -124,7 +126,9 @@ export default function MembersCreate({
             .map((sport) => ({
                 ...sport,
                 role: sport.role.trim(),
+                position: sport.position.trim(),
                 sport_event: sport.sport_event.trim(),
+                weight: sport.weight.trim(),
                 notes: sport.notes.trim(),
             }));
     }
@@ -133,6 +137,7 @@ export default function MembersCreate({
         e.preventDefault();
         transform((payload) => ({
             ...payload,
+            sport_event: '',
             playable_sports: normalizedPlayableSports(),
         }));
         post(storeMember.url());
@@ -163,7 +168,6 @@ export default function MembersCreate({
     const hasSportsErrors = !!(
         errors.player_category ||
         errors.player_level ||
-        errors.sport_event ||
         errors.team_since ||
         errors.other_notes
     );
@@ -867,7 +871,9 @@ export default function MembersCreate({
                                                         {
                                                             sport_id: '',
                                                             role: '',
+                                                            position: '',
                                                             sport_event: '',
+                                                            weight: '',
                                                             notes: '',
                                                         },
                                                     ])
@@ -932,7 +938,7 @@ export default function MembersCreate({
                                                     <div className="grid gap-2">
                                                         <Label>
                                                             {t(
-                                                                'Role / position',
+                                                                'Role',
                                                             )}
                                                         </Label>
                                                         <Input
@@ -964,9 +970,7 @@ export default function MembersCreate({
                                                             {t('Sport event')}
                                                         </Label>
                                                         <Input
-                                                            value={
-                                                                row.sport_event
-                                                            }
+                                                            value={row.sport_event}
                                                             onChange={(e) =>
                                                                 setData(
                                                                     'playable_sports',
@@ -983,6 +987,68 @@ export default function MembersCreate({
                                                                                           e
                                                                                               .target
                                                                                               .value,
+                                                                                  }
+                                                                                : item,
+                                                                    ),
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-2">
+                                                        <Label>
+                                                            {t('Position')}
+                                                        </Label>
+                                                        <Input
+                                                            value={
+                                                                row.position
+                                                            }
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    'playable_sports',
+                                                                    data.playable_sports.map(
+                                                                        (
+                                                                            item,
+                                                                            i,
+                                                                        ) =>
+                                                                            i ===
+                                                                            index
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      position:
+                                                                                          e
+                                                                                              .target
+                                                                                              .value,
+                                                                                  }
+                                                                                : item,
+                                                                    ),
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-2">
+                                                        <Label>
+                                                            {t('Weight')}
+                                                        </Label>
+                                                        <Input
+                                                            value={row.weight}
+                                                            placeholder={t(
+                                                                '55 kg',
+                                                            )}
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    'playable_sports',
+                                                                    data.playable_sports.map(
+                                                                        (
+                                                                            item,
+                                                                            i,
+                                                                        ) =>
+                                                                            i ===
+                                                                            index
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      weight: e
+                                                                                          .target
+                                                                                          .value,
                                                                                   }
                                                                                 : item,
                                                                     ),
@@ -1024,7 +1090,7 @@ export default function MembersCreate({
                                         )}
                                     </div>
 
-                                    <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="grid gap-5 sm:grid-cols-1">
                                         <div className="grid gap-2">
                                             <Label htmlFor="team_since">
                                                 {t('Team since')}

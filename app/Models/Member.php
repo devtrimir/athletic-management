@@ -146,7 +146,7 @@ class Member extends Model
     public function playableSports(): BelongsToMany
     {
         return $this->belongsToMany(Sport::class, 'member_sport')
-            ->withPivot(['role', 'position', 'sport_event', 'notes'])
+            ->withPivot(['role', 'position', 'sport_event', 'weight', 'notes'])
             ->withTimestamps();
     }
 

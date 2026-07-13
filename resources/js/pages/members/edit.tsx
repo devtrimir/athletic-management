@@ -71,11 +71,13 @@ type Member = {
                 role: string | null;
                 position: string | null;
                 sport_event: string | null;
+                weight: string | null;
                 notes: string | null;
             };
             role: string | null;
             position: string | null;
             sport_event: string | null;
+            weight: string | null;
             notes: string | null;
         }
     >;
@@ -109,7 +111,9 @@ type FormData = {
     playable_sports: {
         sport_id: string;
         role: string;
+        position: string;
         sport_event: string;
+        weight: string;
         notes: string;
     }[];
     sport_event: string;
@@ -209,14 +213,27 @@ export default function MembersEdit({
                     ? member.playable_sports.map((sport) => ({
                           sport_id: String(sport.id),
                           role: sport.role ?? sport.pivot?.role ?? '',
+                          position:
+                              sport.position ?? sport.pivot?.position ?? '',
                           sport_event:
                               sport.sport_event ??
                               sport.pivot?.sport_event ??
                               '',
+                          weight:
+                              sport.weight ?? sport.pivot?.weight ?? '',
                           notes: sport.notes ?? sport.pivot?.notes ?? '',
                       }))
-                    : [{ sport_id: '', role: '', sport_event: '', notes: '' }],
-            sport_event: member.sport_event ?? '',
+                    : [
+                        {
+                            sport_id: '',
+                            role: '',
+                            position: '',
+                            sport_event: '',
+                            weight: '',
+                            notes: '',
+                        },
+                    ],
+            sport_event: '',
             other_notes: member.other_notes ?? '',
             team_since: member.team_since ?? '',
         });
@@ -247,7 +264,6 @@ export default function MembersEdit({
     const hasSportsErrors = !!(
         errors.player_category ||
         errors.player_level ||
-        errors.sport_event ||
         errors.team_since ||
         errors.other_notes
     );
@@ -266,7 +282,9 @@ export default function MembersEdit({
             .map((sport) => ({
                 ...sport,
                 role: sport.role.trim(),
+                position: sport.position.trim(),
                 sport_event: sport.sport_event.trim(),
+                weight: sport.weight.trim(),
                 notes: sport.notes.trim(),
             }));
     }
@@ -275,6 +293,7 @@ export default function MembersEdit({
         e.preventDefault();
         transform((payload) => ({
             ...payload,
+            sport_event: '',
             playable_sports: normalizedPlayableSports(),
         }));
         patch(update.url(member));
@@ -1020,7 +1039,9 @@ export default function MembersEdit({
                                                         {
                                                             sport_id: '',
                                                             role: '',
+                                                            position: '',
                                                             sport_event: '',
+                                                            weight: '',
                                                             notes: '',
                                                         },
                                                     ])
@@ -1084,9 +1105,7 @@ export default function MembersEdit({
                                                     </div>
                                                     <div className="grid gap-2">
                                                         <Label>
-                                                            {t(
-                                                                'Role / position',
-                                                            )}
+                                                            {t('Role')}
                                                         </Label>
                                                         <Input
                                                             value={row.role}
@@ -1105,6 +1124,35 @@ export default function MembersEdit({
                                                                                       role: e
                                                                                           .target
                                                                                           .value,
+                                                                                  }
+                                                                                : item,
+                                                                    ),
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-2">
+                                                        <Label>
+                                                            {t('Position')}
+                                                        </Label>
+                                                        <Input
+                                                            value={row.position}
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    'playable_sports',
+                                                                    data.playable_sports.map(
+                                                                        (
+                                                                            item,
+                                                                            i,
+                                                                        ) =>
+                                                                            i ===
+                                                                            index
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      position:
+                                                                                          e
+                                                                                              .target
+                                                                                              .value,
                                                                                   }
                                                                                 : item,
                                                                     ),
@@ -1136,6 +1184,37 @@ export default function MembersEdit({
                                                                                           e
                                                                                               .target
                                                                                               .value,
+                                                                                  }
+                                                                                : item,
+                                                                    ),
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-2">
+                                                        <Label>
+                                                            {t('Weight')}
+                                                        </Label>
+                                                        <Input
+                                                            value={row.weight}
+                                                            placeholder={t(
+                                                                '55 kg',
+                                                            )}
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    'playable_sports',
+                                                                    data.playable_sports.map(
+                                                                        (
+                                                                            item,
+                                                                            i,
+                                                                        ) =>
+                                                                            i ===
+                                                                            index
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      weight: e
+                                                                                          .target
+                                                                                          .value,
                                                                                   }
                                                                                 : item,
                                                                     ),
@@ -1177,7 +1256,7 @@ export default function MembersEdit({
                                         )}
                                     </div>
 
-                                    <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="grid gap-5 sm:grid-cols-1">
                                         <div className="grid gap-2">
                                             <Label htmlFor="team_since">
                                                 {t('Team since')}

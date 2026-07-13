@@ -120,7 +120,7 @@ class EventController extends Controller
                 $playableSport = fn ($query) => $query
                     ->select(['sports.id', 'sports.name'])
                     ->where('sports.id', $event->sport_id)
-                    ->withPivot(['role', 'position', 'sport_event']);
+                    ->withPivot(['role', 'position', 'sport_event', 'weight']);
                 $participations = $event->participations()
                     ->with([
                         'member' => fn ($query) => $query
@@ -190,7 +190,7 @@ class EventController extends Controller
     }
 
     /**
-     * @return array{sport_event: string|null, role: string|null, position: string|null}|null
+     * @return array{sport_event: string|null, weight: string|null, role: string|null, position: string|null}|null
      */
     private function memberSportProfile(?Member $member): ?array
     {
@@ -201,6 +201,7 @@ class EventController extends Controller
 
         $profile = [
             'sport_event' => filled($sport->pivot?->sport_event) ? (string) $sport->pivot->sport_event : null,
+            'weight' => filled($sport->pivot?->weight) ? (string) $sport->pivot->weight : null,
             'role' => filled($sport->pivot?->role) ? (string) $sport->pivot->role : null,
             'position' => filled($sport->pivot?->position) ? (string) $sport->pivot->position : null,
         ];
@@ -235,7 +236,7 @@ class EventController extends Controller
                     ->with(['playableSports' => fn ($query) => $query
                         ->select(['sports.id', 'sports.name'])
                         ->where('sports.id', $event->sport_id)
-                        ->withPivot(['sport_event'])])])
+                        ->withPivot(['sport_event', 'weight'])])])
                 ->orderByRaw("CASE role WHEN 'CAPTAIN' THEN 0 WHEN 'PLAYER' THEN 1 WHEN 'RESERVE' THEN 2 ELSE 3 END")
                 ->orderBy('id')])
             ->orderBy('name')

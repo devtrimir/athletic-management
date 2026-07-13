@@ -52,6 +52,7 @@ class MemberResource extends JsonResource
                     'role' => $sport->pivot?->role,
                     'position' => $sport->pivot?->position,
                     'sport_event' => $sport->pivot?->sport_event,
+                    'weight' => $sport->pivot?->weight,
                     'notes' => $sport->pivot?->notes,
                 ])
                 ->values()

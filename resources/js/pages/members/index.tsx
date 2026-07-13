@@ -84,11 +84,13 @@ type Member = {
                 role?: string | null;
                 position?: string | null;
                 sport_event?: string | null;
+                weight?: string | null;
                 notes?: string | null;
             };
             role?: string | null;
             position?: string | null;
             sport_event?: string | null;
+            weight?: string | null;
             notes?: string | null;
         }
     >;
@@ -219,8 +221,9 @@ function sportSummary(sport: Member['playable_sports'][number]): string {
     return [
         sport.name,
         sport.role ?? sport.pivot?.role,
-        sport.position ?? sport.pivot?.position,
         sport.sport_event ?? sport.pivot?.sport_event,
+        sport.weight ?? sport.pivot?.weight,
+        sport.position ?? sport.pivot?.position,
         sport.notes ?? sport.pivot?.notes,
     ]
         .filter(Boolean)
@@ -331,6 +334,16 @@ function SportCell({ member }: { member: Member }) {
                                                     sport.pivot?.sport_event}
                                             </p>
                                         )}
+                                        {(sport.weight ??
+                                            sport.pivot?.weight) && (
+                                            <p>
+                                                <span className="font-medium text-foreground">
+                                                    {t('Weight')}:
+                                                </span>{' '}
+                                                {sport.weight ??
+                                                    sport.pivot?.weight}
+                                            </p>
+                                        )}
                                         {(sport.notes ?? sport.pivot?.notes) && (
                                             <p>
                                                 <span className="font-medium text-foreground">
@@ -346,6 +359,8 @@ function SportCell({ member }: { member: Member }) {
                                             !sport.pivot?.position &&
                                             !sport.sport_event &&
                                             !sport.pivot?.sport_event &&
+                                            !sport.weight &&
+                                            !sport.pivot?.weight &&
                                             !sport.notes &&
                                             !sport.pivot?.notes && <p>—</p>}
                                     </div>
