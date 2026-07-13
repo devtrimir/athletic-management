@@ -328,6 +328,12 @@ export default function TeamsPrint({
         return normalized;
     };
 
+    const stackedSummaryHeader = (label: string): string =>
+        t(label)
+            .split(/\s+/)
+            .map(escapeHtml)
+            .join('<br>');
+
     const renderPlayerSection = (
         sectionKey: string,
         title: string,
@@ -465,21 +471,20 @@ export default function TeamsPrint({
                 .map(
                     (report, index) => `
                                 <tr>
-                                    <td>${index + 1}</td>
-                                    <td>${escapeHtml(report.team.name ?? '')}</td>
-                                    <td>${escapeHtml(report.team.sport?.name ?? '')}</td>
-                                    <td>${escapeHtml(report.team.current_incharge_name ?? '')}</td>
-                                    <td>${escapeHtml(report.team.session_status_label ?? '')}</td>
-                                    <td>${report.team.men_players_count ?? 0}</td>
-                                    <td>${report.team.men_gd_players_count ?? 0}</td>
-                                    <td>${report.team.men_non_gd_players_count ?? 0}</td>
-                                    <td>${report.team.women_players_count ?? 0}</td>
-                                    <td>${report.team.women_gd_players_count ?? 0}</td>
-                                    <td>${report.team.women_non_gd_players_count ?? 0}</td>
-                                    <td>${report.team.players_count ?? 0}</td>
-                                    <td>${report.team.coaches_count ?? 0}</td>
-                                    <td>${report.team.captains_count ?? 0}</td>
-                                    <td>${report.team.reserves_count ?? 0}</td>
+                                    <td class="summary-num">${index + 1}</td>
+                                    <td class="summary-team">${escapeHtml(report.team.name ?? '')}</td>
+                                    <td class="summary-text">${escapeHtml(report.team.sport?.name ?? '')}</td>
+                                    <td class="summary-text">${escapeHtml(report.team.current_incharge_name ?? '')}</td>
+                                    <td class="summary-num">${report.team.men_players_count ?? 0}</td>
+                                    <td class="summary-num">${report.team.men_gd_players_count ?? 0}</td>
+                                    <td class="summary-num">${report.team.men_non_gd_players_count ?? 0}</td>
+                                    <td class="summary-num">${report.team.women_players_count ?? 0}</td>
+                                    <td class="summary-num">${report.team.women_gd_players_count ?? 0}</td>
+                                    <td class="summary-num">${report.team.women_non_gd_players_count ?? 0}</td>
+                                    <td class="summary-num">${report.team.players_count ?? 0}</td>
+                                    <td class="summary-num">${report.team.coaches_count ?? 0}</td>
+                                    <td class="summary-num">${report.team.captains_count ?? 0}</td>
+                                    <td class="summary-num">${report.team.reserves_count ?? 0}</td>
                                 </tr>`,
                 )
                 .join('');
@@ -491,30 +496,29 @@ export default function TeamsPrint({
                             <table class="summary-table">
                                 <thead>
                                     <tr>
-                                        <th class="num" rowspan="2">${t('S.No.')}</th>
-                                        <th rowspan="2">${t('Team')}</th>
-                                        <th rowspan="2">${t('Sport')}</th>
-                                        <th rowspan="2">${t('Team prabhari')}</th>
-                                        <th rowspan="2">${t('Status')}</th>
-                                        <th colspan="3">${t('Skilled players')}</th>
-                                        <th colspan="3">${t('General players')}</th>
-                                        <th rowspan="2">${t('Players')}</th>
-                                        <th rowspan="2">${t('Coaches')}</th>
-                                        <th rowspan="2">${t('Captains')}</th>
-                                        <th rowspan="2">${t('Reserves')}</th>
+                                        <th class="summary-num" rowspan="2">${t('S.No.')}</th>
+                                        <th class="summary-team" rowspan="2">${t('Team')}</th>
+                                        <th class="summary-text" rowspan="2">${t('Sport')}</th>
+                                        <th class="summary-text" rowspan="2">${t('Team prabhari')}</th>
+                                        <th class="summary-num" colspan="3">${t('Skilled players')}</th>
+                                        <th class="summary-num" colspan="3">${t('General players')}</th>
+                                        <th class="summary-num" rowspan="2">${t('Players')}</th>
+                                        <th class="summary-num" rowspan="2">${t('Coaches')}</th>
+                                        <th class="summary-num" rowspan="2">${t('Captains')}</th>
+                                        <th class="summary-num" rowspan="2">${t('Reserves')}</th>
                                     </tr>
                                     <tr>
-                                        <th>${t('Men')}</th>
-                                        <th>${t('Men GD')}</th>
-                                        <th>${t('Men Sports Quota')}</th>
-                                        <th>${t('Women')}</th>
-                                        <th>${t('Women GD')}</th>
-                                        <th>${t('Women Sports Quota')}</th>
+                                        <th class="summary-num">${stackedSummaryHeader('Men')}</th>
+                                        <th class="summary-num">${stackedSummaryHeader('Men GD')}</th>
+                                        <th class="summary-num">${stackedSummaryHeader('Men Sports Quota')}</th>
+                                        <th class="summary-num">${stackedSummaryHeader('Women')}</th>
+                                        <th class="summary-num">${stackedSummaryHeader('Women GD')}</th>
+                                        <th class="summary-num">${stackedSummaryHeader('Women Sports Quota')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${
-                                        summaryRows || `<tr><td colspan="15" class="muted">${t('No teams found.')}</td></tr>`
+                                        summaryRows || `<tr><td colspan="14" class="muted">${t('No teams found.')}</td></tr>`
                                     }
                                 </tbody>
                             </table>
@@ -813,7 +817,7 @@ export default function TeamsPrint({
             .summary-table{
                 width:100%;
                 border-collapse:collapse;
-                table-layout:fixed;
+                table-layout:auto;
             }
             .summary-table th,
             .summary-table td{
@@ -829,6 +833,28 @@ export default function TeamsPrint({
                 background:var(--head-bg);
                 font-weight:600;
                 color:var(--head);
+            }
+            .summary-table .summary-num{
+                width:1%;
+                min-width:18px;
+                word-break:normal;
+            }
+            .summary-table th.summary-num{
+                white-space:normal;
+                line-height:1.05;
+            }
+            .summary-table td.summary-num{
+                white-space:nowrap;
+            }
+            .summary-table .summary-text{
+                width:auto;
+                min-width:54px;
+                max-width:120px;
+            }
+            .summary-table .summary-team{
+                width:22%;
+                min-width:120px;
+                max-width:220px;
             }
             .muted{color:var(--muted)}
             .print-toolbar{

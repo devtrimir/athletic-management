@@ -49,7 +49,7 @@ class TeamListingService
                 fn (Builder $query): Builder => $query->when(
                     $selectedSessionId > 0,
                     fn (Builder $query): Builder => $query->where(function (Builder $query) use ($selectedSessionId): void {
-                            $query->whereHas('sessionStatuses', function (Builder $statusQuery) use ($selectedSessionId): void {
+                        $query->whereHas('sessionStatuses', function (Builder $statusQuery) use ($selectedSessionId): void {
                             $statusQuery
                                 ->where('session_id', $selectedSessionId)
                                 ->where('status', TeamSessionStatus::STATUS_ACTIVE);
@@ -103,7 +103,7 @@ class TeamListingService
     /**
      * @return array{teams: Collection<int, Team>, selectedSessionId: int|null}
      */
-    public function forPrintRequest(Request $request, int $orgId, bool $includeInactiveInReport = false): array
+    public function forPrintRequest(Request $request, int $orgId): array
     {
         $defaultSessionId = SportSession::where('organization_id', $orgId)
             ->where('is_current', true)
@@ -123,8 +123,25 @@ class TeamListingService
                 'currentInchargeAssignment',
             ])
             ->when(
-                ! $request->has('filter.is_active') && ! $includeInactiveInReport,
-                fn (Builder $query): Builder => $query->where('is_active', true)
+                ! $request->has('filter.is_active'),
+                fn (Builder $query): Builder => $query->when(
+                    $selectedSessionId > 0,
+                    fn (Builder $query): Builder => $query->where(function (Builder $query) use ($selectedSessionId): void {
+                        $query->whereHas('sessionStatuses', function (Builder $statusQuery) use ($selectedSessionId): void {
+                            $statusQuery
+                                ->where('session_id', $selectedSessionId)
+                                ->where('status', TeamSessionStatus::STATUS_ACTIVE);
+                        })
+                            ->orWhere(function (Builder $legacyQuery) use ($selectedSessionId): void {
+                                $legacyQuery->where('is_active', true)
+                                    ->where('session_id', $selectedSessionId)
+                                    ->whereDoesntHave('sessionStatuses', function (Builder $statusQuery) use ($selectedSessionId): void {
+                                        $statusQuery->where('session_id', $selectedSessionId);
+                                    });
+                            });
+                    }),
+                    fn (Builder $query): Builder => $query->where('is_active', true),
+                )
             )
             ->get();
 
