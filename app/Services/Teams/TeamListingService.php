@@ -46,7 +46,24 @@ class TeamListingService
             ])
             ->when(
                 ! $request->has('filter.is_active'),
-                fn (Builder $query): Builder => $query->where('is_active', true)
+                fn (Builder $query): Builder => $query->when(
+                    $selectedSessionId > 0,
+                    fn (Builder $query): Builder => $query->where(function (Builder $query) use ($selectedSessionId): void {
+                            $query->whereHas('sessionStatuses', function (Builder $statusQuery) use ($selectedSessionId): void {
+                            $statusQuery
+                                ->where('session_id', $selectedSessionId)
+                                ->where('status', TeamSessionStatus::STATUS_ACTIVE);
+                        })
+                            ->orWhere(function (Builder $legacyQuery) use ($selectedSessionId): void {
+                                $legacyQuery->where('is_active', true)
+                                    ->where('session_id', $selectedSessionId)
+                                    ->whereDoesntHave('sessionStatuses', function (Builder $statusQuery) use ($selectedSessionId): void {
+                                        $statusQuery->where('session_id', $selectedSessionId);
+                                    });
+                            });
+                    }),
+                    fn (Builder $query): Builder => $query->where('is_active', true),
+                )
             )
             ->paginate(25);
 

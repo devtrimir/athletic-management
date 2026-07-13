@@ -26,6 +26,7 @@ class CloseTeamSessionRequest extends FormRequest
             'closed_on' => ['required', 'date'],
             'reason' => ['required', 'string', 'max:1000'],
             'remove_coaches' => ['required', 'boolean'],
+            'preserve_members' => ['required', 'boolean'],
         ];
     }
 }

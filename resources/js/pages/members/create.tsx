@@ -30,6 +30,7 @@ type MasterOption = { code: string; name: string; short_name: string | null };
 type FormData = {
     pno: string;
     full_name: string;
+    full_name_normalized: string;
     father_name: string;
     rank: string;
     designation: string;
@@ -90,6 +91,7 @@ export default function MembersCreate({
         useForm<FormData>({
             pno: '',
             full_name: '',
+            full_name_normalized: '',
             father_name: '',
             rank: '',
             designation: '',
@@ -240,6 +242,28 @@ export default function MembersCreate({
                                             />
                                             <InputError
                                                 message={errors.full_name}
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="full_name_normalized">
+                                                {t('English name')}
+                                            </Label>
+                                            <Input
+                                                id="full_name_normalized"
+                                                value={data.full_name_normalized}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'full_name_normalized',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                maxLength={255}
+                                                placeholder={t('Optional')}
+                                            />
+                                            <InputError
+                                                message={
+                                                    errors.full_name_normalized
+                                                }
                                             />
                                         </div>
                                     </div>

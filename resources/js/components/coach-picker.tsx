@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 export type CoachOption = {
     id: number;
     full_name: string;
+    display_name: string | null;
     pno: string | null;
     nis_certified: boolean;
     designation?: string | null;
@@ -94,6 +95,7 @@ export function CoachPicker({
             return '';
         }
 
+        const primaryName = coach.display_name?.trim() || coach.full_name;
         const suffix = [];
 
         if (coach.pno) {
@@ -105,8 +107,8 @@ export function CoachPicker({
         }
 
         return suffix.length > 0
-            ? `${coach.full_name} · ${suffix.join(' · ')}`
-            : coach.full_name;
+            ? `${primaryName} · ${suffix.join(' · ')}`
+            : primaryName;
     };
 
     return (
@@ -173,11 +175,11 @@ export function CoachPicker({
                                                     : 'opacity-0',
                                             )}
                                         />
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium">
-                                                    {coach.full_name}
-                                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium">
+                                            {coach.display_name?.trim() || coach.full_name}
+                                        </span>
                                                 {coach.pno && (
                                                     <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
                                                         {coach.pno}

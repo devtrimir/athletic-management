@@ -159,6 +159,7 @@ class MemberSearchService
             ->where(function ($query) use ($q): void {
                 $query->where('pno', 'LIKE', '%'.$q.'%')
                     ->orWhere('full_name', 'LIKE', '%'.$q.'%')
+                    ->orWhere('full_name_normalized', 'LIKE', '%'.$q.'%')
                     ->orWhereHas('aliases', fn ($a) => $a->where('alias', 'LIKE', '%'.$q.'%'));
             })
             ->limit(50)

@@ -33,6 +33,10 @@ class TeamProfileData
             ...$this->shell($team, $organizationId, $selectedSessionId),
             'activeTab' => 'overview',
             'counts' => $this->countsPayload($team, $selectedSessionId),
+            'members' => $this->membersPayload($team, $selectedSessionId, false),
+            'removedMembers' => $this->membersPayload($team, $selectedSessionId, true),
+            'coaches' => $this->coachesPayload($team, $selectedSessionId),
+            'removedCoaches' => $this->removedCoachesPayload($team, $selectedSessionId),
         ];
     }
 
@@ -87,6 +91,7 @@ class TeamProfileData
             'activeTab' => 'coaches',
             'counts' => $this->countsPayload($team, $selectedSessionId),
             'coaches' => $this->coachesPayload($team, $selectedSessionId),
+            'removedCoaches' => $this->removedCoachesPayload($team, $selectedSessionId),
         ];
     }
 
@@ -151,7 +156,7 @@ class TeamProfileData
     /** @return Collection<int, SportSession> */
     private function sessions(int $organizationId): Collection
     {
-        return SportSession::select(['id', 'name', 'is_current'])
+        return SportSession::select(['id', 'name', 'is_current', 'start_year'])
             ->where('organization_id', $organizationId)
             ->orderByDesc('start_year')
             ->orderByDesc('id')
@@ -215,6 +220,7 @@ class TeamProfileData
                 'member' => $teamMember->member ? [
                     'id' => $teamMember->member->id,
                     'full_name' => $teamMember->member->full_name,
+                    'full_name_normalized' => $teamMember->member->full_name_normalized,
                     'member_code' => $teamMember->member->member_code,
                     'pno' => $teamMember->member->pno,
                     'player_category' => $teamMember->member->player_category,
@@ -280,7 +286,7 @@ class TeamProfileData
         return $team->coachAssignments()
             ->with([
                 'coach' => fn ($query) => $query
-                    ->select(['id', 'full_name', 'pno'])
+                    ->select(['id', 'full_name', 'display_name', 'pno'])
                     ->with(['sports' => fn ($query) => $query
                         ->select(['sports.id', 'sports.name'])
                         ->where('sports.id', $teamSportId)
@@ -298,8 +304,48 @@ class TeamProfileData
                 'coach' => $coachAssignment->coach ? [
                     'id' => $coachAssignment->coach->id,
                     'full_name' => $coachAssignment->coach->full_name,
+                    'display_name' => $coachAssignment->coach->display_name,
                     'pno' => $coachAssignment->coach->pno,
                     'sport_profile' => $this->coachSportProfile($coachAssignment->coach, $teamSportName),
+                ] : null,
+                'session' => $coachAssignment->session ? [
+                    'id' => $coachAssignment->session->id,
+                    'name' => $coachAssignment->session->name,
+                ] : null,
+            ])
+            ->all();
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function removedCoachesPayload(Team $team, int $selectedSessionId): array
+    {
+        $teamSportId = (int) $team->sport_id;
+
+        return $team->coachAssignments()
+            ->with([
+                'coach' => fn ($query) => $query
+                    ->select(['id', 'full_name', 'display_name', 'pno'])
+                    ->with(['sports' => fn ($query) => $query
+                        ->select(['sports.id', 'sports.name'])
+                        ->where('sports.id', $teamSportId)
+                        ->withPivot(['sport_event', 'level'])]),
+                'session:id,name',
+            ])
+            ->where('session_id', $selectedSessionId)
+            ->historical()
+            ->orderByDesc('removed_at')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (CoachAssignment $coachAssignment): array => [
+                'id' => $coachAssignment->id,
+                'role' => $coachAssignment->role,
+                'assigned_at' => $coachAssignment->assigned_at?->toDateString(),
+                'removed_at' => $coachAssignment->removed_at?->toDateString(),
+                'coach' => $coachAssignment->coach ? [
+                    'id' => $coachAssignment->coach->id,
+                    'full_name' => $coachAssignment->coach->full_name,
+                    'display_name' => $coachAssignment->coach->display_name,
+                    'pno' => $coachAssignment->coach->pno,
                 ] : null,
                 'session' => $coachAssignment->session ? [
                     'id' => $coachAssignment->session->id,

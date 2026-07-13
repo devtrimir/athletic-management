@@ -209,6 +209,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('teams/{team}/incharge', [TeamInchargeController::class, 'destroy'])->name('teams.incharge.destroy');
     Route::post('teams/{team}/clone', TeamCloneController::class)->name('teams.clone');
     Route::patch('teams/{team}/session-status', [TeamSessionStatusController::class, 'close'])->name('teams.session-status.close');
+    Route::patch('teams/{team}/session-status/activate', [TeamSessionStatusController::class, 'activate'])->name('teams.session-status.activate');
     Route::post('members/{member}/status', [MemberStatusController::class, 'store'])->name('members.status.store');
     Route::post('members/{member}/aliases', [MemberAliasController::class, 'store'])->name('members.aliases.store');
     Route::delete('members/{member}/aliases/{alias}', [MemberAliasController::class, 'destroy'])->name('members.aliases.destroy');

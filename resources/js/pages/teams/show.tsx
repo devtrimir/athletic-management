@@ -32,6 +32,7 @@ import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import {
     destroy as destroyTeamCoach,
     bulkDestroy as bulkDestroyCoaches,
+    store as storeTeamCoach,
 } from '@/actions/App/Http/Controllers/TeamCoachController';
 import {
     edit as editTeam,
@@ -45,7 +46,10 @@ import {
     store as storeTeamMember,
     update as updateTeamMember,
 } from '@/actions/App/Http/Controllers/TeamMemberController';
-import { close as closeTeamSessionStatus } from '@/actions/App/Http/Controllers/TeamSessionStatusController';
+import {
+    activate as activateTeamSessionStatus,
+    close as closeTeamSessionStatus,
+} from '@/actions/App/Http/Controllers/TeamSessionStatusController';
 import InputError from '@/components/input-error';
 import type { MemberOption } from '@/components/member-picker';
 import { MemberQuickView } from '@/components/members/member-quick-view';
@@ -67,6 +71,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DatePicker } from '@/components/date-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -146,6 +151,7 @@ type TeamMemberRow = {
     member: {
         id: number;
         full_name: string;
+        full_name_normalized: string | null;
         member_code: string;
         pno: string | null;
         player_category: string | null;
@@ -169,9 +175,12 @@ type CoachAssignmentRow = {
     id: number;
     role: string | null;
     assigned_at: string | null;
+    removed_at: string | null;
+    notes: string | null;
     coach: {
         id: number;
         full_name: string;
+        display_name: string | null;
         pno: string | null;
         sport_profile: {
             sport_event: string | null;
@@ -182,7 +191,7 @@ type CoachAssignmentRow = {
 };
 
 type Counts = { players_count: number; coaches_count: number };
-type Session = { id: number; name: string; is_current: boolean };
+type Session = { id: number; name: string; is_current: boolean; start_year?: number };
 type TeamMemberMovementRow = {
     id: number;
     action: string;
@@ -227,6 +236,11 @@ type InchargeOption = {
     email: string | null;
 };
 
+type TeamSessionStatus = {
+    status: 'active' | 'carried_forward' | 'inactive';
+    label: string;
+};
+
 const MEMBER_ROLES = ['PLAYER', 'CAPTAIN', 'RESERVE'] as const;
 const COACH_ROLES = ['HEAD', 'ASSISTANT'] as const;
 type TeamProfileTab =
@@ -240,10 +254,12 @@ export default function TeamsShow({
     team,
     activeTab,
     counts,
+    sessionStatus,
     sessions,
     selectedSessionId,
     members,
     removedMembers,
+    removedCoaches,
     memberMovements,
     coaches,
     inchargeHistory,
@@ -253,10 +269,12 @@ export default function TeamsShow({
     team: Team;
     activeTab: TeamProfileTab;
     counts?: Counts;
+    sessionStatus: TeamSessionStatus;
     sessions: Session[];
     selectedSessionId: number | null;
     members?: TeamMemberRow[];
     removedMembers?: TeamMemberRow[];
+    removedCoaches?: CoachAssignmentRow[];
     memberMovements?: TeamMemberMovementRow[];
     coaches?: CoachAssignmentRow[];
     inchargeHistory?: InchargeHistoryRow[];
@@ -298,6 +316,8 @@ export default function TeamsShow({
     >(new Set());
     const tabContentClass =
         'data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-bottom-2 data-[state=active]:duration-300';
+    const isSessionActive = sessionStatus.status === 'active';
+    const sessionStatusLabel = sessionStatus.label;
 
     const tabQuery = useMemo(
         () =>
@@ -410,11 +430,25 @@ export default function TeamsShow({
         left_on: new Date().toISOString().slice(0, 10),
         reason: '',
     });
+    const [reactivateSessionDialog, setReactivateSessionDialog] = useState<{
+        open: boolean;
+        memberIds: number[];
+        coachIds: number[];
+        mode: 'fresh' | 'restore';
+    }>({
+        open: false,
+        memberIds: [],
+        coachIds: [],
+        mode: 'fresh',
+    });
+    const [reactivateMemberSearch, setReactivateMemberSearch] = useState('');
+    const [reactivateCoachSearch, setReactivateCoachSearch] = useState('');
     const closeSessionForm = useForm({
         session_id: selectedSessionId ? String(selectedSessionId) : '',
         closed_on: new Date().toISOString().slice(0, 10),
         reason: '',
         remove_coaches: false,
+        preserve_members: false,
     });
 
     useEffect(() => {
@@ -632,6 +666,7 @@ export default function TeamsShow({
             closed_on: new Date().toISOString().slice(0, 10),
             reason: '',
             remove_coaches: false,
+            preserve_members: false,
         });
         closeSessionForm.clearErrors();
         setCloseSessionOpen(true);
@@ -645,6 +680,19 @@ export default function TeamsShow({
             onSuccess: () => {
                 closeSessionForm.reset();
                 setCloseSessionOpen(false);
+
+                if (selectedSessionId) {
+                    router.get(
+                        teamsIndex.url(),
+                        {
+                            'filter[session_id]': String(selectedSessionId),
+                            'filter[is_active]': '0',
+                        },
+                        {
+                            replace: true,
+                        },
+                    );
+                }
             },
         });
     }
@@ -778,6 +826,202 @@ export default function TeamsShow({
                 ),
             );
         }
+    }
+
+    function submitActivateSession() {
+        if (!selectedSessionId) {
+            return;
+        }
+
+        setReactivateMemberSearch('');
+        setReactivateCoachSearch('');
+        setReactivateSessionDialog({
+            open: true,
+            memberIds: [],
+            coachIds: [],
+            mode: 'fresh',
+        });
+    }
+
+    function closeReactivateSessionDialog() {
+        setReactivateMemberSearch('');
+        setReactivateCoachSearch('');
+        setReactivateSessionDialog({
+            open: false,
+            memberIds: [],
+            coachIds: [],
+            mode: 'fresh',
+        });
+    }
+
+    function submitActivateSessionWithSelections() {
+        if (!selectedSessionId) {
+            return;
+        }
+
+        const selectedRemovedMembers = (removedMembers ?? []).filter((row) => {
+            return row.member ? reactivateSessionDialog.memberIds.includes(row.member.id) : false;
+        });
+        const selectedRemovedCoaches = (removedCoaches ?? []).filter((row) => {
+            return row.coach ? reactivateSessionDialog.coachIds.includes(row.coach.id) : false;
+        });
+        const shouldRestore = reactivateSessionDialog.mode === 'restore';
+        const pendingTasks = shouldRestore
+            ? selectedRemovedMembers.length + selectedRemovedCoaches.length
+            : 0;
+
+        const finalizeActivation = () => {
+            router.patch(activateTeamSessionStatus.url(team), {
+                session_id: String(selectedSessionId),
+            }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setSelectedMemberIds(new Set());
+                    setSelectedCoachIds(new Set());
+                    closeReactivateSessionDialog();
+                },
+            });
+        };
+
+        if (!shouldRestore || pendingTasks === 0) {
+            finalizeActivation();
+
+            return;
+        }
+
+        let remainingTasks = pendingTasks;
+        const done = () => {
+            remainingTasks -= 1;
+            if (remainingTasks <= 0) {
+                finalizeActivation();
+            }
+        };
+
+        selectedRemovedMembers.forEach((row) => {
+            if (!row.member) {
+                done();
+
+                return;
+            }
+
+            router.post(
+                storeTeamMember.url(team),
+                {
+                    member_ids: [String(row.member.id)],
+                    session_id: String(selectedSessionId),
+                    role: row.role ?? 'PLAYER',
+                    joined_on: row.joined_on ?? '',
+                },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        done();
+                    },
+                    onError: () => {
+                        done();
+                    },
+                },
+            );
+        });
+
+        selectedRemovedCoaches.forEach((row) => {
+            if (!row.coach) {
+                done();
+
+                return;
+            }
+
+            router.post(
+                storeTeamCoach.url(team),
+                {
+                    coach_id: String(row.coach.id),
+                    role: row.role === 'ASSISTANT' ? 'ASSISTANT' : 'HEAD',
+                    assigned_at:
+                        row.assigned_at ?? new Date().toISOString().slice(0, 10),
+                },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        done();
+                    },
+                    onError: () => {
+                        done();
+                    },
+                },
+            );
+        });
+    }
+
+    function toggleRestoreMember(memberId: number) {
+        if (reactivateSessionDialog.mode !== 'restore') {
+            return;
+        }
+
+        setReactivateSessionDialog((state) => {
+            const next = new Set(state.memberIds);
+            if (next.has(memberId)) {
+                next.delete(memberId);
+            } else {
+                next.add(memberId);
+            }
+
+            return {
+                ...state,
+                memberIds: Array.from(next),
+            };
+        });
+    }
+
+    function toggleRestoreCoach(coachId: number) {
+        if (reactivateSessionDialog.mode !== 'restore') {
+            return;
+        }
+
+        setReactivateSessionDialog((state) => {
+            const next = new Set(state.coachIds);
+            if (next.has(coachId)) {
+                next.delete(coachId);
+            } else {
+                next.add(coachId);
+            }
+
+            return {
+                ...state,
+                coachIds: Array.from(next),
+            };
+        });
+    }
+
+    function selectAllReactivateMembers() {
+        setReactivateSessionDialog((state) => ({
+            ...state,
+            memberIds: reactivateMembersToShow
+                .map((row) => row.member?.id)
+                .filter((id): id is number => id !== undefined),
+        }));
+    }
+
+    function deselectAllReactivateMembers() {
+        setReactivateSessionDialog((state) => ({
+            ...state,
+            memberIds: [],
+        }));
+    }
+
+    function selectAllReactivateCoaches() {
+        setReactivateSessionDialog((state) => ({
+            ...state,
+            coachIds: reactivateCoachesToShow
+                .map((row) => row.coach?.id)
+                .filter((id): id is number => id !== undefined),
+        }));
+    }
+
+    function deselectAllReactivateCoaches() {
+        setReactivateSessionDialog((state) => ({
+            ...state,
+            coachIds: [],
+        }));
     }
 
     function removeCoach(coachId: number, coachName?: string) {
@@ -940,6 +1184,34 @@ export default function TeamsShow({
             : member.full_name;
     }
 
+    function memberEnglishName(
+        member: TeamMemberRow['member'] | null,
+    ): string | null {
+        if (!member?.full_name_normalized) {
+            return null;
+        }
+
+        const normalized = member.full_name_normalized.trim();
+
+        return normalized.length > 0 && normalized !== member.full_name
+            ? normalized
+            : null;
+    }
+
+    function memberReactivateMeta(member: TeamMemberRow['member'] | null): string[] {
+        const weight = (member as { weight?: string | null } | null)?.weight;
+
+        return [
+            member?.playable_profile?.sport_event
+                ? `Event: ${member.playable_profile.sport_event}`
+                : null,
+            member?.playable_profile?.position
+                ? `Pos: ${member.playable_profile.position}`
+                : null,
+            weight ? `Weight: ${weight}` : null,
+        ].filter((item): item is string => item !== null);
+    }
+
     function memberStatusTag(leftOn: string | null): React.ReactElement {
         return leftOn ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
@@ -977,6 +1249,40 @@ export default function TeamsShow({
     const activePlayerCount = counts?.players_count ?? 0;
     const activeCoachCount = counts?.coaches_count ?? 0;
     const removedPlayerCount = removedMembers?.length ?? 0;
+    const reactivateAvailableMembers = (removedMembers ?? []).filter(
+        (row) => row.member,
+    );
+    const reactivateAvailableCoaches = (removedCoaches ?? []).filter(
+        (row) => row.coach,
+    );
+    const reactivateMembersToShow = reactivateAvailableMembers.filter((row) => {
+        if (!row.member || !reactivateMemberSearch.trim()) {
+            return true;
+        }
+
+        const q = reactivateMemberSearch.toLowerCase();
+        const nameMatch = row.member.full_name.toLowerCase().includes(q);
+        const englishMatch = row.member.full_name_normalized
+            ?.toLowerCase()
+            .includes(q);
+        const pnoMatch = row.member.pno?.toLowerCase().includes(q);
+
+        return nameMatch || Boolean(englishMatch) || Boolean(pnoMatch);
+    });
+    const reactivateCoachesToShow = reactivateAvailableCoaches.filter((row) => {
+        if (!row.coach || !reactivateCoachSearch.trim()) {
+            return true;
+        }
+
+        const q = reactivateCoachSearch.toLowerCase();
+        const nameMatch = row.coach.full_name.toLowerCase().includes(q);
+        const englishMatch = row.coach.display_name
+            ?.toLowerCase()
+            .includes(q);
+        const pnoMatch = row.coach.pno?.toLowerCase().includes(q);
+
+        return nameMatch || Boolean(englishMatch) || Boolean(pnoMatch);
+    });
     const selectedSession =
         sessions.find((session) => session.id === selectedSessionId) ??
         sessions[0];
@@ -985,6 +1291,21 @@ export default function TeamsShow({
         selectedSession &&
         currentSession &&
         selectedSession.id !== currentSession.id
+    );
+    const hasFutureSession = !!(
+        selectedSession &&
+        currentSession &&
+        selectedSession.id === currentSession.id &&
+        sessions.some((session) =>
+            (session.start_year !== undefined &&
+                currentSession.start_year !== undefined &&
+                session.start_year > currentSession.start_year &&
+                session.id !== currentSession.id) ||
+            (session.start_year === undefined &&
+                currentSession.start_year === undefined &&
+                session.id > currentSession.id &&
+                session.id !== currentSession.id)
+        )
     );
     const isViewingCurrentSession = !!(
         selectedSession &&
@@ -1041,9 +1362,12 @@ export default function TeamsShow({
         if (memberSearch) {
             const q = memberSearch.toLowerCase();
             const nameMatch = r.member?.full_name?.toLowerCase().includes(q);
+            const englishMatch = r.member?.full_name_normalized
+                ?.toLowerCase()
+                .includes(q);
             const pnoMatch = r.member?.pno?.toLowerCase().includes(q);
 
-            if (!nameMatch && !pnoMatch) {
+            if (!nameMatch && !englishMatch && !pnoMatch) {
                 return false;
             }
         }
@@ -1070,9 +1394,12 @@ export default function TeamsShow({
         if (coachSearch) {
             const q = coachSearch.toLowerCase();
             const nameMatch = r.coach?.full_name?.toLowerCase().includes(q);
+            const englishMatch = r.coach?.display_name
+                ?.toLowerCase()
+                .includes(q);
             const pnoMatch = r.coach?.pno?.toLowerCase().includes(q);
 
-            if (!nameMatch && !pnoMatch) {
+            if (!nameMatch && !englishMatch && !pnoMatch) {
                 return false;
             }
         }
@@ -1248,7 +1575,7 @@ export default function TeamsShow({
                 onOpenChange={(open) => !open && closeRemoveMembersDialog()}
             >
                 <DialogContent
-                    className="sm:max-w-lg"
+                    className="w-[96vw] max-w-[1100px] xl:max-w-[1250px] max-h-[86vh] overflow-hidden"
                     aria-describedby={undefined}
                 >
                     <DialogHeader>
@@ -1267,7 +1594,7 @@ export default function TeamsShow({
                             'Selected players will be removed for this session and preserved in history.',
                         )}
                     </p>
-                    <div className="space-y-4">
+                    <div className="max-h-[calc(86vh-14rem)] space-y-4 overflow-y-auto pr-2">
                         {removeMembersDialog.names.length > 0 && (
                             <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/50 dark:bg-rose-950/40">
                                 <div className="mb-2 text-xs font-medium tracking-wide text-rose-700 uppercase dark:text-rose-200">
@@ -1332,7 +1659,7 @@ export default function TeamsShow({
                             />
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="mt-2">
                         <Button
                             type="button"
                             variant="outline"
@@ -1350,6 +1677,260 @@ export default function TeamsShow({
                             onClick={submitRemoveMembers}
                         >
                             {t('Remove')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={reactivateSessionDialog.open}
+                onOpenChange={(open) =>
+                    !open && closeReactivateSessionDialog()
+                }
+            >
+                <DialogContent
+                    className="w-[96vw] max-w-[900px] xl:max-w-[1100px] max-h-[86vh] overflow-hidden"
+                    aria-describedby={undefined}
+                >
+                    <DialogHeader>
+                        <DialogTitle>
+                            {t('Reactivate session')}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+                            {reactivateSessionDialog.mode === 'fresh'
+                                ? t('This session will be marked active without restoring removed records.')
+                                : t('Restore selected removed members/coaches before activating the session.')}
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                                <Checkbox
+                                    checked={reactivateSessionDialog.mode === 'fresh'}
+                                    onCheckedChange={() =>
+                                        setReactivateSessionDialog((state) => ({
+                                            ...state,
+                                            mode: 'fresh',
+                                        }))
+                                    }
+                                />
+                                <span>{t('Mark as fresh')}</span>
+                            </label>
+                            <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                                <Checkbox
+                                    checked={reactivateSessionDialog.mode === 'restore'}
+                                    onCheckedChange={() =>
+                                        setReactivateSessionDialog((state) => ({
+                                            ...state,
+                                            mode: 'restore',
+                                        }))
+                                    }
+                                />
+                                <span>{t('Restore selected removed members/coaches')}</span>
+                            </label>
+                        </div>
+
+                        {reactivateSessionDialog.mode === 'restore' && (
+                            <>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-sm font-medium">
+                                            {t('Removed members')}
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={selectAllReactivateMembers}
+                                                disabled={
+                                                    reactivateMembersToShow.length === 0
+                                                }
+                                            >
+                                                {t('Select all')}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={deselectAllReactivateMembers}
+                                                disabled={reactivateSessionDialog.memberIds.length === 0}
+                                            >
+                                                {t('Deselect all')}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    {reactivateMembersToShow.length === 0 ? (
+                                        <p className="rounded-lg border border-dashed p-2 text-sm text-muted-foreground">
+                                            {t('No removed members available.')}
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <div className="relative">
+                                                <Input
+                                                    value={reactivateMemberSearch}
+                                                    onChange={(event) =>
+                                                        setReactivateMemberSearch(
+                                                            event.currentTarget.value,
+                                                        )
+                                                    }
+                                                    placeholder={t(
+                                                        'Search removed members by name or PNO',
+                                                    )}
+                                                    className="h-9 pl-8"
+                                                />
+                                                <Search className="pointer-events-none absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
+                                            </div>
+                                            <div className="grid max-h-72 gap-2 overflow-y-auto rounded-lg border bg-muted/40 p-2 sm:grid-cols-2 xl:grid-cols-3">
+                                                {reactivateMembersToShow.map(
+                                                    (row) =>
+                                                        row.member && (
+                                                            <label
+                                                                key={`reactivate-member-${row.member.id}`}
+                                                                className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm"
+                                                            >
+                                                                <Checkbox
+                                                                    checked={reactivateSessionDialog.memberIds.includes(row.member.id)}
+                                                                    onCheckedChange={() =>
+                                                                        toggleRestoreMember(row.member!.id)
+                                                                    }
+                                                                />
+                                                                <div>
+                                                                    <div>
+                                                                        {memberNameWithRank(
+                                                                            row.member,
+                                                                        )}
+                                                                    </div>
+                                                                    {memberEnglishName(
+                                                                        row.member,
+                                                                    ) && (
+                                                                        <div className="mt-0.5 text-xs text-muted-foreground">
+                                                                            {t('English')}
+                                                                            :{' '}
+                                                                            {memberEnglishName(
+                                                                                row.member,
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                    {memberReactivateMeta(row.member)
+                                                                        .length > 0 && (
+                                                                        <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
+                                                                            {memberReactivateMeta(
+                                                                                row.member,
+                                                                            ).map((value) => (
+                                                                                <Badge
+                                                                                    key={value}
+                                                                                    variant="secondary"
+                                                                                    className="h-6 px-2 py-0.5 text-[11px]"
+                                                                                >
+                                                                                    {value}
+                                                                                </Badge>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </label>
+                                                        ),
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-sm font-medium">
+                                            {t('Removed coaches')}
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={selectAllReactivateCoaches}
+                                                disabled={
+                                                    reactivateCoachesToShow.length === 0
+                                                }
+                                            >
+                                                {t('Select all')}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={deselectAllReactivateCoaches}
+                                                disabled={reactivateSessionDialog.coachIds.length === 0}
+                                            >
+                                                {t('Deselect all')}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    {reactivateCoachesToShow.length === 0 ? (
+                                        <p className="rounded-lg border border-dashed p-2 text-sm text-muted-foreground">
+                                            {t('No removed coaches available.')}
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <div className="relative">
+                                                <Input
+                                                    value={reactivateCoachSearch}
+                                                    onChange={(event) =>
+                                                        setReactivateCoachSearch(
+                                                            event.currentTarget.value,
+                                                        )
+                                                    }
+                                                    placeholder={t(
+                                                        'Search removed coaches by name or PNO',
+                                                    )}
+                                                    className="h-9 pl-8"
+                                                />
+                                                <Search className="pointer-events-none absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
+                                            </div>
+                                            <div className="grid max-h-72 gap-2 overflow-y-auto rounded-lg border bg-muted/40 p-2 sm:grid-cols-2 xl:grid-cols-3">
+                                                {reactivateCoachesToShow.map(
+                                                    (row) =>
+                                                        row.coach && (
+                                                            <label
+                                                                key={`reactivate-coach-${row.coach.id}`}
+                                                                className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm"
+                                                            >
+                                                                <Checkbox
+                                                                    checked={reactivateSessionDialog.coachIds.includes(row.coach.id)}
+                                                                    onCheckedChange={() =>
+                                                                        toggleRestoreCoach(
+                                                                            row.coach!.id,
+                                                                        )
+                                                                    }
+                                                                />
+                                                                <span>
+                                                                    {row.coach.full_name}
+                                                                    <span className="ml-2 text-xs text-muted-foreground">
+                                                                        {coachRoleLabel(row.role)}
+                                                                    </span>
+                                                                </span>
+                                                            </label>
+                                                        ),
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={closeReactivateSessionDialog}
+                        >
+                            {t('Cancel')}
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={submitActivateSessionWithSelections}
+                        >
+                            {t('Confirm')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1386,14 +1967,13 @@ export default function TeamsShow({
                                 {t('Closed on')}{' '}
                                 <span className="text-destructive">*</span>
                             </Label>
-                            <Input
+                            <DatePicker
                                 id="close-session-date"
-                                type="date"
                                 value={closeSessionForm.data.closed_on}
-                                onChange={(event) =>
+                                onChange={(value) =>
                                     closeSessionForm.setData(
                                         'closed_on',
-                                        event.target.value,
+                                        value,
                                     )
                                 }
                             />
@@ -1439,6 +2019,25 @@ export default function TeamsShow({
                         </label>
                         <InputError
                             message={closeSessionForm.errors.remove_coaches}
+                        />
+                        <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                            <Checkbox
+                                checked={closeSessionForm.data.preserve_members}
+                                onCheckedChange={(checked) =>
+                                    closeSessionForm.setData(
+                                        'preserve_members',
+                                        Boolean(checked),
+                                    )
+                                }
+                            />
+                            <span>
+                                {t(
+                                    'Keep active players in this session (do not remove them from roster).',
+                                )}
+                            </span>
+                        </label>
+                        <InputError
+                            message={closeSessionForm.errors.preserve_members}
                         />
                         <DialogFooter>
                             <Button
@@ -1669,18 +2268,14 @@ export default function TeamsShow({
                                     </SelectContent>
                                 </Select>
                                 <Badge
-                                    variant={
-                                        team.is_active ? 'default' : 'secondary'
-                                    }
+                                    variant={isSessionActive ? 'default' : 'secondary'}
                                     className={
-                                        team.is_active
+                                        isSessionActive
                                             ? 'bg-emerald-600 text-white'
                                             : ''
                                     }
                                 >
-                                    {team.is_active
-                                        ? t('Active team')
-                                        : t('Inactive')}
+                                    {sessionStatusLabel}
                                 </Badge>
                                 <Button
                                     variant="outline"
@@ -1700,23 +2295,31 @@ export default function TeamsShow({
                                     <Printer className="mr-1.5 h-4 w-4" />
                                     {t('Print')}
                                 </Button>
+                                {hasFutureSession && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCloneOpen(true)}
+                                        title={t('Carry roster forward (⌘⇧D)')}
+                                    >
+                                        <Copy className="mr-1.5 h-4 w-4" />
+                                        {t('Carry forward')}
+                                    </Button>
+                                )}
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setCloneOpen(true)}
-                                    title={t('Carry roster forward (⌘⇧D)')}
-                                >
-                                    <Copy className="mr-1.5 h-4 w-4" />
-                                    {t('Carry forward')}
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={openCloseSessionDialog}
+                                    onClick={
+                                        isSessionActive
+                                            ? openCloseSessionDialog
+                                            : submitActivateSession
+                                    }
                                     disabled={!selectedSessionId}
                                 >
                                     <AlertTriangle className="mr-1.5 h-4 w-4" />
-                                    {t('Mark session inactive')}
+                                    {isSessionActive
+                                        ? t('Mark session inactive')
+                                        : t('Mark session active')}
                                 </Button>
                                 <Button variant="outline" size="sm" asChild>
                                     <Link href={editTeam.url(team)}>
@@ -1825,9 +2428,7 @@ export default function TeamsShow({
                                     <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                                         {detail(
                                             t('Status'),
-                                            team.is_active
-                                                ? t('Active')
-                                                : t('Inactive'),
+                                            sessionStatusLabel,
                                         )}
                                         {detail(
                                             t('In-charge'),
@@ -3008,7 +3609,7 @@ export default function TeamsShow({
                         >
                             <TeamInchargePanel
                                 teamId={team.id}
-                                teamIsActive={team.is_active}
+                                teamIsActive={isSessionActive}
                                 currentAssignment={
                                     team.current_incharge_assignment
                                 }

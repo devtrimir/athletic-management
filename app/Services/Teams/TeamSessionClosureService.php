@@ -32,8 +32,9 @@ class TeamSessionClosureService
         string $source = 'session_closure',
         bool $markSessionInactive = true,
         array $exceptTeamMemberIds = [],
+        bool $removeMembers = true,
     ): array {
-        return DB::transaction(function () use ($team, $sessionId, $closedOn, $reason, $userId, $removeCoaches, $source, $markSessionInactive, $exceptTeamMemberIds): array {
+        return DB::transaction(function () use ($team, $sessionId, $closedOn, $reason, $userId, $removeCoaches, $source, $markSessionInactive, $exceptTeamMemberIds, $removeMembers): array {
             if ($markSessionInactive) {
                 $this->teamSessionStatusManager->ensureInactive($team, $sessionId, $reason);
             } else {
@@ -43,48 +44,50 @@ class TeamSessionClosureService
                 ]);
             }
 
-            $rows = $team->teamMembers()
-                ->where('session_id', $sessionId)
-                ->whereNull('left_on')
-                ->when($exceptTeamMemberIds !== [], fn ($query) => $query->whereNotIn('id', $exceptTeamMemberIds))
-                ->get();
-
-            foreach ($rows as $row) {
-                /** @var TeamMember $row */
-                $row->update(['left_on' => $closedOn]);
-
-                TeamMemberMovement::create([
-                    'team_id' => $team->id,
-                    'member_id' => $row->member_id,
-                    'session_id' => $sessionId,
-                    'team_member_id' => $row->id,
-                    'created_by' => $userId,
-                    'action' => 'REMOVED',
-                    'role' => $row->role,
-                    'effective_on' => $closedOn,
-                    'reason' => $reason,
-                    'source' => $source,
-                ]);
-            }
-
-            $memberIds = $rows->pluck('member_id')->unique()->values();
+            $rows = collect();
             $membersMarkedInactive = 0;
+            if ($removeMembers) {
+                $rows = $team->teamMembers()
+                    ->where('session_id', $sessionId)
+                    ->whereNull('left_on')
+                    ->when($exceptTeamMemberIds !== [], fn ($query) => $query->whereNotIn('id', $exceptTeamMemberIds))
+                    ->get();
 
-            Member::whereIn('id', $memberIds)
-                ->where('current_status', '!=', 'INACTIVE')
-                ->get()
-                ->each(function (Member $member) use ($closedOn, $reason, $userId, &$membersMarkedInactive): void {
-                    MemberStatusHistory::create([
-                        'member_id' => $member->id,
-                        'status' => 'INACTIVE',
+                foreach ($rows as $row) {
+                    /** @var TeamMember $row */
+                    $row->update(['left_on' => $closedOn]);
+
+                    TeamMemberMovement::create([
+                        'team_id' => $team->id,
+                        'member_id' => $row->member_id,
+                        'session_id' => $sessionId,
+                        'team_member_id' => $row->id,
+                        'created_by' => $userId,
+                        'action' => 'REMOVED',
+                        'role' => $row->role,
                         'effective_on' => $closedOn,
                         'reason' => $reason,
-                        'recorded_by' => $userId,
+                        'source' => $source,
                     ]);
+                }
 
-                    $member->update(['current_status' => 'INACTIVE']);
-                    $membersMarkedInactive++;
-                });
+                $memberIds = $rows->pluck('member_id')->unique()->values();
+                Member::whereIn('id', $memberIds)
+                    ->where('current_status', '!=', 'INACTIVE')
+                    ->get()
+                    ->each(function (Member $member) use ($closedOn, $reason, $userId, &$membersMarkedInactive): void {
+                        MemberStatusHistory::create([
+                            'member_id' => $member->id,
+                            'status' => 'INACTIVE',
+                            'effective_on' => $closedOn,
+                            'reason' => $reason,
+                            'recorded_by' => $userId,
+                        ]);
+
+                        $member->update(['current_status' => 'INACTIVE']);
+                        $membersMarkedInactive++;
+                    });
+            }
 
             $coachesRemoved = 0;
 
