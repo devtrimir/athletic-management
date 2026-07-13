@@ -1,11 +1,13 @@
 <?php
 
+use App\Console\Commands\ExternalCoaching\MarkMissingAttendanceCommand;
 use App\Http\Middleware\EnsureExternalCoachIsActive;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RequirePermission;
 use App\Http\Middleware\RequireRole;
 use App\Http\Middleware\SetLocale;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,6 +23,13 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command(MarkMissingAttendanceCommand::class)
+            ->dailyAt('00:00')
+            ->onOneServer()
+            ->withoutOverlapping(60)
+            ->name('external-coaching:mark-missing-attendance');
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 

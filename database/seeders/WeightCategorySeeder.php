@@ -36,6 +36,7 @@ class WeightCategorySeeder extends Seeder
                     ],
                     [
                         'name' => $category['name'],
+                        'name_en' => $category['name_en'] ?? $category['name'],
                         'min_weight' => $category['min'],
                         'max_weight' => $category['max'],
                         'is_active' => true,

@@ -584,14 +584,9 @@ export default function Dashboard({
                                 {
                                     label: t('Active'),
                                     value: stats.teams.active,
-                                    href: TeamController.index.url({
-                                        query: {
-                                            filter: {
-                                                ...teamSessionFilter?.query.filter,
-                                                is_active: true,
-                                            },
-                                        },
-                                    }),
+                                    href: TeamController.index.url(
+                                        teamSessionFilter,
+                                    ),
                                     tone: 'active',
                                 },
                                 {
@@ -601,7 +596,7 @@ export default function Dashboard({
                                         query: {
                                             filter: {
                                                 ...teamSessionFilter?.query.filter,
-                                                is_active: false,
+                                                is_active: '0',
                                             },
                                         },
                                     }),

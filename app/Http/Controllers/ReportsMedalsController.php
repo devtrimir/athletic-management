@@ -84,7 +84,7 @@ class ReportsMedalsController extends Controller
 
         $orgId = (int) $request->user()->organization_id;
 
-        $sports = Sport::select(['id', 'name'])
+        $sports = Sport::select(['id', 'name', 'name_en'])
             ->orderBy('name')
             ->get();
 

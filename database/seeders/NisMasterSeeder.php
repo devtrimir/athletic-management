@@ -39,6 +39,8 @@ class NisMasterSeeder extends Seeder
         ];
 
         foreach ($masters as $master) {
+            $master['name_en'] = $master['name_en'] ?? $master['name'];
+
             NisMaster::updateOrCreate(
                 [
                     'kind' => $master['kind'],

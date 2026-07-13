@@ -184,11 +184,17 @@ class RanksAndDesignationsSeeder extends Seeder
             ],
         ];
 
+        $ranks = array_map(
+            fn (array $rank): array => $rank + ['name_en' => $rank['name_en'] ?? $rank['short_name'] ?? $rank['name']],
+            $ranks,
+        );
+
         DB::table('ranks')->upsert(
             $ranks,
             ['code'],
             [
                 'name',
+                'name_en',
                 'short_name',
                 'rank_order',
                 'cadre_type',
@@ -323,11 +329,17 @@ class RanksAndDesignationsSeeder extends Seeder
             ],
         ];
 
+        $designations = array_map(
+            fn (array $designation): array => $designation + ['name_en' => $designation['name_en'] ?? $designation['short_name'] ?? $designation['name']],
+            $designations,
+        );
+
         DB::table('designations')->upsert(
             $designations,
             ['code'],
             [
                 'name',
+                'name_en',
                 'short_name',
                 'designation_order',
                 'mapped_rank_code',

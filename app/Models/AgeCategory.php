@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'code', 'min_age', 'max_age', 'is_active', 'sort_order'])]
+#[Fillable(['name', 'name_en', 'code', 'min_age', 'max_age', 'is_active', 'sort_order'])]
 class AgeCategory extends Model
 {
     /** @return array<string, string> */

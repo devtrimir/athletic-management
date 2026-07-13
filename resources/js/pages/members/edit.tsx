@@ -36,7 +36,7 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type District = { id: number; name: string };
 type Unit = { id: number; name: string };
-type SportOption = { id: number; name: string };
+type SportOption = { id: number; name: string; name_en?: string | null };
 type PlayableSport = { id: number; name: string };
 type MasterOption = { code: string; name: string; short_name: string | null };
 
@@ -45,6 +45,7 @@ type Member = {
     member_code: string;
     pno: string | null;
     full_name: string;
+    full_name_normalized: string | null;
     father_name: string | null;
     rank: string | null;
     designation: string | null;
@@ -86,6 +87,7 @@ type Member = {
 type FormData = {
     pno: string;
     full_name: string;
+    full_name_normalized: string;
     father_name: string;
     rank: string;
     designation: string;
@@ -174,6 +176,7 @@ export default function MembersEdit({
         useForm<FormData>({
             pno: member.pno ?? '',
             full_name: member.full_name,
+            full_name_normalized: member.full_name_normalized ?? '',
             father_name: member.father_name ?? '',
             rank: member.rank ?? '',
             designation: member.designation ?? '',
@@ -220,6 +223,7 @@ export default function MembersEdit({
 
     const hasPersonalErrors = !!(
         errors.full_name ||
+        errors.full_name_normalized ||
         errors.full_name ||
         errors.father_name ||
         errors.gender ||
@@ -372,12 +376,12 @@ export default function MembersEdit({
                                     className="mt-0 space-y-5"
                                 >
                                     <div className="grid gap-5 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="full_name">
-                                                {t('Name')}{' '}
-                                                <span className="text-destructive">
-                                                    *
-                                                </span>
+                <div className="grid gap-2">
+                    <Label htmlFor="full_name">
+                        {t('Name')}{' '}
+                        <span className="text-destructive">
+                            *
+                        </span>
                                             </Label>
                                             <Input
                                                 id="full_name"
@@ -391,11 +395,31 @@ export default function MembersEdit({
                                                 maxLength={255}
                                                 required
                                             />
-                                            <InputError
-                                                message={errors.full_name}
-                                            />
-                                        </div>
-                                    </div>
+                    <InputError
+                        message={errors.full_name}
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="full_name_normalized">
+                        {t('English name')}
+                    </Label>
+                    <Input
+                        id="full_name_normalized"
+                        value={data.full_name_normalized}
+                        onChange={(e) =>
+                            setData(
+                                'full_name_normalized',
+                                e.target.value,
+                            )
+                        }
+                        maxLength={255}
+                        placeholder={t('Optional')}
+                    />
+                    <InputError
+                        message={errors.full_name_normalized}
+                    />
+                </div>
+            </div>
 
                                     <div className="grid gap-5 sm:grid-cols-3">
                                         <div className="grid gap-2">
@@ -1045,6 +1069,9 @@ export default function MembersEdit({
                                                                         sport.id,
                                                                     ),
                                                                     label: sport.name,
+                                                                    description:
+                                                                        sport.name_en ??
+                                                                        '',
                                                                 }),
                                                             )}
                                                             placeholder={t(

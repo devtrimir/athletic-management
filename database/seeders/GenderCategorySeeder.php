@@ -14,7 +14,10 @@ class GenderCategorySeeder extends Seeder
         foreach (SportMasterDataCatalog::genderCategories() as $category) {
             GenderCategory::updateOrCreate(
                 ['code' => $category['code']],
-                $category + ['is_active' => true],
+                $category + [
+                    'name_en' => $category['name_en'] ?? $category['name'],
+                    'is_active' => true,
+                ],
             );
         }
     }

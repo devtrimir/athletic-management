@@ -9,6 +9,7 @@ use App\Models\Coach;
 use App\Models\Member;
 use App\Models\SportSession;
 use App\Models\Team;
+use App\Models\TeamSessionStatus;
 use App\Models\Tournament;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -99,21 +100,34 @@ class DashboardController extends Controller
         }
 
         if ($canViewTeams) {
-            $teamStatusCounts = Team::query()
-                ->when($selectedSession, fn (Builder $query): Builder => $query->where('session_id', $selectedSession->id))
-                ->selectRaw('is_active, count(*) as cnt')
-                ->groupBy('is_active')
-                ->pluck('cnt', 'is_active')
-                ->toArray();
-            $selectedTeamQuery = $selectedSession
-                ? Team::where('session_id', $selectedSession->id)
-                : Team::query();
+            $selectedSessionId = $selectedSession?->id;
+            if ($selectedSession === null) {
+                $selectedTeamQuery = Team::query();
+                $teamTotal = 0;
+                $teamActive = 0;
+            } else {
+                $selectedTeamQuery = Team::where('session_id', $selectedSession->id);
+                $teamTotal = (clone $selectedTeamQuery)->count();
+                $teamActive = (clone $selectedTeamQuery)->where(function (Builder $query) use ($selectedSessionId): void {
+                    $query
+                        ->whereHas('sessionStatuses', function (Builder $statusQuery) use ($selectedSessionId): void {
+                            $statusQuery
+                                ->where('session_id', $selectedSessionId)
+                                ->where('status', TeamSessionStatus::STATUS_ACTIVE);
+                        })
+                        ->orWhere(function (Builder $legacyQuery) use ($selectedSessionId): void {
+                            $legacyQuery->whereDoesntHave('sessionStatuses', function (Builder $statusQuery) use ($selectedSessionId): void {
+                                $statusQuery->where('session_id', $selectedSessionId);
+                            })->where('is_active', true);
+                        });
+                })->count();
+            }
 
             $stats['teams'] = [
-                'total' => (int) array_sum($teamStatusCounts),
-                'active' => (int) ($teamStatusCounts[1] ?? 0),
-                'inactive' => (int) ($teamStatusCounts[0] ?? 0),
-                'current_session' => $selectedTeamQuery->count(),
+                'total' => (int) $teamTotal,
+                'active' => (int) $teamActive,
+                'inactive' => (int) max(0, $teamTotal - $teamActive),
+                'current_session' => (clone $selectedTeamQuery)->count(),
             ];
         }
 

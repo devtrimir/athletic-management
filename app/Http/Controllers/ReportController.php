@@ -389,7 +389,7 @@ class ReportController extends Controller
                 ->orderByDesc('start_year')
                 ->orderByDesc('id')
                 ->get(),
-            'sports' => Sport::select(['id', 'name'])
+            'sports' => Sport::select(['id', 'name', 'name_en'])
                 ->orderBy('name')
                 ->get(),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en'])

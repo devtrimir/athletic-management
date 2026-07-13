@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'code', 'symbol', 'is_active', 'sort_order'])]
+#[Fillable(['name', 'name_en', 'code', 'symbol', 'is_active', 'sort_order'])]
 class MeasurementUnit extends Model
 {
     /** @return array<string, string> */

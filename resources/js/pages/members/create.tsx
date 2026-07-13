@@ -24,12 +24,13 @@ import { useTranslation } from '@/hooks/use-translation';
 
 type District = { id: number; name: string };
 type Unit = { id: number; name: string };
-type SportOption = { id: number; name: string };
+type SportOption = { id: number; name: string; name_en?: string | null };
 type MasterOption = { code: string; name: string; short_name: string | null };
 
 type FormData = {
     pno: string;
     full_name: string;
+    full_name_normalized: string;
     father_name: string;
     rank: string;
     designation: string;
@@ -90,6 +91,7 @@ export default function MembersCreate({
         useForm<FormData>({
             pno: '',
             full_name: '',
+            full_name_normalized: '',
             father_name: '',
             rank: '',
             designation: '',
@@ -240,6 +242,28 @@ export default function MembersCreate({
                                             />
                                             <InputError
                                                 message={errors.full_name}
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="full_name_normalized">
+                                                {t('English name')}
+                                            </Label>
+                                            <Input
+                                                id="full_name_normalized"
+                                                value={data.full_name_normalized}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'full_name_normalized',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                maxLength={255}
+                                                placeholder={t('Optional')}
+                                            />
+                                            <InputError
+                                                message={
+                                                    errors.full_name_normalized
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -862,7 +886,8 @@ export default function MembersCreate({
                                                         <Label>
                                                             {t('Sport')}
                                                         </Label>
-                                                        <Select
+                                                        <Combobox
+                                                            id={`playable_sport_${index}`}
                                                             value={row.sport_id}
                                                             onValueChange={(
                                                                 v,
@@ -885,34 +910,24 @@ export default function MembersCreate({
                                                                     ),
                                                                 )
                                                             }
-                                                        >
-                                                            <SelectTrigger className="w-full">
-                                                                <SelectValue
-                                                                    placeholder={t(
-                                                                        'Select sport',
-                                                                    )}
-                                                                />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {sports.map(
-                                                                    (s) => (
-                                                                        <SelectItem
-                                                                            key={
-                                                                                s.id
-                                                                            }
-                                                                            value={String(
-                                                                                s.id,
-                                                                            )}
-                                                                        >
-                                                                            {locale ===
-                                                                            'en'
-                                                                                ? s.name
-                                                                                : s.name}
-                                                                        </SelectItem>
+                                                            items={sports.map(
+                                                                (sport) => ({
+                                                                    value: String(
+                                                                        sport.id,
                                                                     ),
-                                                                )}
-                                                            </SelectContent>
-                                                        </Select>
+                                                                    label: sport.name,
+                                                                    description:
+                                                                        sport.name_en ??
+                                                                        '',
+                                                                }),
+                                                            )}
+                                                            placeholder={t(
+                                                                'Select sport',
+                                                            )}
+                                                            searchPlaceholder={t(
+                                                                'Search sports…',
+                                                            )}
+                                                        />
                                                     </div>
                                                     <div className="grid gap-2">
                                                         <Label>

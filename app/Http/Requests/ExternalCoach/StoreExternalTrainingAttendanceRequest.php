@@ -46,7 +46,7 @@ class StoreExternalTrainingAttendanceRequest extends FormRequest
     {
         return [
             'external_coaching_assignment_id' => ['required', 'integer'],
-            'attendance_date' => ['required', 'date'],
+            'attendance_date' => ['required', 'date', 'date_equals:'.now()->toDateString()],
             'attendance_status' => ['required', 'string', Rule::in(['present', 'absent', 'late', 'excused'])],
             'coach_remarks' => ['nullable', 'string', 'max:2000'],
             'submitted_latitude' => ['nullable', 'numeric', 'between:-90,90'],

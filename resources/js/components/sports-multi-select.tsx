@@ -19,7 +19,7 @@ import {
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
-type SportOption = { id: number; name: string };
+type SportOption = { id: number; name: string; name_en?: string | null };
 
 type Props = {
     value: string[];
@@ -121,11 +121,14 @@ export function SportsMultiSelect({
                                 const sportId = String(sport.id);
                                 const selected =
                                     draftValue.includes(sportId);
+                                const searchable = [sport.name, sport.name_en]
+                                    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+                                    .join(' ');
 
                                 return (
                                     <CommandItem
                                         key={sport.id}
-                                        value={sportLabel(sport)}
+                                        value={searchable}
                                         onSelect={() => toggleSport(sportId)}
                                     >
                                         <CheckIcon

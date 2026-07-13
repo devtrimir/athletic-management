@@ -34,6 +34,7 @@ const CATEGORY_VARIANTS: Record<string, string> = {
 type Sport = {
     id: number;
     name: string;
+    name_en: string | null;
     code: string | null;
     category: string;
     slug: string;
@@ -58,6 +59,7 @@ export default function Index({ sports }: { sports: Sport[] }) {
             const matchesQuery =
                 !q ||
                 s.name.toLowerCase().includes(q) ||
+                (s.name_en ?? '').toLowerCase().includes(q) ||
                 s.slug.toLowerCase().includes(q) ||
                 (s.code?.toLowerCase().includes(q) ?? false) ||
                 (s.description?.toLowerCase().includes(q) ?? false);

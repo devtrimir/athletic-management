@@ -46,7 +46,7 @@ class StoreExternalCoachPerformanceUpdateRequest extends FormRequest
     {
         return [
             'external_coaching_assignment_id' => ['required', 'integer'],
-            'update_date' => ['required', 'date'],
+            'update_date' => ['required', 'date', 'date_equals:'.now()->toDateString()],
             'performance_level' => ['nullable', 'string', Rule::in(['improving', 'stable', 'needs_attention', 'excellent'])],
             'performance_score' => ['nullable', 'integer', 'min:1', 'max:10'],
             'training_summary' => ['required', 'string', 'max:3000'],

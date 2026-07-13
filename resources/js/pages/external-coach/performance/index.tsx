@@ -221,21 +221,10 @@ export default function ExternalCoachPerformanceIndex({
                                                 id="update_date"
                                                 value={updateDate}
                                                 onChange={setUpdateDate}
+                                                disabled
                                                 placeholder={t('Select date')}
                                                 className="min-w-0 flex-1"
                                             />
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() =>
-                                                    setUpdateDate(
-                                                        todayIsoDate(),
-                                                    )
-                                                }
-                                                className="w-full"
-                                            >
-                                                {t('Today')}
-                                            </Button>
                                         </div>
                                         <InputError
                                             message={errors.update_date}

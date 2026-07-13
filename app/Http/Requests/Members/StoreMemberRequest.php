@@ -25,6 +25,7 @@ class StoreMemberRequest extends FormRequest
         return [
             'pno' => ['nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId)],
             'full_name' => ['required', 'string', 'max:255'],
+            'full_name_normalized' => ['nullable', 'string', 'max:255'],
             'father_name' => ['nullable', 'string', 'max:255'],
             'rank' => ['nullable', 'string', 'max:100'],
             'designation' => ['nullable', 'string', 'max:100'],

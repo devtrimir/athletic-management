@@ -141,6 +141,16 @@ test('external coach cannot submit performance for another coach assignment or i
         ->assertSessionHasErrors(['update_date']);
 });
 
+test('external coach performance updates can only be submitted for today', function (): void {
+    $fixture = performanceUpdateFixture();
+
+    $this->actingAs($fixture['coach'], 'external_coach')
+        ->post(route('external-coach.performance.store'), performanceUpdatePayload($fixture['assignment'], [
+            'update_date' => today()->subDay()->toDateString(),
+        ]))
+        ->assertSessionHasErrors(['update_date']);
+});
+
 test('admin can review performance update and review actions require remarks when needed', function (): void {
     $admin = rcUser('external-coach-performance-updates.view', 'external-coach-performance-updates.review');
     $member = Member::factory()->create(['organization_id' => $admin->organization_id]);

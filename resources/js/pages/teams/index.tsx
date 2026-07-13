@@ -191,6 +191,7 @@ export default function TeamsIndex({
                 q: query || undefined,
                 pno: pnoQuery || undefined,
                 session_id: filters.session_id,
+                is_active: filters.is_active,
                 sport_id: filters.sport_id,
                 district_id: filters.district_id,
                 unit_id: filters.unit_id,
@@ -228,7 +229,7 @@ export default function TeamsIndex({
                 clean['filter[location_type]'] = merged.location_type;
             }
 
-            if (merged.is_active) {
+            if (merged.is_active !== undefined) {
                 clean['filter[is_active]'] = merged.is_active;
             }
 
@@ -245,6 +246,7 @@ export default function TeamsIndex({
             filters.district_id,
             filters.unit_id,
             filters.location_type,
+            filters.is_active,
         ],
     );
 
@@ -691,8 +693,6 @@ export default function TeamsIndex({
         setPrintAllTeams(false);
     }
 
-    const teamActiveTab = filters.is_active === '0' ? 'inactive' : 'active';
-
     const hasActiveFilters = !!(
         filters.is_active ||
         filters.q ||
@@ -702,6 +702,7 @@ export default function TeamsIndex({
         filters.unit_id ||
         filters.location_type
     );
+    const teamActiveTab = filters.is_active === '0' ? 'inactive' : 'active';
     const sessionItems = sessions.map((session) => ({
         value: String(session.id),
         label: session.name,
@@ -737,7 +738,7 @@ export default function TeamsIndex({
         <>
             <Head title={t('Teams')} />
 
-            <div className="space-y-4">
+                <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
                     <Heading
                         variant="small"
@@ -997,9 +998,6 @@ export default function TeamsIndex({
                                     <TableHead className="border-r border-b px-3 py-2 font-semibold">
                                         {t('Team')}
                                     </TableHead>
-                                    <TableHead className="w-28 border-r border-b px-3 py-2 font-semibold">
-                                        {t('Status')}
-                                    </TableHead>
                                     <TableHead className="border-r border-b px-3 py-2 font-semibold">
                                         {t('Location')}
                                     </TableHead>
@@ -1021,7 +1019,7 @@ export default function TeamsIndex({
                                 {teams.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={9}
+                                            colSpan={8}
                                             className="py-12 text-center text-muted-foreground"
                                         >
                                             {hasActiveFilters
@@ -1073,24 +1071,6 @@ export default function TeamsIndex({
                                                             {team.name}
                                                         </div>
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                    <Badge
-                                                        variant="secondary"
-                                                        className={
-                                                            team.session_status ===
-                                                            'active'
-                                                                ? 'border border-emerald-300 bg-emerald-100/80 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200'
-                                                                : team.session_status ===
-                                                                    'carried_forward'
-                                                                  ? 'border border-sky-300 bg-sky-100/80 text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200'
-                                                                  : 'border border-amber-300 bg-amber-100/80 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200'
-                                                        }
-                                                    >
-                                                        {t(
-                                                            team.session_status_label,
-                                                        )}
-                                                    </Badge>
                                                 </TableCell>
                                                 <TableCell className="border-r border-b px-3 py-2 align-top">
                                                     <div className="min-w-44 space-y-1.5">

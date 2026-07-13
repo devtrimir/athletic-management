@@ -506,6 +506,7 @@ export default function CoachesIndex({
         [coaches.data, sports, t],
     );
     const activeStatusScope = filters.status_scope ?? 'active';
+    const isInactiveTab = activeStatusScope === 'inactive';
     function assignmentFilterFromStatus(
         statusScope: Filters['status_scope'],
     ): string {
@@ -1159,35 +1160,138 @@ export default function CoachesIndex({
                                     <TableHead className="w-[72px] px-2 text-center">
                                         {t('S.No.')}
                                     </TableHead>
-                                    <TableHead className="w-[140px]">
-                                        {t('Sport')}
-                                    </TableHead>
-                                    <TableHead className="w-[180px]">
-                                        {t('Team')}
-                                    </TableHead>
-                                    <TableHead>
-                                        <div className="space-y-1">
-                                            <div>{t('Coaches in team')}</div>
-                                            <div
-                                                className={[
-                                                    'grid gap-2 text-[11px] font-medium text-muted-foreground',
-                                                    'grid-cols-[0.12fr_0.26fr_0.16fr_0.12fr_0.10fr_0.12fr_0.12fr]',
-                                                ].join(' ')}
-                                            >
-                                                <span>{t('Rank')}</span>
-                                                <span>{t('Name')}</span>
-                                                <span>{t('PNO')}</span>
-                                                <span>{t('Mobile')}</span>
-                                                <span>{t('Role')}</span>
-                                                <span>{t('Posting')}</span>
-                                                <span>{t('NIS Certified')}</span>
+                                    {isInactiveTab ? null : (
+                                        <TableHead className="w-[140px]">
+                                            {t('Sport')}
+                                        </TableHead>
+                                    )}
+                                    {isInactiveTab ? null : (
+                                        <TableHead className="w-[180px]">
+                                            {t('Team')}
+                                        </TableHead>
+                                    )}
+                                    {isInactiveTab ? (
+                                        <>
+                                            <TableHead className="w-[120px]">
+                                                {t('Rank')}
+                                            </TableHead>
+                                            <TableHead>
+                                                {t('Name')}
+                                            </TableHead>
+                                            <TableHead className="w-[120px]">
+                                                {t('PNO')}
+                                            </TableHead>
+                                            <TableHead className="w-[130px]">
+                                                {t('Mobile')}
+                                            </TableHead>
+                                            <TableHead className="w-[120px]">
+                                                {t('Posting')}
+                                            </TableHead>
+                                            <TableHead className="w-[120px]">
+                                                {t('NIS Certified')}
+                                            </TableHead>
+                                        </>
+                                    ) : (
+                                        <TableHead>
+                                            <div className="space-y-1">
+                                                <div>{t('Coaches in team')}</div>
+                                                <div
+                                                    className={[
+                                                        'grid gap-2 text-[11px] font-medium text-muted-foreground',
+                                                        'grid-cols-[0.12fr_0.26fr_0.16fr_0.12fr_0.10fr_0.12fr_0.12fr]',
+                                                    ].join(' ')}
+                                                >
+                                                    <span>{t('Rank')}</span>
+                                                    <span>{t('Name')}</span>
+                                                    <span>{t('PNO')}</span>
+                                                    <span>{t('Mobile')}</span>
+                                                    <span>{t('Role')}</span>
+                                                    <span>{t('Posting')}</span>
+                                                    <span>{t('NIS Certified')}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </TableHead>
+                                        </TableHead>
+                                    )}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {teamSportRows.length === 0 ? (
+                                {isInactiveTab ? (
+                                    coaches.data.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={8}
+                                                className="py-12 text-center text-muted-foreground"
+                                            >
+                                                {hasActiveFilters
+                                                    ? t('No coaches match your filters.')
+                                                    : t('No coaches yet.')}
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        coaches.data.map((coach, index) => {
+                                            const serialNumber =
+                                                (coaches.from ?? 1) + index;
+
+                                            return (
+                                                <TableRow key={coach.id}>
+                                                    <TableCell className="px-2 text-center text-sm font-semibold text-muted-foreground tabular-nums">
+                                                        {serialNumber}
+                                                    </TableCell>
+                                                    <TableCell className="py-2 text-xs">
+                                                        {coach.rank_master
+                                                            ?.name ??
+                                                            coach.rank_master?.short_name ??
+                                                            '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">
+                                                        <Link
+                                                            href={CoachController.show.url(
+                                                                coach.id,
+                                                            )}
+                                                            className="text-primary hover:underline"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            {coach.full_name}
+                                                        </Link>
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">
+                                                        {coach.pno ? (
+                                                            <Link
+                                                                href={CoachController.show.url(
+                                                                    coach.id,
+                                                                )}
+                                                                className="text-primary hover:underline"
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                            >
+                                                                {coach.pno}
+                                                            </Link>
+                                                        ) : (
+                                                            '-'
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">
+                                                        {coach.mobile ?? '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">
+                                                        {[
+                                                            coach.unit?.name,
+                                                            coach.district?.name,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' - ') || '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">
+                                                        {coach.nis_certified
+                                                            ? t('Yes')
+                                                            : t('No')}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
+                                    )
+                                ) : teamSportRows.length === 0 ? (
                                     <TableRow>
                                         <TableCell
                                             colSpan={4}

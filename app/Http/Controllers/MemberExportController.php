@@ -117,6 +117,7 @@ class MemberExportController extends Controller
                     AllowedFilter::callback('q', function ($query, string $value): void {
                         $query->where(function ($q) use ($value): void {
                             $q->where('full_name', 'LIKE', "%{$value}%")
+                                ->orWhere('full_name_normalized', 'LIKE', "%{$value}%")
                                 ->orWhere('pno', 'LIKE', "%{$value}%");
                         });
                     }),

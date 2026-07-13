@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
     'kind',
     'code',
     'name',
+    'name_en',
     'short_name',
     'sort_order',
     'is_active',

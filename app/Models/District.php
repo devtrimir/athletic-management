@@ -19,7 +19,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-#[Fillable(['name', 'state', 'code'])]
+#[Fillable(['name', 'name_en', 'state', 'code'])]
 #[ObservedBy([AuditObserver::class])]
 class District extends Model
 {

@@ -14,7 +14,10 @@ class ParticipationFormatSeeder extends Seeder
         foreach (SportMasterDataCatalog::participationFormats() as $format) {
             ParticipationFormat::updateOrCreate(
                 ['code' => $format['code']],
-                $format + ['is_active' => true],
+                $format + [
+                    'name_en' => $format['name_en'] ?? $format['name'],
+                    'is_active' => true,
+                ],
             );
         }
     }

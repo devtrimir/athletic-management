@@ -14,7 +14,10 @@ class ResultTypeSeeder extends Seeder
         foreach (SportMasterDataCatalog::resultTypes() as $type) {
             ResultType::updateOrCreate(
                 ['code' => $type['code']],
-                $type + ['is_active' => true],
+                $type + [
+                    'name_en' => $type['name_en'] ?? $type['name'],
+                    'is_active' => true,
+                ],
             );
         }
     }

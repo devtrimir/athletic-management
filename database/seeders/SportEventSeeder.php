@@ -31,6 +31,7 @@ class SportEventSeeder extends Seeder
                     ],
                     [
                         'name' => $event['name'],
+                        'name_en' => $event['name_en'] ?? $event['name'],
                         'discipline_type' => $event['discipline_type'],
                         'is_active' => true,
                         'sort_order' => ($index + 1) * 10,

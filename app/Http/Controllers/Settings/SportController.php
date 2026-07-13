@@ -171,13 +171,14 @@ class SportController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, code: string|null, category: string, slug: string, description: string|null, is_active: bool, sort_order: int, sport_events_count: int, event_variants_count: int}
+     * @return array{id: int, name: string, name_en: string|null, code: string|null, category: string, slug: string, description: string|null, is_active: bool, sort_order: int, sport_events_count: int, event_variants_count: int}
      */
     private function sportIndexData(Sport $sport): array
     {
         return [
             'id' => $sport->id,
             'name' => $sport->name,
+            'name_en' => $sport->name_en,
             'code' => $sport->code,
             'category' => $sport->category,
             'slug' => $sport->slug,
@@ -190,13 +191,14 @@ class SportController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, code: string|null, category: string, sport_events_count: int, event_variants_count: int}
+     * @return array{id: int, name: string, name_en: string|null, code: string|null, category: string, sport_events_count: int, event_variants_count: int}
      */
     private function sportSwitcherData(Sport $sport): array
     {
         return [
             'id' => $sport->id,
             'name' => $sport->name,
+            'name_en' => $sport->name_en,
             'code' => $sport->code,
             'category' => $sport->category,
             'sport_events_count' => (int) ($sport->sport_events_count ?? 0),

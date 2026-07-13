@@ -14,7 +14,10 @@ class MeasurementUnitSeeder extends Seeder
         foreach (SportMasterDataCatalog::measurementUnits() as $unit) {
             MeasurementUnit::updateOrCreate(
                 ['code' => $unit['code']],
-                $unit + ['is_active' => true],
+                $unit + [
+                    'name_en' => $unit['name_en'] ?? $unit['name'],
+                    'is_active' => true,
+                ],
             );
         }
     }
