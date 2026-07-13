@@ -54,8 +54,9 @@ class MemberExportController extends Controller
             $parts = array_filter([
                 $sport->name,
                 $sport->pivot?->role,
-                $sport->pivot?->position,
                 $sport->pivot?->sport_event,
+                $sport->pivot?->weight,
+                $sport->pivot?->position,
                 $sport->pivot?->notes,
             ]);
 

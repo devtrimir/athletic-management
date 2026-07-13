@@ -71,6 +71,8 @@ class MemberPreviewController extends Controller
                 'name' => $sport->name,
                 'role' => $sport->pivot?->role,
                 'position' => $sport->pivot?->position,
+                'sport_event' => $sport->pivot?->sport_event,
+                'weight' => $sport->pivot?->weight,
                 'notes' => $sport->pivot?->notes,
             ])->values(),
             'status_history' => $member->statusHistory->map(fn ($h) => [
@@ -79,6 +81,7 @@ class MemberPreviewController extends Controller
                 'reason' => $h->reason,
             ]),
             'team_history' => $teamHistory,
+            'achievements' => [],
         ]);
     }
 }

@@ -122,6 +122,8 @@ type Member = {
         name: string;
         role?: string | null;
         position?: string | null;
+        sport_event?: string | null;
+        weight?: string | null;
         notes?: string | null;
     }[];
     other_notes: string | null;
@@ -2106,6 +2108,34 @@ export default function MembersShow({
                                                                     <div>
                                                                         {
                                                                             sport.position
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {sport.sport_event && (
+                                                                <div className="space-y-0.5">
+                                                                    <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                                        {t(
+                                                                            'Sport event',
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        {
+                                                                            sport.sport_event
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {sport.weight && (
+                                                                <div className="space-y-0.5">
+                                                                    <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                                                        {t(
+                                                                            'Weight',
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        {
+                                                                            sport.weight
                                                                         }
                                                                     </div>
                                                                 </div>

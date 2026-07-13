@@ -42,6 +42,8 @@ type Member = {
         name: string;
         role?: string | null;
         position?: string | null;
+        sport_event?: string | null;
+        weight?: string | null;
         notes?: string | null;
     }[];
     other_notes: string | null;
@@ -1688,6 +1690,30 @@ export default function PrintPreview({
                                                     )}
                                                     {hasAnyPrintableValue(
                                                         member.playable_sports,
+                                                        (sport) =>
+                                                            sport.sport_event,
+                                                    ) && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Sport event',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {hasAnyPrintableValue(
+                                                        member.playable_sports,
+                                                        (sport) =>
+                                                            sport.weight,
+                                                    ) && (
+                                                        <th className="p-2">
+                                                            {uiText(
+                                                                'Weight',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                    )}
+                                                    {hasAnyPrintableValue(
+                                                        member.playable_sports,
                                                         (sport) => sport.notes,
                                                     ) && (
                                                         <th className="p-2">
@@ -1729,6 +1755,28 @@ export default function PrintPreview({
                                                                 <td className="p-2 print:py-1">
                                                                     {
                                                                         sport.position
+                                                                    }
+                                                                </td>
+                                                            )}
+                                                            {hasAnyPrintableValue(
+                                                                member.playable_sports,
+                                                                (item) =>
+                                                                    item.sport_event,
+                                                            ) && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {
+                                                                        sport.sport_event
+                                                                    }
+                                                                </td>
+                                                            )}
+                                                            {hasAnyPrintableValue(
+                                                                member.playable_sports,
+                                                                (item) =>
+                                                                    item.weight,
+                                                            ) && (
+                                                                <td className="p-2 print:py-1">
+                                                                    {
+                                                                        sport.weight
                                                                     }
                                                                 </td>
                                                             )}

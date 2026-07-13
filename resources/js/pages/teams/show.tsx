@@ -162,6 +162,7 @@ type TeamMemberRow = {
             sport_event: string | null;
             role: string | null;
             position: string | null;
+            weight: string | null;
         } | null;
         current_unit: {
             id: number;
@@ -1198,17 +1199,39 @@ export default function TeamsShow({
             : null;
     }
 
+    function memberProfileSummary(
+        member: TeamMemberRow['member'] | null,
+    ): string {
+        const profile = member?.playable_profile;
+        return [
+            profile?.sport_event,
+            profile?.weight,
+            profile?.position,
+        ]
+            .map((value) =>
+                value === null || value === undefined
+                    ? null
+                    : String(value).trim(),
+            )
+            .filter((value): value is string =>
+                typeof value === 'string' && value.length > 0,
+            )
+            .join(' / ') || '—';
+    }
+
     function memberReactivateMeta(member: TeamMemberRow['member'] | null): string[] {
-        const weight = (member as { weight?: string | null } | null)?.weight;
+        const profile = member?.playable_profile;
 
         return [
-            member?.playable_profile?.sport_event
-                ? `Event: ${member.playable_profile.sport_event}`
+            profile?.sport_event
+                ? `Event: ${profile.sport_event}`
                 : null,
-            member?.playable_profile?.position
-                ? `Pos: ${member.playable_profile.position}`
+            profile?.weight
+                ? `Weight: ${profile.weight}`
                 : null,
-            weight ? `Weight: ${weight}` : null,
+            profile?.position
+                ? `Pos: ${profile.position}`
+                : null,
         ].filter((item): item is string => item !== null);
     }
 
@@ -1374,10 +1397,44 @@ export default function TeamsShow({
 
         return true;
     });
+    const filteredRemovedMembers = (removedMembers ?? []).filter((r) => {
+        if (
+            memberSessionFilter &&
+            String(r.session?.id) !== memberSessionFilter
+        ) {
+            return false;
+        }
+
+        if (memberRoleFilter && r.role !== memberRoleFilter) {
+            return false;
+        }
+
+        if (memberSearch) {
+            const q = memberSearch.toLowerCase();
+            const nameMatch = r.member?.full_name?.toLowerCase().includes(q);
+            const englishMatch = r.member?.full_name_normalized
+                ?.toLowerCase()
+                .includes(q);
+            const pnoMatch = r.member?.pno?.toLowerCase().includes(q);
+
+            if (!nameMatch && !englishMatch && !pnoMatch) {
+                return false;
+            }
+        }
+
+        return true;
+    });
     const showLeftOnColumn = filteredMembers.some(
         (row) => leftDateForMemberRow(row).trim() !== '',
     );
-    const memberTableColumnCount = showLeftOnColumn ? 12 : 11;
+    const shouldShowProfileColumnForMembers = true;
+    const memberTableColumnCount =
+        (showLeftOnColumn ? 11 : 10) +
+        Number(shouldShowProfileColumnForMembers);
+    const shouldShowProfileColumnForRemovedMembers = true;
+    const removedProfileColumnsCount =
+        Number(shouldShowProfileColumnForRemovedMembers);
+    const removedMembersTableColumnCount = 7 + removedProfileColumnsCount;
 
     const filteredCoaches = (coaches ?? []).filter((r) => {
         if (
@@ -2661,9 +2718,11 @@ export default function TeamsShow({
                                                     <TableHead>
                                                         {t('Role')}
                                                     </TableHead>
-                                                    <TableHead className="min-w-44">
-                                                        {t('Event / Weight')}
-                                                    </TableHead>
+                                                    {shouldShowProfileColumnForMembers ? (
+                                                        <TableHead className="min-w-56">
+                                                            {t('Event / Weight / Position')}
+                                                        </TableHead>
+                                                    ) : null}
                                                     <TableHead className="hidden lg:table-cell">
                                                         {t('Posting')}
                                                     </TableHead>
@@ -2712,21 +2771,6 @@ export default function TeamsShow({
                                                                             .id,
                                                                     )
                                                                 );
-                                                            const playableProfile =
-                                                                row.member
-                                                                    ?.playable_profile;
-                                                            const playableProfileMeta =
-                                                                [
-                                                                    playableProfile?.role
-                                                                        ? `${t('Role')}: ${playableProfile.role}`
-                                                                        : null,
-                                                                    playableProfile?.position
-                                                                        ? `${t('Position')}: ${playableProfile.position}`
-                                                                        : null,
-                                                                ].filter(
-                                                                    Boolean,
-                                                                );
-
                                                             return (
                                                                 <TableRow
                                                                     key={row.id}
@@ -2841,31 +2885,15 @@ export default function TeamsShow({
                                                                                 : ''}
                                                                         </span>
                                                                     </TableCell>
-                                                                    <TableCell className="min-w-44">
-                                                                        {playableProfile ? (
-                                                                            <div className="space-y-0.5">
-                                                                                {playableProfile.sport_event ? (
-                                                                                    <div className="text-sm font-medium">
-                                                                                        {
-                                                                                            playableProfile.sport_event
-                                                                                        }
-                                                                                    </div>
-                                                                                ) : null}
-                                                                                {playableProfileMeta.length >
-                                                                                0 ? (
-                                                                                    <div className="text-xs text-muted-foreground">
-                                                                                        {playableProfileMeta.join(
-                                                                                            ' · ',
-                                                                                        )}
-                                                                                    </div>
-                                                                                ) : null}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <span className="text-sm text-muted-foreground">
-                                                                                —
-                                                                            </span>
+                                                            {shouldShowProfileColumnForMembers ? (
+                                                                <TableCell className="min-w-56">
+                                                                    <span className="text-sm text-muted-foreground">
+                                                                        {memberProfileSummary(
+                                                                            row.member,
                                                                         )}
-                                                                    </TableCell>
+                                                                    </span>
+                                                                </TableCell>
+                                                            ) : null}
                                                                     <TableCell className="hidden lg:table-cell">
                                                                         <div className="text-sm">
                                                                             {row
@@ -3009,6 +3037,11 @@ export default function TeamsShow({
                                                     <TableHead className="hidden md:table-cell">
                                                         {t('Role')}
                                                     </TableHead>
+                                                    {shouldShowProfileColumnForRemovedMembers ? (
+                                                        <TableHead className="min-w-56">
+                                                            {t('Event / Weight / Position')}
+                                                        </TableHead>
+                                                    ) : null}
                                                     <TableHead className="hidden lg:table-cell">
                                                         {t('Posting')}
                                                     </TableHead>
@@ -3024,11 +3057,12 @@ export default function TeamsShow({
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {(removedMembers ?? [])
+                                                {(filteredRemovedMembers ??
+                                                    [])
                                                     .length === 0 ? (
                                                     <TableRow>
                                                         <TableCell
-                                                            colSpan={8}
+                                                            colSpan={removedMembersTableColumnCount}
                                                             className="text-center text-muted-foreground"
                                                         >
                                                             {t(
@@ -3037,11 +3071,12 @@ export default function TeamsShow({
                                                         </TableCell>
                                                     </TableRow>
                                                 ) : (
-                                                    (removedMembers ?? []).map(
-                                                        (row) => (
-                                                            <TableRow
-                                                                key={row.id}
-                                                            >
+                                                    filteredRemovedMembers.map(
+                                                        (row) => {
+                                                            return (
+                                                                <TableRow
+                                                                    key={row.id}
+                                                                >
                                                                 <TableCell className="font-medium">
                                                                     {memberNameWithRank(
                                                                         row.member,
@@ -3059,6 +3094,15 @@ export default function TeamsShow({
                                                                           )
                                                                         : ''}
                                                                 </TableCell>
+                                                                {shouldShowProfileColumnForRemovedMembers ? (
+                                                                    <TableCell className="min-w-56">
+                                                                        <span className="text-sm text-muted-foreground">
+                                                                            {memberProfileSummary(
+                                                                                row.member,
+                                                                            )}
+                                                                        </span>
+                                                                    </TableCell>
+                                                                ) : null}
                                                                 <TableCell className="hidden lg:table-cell">
                                                                     {row.member
                                                                         ?.current_unit
@@ -3079,7 +3123,8 @@ export default function TeamsShow({
                                                                         ''}
                                                                 </TableCell>
                                                             </TableRow>
-                                                        ),
+                                                            );
+                                                        },
                                                     )
                                                 )}
                                             </TableBody>

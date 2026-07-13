@@ -110,6 +110,7 @@ class MemberController extends Controller
                     'role' => $sport->pivot?->role,
                     'position' => $sport->pivot?->position,
                     'sport_event' => $sport->pivot?->sport_event,
+                    'weight' => $sport->pivot?->weight,
                     'notes' => $sport->pivot?->notes,
                 ])->values()->all(),
             ]);
@@ -269,7 +270,7 @@ class MemberController extends Controller
         Gate::authorize('update', $member);
 
         $data = $request->validated();
-        $beforePlayableSports = $member->playableSports()->withPivot(['role', 'position', 'sport_event', 'notes'])->get();
+        $beforePlayableSports = $member->playableSports()->withPivot(['role', 'position', 'sport_event', 'weight', 'notes'])->get();
         $playableSports = $this->playableSportsPayload($data);
         $playableSports = $this->applySportEventFallback($data, $playableSports);
         $shouldSyncPlayableSports = array_key_exists('playable_sports', $data);
@@ -299,7 +300,7 @@ class MemberController extends Controller
 
     /**
      * @param  array<string, mixed>  $data
-     * @return array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, notes: string|null}>
+     * @return array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, weight: string|null, notes: string|null}>
      */
     private function playableSportsPayload(array $data): array
     {
@@ -310,6 +311,7 @@ class MemberController extends Controller
                 'role' => filled($item['role'] ?? null) ? (string) $item['role'] : null,
                 'position' => filled($item['position'] ?? null) ? (string) $item['position'] : null,
                 'sport_event' => filled($item['sport_event'] ?? null) ? (string) $item['sport_event'] : null,
+                'weight' => filled($item['weight'] ?? null) ? (string) $item['weight'] : null,
                 'notes' => filled($item['notes'] ?? null) ? (string) $item['notes'] : null,
             ])
             ->unique(fn (array $item): int => $item['sport_id'])
@@ -319,8 +321,8 @@ class MemberController extends Controller
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, notes: string|null}>  $playableSports
-     * @return array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, notes: string|null}>
+     * @param  array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, weight: string|null, notes: string|null}>  $playableSports
+     * @return array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, weight: string|null, notes: string|null}>
      */
     private function applySportEventFallback(array $data, array $playableSports): array
     {
@@ -347,7 +349,7 @@ class MemberController extends Controller
 
     /**
      * @param  array<int, Sport>|array<int, array<string, mixed>>  $beforeSports
-     * @param  array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, notes: string|null}>  $afterSports
+     * @param  array<int, array{sport_id: int, role: string|null, position: string|null, sport_event: string|null, weight: string|null, notes: string|null}>  $afterSports
      */
     private function syncPlayableSports(Member $member, mixed $beforeSports, array $afterSports): void
     {
@@ -360,6 +362,7 @@ class MemberController extends Controller
                 'role' => $item['role'],
                 'position' => $item['position'],
                 'sport_event' => $item['sport_event'],
+                'weight' => $item['weight'],
                 'notes' => $item['notes'],
             ];
         }

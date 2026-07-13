@@ -52,6 +52,7 @@ type TeamMemberRow = {
         mobile: string | null;
         playable_profile: {
             sport_event: string | null;
+            weight: string | null;
             role: string | null;
             position: string | null;
         } | null;
@@ -164,14 +165,18 @@ export default function TeamsPrint({
     const isSankhyatmakPrint =
         reportParam?.trim().toLowerCase() === 'sankhyatmak';
 
-    const isGDPlayer = (member: TeamMemberRow) =>
-        (member.member?.player_category ?? '').toUpperCase() === 'GD';
-    const isSportQuotaPlayer = (member: TeamMemberRow) => {
-        const category = (member.member?.player_category ?? '')
+    const playerCategory = (member: TeamMemberRow): string =>
+        (member.member?.player_category ?? '')
             .toUpperCase()
-            .trim();
+            .trim()
+            .replace(/[\s-]+/g, '_');
 
-        return category !== '' && category !== 'GD';
+    const isGDPlayer = (member: TeamMemberRow) => playerCategory(member) === 'GD';
+
+    const isSportQuotaPlayer = (member: TeamMemberRow) => {
+        const category = playerCategory(member);
+
+        return category === 'SPORTS_QUOTA' || category === 'SKILLED';
     };
 
     const cleanText = (value: string | null | undefined): string =>
@@ -247,13 +252,11 @@ export default function TeamsPrint({
     const memberRank = (member: TeamMemberRow): string =>
         cleanText(member.member?.rank);
 
-    const eventProfileText = (member: TeamMemberRow): string => {
+    const eventProfileParts = (member: TeamMemberRow): string[] => {
         const profile = member.member?.playable_profile;
-        const fields = [profile?.sport_event, profile?.position, profile?.role]
+        return [profile?.sport_event, profile?.weight, profile?.position]
             .map(cleanText)
             .filter(Boolean);
-
-        return fields.join(' / ');
     };
 
     const renderMemberRows = (
@@ -269,17 +272,17 @@ export default function TeamsPrint({
                     .join(' / ');
 
                 return `<tr>
-                        <td>${index + 1}</td>
-                        <td>${escapeHtml(eventProfileText(member))}</td>
-                        <td>${escapeHtml(memberRank(member))}</td>
-                        <td>${escapeHtml(player?.pno)}</td>
-                        <td>${escapeHtml(name)}</td>
-                        <td>${escapeHtml(cleanText(member.role))}</td>
-                        <td>${escapeHtml(posting || '')}</td>
-                        <td>${escapeHtml(normalizeDate(member.joined_on))}</td>
-                        ${showLeftOnColumn ? `<td>${escapeHtml(formatLeftDate(member))}</td>` : ''}
-                        <td>${escapeHtml(player?.mobile)}</td>
-                        <td>${escapeHtml(normalizeTag(player?.player_category))}</td>
+                        <td class="num">${index + 1}</td>
+                        <td class="event-col">${eventProfileParts(member).map(escapeHtml).join('<br>')}</td>
+                        <td class="compact-col">${escapeHtml(memberRank(member))}</td>
+                        <td class="compact-col">${escapeHtml(player?.pno)}</td>
+                        <td class="name-col">${escapeHtml(name)}</td>
+                        <td class="compact-col">${escapeHtml(cleanText(member.role))}</td>
+                        <td class="posting-col">${escapeHtml(posting || '')}</td>
+                        <td class="compact-col">${escapeHtml(normalizeDate(member.joined_on))}</td>
+                        ${showLeftOnColumn ? `<td class="compact-col">${escapeHtml(formatLeftDate(member))}</td>` : ''}
+                        <td class="compact-col">${escapeHtml(player?.mobile)}</td>
+                        <td class="compact-col">${escapeHtml(normalizeTag(player?.player_category))}</td>
                     </tr>`;
             })
             .join('');
@@ -339,16 +342,16 @@ export default function TeamsPrint({
                                 <thead>
                                 <tr>
                                     <th class="num">${t('S.No.')}</th>
-                                    <th>${t('Event / Weight')}</th>
-                                    <th>${t('Rank')}</th>
-                                    <th>${t('PNO')}</th>
-                                    <th>${t('Name')}</th>
-                                    <th>${t('Role')}</th>
-                                    <th>${t('Posting')}</th>
-                                    <th>${t('Joined on')}</th>
-                                    ${showLeftOnColumn ? `<th>${t('Left on')}</th>` : ''}
-                                    <th>${t('Mobile')}</th>
-                                    <th>${t('Level')}</th>
+                                    <th class="event-col">${t('Event')}<br>${t('Weight')}<br>${t('Position')}</th>
+                                    <th class="compact-col">${t('Rank')}</th>
+                                    <th class="compact-col">${t('PNO')}</th>
+                                    <th class="name-col">${t('Name')}</th>
+                                    <th class="compact-col">${t('Role')}</th>
+                                    <th class="posting-col">${t('Posting')}</th>
+                                    <th class="compact-col">${t('Joined on')}</th>
+                                    ${showLeftOnColumn ? `<th class="compact-col">${t('Left on')}</th>` : ''}
+                                    <th class="compact-col">${t('Mobile')}</th>
+                                    <th class="compact-col">${t('Player category')}</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -362,28 +365,29 @@ export default function TeamsPrint({
                     </section>`;
 
     const renderRemovedSection = (
+        sectionKey: string,
         rows: string,
         showLeftOnColumn: boolean,
         isVisible: boolean,
         heading = t('Removed players'),
     ) => `
-                    <section class="sheet print-section" data-print-section="removed" style="display:${isVisible ? 'block' : 'none'}">
+                    <section class="sheet print-section" data-print-section="removed-${sectionKey}" style="display:${isVisible ? 'block' : 'none'}">
                         <h3>${heading}</h3>
                         <div class="table-wrap">
                             <table class="player-table">
                                 <thead>
                                     <tr>
                                         <th class="num">${t('S.No.')}</th>
-                                        <th>${t('Event / Weight')}</th>
-                                        <th>${t('Rank')}</th>
-                                        <th>${t('PNO')}</th>
-                                        <th>${t('Name')}</th>
-                                        <th>${t('Role')}</th>
-                                        <th>${t('Posting')}</th>
-                                        <th>${t('Joined on')}</th>
-                                        ${showLeftOnColumn ? `<th>${t('Left on')}</th>` : ''}
-                                        <th>${t('Mobile')}</th>
-                                        <th>${t('Level')}</th>
+                                        <th class="event-col">${t('Event')}<br>${t('Weight')}<br>${t('Position')}</th>
+                                        <th class="compact-col">${t('Rank')}</th>
+                                        <th class="compact-col">${t('PNO')}</th>
+                                        <th class="name-col">${t('Name')}</th>
+                                        <th class="compact-col">${t('Role')}</th>
+                                        <th class="posting-col">${t('Posting')}</th>
+                                        <th class="compact-col">${t('Joined on')}</th>
+                                        ${showLeftOnColumn ? `<th class="compact-col">${t('Left on')}</th>` : ''}
+                                        <th class="compact-col">${t('Mobile')}</th>
+                                        <th class="compact-col">${t('Player category')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -562,7 +566,6 @@ export default function TeamsPrint({
                 sportQuotaRemovedPlayers,
                 sportQuotaPlayersShowLeftOn,
             );
-            const hasPlayerSection = showAll || showGD || showSportQuota;
             const reportShowRemoved = showRemoved && reportRemovedMembers.length > 0;
             const sectionOne = renderPlayerSection(
                 'all',
@@ -590,18 +593,21 @@ export default function TeamsPrint({
                 renderCoachRows(reportCoaches),
             );
             const removedSection = renderRemovedSection(
+                'all',
                 allRemovedPlayerRows,
                 allPlayersShowLeftOn,
                 reportShowRemoved && showAll,
                 t('Removed players'),
             );
             const gdRemovedSection = renderRemovedSection(
+                'gd',
                 gdRemovedPlayerRows,
                 gdPlayersShowLeftOn,
                 reportShowRemoved && showGD && !showAll,
                 t('Removed GD players'),
             );
             const sportQuotaRemovedSection = renderRemovedSection(
+                'sport_quota',
                 sportQuotaRemovedPlayerRows,
                 sportQuotaPlayersShowLeftOn,
                 reportShowRemoved && showSportQuota && !showAll,
@@ -609,6 +615,7 @@ export default function TeamsPrint({
             );
 
             const removableSections: string[] = [];
+
             if (reportShowRemoved) {
                 removableSections.push(removedSection);
                 removableSections.push(gdRemovedSection);
@@ -743,7 +750,7 @@ export default function TeamsPrint({
             .player-table{
                 width:100%;
                 border-collapse:collapse;
-                table-layout:fixed;
+                table-layout:auto;
             }
             .player-table th,
             .player-table td{
@@ -756,36 +763,33 @@ export default function TeamsPrint({
                 word-break:break-word;
             }
             .player-table .num{
-                width:4%;
+                width:1%;
                 text-align:center;
+                white-space:nowrap;
             }
             .player-table th{
                 background:var(--head-bg);
                 font-weight:600;
                 color:var(--head);
             }
-            .player-table th:nth-child(1),
-            .player-table td:nth-child(1){width:4%;}
-            .player-table th:nth-child(2),
-            .player-table td:nth-child(2){width:24%;}
-            .player-table th:nth-child(3),
-            .player-table td:nth-child(3){width:7%;}
-            .player-table th:nth-child(4),
-            .player-table td:nth-child(4){width:8%;}
-            .player-table th:nth-child(5),
-            .player-table td:nth-child(5){width:13%;}
-            .player-table th:nth-child(6),
-            .player-table td:nth-child(6){width:8%;}
-            .player-table th:nth-child(7),
-            .player-table td:nth-child(7){width:9%;}
-            .player-table th:nth-child(8),
-            .player-table td:nth-child(8){width:7%;}
-            .player-table th:nth-child(9),
-            .player-table td:nth-child(9){width:7%;}
-            .player-table th:nth-child(10),
-            .player-table td:nth-child(10){width:8%;}
-            .player-table th:nth-child(11),
-            .player-table td:nth-child(11){width:5%;}
+            .player-table .compact-col{
+                width:1%;
+                white-space:nowrap;
+            }
+            .player-table .event-col,
+            .player-table .name-col,
+            .player-table .posting-col{
+                text-align:center;
+                vertical-align:middle;
+            }
+            .player-table .event-col{
+                width:46px;
+                min-width:46px;
+                max-width:46px;
+                white-space:normal;
+                overflow-wrap:anywhere;
+                word-break:break-word;
+            }
             .coach-table{
                 width:100%;
                 border-collapse:collapse;
@@ -1053,9 +1057,9 @@ export default function TeamsPrint({
                             ]
                                 .map((orientation) => {
                                     const element = document.querySelector(
-                                        '[data-print-orientation=\"' +
+                                        '[data-print-orientation="' +
                                             orientation +
-                                            '\"]',
+                                            '"]',
                                     );
 
                                     return element instanceof HTMLInputElement
@@ -1131,7 +1135,7 @@ export default function TeamsPrint({
                             ].map((key) => {
                                 const element =
                                     document.querySelector(
-                                        '[data-print-toggle=\"' + key + '\"]',
+                                        '[data-print-toggle="' + key + '"]',
                                     );
 
                                 return {
@@ -1142,6 +1146,7 @@ export default function TeamsPrint({
                                     : null,
                                 };
                             });
+
                             const playerSectionKeys = new Set([
                                 'all',
                                 'gd',
@@ -1156,27 +1161,36 @@ export default function TeamsPrint({
 
                             function syncSections() {
                                 const selected = new Set(selectedSections());
+                                const selectedPlayerSection =
+                                    controls.find(
+                                        (control) =>
+                                            playerSectionKeys.has(control.key) &&
+                                            control.element?.checked,
+                                    )?.key ?? 'all';
 
                                 controls.forEach((control) => {
-                                    const targets =
+                                    const targets = document.querySelectorAll(
                                         control.key === 'removed'
-                                            ? document.querySelectorAll(
-                                                  '[data-print-section=\"removed\"]',
-                                              )
-                                            : document.querySelectorAll(
-                                                  '[data-print-section=\"' +
-                                                      control.key +
-                                                      '\"]',
-                                              );
+                                            ? '[data-print-section^="removed-"]'
+                                            : '[data-print-section="' +
+                                                  control.key +
+                                                  '"]',
+                                    );
 
                                     if (!targets.length) {
                                         return;
                                     }
 
-                                    const shouldShow = selected.has(control.key);
-
                                     targets.forEach((target) => {
                                         if (target instanceof HTMLElement) {
+                                            const shouldShow =
+                                                control.key === 'removed'
+                                                    ? selected.has('removed') &&
+                                                      target.dataset.printSection ===
+                                                          'removed-' +
+                                                              selectedPlayerSection
+                                                    : selected.has(control.key);
+
                                             target.style.display = shouldShow
                                                 ? 'block'
                                                 : 'none';

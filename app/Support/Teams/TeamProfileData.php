@@ -204,8 +204,7 @@ class TeamProfileData
                 'member.currentUnit:id,name',
                 'member.playableSports' => fn ($query) => $query
                     ->select(['sports.id', 'sports.name'])
-                    ->where('sports.id', $teamSportId)
-                    ->withPivot(['sport_event', 'role', 'position']),
+                    ->withPivot(['sport_event', 'weight', 'role', 'position']),
                 'session:id,name',
             ])
             ->where('session_id', $selectedSessionId)
@@ -227,7 +226,7 @@ class TeamProfileData
                     'rank' => $teamMember->member->rank,
                     'designation' => $teamMember->member->designation,
                     'mobile' => $teamMember->member->mobile,
-                    'playable_profile' => $this->memberPlayableProfile($teamMember->member, $teamSportName),
+                    'playable_profile' => $this->memberPlayableProfile($teamMember->member, $teamSportId, $teamSportName),
                     'current_unit' => $teamMember->member->currentUnit ? [
                         'id' => $teamMember->member->currentUnit->id,
                         'name' => $teamMember->member->currentUnit->name,
@@ -242,22 +241,96 @@ class TeamProfileData
     }
 
     /**
-     * @return array{sport_event: string|null, role: string|null, position: string|null}|null
+     * @return array{sport_event: string|null, role: string|null, position: string|null, weight: string|null}|null
      */
-    private function memberPlayableProfile(Member $member, ?string $teamSportName): ?array
+    private function memberPlayableProfile(Member $member, int $teamSportId, ?string $teamSportName): ?array
     {
-        $sport = $member->relationLoaded('playableSports') ? $member->playableSports->first() : null;
+        if (! $member->relationLoaded('playableSports') || $teamSportId <= 0) {
+            return null;
+        }
+
+        $sport = $member->playableSports->firstWhere('id', $teamSportId);
+
+        if ($sport === null) {
+            $sport = $member->playableSports()->whereKey($teamSportId)->first();
+        }
+
         if ($sport === null) {
             return null;
         }
 
+        $parsedSportEvent = $this->splitSportEventWeight(
+            $sport->pivot?->sport_event,
+            $teamSportName,
+        );
         $profile = [
-            'sport_event' => $this->withoutSportName($sport->pivot?->sport_event, $teamSportName),
+            'sport_event' => $parsedSportEvent['sport_event']
+                ?? $this->withoutSportName($sport->pivot?->sport_event, $teamSportName),
+            'weight' => filled($sport->pivot?->weight) ? (string) $sport->pivot->weight : $parsedSportEvent['weight'],
             'role' => filled($sport->pivot?->role) ? (string) $sport->pivot->role : null,
             'position' => filled($sport->pivot?->position) ? (string) $sport->pivot->position : null,
         ];
 
         return collect($profile)->filter()->isEmpty() ? null : $profile;
+    }
+
+    /**
+     * @return array{sport_event: string|null, weight: string|null}
+     */
+    private function splitSportEventWeight(?string $sportEvent, ?string $teamSportName): array
+    {
+        $value = $this->withoutSportName($sportEvent, $teamSportName) ?? '';
+        if ($value === '') {
+            return ['sport_event' => null, 'weight' => null];
+        }
+
+        $normalized = preg_replace('/\h/u', ' ', trim($value)) ?? $value;
+        $normalized = preg_replace('/\s+/u', ' ', (string) $normalized);
+
+        $patterns = [
+            '/^([0-9]+(?:\.[0-9]+)?\s*(?:कि\.?\s*ग्रा\.?|किग्रा|किलोग्राम|kg|kgs|k\.g\.?|kg\/kg|lbs|lb|pound|pounds))\s+(.+)$/u',
+            '/^([०-९]+(?:\.[०-९]+)?\s*(?:कि\.?\s*ग्रा\.?|किग्रा|किलोग्राम|kg|kgs|k\.g\.?|kg\/kg|lbs|lb|pound|pounds))\s+(.+)$/u',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $normalized, $matches)) {
+                return [
+                    'weight' => trim($matches[1]),
+                    'sport_event' => trim($matches[2]),
+                ];
+            }
+        }
+
+        $fallback = $this->splitByWeightPrefix($normalized);
+        if ($fallback !== null) {
+            return $fallback;
+        }
+
+        return ['sport_event' => $value, 'weight' => null];
+    }
+
+    /**
+     * @return array{sport_event: string|null, weight: string|null}|null
+     */
+    private function splitByWeightPrefix(string $value): ?array
+    {
+        $parts = explode(' ', $value, 3);
+        if (count($parts) < 3) {
+            return null;
+        }
+
+        if (! preg_match('/^[0-9]+(?:\.[0-9]+)?$/u', $parts[0])) {
+            return null;
+        }
+
+        if (! preg_match('/^(?:कि\.?\s*ग्रा\.?|किग्रा|किलोग्राम|kg|kgs|k\.g\.?|kg\/kg|lbs|lb|pound|pounds)$/iu', $parts[1])) {
+            return null;
+        }
+
+        return [
+            'weight' => trim($parts[0].' '.$parts[1]),
+            'sport_event' => trim($parts[2]),
+        ];
     }
 
     private function withoutSportName(mixed $value, ?string $sportName): ?string

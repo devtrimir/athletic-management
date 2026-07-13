@@ -261,6 +261,7 @@ test('index normalizes legacy skilled category as sports quota', function () {
     $user = memberUser('members.view');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     $member->forceFill(['player_category' => 'SKILLED'])->saveQuietly();
+    connectMemberToActiveTeam($member);
 
     $this->actingAs($user)
         ->get(route('members.index', ['filter' => ['player_category' => 'SPORTS_QUOTA']]))
@@ -334,6 +335,7 @@ test('index includes primary and playable sports', function () {
         $playableSport->id => [
             'role' => 'Batsman',
             'position' => '3',
+            'weight' => '55 kg',
             'notes' => 'Top order',
         ],
     ]);
@@ -345,9 +347,10 @@ test('index includes primary and playable sports', function () {
             ->component('members/index')
             ->where('members.data.0.sport.id', $primarySport->id)
             ->where('members.data.0.playable_sports.0.id', $playableSport->id)
-            ->where('members.data.0.playable_sports.0.pivot.role', 'Batsman')
-            ->where('members.data.0.playable_sports.0.pivot.position', '3')
-            ->where('members.data.0.playable_sports.0.pivot.notes', 'Top order')
+            ->where('members.data.0.playable_sports.0.role', 'Batsman')
+            ->where('members.data.0.playable_sports.0.position', '3')
+            ->where('members.data.0.playable_sports.0.weight', '55 kg')
+            ->where('members.data.0.playable_sports.0.notes', 'Top order')
         );
 });
 
@@ -502,8 +505,8 @@ test('store creates member and redirects to show', function () {
             'player_level' => 'ZONAL',
             'posting_district_id' => $postingDistrict->id,
             'playable_sports' => [
-                ['sport_id' => $primarySport->id, 'role' => 'Batsman', 'position' => '3', 'sport_event' => 'Cricket', 'notes' => ''],
-                ['sport_id' => $otherSport->id, 'role' => 'Bowler', 'position' => '1', 'sport_event' => 'Baseball', 'notes' => ''],
+                ['sport_id' => $primarySport->id, 'role' => 'Batsman', 'position' => '3', 'sport_event' => 'Cricket', 'weight' => '55 kg', 'notes' => ''],
+                ['sport_id' => $otherSport->id, 'role' => 'Bowler', 'position' => '1', 'sport_event' => 'Baseball', 'weight' => '70 kg', 'notes' => ''],
             ],
         ]);
 
@@ -516,6 +519,11 @@ test('store creates member and redirects to show', function () {
     $response->assertRedirect(route('members.show', $member));
 
     expect(AuditLog::where('entity', 'MemberSport')->where('entity_id', $member->id)->where('action', 'created')->count())->toBe(2);
+    $this->assertDatabaseHas('member_sport', [
+        'member_id' => $member->id,
+        'sport_id' => $primarySport->id,
+        'weight' => '55 kg',
+    ]);
 });
 
 test('store backfills sport event into playable sports when row event is empty', function () {
@@ -712,6 +720,7 @@ test('edit returns member and selects', function () {
         $sport->id => [
             'role' => 'Batsman',
             'position' => '3',
+            'weight' => '55 kg',
             'notes' => 'Top order',
         ],
     ]);
@@ -725,6 +734,7 @@ test('edit returns member and selects', function () {
             ->where('member.playable_sports.0.id', $sport->id)
             ->where('member.playable_sports.0.pivot.role', 'Batsman')
             ->where('member.playable_sports.0.pivot.position', '3')
+            ->where('member.playable_sports.0.pivot.weight', '55 kg')
             ->where('member.playable_sports.0.pivot.notes', 'Top order')
             ->has('districts')
             ->has('units')
@@ -760,7 +770,7 @@ test('update changes member and redirects to show', function () {
             'full_name' => 'नया नाम',
             'posting_district_id' => $postingDistrict->id,
             'playable_sports' => [
-                ['sport_id' => $addedSport->id, 'role' => 'Keeper', 'position' => '1', 'sport_event' => 'Hockey', 'notes' => ''],
+                ['sport_id' => $addedSport->id, 'role' => 'Keeper', 'position' => '1', 'sport_event' => 'Hockey', 'weight' => '61 kg', 'notes' => ''],
             ],
         ])
         ->assertRedirect(route('members.show', $member));

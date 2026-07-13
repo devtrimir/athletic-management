@@ -706,7 +706,7 @@ class TournamentProfileData
     }
 
     /**
-     * @return array{sport_event: string|null, role: string|null, position: string|null}|null
+     * @return array{sport_event: string|null, weight: string|null, role: string|null, position: string|null}|null
      */
     private function memberSportProfile(Member $member, int $sportId): ?array
     {
@@ -721,6 +721,7 @@ class TournamentProfileData
 
         $profile = [
             'sport_event' => filled($sport->pivot?->sport_event) ? (string) $sport->pivot->sport_event : null,
+            'weight' => filled($sport->pivot?->weight) ? (string) $sport->pivot->weight : null,
             'role' => filled($sport->pivot?->role) ? (string) $sport->pivot->role : null,
             'position' => filled($sport->pivot?->position) ? (string) $sport->pivot->position : null,
         ];

@@ -7,6 +7,9 @@ use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sport;
+use App\Models\SportSession;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +52,23 @@ function sportMemberUser(string ...$permissions): User
     return $user;
 }
 
+function connectSportFilterMemberToActiveTeam(Member $member): void
+{
+    $session = SportSession::factory()->create(['organization_id' => $member->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $member->organization_id,
+        'session_id' => $session->id,
+        'is_active' => true,
+    ]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'left_on' => null,
+    ]);
+}
+
 test('filter by sport_id uses playable sports instead of legacy direct sport column', function () {
     $user = sportFilterUser();
     $org = $user->organization;
@@ -58,11 +78,14 @@ test('filter by sport_id uses playable sports instead of legacy direct sport col
 
     $inSport = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportB->id]);
     $inSport->playableSports()->sync([$sportA->id]);
+    connectSportFilterMemberToActiveTeam($inSport);
 
     $legacyDirectSportOnly = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportA->id]);
     $legacyDirectSportOnly->playableSports()->sync([$sportB->id]);
+    connectSportFilterMemberToActiveTeam($legacyDirectSportOnly);
 
-    Member::factory()->create(['organization_id' => $org->id, 'sport_id' => null]);
+    $withoutSport = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => null]);
+    connectSportFilterMemberToActiveTeam($withoutSport);
 
     $this->actingAs($user)
         ->get(route('members.index', ['filter' => ['sport_id' => $sportA->id]]))
@@ -84,12 +107,15 @@ test('filter by sport_ids supports multiple playable sports', function () {
 
     $firstMatch = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportC->id]);
     $firstMatch->playableSports()->sync([$sportA->id]);
+    connectSportFilterMemberToActiveTeam($firstMatch);
 
     $secondMatch = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => null]);
     $secondMatch->playableSports()->sync([$sportB->id]);
+    connectSportFilterMemberToActiveTeam($secondMatch);
 
     $legacyDirectSportOnly = Member::factory()->create(['organization_id' => $org->id, 'sport_id' => $sportA->id]);
     $legacyDirectSportOnly->playableSports()->sync([$sportC->id]);
+    connectSportFilterMemberToActiveTeam($legacyDirectSportOnly);
 
     $this->actingAs($user)
         ->get(route('members.index', ['filter' => ['sport_ids' => [$sportA->id, $sportB->id]]]))
@@ -159,10 +185,11 @@ test('playable sports entries must exist in sports table', function () {
                 'role' => '',
                 'position' => '',
                 'sport_event' => '',
+                'weight' => str_repeat('x', 101),
                 'notes' => '',
             ]],
         ])
-        ->assertSessionHasErrors('playable_sports.0.sport_id');
+        ->assertSessionHasErrors(['playable_sports.0.sport_id', 'playable_sports.0.weight']);
 });
 
 test('store saves playable sports with metadata', function () {
@@ -177,8 +204,8 @@ test('store saves playable sports with metadata', function () {
             'player_category' => 'GD',
             'player_level' => 'ZONAL',
             'playable_sports' => [
-                ['sport_id' => $sportA->id, 'role' => 'Batsman', 'position' => '3', 'sport_event' => 'Cricket', 'notes' => 'Top order'],
-                ['sport_id' => $additionalSport->id, 'role' => 'Wing', 'position' => 'Left', 'sport_event' => 'Football', 'notes' => 'Fast runner'],
+                ['sport_id' => $sportA->id, 'role' => 'Batsman', 'position' => '3', 'sport_event' => 'Cricket', 'weight' => '55 kg', 'notes' => 'Top order'],
+                ['sport_id' => $additionalSport->id, 'role' => 'Wing', 'position' => 'Left', 'sport_event' => 'Football', 'weight' => '70 kg', 'notes' => 'Fast runner'],
             ],
         ])
         ->assertRedirect();
@@ -186,6 +213,11 @@ test('store saves playable sports with metadata', function () {
     $member = Member::where('organization_id', $user->organization_id)->firstOrFail();
 
     expect($member->playableSports()->pluck('sports.id')->sort()->values()->all())->toBe(collect([$sportA->id, $additionalSport->id])->sort()->values()->all());
+    $this->assertDatabaseHas('member_sport', [
+        'member_id' => $member->id,
+        'sport_id' => $sportA->id,
+        'weight' => '55 kg',
+    ]);
 });
 
 test('update replaces playable sports', function () {
@@ -198,10 +230,15 @@ test('update replaces playable sports', function () {
     $this->actingAs($user)
         ->put(route('members.update', $member), [
             'playable_sports' => [
-                ['sport_id' => $newSport->id, 'role' => 'Keeper', 'position' => '1', 'sport_event' => 'Hockey', 'notes' => ''],
+                ['sport_id' => $newSport->id, 'role' => 'Keeper', 'position' => '1', 'sport_event' => 'Hockey', 'weight' => '61 kg', 'notes' => ''],
             ],
         ])
         ->assertRedirect(route('members.show', $member));
 
     expect($member->fresh()->playableSports()->pluck('sports.id')->all())->toBe([$newSport->id]);
+    $this->assertDatabaseHas('member_sport', [
+        'member_id' => $member->id,
+        'sport_id' => $newSport->id,
+        'weight' => '61 kg',
+    ]);
 });

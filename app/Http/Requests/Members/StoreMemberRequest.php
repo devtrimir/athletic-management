@@ -52,6 +52,7 @@ class StoreMemberRequest extends FormRequest
             'playable_sports.*.role' => ['nullable', 'string', 'max:100'],
             'playable_sports.*.position' => ['nullable', 'string', 'max:100'],
             'playable_sports.*.sport_event' => ['nullable', 'string', 'max:100'],
+            'playable_sports.*.weight' => ['nullable', 'string', 'max:100'],
             'playable_sports.*.notes' => ['nullable', 'string'],
             'sport_event' => ['nullable', 'string', 'max:100'],
             'other_notes' => ['nullable', 'string'],
