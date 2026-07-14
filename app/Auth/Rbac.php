@@ -51,6 +51,9 @@ class Rbac
     /**
      * Return permission codes granted to the user in the given org.
      *
+     * Admin roles receive the full permission catalog so the frontend and
+     * permission helpers reflect all-access without listing every role.
+     *
      * @return Collection<int, string>
      */
     public function userPermissions(User $user, int $orgId): Collection
@@ -59,6 +62,19 @@ class Rbac
 
         if (isset($this->permissionsCache[$key])) {
             return $this->permissionsCache[$key];
+        }
+
+        if ($this->isAdmin($user, $orgId)) {
+            /** @var string[] $codes */
+            $codes = Cache::remember(
+                self::PREFIX.":permissions:{$key}",
+                self::TTL,
+                fn (): array => Permission::query()
+                    ->pluck('code')
+                    ->all(),
+            );
+
+            return $this->permissionsCache[$key] = collect($codes);
         }
 
         $roleIds = $this->userRoles($user, $orgId)->pluck('id')->all();
@@ -76,6 +92,18 @@ class Rbac
         );
 
         return $this->permissionsCache[$key] = collect($codes);
+    }
+
+    /**
+     * Determine whether the user holds an admin role in the given org.
+     *
+     * Admin roles bypass all permission checks and receive every permission.
+     */
+    public function isAdmin(User $user, int $orgId): bool
+    {
+        return $this->userRoles($user, $orgId)
+            ->where('code', 'admin')
+            ->isNotEmpty();
     }
 
     /**
