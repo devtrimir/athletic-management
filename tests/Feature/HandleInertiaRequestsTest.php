@@ -35,6 +35,40 @@ test('authenticated user with permissions has permissions array in shared props'
     );
 });
 
+test('admin user receives full permission catalog in shared props', function (): void {
+    $org = Organization::factory()->create();
+    $user = User::factory()->create(['organization_id' => $org->id, 'locale' => 'en']);
+
+    Permission::firstOrCreate(
+        ['code' => 'members.view'],
+        ['group' => 'members', 'name_hi' => 'members.view', 'name_en' => 'members.view'],
+    );
+    Permission::firstOrCreate(
+        ['code' => 'coaches.view'],
+        ['group' => 'coaches', 'name_hi' => 'coaches.view', 'name_en' => 'coaches.view'],
+    );
+
+    $adminRole = Role::factory()->create([
+        'organization_id' => $org->id,
+        'code' => 'admin',
+        'is_system' => true,
+    ]);
+
+    DB::table('user_role')->insert([
+        'user_id' => $user->id,
+        'role_id' => $adminRole->id,
+        'organization_id' => $org->id,
+    ]);
+
+    $response = $this->actingAs($user)->get('/');
+
+    $response->assertInertia(
+        fn ($page) => $page
+            ->has('auth.permissions')
+            ->where('auth.permissions', ['coaches.view', 'members.view']),
+    );
+});
+
 test('guest has empty permissions array in shared props', function (): void {
     $response = $this->get('/');
 

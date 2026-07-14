@@ -40,14 +40,12 @@ class ExternalTrainingAttendancePolicy
 
     public function accept(User $user, ExternalTrainingAttendance $externalTrainingAttendance): bool
     {
-        return $this->update($user, $externalTrainingAttendance)
-            && $user->can('external-training-attendances.accept');
+        return $this->update($user, $externalTrainingAttendance);
     }
 
     public function reject(User $user, ExternalTrainingAttendance $externalTrainingAttendance): bool
     {
-        return $this->update($user, $externalTrainingAttendance)
-            && $user->can('external-training-attendances.reject');
+        return $this->update($user, $externalTrainingAttendance);
     }
 
     public function correct(User $user, ExternalTrainingAttendance $externalTrainingAttendance): bool
@@ -58,8 +56,7 @@ class ExternalTrainingAttendancePolicy
 
     public function manualReview(User $user, ExternalTrainingAttendance $externalTrainingAttendance): bool
     {
-        return $this->update($user, $externalTrainingAttendance)
-            && $user->can('external-training-attendances.manual-review');
+        return $this->update($user, $externalTrainingAttendance);
     }
 
     public function lock(User $user, ExternalTrainingAttendance $externalTrainingAttendance): bool

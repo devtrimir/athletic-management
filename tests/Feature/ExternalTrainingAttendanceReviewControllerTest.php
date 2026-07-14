@@ -387,6 +387,57 @@ test('attendance review cannot mutate another organization record', function ():
     expect($attendance->refresh()->review_status)->toBe('pending');
 });
 
+test('reviewer with base review permission sees standard review actions', function (): void {
+    Storage::fake('local');
+    $fixture = reviewAttendanceFixture();
+    $reviewer = rcUser(
+        'external-training-attendances.view',
+        'external-training-attendances.review',
+    );
+
+    $fixture['attendance']->update(['organization_id' => $reviewer->organization_id]);
+
+    $this->actingAs($reviewer)
+        ->get(route('external-training-attendances.show', $fixture['attendance']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('external-training-attendances/show')
+            ->where('reviewActions', ['accept', 'reject', 'manual_review']));
+
+    $this->actingAs($reviewer)
+        ->patch(route('external-training-attendances.review', $fixture['attendance']), [
+            'action' => 'accept',
+            'review_remarks' => 'Accepted by reviewer with base review permission.',
+        ])
+        ->assertRedirect(route('external-training-attendances.show', $fixture['attendance']));
+
+    expect($fixture['attendance']->refresh()->review_status)->toBe('accepted');
+});
+
+test('reviewer with override permissions sees correct and lock actions', function (): void {
+    Storage::fake('local');
+    $fixture = reviewAttendanceFixture();
+
+    $this->actingAs($fixture['user'])
+        ->get(route('external-training-attendances.show', $fixture['attendance']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('external-training-attendances/show')
+            ->where('reviewActions', ['accept', 'reject', 'correct', 'manual_review', 'lock']));
+});
+
+test('locked attendance has no review actions', function (): void {
+    Storage::fake('local');
+    $fixture = reviewAttendanceFixture(['review_status' => 'locked']);
+
+    $this->actingAs($fixture['user'])
+        ->get(route('external-training-attendances.show', $fixture['attendance']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('external-training-attendances/show')
+            ->where('reviewActions', []));
+});
+
 test('example', function () {
     $response = $this->get('/');
 

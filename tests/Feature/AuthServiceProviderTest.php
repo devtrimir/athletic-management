@@ -34,6 +34,23 @@ test('admin system-role user passes every Gate check', function (): void {
         ->and(Gate::forUser($this->user)->check('anything.at.all'))->toBeTrue();
 });
 
+test('admin role passes every Gate check even when not a system role', function (): void {
+    $adminRole = Role::factory()->create([
+        'organization_id' => $this->org->id,
+        'code' => 'admin',
+        'is_system' => false,
+    ]);
+
+    DB::table('user_role')->insert([
+        'user_id' => $this->user->id,
+        'role_id' => $adminRole->id,
+        'organization_id' => $this->org->id,
+    ]);
+
+    expect(Gate::forUser($this->user)->check('members.view'))->toBeTrue()
+        ->and(Gate::forUser($this->user)->check('anything.at.all'))->toBeTrue();
+});
+
 test('user with correct permission passes the matching Gate check', function (): void {
     $role = Role::factory()->create([
         'organization_id' => $this->org->id,

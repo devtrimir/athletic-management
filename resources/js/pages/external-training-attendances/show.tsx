@@ -416,144 +416,171 @@ export default function ExternalTrainingAttendanceShow({
                     </section>
 
                     <aside className="space-y-4 xl:sticky xl:top-4">
-                        <Form
-                            action={`/external-training-attendances/${attendance.id}/review`}
-                            method="post"
-                            className="space-y-4 rounded-lg border bg-card p-4"
-                        >
-                            {({ errors, processing }) => (
-                                <>
-                                    <div className="flex items-center gap-3 border-b pb-3">
-                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                                            <ShieldCheck className="size-4" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-sm font-semibold">
-                                                {t('Review action')}
-                                            </h2>
-                                            <p className="text-xs text-muted-foreground">
-                                                {t(
-                                                    'Update the verification outcome for this attendance.',
-                                                )}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <input
-                                        type="hidden"
-                                        name="_method"
-                                        value="patch"
-                                    />
-                                    <input
-                                        type="hidden"
-                                        name="action"
-                                        value={reviewAction}
-                                    />
-                                    <input
-                                        type="hidden"
-                                        name="attendance_status"
-                                        value={correctedStatus}
-                                    />
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="action">
-                                            {t('Action')}
-                                        </Label>
-                                        <Select
-                                            value={reviewAction}
-                                            onValueChange={setReviewAction}
-                                            required
-                                        >
-                                            <SelectTrigger id="action">
-                                                <SelectValue
-                                                    placeholder={t(
-                                                        'Select action',
-                                                    )}
-                                                />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {reviewActions.map((action) => (
-                                                    <SelectItem
-                                                        key={action}
-                                                        value={action}
-                                                    >
-                                                        {reviewFormActionLabel(
-                                                            action,
-                                                            t,
-                                                        )}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <InputError message={errors.action} />
-                                    </div>
+                        <div className="space-y-4 rounded-lg border bg-card p-4">
+                            <div className="flex items-center gap-3 border-b pb-3">
+                                <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                                    <ShieldCheck className="size-4" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Review action')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Update the verification outcome for this attendance.',
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
 
-                                    {canCorrectAttendance ? (
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="attendance_status">
-                                                {t('Corrected status')}
-                                            </Label>
-                                            <Select
-                                                value={correctedStatus}
-                                                onValueChange={
-                                                    updateCorrectedStatus
-                                                }
-                                            >
-                                                <SelectTrigger id="attendance_status">
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select status',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {attendanceStatuses.map(
-                                                        (status) => (
-                                                            <SelectItem
-                                                                key={status}
-                                                                value={status}
-                                                            >
-                                                                {t(status)}
-                                                            </SelectItem>
-                                                        ),
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <p className="text-xs text-muted-foreground">
-                                                {t(
-                                                    'Changing this value will save the review as Correct status.',
-                                                )}
-                                            </p>
-                                            <InputError
-                                                message={
-                                                    errors.attendance_status
-                                                }
+                            {reviewActions.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    {t(
+                                        'No review actions are available for this attendance.',
+                                    )}
+                                </p>
+                            ) : (
+                                <Form
+                                    action={`/external-training-attendances/${attendance.id}/review`}
+                                    method="post"
+                                    className="space-y-4"
+                                >
+                                    {({ errors, processing }) => (
+                                        <>
+                                            <input
+                                                type="hidden"
+                                                name="_method"
+                                                value="patch"
                                             />
-                                        </div>
-                                    ) : null}
+                                            <input
+                                                type="hidden"
+                                                name="action"
+                                                value={reviewAction}
+                                            />
+                                            <input
+                                                type="hidden"
+                                                name="attendance_status"
+                                                value={correctedStatus}
+                                            />
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="action">
+                                                    {t('Action')}
+                                                </Label>
+                                                <Select
+                                                    value={reviewAction}
+                                                    onValueChange={
+                                                        setReviewAction
+                                                    }
+                                                    required
+                                                >
+                                                    <SelectTrigger id="action">
+                                                        <SelectValue
+                                                            placeholder={t(
+                                                                'Select action',
+                                                            )}
+                                                        />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {reviewActions.map(
+                                                            (action) => (
+                                                                <SelectItem
+                                                                    key={action}
+                                                                    value={
+                                                                        action
+                                                                    }
+                                                                >
+                                                                    {reviewFormActionLabel(
+                                                                        action,
+                                                                        t,
+                                                                    )}
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError
+                                                    message={errors.action}
+                                                />
+                                            </div>
 
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="review_remarks">
-                                            {t('Review remarks')}
-                                        </Label>
-                                        <Textarea
-                                            id="review_remarks"
-                                            name="review_remarks"
-                                            rows={3}
-                                        />
-                                        <InputError
-                                            message={errors.review_remarks}
-                                        />
-                                    </div>
+                                            {canCorrectAttendance ? (
+                                                <div className="grid gap-2">
+                                                    <Label htmlFor="attendance_status">
+                                                        {t('Corrected status')}
+                                                    </Label>
+                                                    <Select
+                                                        value={correctedStatus}
+                                                        onValueChange={
+                                                            updateCorrectedStatus
+                                                        }
+                                                    >
+                                                        <SelectTrigger id="attendance_status">
+                                                            <SelectValue
+                                                                placeholder={t(
+                                                                    'Select status',
+                                                                )}
+                                                            />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {attendanceStatuses.map(
+                                                                (status) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            status
+                                                                        }
+                                                                        value={
+                                                                            status
+                                                                        }
+                                                                    >
+                                                                        {t(
+                                                                            status,
+                                                                        )}
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {t(
+                                                            'Changing this value will save the review as Correct status.',
+                                                        )}
+                                                    </p>
+                                                    <InputError
+                                                        message={
+                                                            errors.attendance_status
+                                                        }
+                                                    />
+                                                </div>
+                                            ) : null}
 
-                                    <Button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="w-full"
-                                    >
-                                        {t('Save review')}
-                                    </Button>
-                                </>
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="review_remarks">
+                                                    {t('Review remarks')}
+                                                </Label>
+                                                <Textarea
+                                                    id="review_remarks"
+                                                    name="review_remarks"
+                                                    rows={3}
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors.review_remarks
+                                                    }
+                                                />
+                                            </div>
+
+                                            <Button
+                                                type="submit"
+                                                disabled={processing}
+                                                className="w-full"
+                                            >
+                                                {t('Save review')}
+                                            </Button>
+                                        </>
+                                    )}
+                                </Form>
                             )}
-                        </Form>
+                        </div>
                     </aside>
                 </div>
             </div>

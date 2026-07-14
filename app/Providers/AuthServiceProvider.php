@@ -23,13 +23,8 @@ class AuthServiceProvider extends ServiceProvider
             $rbac = app(Rbac::class);
             $orgId = (int) $user->organization_id;
 
-            // Admin system-role short-circuit: every check passes.
-            $isAdmin = $rbac->userRoles($user, $orgId)
-                ->where('is_system', true)
-                ->where('code', 'admin')
-                ->isNotEmpty();
-
-            if ($isAdmin) {
+            // Admin role short-circuit: every check passes.
+            if ($rbac->isAdmin($user, $orgId)) {
                 return true;
             }
 
