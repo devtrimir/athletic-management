@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\ExternalCoaching;
 
+use App\Jobs\MarkMissingAttendanceBatchJob;
 use App\Models\ExternalCoachingAssignment;
 use App\Models\ExternalTrainingAttendance;
 use App\Models\Scopes\BelongsToOrganization;
@@ -13,9 +14,13 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 class MarkMissingAttendanceService
 {
     private const string AutoAbsentStatus = 'absent';
+
     private const string AutoAbsentReason = 'coach_not_submitted_attendance';
+
     private const string AutoGeoStatus = 'manual_review_required';
+
     private const int DefaultInsertChunkSize = 1000;
+
     /**
      * @var array<string, list<string>>
      */
@@ -37,6 +42,7 @@ class MarkMissingAttendanceService
      *   inserted: int,
      *   skipped: int,
      *   errors: int,
+     *   dispatched_jobs: int,
      *   dry_run: bool,
      *   insert_chunk_size: int,
      * }
@@ -46,8 +52,8 @@ class MarkMissingAttendanceService
         int $fetchChunkSize = 500,
         int $insertChunkSize = self::DefaultInsertChunkSize,
         bool $dryRun = false,
-    ): array
-    {
+        bool $useQueue = false,
+    ): array {
         $attendanceDate = $attendanceDate->startOfDay();
         $attendanceDateString = $attendanceDate->toDateString();
         $dayOfWeek = strtolower($attendanceDate->format('l'));
@@ -60,6 +66,7 @@ class MarkMissingAttendanceService
             'inserted' => 0,
             'skipped' => 0,
             'errors' => 0,
+            'dispatched_jobs' => 0,
             'dry_run' => $dryRun,
             'insert_chunk_size' => $insertChunkSize,
         ];
@@ -86,6 +93,7 @@ class MarkMissingAttendanceService
                     $submittedAt,
                     $insertChunkSize,
                     $dryRun,
+                    $useQueue,
                 ): void {
                     $summary['assignments_scanned'] += $assignments->count();
 
@@ -142,6 +150,16 @@ class MarkMissingAttendanceService
                     }
 
                     $chunkSize = max(1, $insertChunkSize);
+
+                    if ($useQueue) {
+                        foreach (array_chunk($rows, $chunkSize) as $chunkRows) {
+                            MarkMissingAttendanceBatchJob::dispatch($chunkRows);
+                            $summary['dispatched_jobs']++;
+                        }
+
+                        return;
+                    }
+
                     foreach (array_chunk($rows, $chunkSize) as $chunkRows) {
                         ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)
                             ->insertOrIgnore($chunkRows);
@@ -161,7 +179,7 @@ class MarkMissingAttendanceService
     }
 
     /**
-     * @param array<string>|null $trainingDays
+     * @param  array<string>|null  $trainingDays
      */
     private function isScheduledForDay(?array $trainingDays, string $dayOfWeek): bool
     {

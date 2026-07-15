@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Throwable;
 
-#[Signature('external-coaching:mark-missing-attendance {--date= : Attendance date (Y-m-d). Defaults to yesterday.} {--dry-run : Run without writing rows.} {--chunk=500 : Number of assignments processed per scan chunk.} {--insert-chunk=1000 : Number of attendance rows inserted per DB insert batch.}')]
+#[Signature('external-coaching:mark-missing-attendance {--date= : Attendance date (Y-m-d). Defaults to yesterday.} {--dry-run : Run without writing rows.} {--chunk=500 : Number of assignments processed per scan chunk.} {--insert-chunk=1000 : Number of attendance rows inserted per DB insert batch.} {--queue : Dispatch insert jobs to the attendance queue instead of inserting synchronously.}')]
 #[Description('Mark absent attendance automatically when external coaches miss a day submission.')]
 class MarkMissingAttendanceCommand extends Command
 {
@@ -32,9 +32,24 @@ class MarkMissingAttendanceCommand extends Command
                 $chunkSize,
                 $insertChunkSize,
                 (bool) $this->option('dry-run'),
+                (bool) $this->option('queue'),
             );
 
             $status = $summary['dry_run'] ? 'dry-run complete' : 'complete';
+
+            if ($summary['dispatched_jobs'] > 0) {
+                $this->info(sprintf(
+                    'Auto mark %s for %s: scanned=%d, missing_pairs=%d, dispatched_jobs=%d',
+                    $status,
+                    $summary['attendance_date'],
+                    $summary['assignments_scanned'],
+                    $summary['missing_pairs'],
+                    $summary['dispatched_jobs'],
+                ));
+
+                return self::SUCCESS;
+            }
+
             $this->info(sprintf(
                 'Auto mark %s for %s: scanned=%d, missing_pairs=%d, inserted=%d, skipped=%d, errors=%d',
                 $status,
