@@ -32,7 +32,6 @@ import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import {
     destroy as destroyTeamCoach,
     bulkDestroy as bulkDestroyCoaches,
-    store as storeTeamCoach,
 } from '@/actions/App/Http/Controllers/TeamCoachController';
 import {
     edit as editTeam,
@@ -50,6 +49,7 @@ import {
     activate as activateTeamSessionStatus,
     close as closeTeamSessionStatus,
 } from '@/actions/App/Http/Controllers/TeamSessionStatusController';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import type { MemberOption } from '@/components/member-picker';
 import { MemberQuickView } from '@/components/members/member-quick-view';
@@ -71,7 +71,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { DatePicker } from '@/components/date-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -192,7 +191,12 @@ type CoachAssignmentRow = {
 };
 
 type Counts = { players_count: number; coaches_count: number };
-type Session = { id: number; name: string; is_current: boolean; start_year?: number };
+type Session = {
+    id: number;
+    name: string;
+    is_current: boolean;
+    start_year?: number;
+};
 type TeamMemberMovementRow = {
     id: number;
     action: string;
@@ -382,6 +386,9 @@ export default function TeamsShow({
     const [selectedMemberIds, setSelectedMemberIds] = useState<Set<number>>(
         new Set(),
     );
+    const [selectedRemovedMemberIds, setSelectedRemovedMemberIds] = useState<
+        Set<number>
+    >(new Set());
     const [selectedCoachIds, setSelectedCoachIds] = useState<Set<number>>(
         new Set(),
     );
@@ -718,10 +725,7 @@ export default function TeamsShow({
             ? rawPrintSections
                   .split(',')
                   .map((value) =>
-                      value
-                          .trim()
-                          .toLowerCase()
-                          .replace(/\s+/g, '_'),
+                      value.trim().toLowerCase().replace(/\s+/g, '_'),
                   )
                   .filter(Boolean)
             : [];
@@ -860,97 +864,35 @@ export default function TeamsShow({
             return;
         }
 
-        const selectedRemovedMembers = (removedMembers ?? []).filter((row) => {
-            return row.member ? reactivateSessionDialog.memberIds.includes(row.member.id) : false;
-        });
-        const selectedRemovedCoaches = (removedCoaches ?? []).filter((row) => {
-            return row.coach ? reactivateSessionDialog.coachIds.includes(row.coach.id) : false;
-        });
         const shouldRestore = reactivateSessionDialog.mode === 'restore';
-        const pendingTasks = shouldRestore
-            ? selectedRemovedMembers.length + selectedRemovedCoaches.length
-            : 0;
 
-        const finalizeActivation = () => {
-            router.patch(activateTeamSessionStatus.url(team), {
+        router.patch(
+            activateTeamSessionStatus.url(team),
+            {
                 session_id: String(selectedSessionId),
-            }, {
+                restore_member_ids: shouldRestore
+                    ? reactivateSessionDialog.memberIds.map(String)
+                    : [],
+                restore_coach_ids: shouldRestore
+                    ? reactivateSessionDialog.coachIds.map(String)
+                    : [],
+            },
+            {
                 preserveScroll: true,
                 onSuccess: () => {
                     setSelectedMemberIds(new Set());
                     setSelectedCoachIds(new Set());
                     closeReactivateSessionDialog();
+                    toast.success(t('Session activated.'));
                 },
-            });
-        };
-
-        if (!shouldRestore || pendingTasks === 0) {
-            finalizeActivation();
-
-            return;
-        }
-
-        let remainingTasks = pendingTasks;
-        const done = () => {
-            remainingTasks -= 1;
-            if (remainingTasks <= 0) {
-                finalizeActivation();
-            }
-        };
-
-        selectedRemovedMembers.forEach((row) => {
-            if (!row.member) {
-                done();
-
-                return;
-            }
-
-            router.post(
-                storeTeamMember.url(team),
-                {
-                    member_ids: [String(row.member.id)],
-                    session_id: String(selectedSessionId),
-                    role: row.role ?? 'PLAYER',
-                    joined_on: row.joined_on ?? '',
+                onError: (errors) => {
+                    const firstMessage = Object.values(errors).flat()[0];
+                    toast.error(
+                        firstMessage ?? t('Unable to activate session.'),
+                    );
                 },
-                {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        done();
-                    },
-                    onError: () => {
-                        done();
-                    },
-                },
-            );
-        });
-
-        selectedRemovedCoaches.forEach((row) => {
-            if (!row.coach) {
-                done();
-
-                return;
-            }
-
-            router.post(
-                storeTeamCoach.url(team),
-                {
-                    coach_id: String(row.coach.id),
-                    role: row.role === 'ASSISTANT' ? 'ASSISTANT' : 'HEAD',
-                    assigned_at:
-                        row.assigned_at ?? new Date().toISOString().slice(0, 10),
-                },
-                {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        done();
-                    },
-                    onError: () => {
-                        done();
-                    },
-                },
-            );
-        });
+            },
+        );
     }
 
     function toggleRestoreMember(memberId: number) {
@@ -960,6 +902,7 @@ export default function TeamsShow({
 
         setReactivateSessionDialog((state) => {
             const next = new Set(state.memberIds);
+
             if (next.has(memberId)) {
                 next.delete(memberId);
             } else {
@@ -980,6 +923,7 @@ export default function TeamsShow({
 
         setReactivateSessionDialog((state) => {
             const next = new Set(state.coachIds);
+
             if (next.has(coachId)) {
                 next.delete(coachId);
             } else {
@@ -1063,12 +1007,65 @@ export default function TeamsShow({
         setSelectedMemberIds(allSelected ? new Set() : new Set(visibleIds));
     }
 
+    function toggleRemovedMember(id: number) {
+        setSelectedRemovedMemberIds((prev) => {
+            const next = new Set(prev);
+
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+
+            return next;
+        });
+    }
+
+    function toggleAllRemovedMembers(visibleIds: number[]) {
+        const allSelected = visibleIds.every((id) =>
+            selectedRemovedMemberIds.has(id),
+        );
+        setSelectedRemovedMemberIds(
+            allSelected ? new Set() : new Set(visibleIds),
+        );
+    }
+
     function handleBulkRemoveMembers() {
         const removedRows = (members ?? []).filter(
             (row) => row.member && selectedMemberIds.has(row.member.id),
         );
 
         openRemoveMembersDialog(removedRows);
+    }
+
+    function handleRestoreRemovedMembers() {
+        if (!selectedSessionId || selectedRemovedMemberIds.size === 0) {
+            return;
+        }
+
+        router.patch(
+            activateTeamSessionStatus.url(team),
+            {
+                session_id: String(selectedSessionId),
+                restore_member_ids: Array.from(selectedRemovedMemberIds).map(
+                    String,
+                ),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setSelectedRemovedMemberIds(new Set());
+                    toast.success(t('Selected players restored to roster.'));
+                },
+                onError: (errors) => {
+                    const firstMessage = Object.values(errors).flat()[0];
+                    toast.error(
+                        firstMessage ??
+                            t('Unable to restore selected players.'),
+                    );
+                },
+            },
+        );
     }
 
     function openMemberEdit(row: TeamMemberRow) {
@@ -1203,35 +1200,31 @@ export default function TeamsShow({
         member: TeamMemberRow['member'] | null,
     ): string {
         const profile = member?.playable_profile;
-        return [
-            profile?.sport_event,
-            profile?.weight,
-            profile?.position,
-        ]
-            .map((value) =>
-                value === null || value === undefined
-                    ? null
-                    : String(value).trim(),
-            )
-            .filter((value): value is string =>
-                typeof value === 'string' && value.length > 0,
-            )
-            .join(' / ') || '—';
+
+        return (
+            [profile?.sport_event, profile?.weight, profile?.position]
+                .map((value) =>
+                    value === null || value === undefined
+                        ? null
+                        : String(value).trim(),
+                )
+                .filter(
+                    (value): value is string =>
+                        typeof value === 'string' && value.length > 0,
+                )
+                .join(' / ') || '—'
+        );
     }
 
-    function memberReactivateMeta(member: TeamMemberRow['member'] | null): string[] {
+    function memberReactivateMeta(
+        member: TeamMemberRow['member'] | null,
+    ): string[] {
         const profile = member?.playable_profile;
 
         return [
-            profile?.sport_event
-                ? `Event: ${profile.sport_event}`
-                : null,
-            profile?.weight
-                ? `Weight: ${profile.weight}`
-                : null,
-            profile?.position
-                ? `Pos: ${profile.position}`
-                : null,
+            profile?.sport_event ? `Event: ${profile.sport_event}` : null,
+            profile?.weight ? `Weight: ${profile.weight}` : null,
+            profile?.position ? `Pos: ${profile.position}` : null,
         ].filter((item): item is string => item !== null);
     }
 
@@ -1299,9 +1292,7 @@ export default function TeamsShow({
 
         const q = reactivateCoachSearch.toLowerCase();
         const nameMatch = row.coach.full_name.toLowerCase().includes(q);
-        const englishMatch = row.coach.display_name
-            ?.toLowerCase()
-            .includes(q);
+        const englishMatch = row.coach.display_name?.toLowerCase().includes(q);
         const pnoMatch = row.coach.pno?.toLowerCase().includes(q);
 
         return nameMatch || Boolean(englishMatch) || Boolean(pnoMatch);
@@ -1319,15 +1310,16 @@ export default function TeamsShow({
         selectedSession &&
         currentSession &&
         selectedSession.id === currentSession.id &&
-        sessions.some((session) =>
-            (session.start_year !== undefined &&
-                currentSession.start_year !== undefined &&
-                session.start_year > currentSession.start_year &&
-                session.id !== currentSession.id) ||
-            (session.start_year === undefined &&
-                currentSession.start_year === undefined &&
-                session.id > currentSession.id &&
-                session.id !== currentSession.id)
+        sessions.some(
+            (session) =>
+                (session.start_year !== undefined &&
+                    currentSession.start_year !== undefined &&
+                    session.start_year > currentSession.start_year &&
+                    session.id !== currentSession.id) ||
+                (session.start_year === undefined &&
+                    currentSession.start_year === undefined &&
+                    session.id > currentSession.id &&
+                    session.id !== currentSession.id),
         )
     );
     const isViewingCurrentSession = !!(
@@ -1432,9 +1424,10 @@ export default function TeamsShow({
         (showLeftOnColumn ? 11 : 10) +
         Number(shouldShowProfileColumnForMembers);
     const shouldShowProfileColumnForRemovedMembers = true;
-    const removedProfileColumnsCount =
-        Number(shouldShowProfileColumnForRemovedMembers);
-    const removedMembersTableColumnCount = 7 + removedProfileColumnsCount;
+    const removedProfileColumnsCount = Number(
+        shouldShowProfileColumnForRemovedMembers,
+    );
+    const removedMembersTableColumnCount = 8 + removedProfileColumnsCount;
 
     const filteredCoaches = (coaches ?? []).filter((r) => {
         if (
@@ -1506,6 +1499,27 @@ export default function TeamsShow({
         : coachSomeSelected
           ? 'indeterminate'
           : false;
+
+    // Checkbox derived state — removed members
+    const removedMemberSelectableIds = filteredRemovedMembers
+        .filter((r) => r.member)
+        .map((r) => r.member!.id);
+    const removedMemberAllSelected =
+        removedMemberSelectableIds.length > 0 &&
+        removedMemberSelectableIds.every((id) =>
+            selectedRemovedMemberIds.has(id),
+        );
+    const removedMemberSomeSelected =
+        !removedMemberAllSelected &&
+        removedMemberSelectableIds.some((id) =>
+            selectedRemovedMemberIds.has(id),
+        );
+    const removedMemberHeaderChecked: boolean | 'indeterminate' =
+        removedMemberAllSelected
+            ? true
+            : removedMemberSomeSelected
+              ? 'indeterminate'
+              : false;
 
     const detailCards = [
         {
@@ -1632,7 +1646,7 @@ export default function TeamsShow({
                 onOpenChange={(open) => !open && closeRemoveMembersDialog()}
             >
                 <DialogContent
-                    className="w-[96vw] max-w-[1100px] xl:max-w-[1250px] max-h-[86vh] overflow-hidden"
+                    className="max-h-[86vh] w-[96vw] max-w-[1100px] overflow-hidden xl:max-w-[1250px]"
                     aria-describedby={undefined}
                 >
                     <DialogHeader>
@@ -1741,30 +1755,32 @@ export default function TeamsShow({
 
             <Dialog
                 open={reactivateSessionDialog.open}
-                onOpenChange={(open) =>
-                    !open && closeReactivateSessionDialog()
-                }
+                onOpenChange={(open) => !open && closeReactivateSessionDialog()}
             >
                 <DialogContent
-                    className="w-[96vw] max-w-[900px] xl:max-w-[1100px] max-h-[86vh] overflow-hidden"
+                    className="max-h-[86vh] w-[96vw] max-w-[900px] overflow-hidden xl:max-w-[1100px]"
                     aria-describedby={undefined}
                 >
                     <DialogHeader>
-                        <DialogTitle>
-                            {t('Reactivate session')}
-                        </DialogTitle>
+                        <DialogTitle>{t('Reactivate session')}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
                             {reactivateSessionDialog.mode === 'fresh'
-                                ? t('This session will be marked active without restoring removed records.')
-                                : t('Restore selected removed members/coaches before activating the session.')}
+                                ? t(
+                                      'This session will be marked active without restoring removed records.',
+                                  )
+                                : t(
+                                      'Restore selected removed members/coaches before activating the session.',
+                                  )}
                         </div>
 
                         <div className="space-y-2">
                             <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
                                 <Checkbox
-                                    checked={reactivateSessionDialog.mode === 'fresh'}
+                                    checked={
+                                        reactivateSessionDialog.mode === 'fresh'
+                                    }
                                     onCheckedChange={() =>
                                         setReactivateSessionDialog((state) => ({
                                             ...state,
@@ -1776,7 +1792,10 @@ export default function TeamsShow({
                             </label>
                             <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
                                 <Checkbox
-                                    checked={reactivateSessionDialog.mode === 'restore'}
+                                    checked={
+                                        reactivateSessionDialog.mode ===
+                                        'restore'
+                                    }
                                     onCheckedChange={() =>
                                         setReactivateSessionDialog((state) => ({
                                             ...state,
@@ -1784,7 +1803,11 @@ export default function TeamsShow({
                                         }))
                                     }
                                 />
-                                <span>{t('Restore selected removed members/coaches')}</span>
+                                <span>
+                                    {t(
+                                        'Restore selected removed members/coaches',
+                                    )}
+                                </span>
                             </label>
                         </div>
 
@@ -1800,9 +1823,12 @@ export default function TeamsShow({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={selectAllReactivateMembers}
+                                                onClick={
+                                                    selectAllReactivateMembers
+                                                }
                                                 disabled={
-                                                    reactivateMembersToShow.length === 0
+                                                    reactivateMembersToShow.length ===
+                                                    0
                                                 }
                                             >
                                                 {t('Select all')}
@@ -1811,8 +1837,13 @@ export default function TeamsShow({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={deselectAllReactivateMembers}
-                                                disabled={reactivateSessionDialog.memberIds.length === 0}
+                                                onClick={
+                                                    deselectAllReactivateMembers
+                                                }
+                                                disabled={
+                                                    reactivateSessionDialog
+                                                        .memberIds.length === 0
+                                                }
                                             >
                                                 {t('Deselect all')}
                                             </Button>
@@ -1826,10 +1857,13 @@ export default function TeamsShow({
                                         <>
                                             <div className="relative">
                                                 <Input
-                                                    value={reactivateMemberSearch}
+                                                    value={
+                                                        reactivateMemberSearch
+                                                    }
                                                     onChange={(event) =>
                                                         setReactivateMemberSearch(
-                                                            event.currentTarget.value,
+                                                            event.currentTarget
+                                                                .value,
                                                         )
                                                     }
                                                     placeholder={t(
@@ -1837,7 +1871,7 @@ export default function TeamsShow({
                                                     )}
                                                     className="h-9 pl-8"
                                                 />
-                                                <Search className="pointer-events-none absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
+                                                <Search className="pointer-events-none absolute top-2 left-2 h-4 w-4 text-muted-foreground" />
                                             </div>
                                             <div className="grid max-h-72 gap-2 overflow-y-auto rounded-lg border bg-muted/40 p-2 sm:grid-cols-2 xl:grid-cols-3">
                                                 {reactivateMembersToShow.map(
@@ -1848,9 +1882,17 @@ export default function TeamsShow({
                                                                 className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm"
                                                             >
                                                                 <Checkbox
-                                                                    checked={reactivateSessionDialog.memberIds.includes(row.member.id)}
+                                                                    checked={reactivateSessionDialog.memberIds.includes(
+                                                                        row
+                                                                            .member
+                                                                            .id,
+                                                                    )}
                                                                     onCheckedChange={() =>
-                                                                        toggleRestoreMember(row.member!.id)
+                                                                        toggleRestoreMember(
+                                                                            row
+                                                                                .member!
+                                                                                .id,
+                                                                        )
                                                                     }
                                                                 />
                                                                 <div>
@@ -1863,27 +1905,39 @@ export default function TeamsShow({
                                                                         row.member,
                                                                     ) && (
                                                                         <div className="mt-0.5 text-xs text-muted-foreground">
-                                                                            {t('English')}
+                                                                            {t(
+                                                                                'English',
+                                                                            )}
                                                                             :{' '}
                                                                             {memberEnglishName(
                                                                                 row.member,
                                                                             )}
                                                                         </div>
                                                                     )}
-                                                                    {memberReactivateMeta(row.member)
-                                                                        .length > 0 && (
+                                                                    {memberReactivateMeta(
+                                                                        row.member,
+                                                                    ).length >
+                                                                        0 && (
                                                                         <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
                                                                             {memberReactivateMeta(
                                                                                 row.member,
-                                                                            ).map((value) => (
-                                                                                <Badge
-                                                                                    key={value}
-                                                                                    variant="secondary"
-                                                                                    className="h-6 px-2 py-0.5 text-[11px]"
-                                                                                >
-                                                                                    {value}
-                                                                                </Badge>
-                                                                            ))}
+                                                                            ).map(
+                                                                                (
+                                                                                    value,
+                                                                                ) => (
+                                                                                    <Badge
+                                                                                        key={
+                                                                                            value
+                                                                                        }
+                                                                                        variant="secondary"
+                                                                                        className="h-6 px-2 py-0.5 text-[11px]"
+                                                                                    >
+                                                                                        {
+                                                                                            value
+                                                                                        }
+                                                                                    </Badge>
+                                                                                ),
+                                                                            )}
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -1904,9 +1958,12 @@ export default function TeamsShow({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={selectAllReactivateCoaches}
+                                                onClick={
+                                                    selectAllReactivateCoaches
+                                                }
                                                 disabled={
-                                                    reactivateCoachesToShow.length === 0
+                                                    reactivateCoachesToShow.length ===
+                                                    0
                                                 }
                                             >
                                                 {t('Select all')}
@@ -1915,8 +1972,13 @@ export default function TeamsShow({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={deselectAllReactivateCoaches}
-                                                disabled={reactivateSessionDialog.coachIds.length === 0}
+                                                onClick={
+                                                    deselectAllReactivateCoaches
+                                                }
+                                                disabled={
+                                                    reactivateSessionDialog
+                                                        .coachIds.length === 0
+                                                }
                                             >
                                                 {t('Deselect all')}
                                             </Button>
@@ -1930,10 +1992,13 @@ export default function TeamsShow({
                                         <>
                                             <div className="relative">
                                                 <Input
-                                                    value={reactivateCoachSearch}
+                                                    value={
+                                                        reactivateCoachSearch
+                                                    }
                                                     onChange={(event) =>
                                                         setReactivateCoachSearch(
-                                                            event.currentTarget.value,
+                                                            event.currentTarget
+                                                                .value,
                                                         )
                                                     }
                                                     placeholder={t(
@@ -1941,7 +2006,7 @@ export default function TeamsShow({
                                                     )}
                                                     className="h-9 pl-8"
                                                 />
-                                                <Search className="pointer-events-none absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
+                                                <Search className="pointer-events-none absolute top-2 left-2 h-4 w-4 text-muted-foreground" />
                                             </div>
                                             <div className="grid max-h-72 gap-2 overflow-y-auto rounded-lg border bg-muted/40 p-2 sm:grid-cols-2 xl:grid-cols-3">
                                                 {reactivateCoachesToShow.map(
@@ -1952,17 +2017,29 @@ export default function TeamsShow({
                                                                 className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm"
                                                             >
                                                                 <Checkbox
-                                                                    checked={reactivateSessionDialog.coachIds.includes(row.coach.id)}
+                                                                    checked={reactivateSessionDialog.coachIds.includes(
+                                                                        row
+                                                                            .coach
+                                                                            .id,
+                                                                    )}
                                                                     onCheckedChange={() =>
                                                                         toggleRestoreCoach(
-                                                                            row.coach!.id,
+                                                                            row
+                                                                                .coach!
+                                                                                .id,
                                                                         )
                                                                     }
                                                                 />
                                                                 <span>
-                                                                    {row.coach.full_name}
+                                                                    {
+                                                                        row
+                                                                            .coach
+                                                                            .full_name
+                                                                    }
                                                                     <span className="ml-2 text-xs text-muted-foreground">
-                                                                        {coachRoleLabel(row.role)}
+                                                                        {coachRoleLabel(
+                                                                            row.role,
+                                                                        )}
                                                                     </span>
                                                                 </span>
                                                             </label>
@@ -2028,10 +2105,7 @@ export default function TeamsShow({
                                 id="close-session-date"
                                 value={closeSessionForm.data.closed_on}
                                 onChange={(value) =>
-                                    closeSessionForm.setData(
-                                        'closed_on',
-                                        value,
-                                    )
+                                    closeSessionForm.setData('closed_on', value)
                                 }
                             />
                             <InputError
@@ -2325,7 +2399,11 @@ export default function TeamsShow({
                                     </SelectContent>
                                 </Select>
                                 <Badge
-                                    variant={isSessionActive ? 'default' : 'secondary'}
+                                    variant={
+                                        isSessionActive
+                                            ? 'default'
+                                            : 'secondary'
+                                    }
                                     className={
                                         isSessionActive
                                             ? 'bg-emerald-600 text-white'
@@ -2720,7 +2798,9 @@ export default function TeamsShow({
                                                     </TableHead>
                                                     {shouldShowProfileColumnForMembers ? (
                                                         <TableHead className="min-w-56">
-                                                            {t('Event / Weight / Position')}
+                                                            {t(
+                                                                'Event / Weight / Position',
+                                                            )}
                                                         </TableHead>
                                                     ) : null}
                                                     <TableHead className="hidden lg:table-cell">
@@ -2751,7 +2831,9 @@ export default function TeamsShow({
                                                 0 ? (
                                                     <TableRow>
                                                         <TableCell
-                                                            colSpan={memberTableColumnCount}
+                                                            colSpan={
+                                                                memberTableColumnCount
+                                                            }
                                                             className="text-center text-muted-foreground"
                                                         >
                                                             {t(
@@ -2771,6 +2853,7 @@ export default function TeamsShow({
                                                                             .id,
                                                                     )
                                                                 );
+
                                                             return (
                                                                 <TableRow
                                                                     key={row.id}
@@ -2885,15 +2968,15 @@ export default function TeamsShow({
                                                                                 : ''}
                                                                         </span>
                                                                     </TableCell>
-                                                            {shouldShowProfileColumnForMembers ? (
-                                                                <TableCell className="min-w-56">
-                                                                    <span className="text-sm text-muted-foreground">
-                                                                        {memberProfileSummary(
-                                                                            row.member,
-                                                                        )}
-                                                                    </span>
-                                                                </TableCell>
-                                                            ) : null}
+                                                                    {shouldShowProfileColumnForMembers ? (
+                                                                        <TableCell className="min-w-56">
+                                                                            <span className="text-sm text-muted-foreground">
+                                                                                {memberProfileSummary(
+                                                                                    row.member,
+                                                                                )}
+                                                                            </span>
+                                                                        </TableCell>
+                                                                    ) : null}
                                                                     <TableCell className="hidden lg:table-cell">
                                                                         <div className="text-sm">
                                                                             {row
@@ -2920,19 +3003,19 @@ export default function TeamsShow({
                                                                             ?.name ??
                                                                             ''}
                                                                     </TableCell>
-                                                                <TableCell className="hidden md:table-cell">
-                                                            {row.joined_on ??
-                                                                ''}
-                                                        </TableCell>
-                                                        {showLeftOnColumn ? (
-                                                            <TableCell className="hidden lg:table-cell">
-                                                                {leftDateForMemberRow(
-                                                                    row,
-                                                                )}
-                                                            </TableCell>
-                                                        ) : null}
-                                                        <TableCell className="text-right">
-                                                            <div className="flex items-center justify-end gap-1">
+                                                                    <TableCell className="hidden md:table-cell">
+                                                                        {row.joined_on ??
+                                                                            ''}
+                                                                    </TableCell>
+                                                                    {showLeftOnColumn ? (
+                                                                        <TableCell className="hidden lg:table-cell">
+                                                                            {leftDateForMemberRow(
+                                                                                row,
+                                                                            )}
+                                                                        </TableCell>
+                                                                    ) : null}
+                                                                    <TableCell className="text-right">
+                                                                        <div className="flex items-center justify-end gap-1">
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"
@@ -3007,7 +3090,7 @@ export default function TeamsShow({
 
                             <Deferred data="removedMembers" fallback={<></>}>
                                 <div className="overflow-x-auto rounded-2xl border bg-card p-4">
-                                    <div className="mb-3 flex items-center justify-between gap-3">
+                                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                                         <div>
                                             <h3 className="text-sm font-semibold">
                                                 {t('Removed roster')}
@@ -3018,16 +3101,84 @@ export default function TeamsShow({
                                                 )}
                                             </p>
                                         </div>
-                                        <Badge variant="outline">
-                                            {String(
-                                                (removedMembers ?? []).length,
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {selectedRemovedMemberIds.size >
+                                                0 && (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        setSelectedRemovedMemberIds(
+                                                            new Set(),
+                                                        )
+                                                    }
+                                                >
+                                                    {t('Deselect all')}
+                                                </Button>
                                             )}
-                                        </Badge>
+                                            {removedMemberSelectableIds.length >
+                                                0 && (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        toggleAllRemovedMembers(
+                                                            removedMemberSelectableIds,
+                                                        )
+                                                    }
+                                                >
+                                                    {t('Select all')}
+                                                </Button>
+                                            )}
+                                            {selectedRemovedMemberIds.size >
+                                                0 && (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    onClick={
+                                                        handleRestoreRemovedMembers
+                                                    }
+                                                >
+                                                    <ArchiveRestore className="mr-1.5 h-4 w-4" />
+                                                    {t(
+                                                        'Restore selected (:count)',
+                                                    ).replace(
+                                                        ':count',
+                                                        String(
+                                                            selectedRemovedMemberIds.size,
+                                                        ),
+                                                    )}
+                                                </Button>
+                                            )}
+                                            <Badge variant="outline">
+                                                {String(
+                                                    (removedMembers ?? [])
+                                                        .length,
+                                                )}
+                                            </Badge>
+                                        </div>
                                     </div>
                                     <div className="min-w-[780px]">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="bg-muted">
+                                                    <TableHead className="w-10">
+                                                        <Checkbox
+                                                            checked={
+                                                                removedMemberHeaderChecked
+                                                            }
+                                                            onCheckedChange={() =>
+                                                                toggleAllRemovedMembers(
+                                                                    removedMemberSelectableIds,
+                                                                )
+                                                            }
+                                                            aria-label={t(
+                                                                'Select all',
+                                                            )}
+                                                        />
+                                                    </TableHead>
                                                     <TableHead>
                                                         {t('Name')}
                                                     </TableHead>
@@ -3039,7 +3190,9 @@ export default function TeamsShow({
                                                     </TableHead>
                                                     {shouldShowProfileColumnForRemovedMembers ? (
                                                         <TableHead className="min-w-56">
-                                                            {t('Event / Weight / Position')}
+                                                            {t(
+                                                                'Event / Weight / Position',
+                                                            )}
                                                         </TableHead>
                                                     ) : null}
                                                     <TableHead className="hidden lg:table-cell">
@@ -3057,12 +3210,13 @@ export default function TeamsShow({
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {(filteredRemovedMembers ??
-                                                    [])
+                                                {(filteredRemovedMembers ?? [])
                                                     .length === 0 ? (
                                                     <TableRow>
                                                         <TableCell
-                                                            colSpan={removedMembersTableColumnCount}
+                                                            colSpan={
+                                                                removedMembersTableColumnCount
+                                                            }
                                                             className="text-center text-muted-foreground"
                                                         >
                                                             {t(
@@ -3077,52 +3231,89 @@ export default function TeamsShow({
                                                                 <TableRow
                                                                     key={row.id}
                                                                 >
-                                                                <TableCell className="font-medium">
-                                                                    {memberNameWithRank(
-                                                                        row.member,
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="hidden font-mono text-sm sm:table-cell">
-                                                                    {row.member
-                                                                        ?.pno ??
-                                                                        ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden md:table-cell">
-                                                                    {row.role
-                                                                        ? t(
-                                                                              row.role,
-                                                                          )
-                                                                        : ''}
-                                                                </TableCell>
-                                                                {shouldShowProfileColumnForRemovedMembers ? (
-                                                                    <TableCell className="min-w-56">
-                                                                        <span className="text-sm text-muted-foreground">
-                                                                            {memberProfileSummary(
-                                                                                row.member,
+                                                                    <TableCell className="w-10">
+                                                                        <Checkbox
+                                                                            checked={
+                                                                                !!(
+                                                                                    row.member &&
+                                                                                    selectedRemovedMemberIds.has(
+                                                                                        row
+                                                                                            .member
+                                                                                            .id,
+                                                                                    )
+                                                                                )
+                                                                            }
+                                                                            onCheckedChange={() =>
+                                                                                row.member &&
+                                                                                toggleRemovedMember(
+                                                                                    row
+                                                                                        .member
+                                                                                        .id,
+                                                                                )
+                                                                            }
+                                                                            disabled={
+                                                                                !row.member
+                                                                            }
+                                                                            aria-label={t(
+                                                                                'Select :name',
+                                                                            ).replace(
+                                                                                ':name',
+                                                                                row
+                                                                                    .member
+                                                                                    ?.full_name ??
+                                                                                    '',
                                                                             )}
-                                                                        </span>
+                                                                        />
                                                                     </TableCell>
-                                                                ) : null}
-                                                                <TableCell className="hidden lg:table-cell">
-                                                                    {row.member
-                                                                        ?.current_unit
-                                                                        ?.name ??
-                                                                        ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden lg:table-cell">
-                                                                    {row.member
-                                                                        ?.mobile ??
-                                                                        ''}
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    {row.joined_on ??
-                                                                        ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden md:table-cell">
-                                                                    {row.left_on ??
-                                                                        ''}
-                                                                </TableCell>
-                                                            </TableRow>
+                                                                    <TableCell className="font-medium">
+                                                                        {memberNameWithRank(
+                                                                            row.member,
+                                                                        )}
+                                                                    </TableCell>
+                                                                    <TableCell className="hidden font-mono text-sm sm:table-cell">
+                                                                        {row
+                                                                            .member
+                                                                            ?.pno ??
+                                                                            ''}
+                                                                    </TableCell>
+                                                                    <TableCell className="hidden md:table-cell">
+                                                                        {row.role
+                                                                            ? t(
+                                                                                  row.role,
+                                                                              )
+                                                                            : ''}
+                                                                    </TableCell>
+                                                                    {shouldShowProfileColumnForRemovedMembers ? (
+                                                                        <TableCell className="min-w-56">
+                                                                            <span className="text-sm text-muted-foreground">
+                                                                                {memberProfileSummary(
+                                                                                    row.member,
+                                                                                )}
+                                                                            </span>
+                                                                        </TableCell>
+                                                                    ) : null}
+                                                                    <TableCell className="hidden lg:table-cell">
+                                                                        {row
+                                                                            .member
+                                                                            ?.current_unit
+                                                                            ?.name ??
+                                                                            ''}
+                                                                    </TableCell>
+                                                                    <TableCell className="hidden lg:table-cell">
+                                                                        {row
+                                                                            .member
+                                                                            ?.mobile ??
+                                                                            ''}
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        {row.joined_on ??
+                                                                            ''}
+                                                                    </TableCell>
+                                                                    <TableCell className="hidden md:table-cell">
+                                                                        {row.left_on ??
+                                                                            ''}
+                                                                    </TableCell>
+                                                                </TableRow>
                                                             );
                                                         },
                                                     )
@@ -3470,167 +3661,169 @@ export default function TeamsShow({
                                                                             : undefined
                                                                     }
                                                                 >
-                                                                <TableCell>
-                                                                    <Checkbox
-                                                                        checked={
-                                                                            !!(
+                                                                    <TableCell>
+                                                                        <Checkbox
+                                                                            checked={
+                                                                                !!(
+                                                                                    row.coach &&
+                                                                                    selectedCoachIds.has(
+                                                                                        row
+                                                                                            .coach
+                                                                                            .id,
+                                                                                    )
+                                                                                )
+                                                                            }
+                                                                            onCheckedChange={() =>
                                                                                 row.coach &&
-                                                                                selectedCoachIds.has(
+                                                                                toggleCoach(
                                                                                     row
                                                                                         .coach
                                                                                         .id,
                                                                                 )
-                                                                            )
-                                                                        }
-                                                                        onCheckedChange={() =>
-                                                                            row.coach &&
-                                                                            toggleCoach(
-                                                                                row
-                                                                                    .coach
-                                                                                    .id,
-                                                                            )
-                                                                        }
-                                                                        disabled={
-                                                                            !row.coach
-                                                                        }
-                                                                        aria-label={
-                                                                            row
-                                                                                .coach
-                                                                                ?.full_name
-                                                                        }
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell className="font-medium">
-                                                                    {row.coach ? (
-                                                                        <Link
-                                                                            href={CoachController.show.url(
-                                                                                row
-                                                                                    .coach
-                                                                                    .id,
-                                                                            )}
-                                                                            target="_blank"
-                                                                            rel="noreferrer"
-                                                                            className="text-primary hover:underline"
-                                                                        >
-                                                                            {
-                                                                                row
-                                                                                    .coach
-                                                                                    .full_name
                                                                             }
-                                                                        </Link>
-                                                                    ) : (
-                                                                        ''
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="hidden font-mono text-sm sm:table-cell">
-                                                                    {row.coach
-                                                                        ?.pno ? (
-                                                                        <Link
-                                                                            href={CoachController.show.url(
-                                                                                row
-                                                                                    .coach
-                                                                                    .id,
-                                                                            )}
-                                                                            target="_blank"
-                                                                            rel="noreferrer"
-                                                                            className="text-primary hover:underline"
-                                                                        >
-                                                                            {
-                                                                                row
-                                                                                    .coach
-                                                                                    .pno
+                                                                            disabled={
+                                                                                !row.coach
                                                                             }
-                                                                        </Link>
-                                                                    ) : (
-                                                                        ''
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    {coachRoleLabel(
-                                                                        row.role,
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="min-w-44">
-                                                                    {sportProfile ? (
-                                                                        <div className="space-y-0.5">
-                                                                            {sportProfile.sport_event ? (
-                                                                                <div className="text-sm font-medium">
-                                                                                    {
-                                                                                        sportProfile.sport_event
-                                                                                    }
-                                                                                </div>
-                                                                            ) : null}
-                                                                            {profileMeta.length >
-                                                                            0 ? (
-                                                                                <div className="text-xs text-muted-foreground">
-                                                                                    {profileMeta.join(
-                                                                                        ' · ',
-                                                                                    )}
-                                                                                </div>
-                                                                            ) : null}
+                                                                            aria-label={
+                                                                                row
+                                                                                    .coach
+                                                                                    ?.full_name
+                                                                            }
+                                                                        />
+                                                                    </TableCell>
+                                                                    <TableCell className="font-medium">
+                                                                        {row.coach ? (
+                                                                            <Link
+                                                                                href={CoachController.show.url(
+                                                                                    row
+                                                                                        .coach
+                                                                                        .id,
+                                                                                )}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                className="text-primary hover:underline"
+                                                                            >
+                                                                                {
+                                                                                    row
+                                                                                        .coach
+                                                                                        .full_name
+                                                                                }
+                                                                            </Link>
+                                                                        ) : (
+                                                                            ''
+                                                                        )}
+                                                                    </TableCell>
+                                                                    <TableCell className="hidden font-mono text-sm sm:table-cell">
+                                                                        {row
+                                                                            .coach
+                                                                            ?.pno ? (
+                                                                            <Link
+                                                                                href={CoachController.show.url(
+                                                                                    row
+                                                                                        .coach
+                                                                                        .id,
+                                                                                )}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                className="text-primary hover:underline"
+                                                                            >
+                                                                                {
+                                                                                    row
+                                                                                        .coach
+                                                                                        .pno
+                                                                                }
+                                                                            </Link>
+                                                                        ) : (
+                                                                            ''
+                                                                        )}
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        {coachRoleLabel(
+                                                                            row.role,
+                                                                        )}
+                                                                    </TableCell>
+                                                                    <TableCell className="min-w-44">
+                                                                        {sportProfile ? (
+                                                                            <div className="space-y-0.5">
+                                                                                {sportProfile.sport_event ? (
+                                                                                    <div className="text-sm font-medium">
+                                                                                        {
+                                                                                            sportProfile.sport_event
+                                                                                        }
+                                                                                    </div>
+                                                                                ) : null}
+                                                                                {profileMeta.length >
+                                                                                0 ? (
+                                                                                    <div className="text-xs text-muted-foreground">
+                                                                                        {profileMeta.join(
+                                                                                            ' · ',
+                                                                                        )}
+                                                                                    </div>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-sm text-muted-foreground">
+                                                                                —
+                                                                            </span>
+                                                                        )}
+                                                                    </TableCell>
+                                                                    <TableCell className="hidden md:table-cell">
+                                                                        {row.assigned_at ??
+                                                                            ''}
+                                                                    </TableCell>
+                                                                    <TableCell className="hidden lg:table-cell">
+                                                                        {row
+                                                                            .session
+                                                                            ?.name ??
+                                                                            ''}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <div className="flex items-center justify-end gap-1">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                title={t(
+                                                                                    'Quick info',
+                                                                                )}
+                                                                                onClick={() =>
+                                                                                    setCoachQuickViewId(
+                                                                                        row
+                                                                                            .coach
+                                                                                            ?.id ??
+                                                                                            null,
+                                                                                    )
+                                                                                }
+                                                                                disabled={
+                                                                                    !row.coach
+                                                                                }
+                                                                            >
+                                                                                <Info className="h-4 w-4" />
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                onClick={() =>
+                                                                                    row.coach &&
+                                                                                    removeCoach(
+                                                                                        row
+                                                                                            .coach
+                                                                                            .id,
+                                                                                        row
+                                                                                            .coach
+                                                                                            .full_name,
+                                                                                    )
+                                                                                }
+                                                                                disabled={
+                                                                                    !row.coach
+                                                                                }
+                                                                            >
+                                                                                {t(
+                                                                                    'Remove',
+                                                                                )}
+                                                                            </Button>
                                                                         </div>
-                                                                    ) : (
-                                                                        <span className="text-sm text-muted-foreground">
-                                                                            —
-                                                                        </span>
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="hidden md:table-cell">
-                                                                    {row.assigned_at ??
-                                                                        ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden lg:table-cell">
-                                                                    {row.session
-                                                                        ?.name ??
-                                                                        ''}
-                                                                </TableCell>
-                                                                <TableCell className="text-right">
-                                                                    <div className="flex items-center justify-end gap-1">
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            title={t(
-                                                                                'Quick info',
-                                                                            )}
-                                                                            onClick={() =>
-                                                                                setCoachQuickViewId(
-                                                                                    row
-                                                                                        .coach
-                                                                                        ?.id ??
-                                                                                        null,
-                                                                                )
-                                                                            }
-                                                                            disabled={
-                                                                                !row.coach
-                                                                            }
-                                                                        >
-                                                                            <Info className="h-4 w-4" />
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() =>
-                                                                                row.coach &&
-                                                                                removeCoach(
-                                                                                    row
-                                                                                        .coach
-                                                                                        .id,
-                                                                                    row
-                                                                                        .coach
-                                                                                        .full_name,
-                                                                                )
-                                                                            }
-                                                                            disabled={
-                                                                                !row.coach
-                                                                            }
-                                                                        >
-                                                                            {t(
-                                                                                'Remove',
-                                                                            )}
-                                                                        </Button>
-                                                                    </div>
-                                                                </TableCell>
-                                                            </TableRow>
+                                                                    </TableCell>
+                                                                </TableRow>
                                                             );
                                                         },
                                                     )
