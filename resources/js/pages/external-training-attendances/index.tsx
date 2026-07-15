@@ -8,7 +8,7 @@ import {
     X,
 } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { ComboboxItem } from '@/components/combobox';
 import { Combobox } from '@/components/combobox';
@@ -255,6 +255,82 @@ const defaultExportColumns = [
 
 const AUTO_MARKED_ATTENDANCE_REASON = 'coach_not_submitted_attendance';
 
+type SpanMeta = {
+    span: number;
+    start: boolean;
+};
+
+type RowSpanMeta = {
+    date: SpanMeta;
+    source: SpanMeta;
+    coach: SpanMeta;
+    venue: SpanMeta;
+    sport: SpanMeta;
+    member: SpanMeta;
+    attendance: SpanMeta;
+    geoStatus: SpanMeta;
+    reviewAction: SpanMeta;
+};
+
+function computeRowSpans(attendances: Attendance[]): RowSpanMeta[] {
+    const result: RowSpanMeta[] = attendances.map(() => ({
+        date: { span: 1, start: true },
+        source: { span: 1, start: true },
+        coach: { span: 1, start: true },
+        venue: { span: 1, start: true },
+        sport: { span: 1, start: true },
+        member: { span: 1, start: true },
+        attendance: { span: 1, start: true },
+        geoStatus: { span: 1, start: true },
+        reviewAction: { span: 1, start: true },
+    }));
+
+    const columns: {
+        key: keyof RowSpanMeta;
+        value: (attendance: Attendance) => string | number | null;
+    }[] = [
+        { key: 'date', value: (a) => a.attendance_date },
+        {
+            key: 'source',
+            value: (a) =>
+                a.flag_reason === AUTO_MARKED_ATTENDANCE_REASON
+                    ? 'auto'
+                    : 'manual',
+        },
+        { key: 'coach', value: (a) => a.external_coach.id },
+        { key: 'venue', value: (a) => a.training_venue.name },
+        { key: 'sport', value: (a) => a.assignment?.sport?.name ?? null },
+        { key: 'member', value: (a) => a.member.id },
+        { key: 'attendance', value: (a) => a.attendance_status },
+        { key: 'geoStatus', value: (a) => a.geo_status },
+        { key: 'reviewAction', value: (a) => a.review_status },
+    ];
+
+    for (const { key, value } of columns) {
+        let groupStart = 0;
+
+        for (let i = 0; i < attendances.length; i++) {
+            const isLast = i === attendances.length - 1;
+            const current = value(attendances[i]);
+            const next = isLast ? null : value(attendances[i + 1]);
+            const breaks = isLast || current !== next;
+
+            if (breaks) {
+                for (let j = groupStart; j <= i; j++) {
+                    result[j][key] = {
+                        span: i - groupStart + 1,
+                        start: j === groupStart,
+                    };
+                }
+
+                groupStart = i + 1;
+            }
+        }
+    }
+
+    return result;
+}
+
 export default function ExternalTrainingAttendanceIndex({
     attendances,
     filters,
@@ -310,6 +386,10 @@ export default function ExternalTrainingAttendanceIndex({
     >([]);
     const [selectedOutputColumns, setSelectedOutputColumns] =
         useState<string[]>(defaultExportColumns);
+    const rowSpanMeta = useMemo(
+        () => computeRowSpans(attendances.data),
+        [attendances.data],
+    );
     const sportItems: ComboboxItem[] = sports.map((sport) => ({
         value: String(sport.id),
         label: sport.name,
@@ -1479,68 +1559,118 @@ export default function ExternalTrainingAttendanceIndex({
                                             </span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="px-2 py-1.5 font-medium whitespace-nowrap">
-                                        {formatDisplayDate(
-                                            attendance.attendance_date,
-                                            locale,
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="px-2 py-1.5 whitespace-nowrap">
-                                        <Badge
-                                            variant={
-                                                attendance.flag_reason ===
-                                                AUTO_MARKED_ATTENDANCE_REASON
-                                                    ? 'default'
-                                                    : 'outline'
+                                    {rowSpanMeta[index].date.start ? (
+                                        <TableCell
+                                            rowSpan={
+                                                rowSpanMeta[index].date.span
                                             }
-                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendance.flag_reason === AUTO_MARKED_ATTENDANCE_REASON ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : ''}`}
+                                            className="px-2 py-1.5 align-middle font-medium whitespace-nowrap"
                                         >
-                                            {attendanceMarkingSource(
-                                                attendance.flag_reason,
-                                                t,
+                                            {formatDisplayDate(
+                                                attendance.attendance_date,
+                                                locale,
                                             )}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="min-w-40 px-2 py-1.5">
-                                        <Link
-                                            href={`/members/${attendance.member.id}`}
-                                            className="font-semibold text-foreground hover:text-primary hover:underline"
+                                        </TableCell>
+                                    ) : null}
+                                    {rowSpanMeta[index].source.start ? (
+                                        <TableCell
+                                            rowSpan={
+                                                rowSpanMeta[index].source.span
+                                            }
+                                            className="px-2 py-1.5 align-middle whitespace-nowrap"
                                         >
-                                            {attendance.member.full_name}
-                                        </Link>
-                                        {attendance.member.pno ? (
-                                            <div className="text-[11px] text-muted-foreground">
-                                                {attendance.member.pno}
-                                            </div>
-                                        ) : null}
-                                    </TableCell>
-                                    <TableCell className="min-w-36 px-2 py-1.5">
-                                        <Link
-                                            href={`/external-coaches/${attendance.external_coach.id}`}
-                                            className="font-medium text-primary hover:underline"
-                                        >
-                                            {attendance.external_coach.name}
-                                        </Link>
-                                    </TableCell>
-                                    <TableCell className="max-w-32 truncate px-2 py-1.5">
-                                        {attendance.training_venue.name}
-                                    </TableCell>
-                                    <TableCell className="max-w-28 truncate px-2 py-1.5">
-                                        {attendance.assignment?.sport?.name ??
-                                            '-'}
-                                    </TableCell>
-                                    <TableCell className="px-2 py-1.5 whitespace-nowrap">
-                                        <div className="flex flex-col items-start gap-1">
                                             <Badge
-                                                variant="outline"
-                                                className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}
+                                                variant={
+                                                    attendance.flag_reason ===
+                                                    AUTO_MARKED_ATTENDANCE_REASON
+                                                        ? 'default'
+                                                        : 'outline'
+                                                }
+                                                className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendance.flag_reason === AUTO_MARKED_ATTENDANCE_REASON ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : ''}`}
                                             >
-                                                {t(
-                                                    attendance.attendance_status,
+                                                {attendanceMarkingSource(
+                                                    attendance.flag_reason,
+                                                    t,
                                                 )}
                                             </Badge>
-                                        </div>
-                                    </TableCell>
+                                        </TableCell>
+                                    ) : null}
+                                    {rowSpanMeta[index].member.start ? (
+                                        <TableCell
+                                            rowSpan={
+                                                rowSpanMeta[index].member.span
+                                            }
+                                            className="min-w-40 px-2 py-1.5 align-middle"
+                                        >
+                                            <Link
+                                                href={`/members/${attendance.member.id}`}
+                                                className="font-semibold text-foreground hover:text-primary hover:underline"
+                                            >
+                                                {attendance.member.full_name}
+                                            </Link>
+                                            {attendance.member.pno ? (
+                                                <div className="text-[11px] text-muted-foreground">
+                                                    {attendance.member.pno}
+                                                </div>
+                                            ) : null}
+                                        </TableCell>
+                                    ) : null}
+                                    {rowSpanMeta[index].coach.start ? (
+                                        <TableCell
+                                            rowSpan={
+                                                rowSpanMeta[index].coach.span
+                                            }
+                                            className="min-w-36 px-2 py-1.5 align-middle"
+                                        >
+                                            <Link
+                                                href={`/external-coaches/${attendance.external_coach.id}`}
+                                                className="font-medium text-primary hover:underline"
+                                            >
+                                                {attendance.external_coach.name}
+                                            </Link>
+                                        </TableCell>
+                                    ) : null}
+                                    {rowSpanMeta[index].venue.start ? (
+                                        <TableCell
+                                            rowSpan={
+                                                rowSpanMeta[index].venue.span
+                                            }
+                                            className="max-w-32 truncate px-2 py-1.5 align-middle"
+                                        >
+                                            {attendance.training_venue.name}
+                                        </TableCell>
+                                    ) : null}
+                                    {rowSpanMeta[index].sport.start ? (
+                                        <TableCell
+                                            rowSpan={
+                                                rowSpanMeta[index].sport.span
+                                            }
+                                            className="max-w-28 truncate px-2 py-1.5 align-middle"
+                                        >
+                                            {attendance.assignment?.sport
+                                                ?.name ?? '-'}
+                                        </TableCell>
+                                    ) : null}
+                                    {rowSpanMeta[index].attendance.start ? (
+                                        <TableCell
+                                            rowSpan={
+                                                rowSpanMeta[index].attendance
+                                                    .span
+                                            }
+                                            className="px-2 py-1.5 align-middle whitespace-nowrap"
+                                        >
+                                            <div className="flex flex-col items-start gap-1">
+                                                <Badge
+                                                    variant="outline"
+                                                    className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}
+                                                >
+                                                    {t(
+                                                        attendance.attendance_status,
+                                                    )}
+                                                </Badge>
+                                            </div>
+                                        </TableCell>
+                                    ) : null}
                                     <TableCell className="px-2 py-1.5 whitespace-nowrap">
                                         {attendance.review_status ===
                                             'corrected' &&
@@ -1559,30 +1689,46 @@ export default function ExternalTrainingAttendanceIndex({
                                             </span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="px-2 py-1.5 whitespace-nowrap">
-                                        <Badge
-                                            variant={
-                                                attendance.geo_status ===
-                                                'valid'
-                                                    ? 'secondary'
-                                                    : 'destructive'
+                                    {rowSpanMeta[index].geoStatus.start ? (
+                                        <TableCell
+                                            rowSpan={
+                                                rowSpanMeta[index].geoStatus
+                                                    .span
                                             }
-                                            className="rounded-full px-1.5 py-0 text-[11px] font-semibold"
+                                            className="px-2 py-1.5 align-middle whitespace-nowrap"
                                         >
-                                            {t(attendance.geo_status)}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="px-2 py-1.5 whitespace-nowrap">
-                                        <Badge
-                                            variant="outline"
-                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${reviewActionBadgeClass(attendance.review_status)}`}
+                                            <Badge
+                                                variant={
+                                                    attendance.geo_status ===
+                                                    'valid'
+                                                        ? 'secondary'
+                                                        : 'destructive'
+                                                }
+                                                className="rounded-full px-1.5 py-0 text-[11px] font-semibold"
+                                            >
+                                                {t(attendance.geo_status)}
+                                            </Badge>
+                                        </TableCell>
+                                    ) : null}
+                                    {rowSpanMeta[index].reviewAction.start ? (
+                                        <TableCell
+                                            rowSpan={
+                                                rowSpanMeta[index].reviewAction
+                                                    .span
+                                            }
+                                            className="px-2 py-1.5 align-middle whitespace-nowrap"
                                         >
-                                            {reviewActionLabel(
-                                                attendance.review_status,
-                                                t,
-                                            )}
-                                        </Badge>
-                                    </TableCell>
+                                            <Badge
+                                                variant="outline"
+                                                className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${reviewActionBadgeClass(attendance.review_status)}`}
+                                            >
+                                                {reviewActionLabel(
+                                                    attendance.review_status,
+                                                    t,
+                                                )}
+                                            </Badge>
+                                        </TableCell>
+                                    ) : null}
                                     <TableCell className="px-2 py-1.5 text-right whitespace-nowrap tabular-nums">
                                         {attendance.distance_from_venue_meters ??
                                             '-'}{' '}
