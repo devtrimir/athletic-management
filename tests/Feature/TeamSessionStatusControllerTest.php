@@ -12,6 +12,7 @@ use App\Models\Role;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamMember;
+use App\Models\TeamSessionStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -234,4 +235,82 @@ test('closure validates session date reason and remove coaches flag', function (
             'remove_coaches' => 'sometimes',
         ])
         ->assertSessionHasErrors(['session_id', 'closed_on', 'reason', 'remove_coaches']);
+});
+
+function sessionClosurePlayableMember(Organization $org, Team $team, array $attributes = []): Member
+{
+    $member = Member::factory()->create(array_merge([
+        'organization_id' => $org->id,
+        'current_status' => 'ACTIVE',
+    ], $attributes));
+    $member->playableSports()->sync([$team->sport_id]);
+
+    return $member;
+}
+
+test('activating a session restores selected removed members and marks session active', function (): void {
+    $user = sessionClosureUser('teams.update');
+    $org = Organization::findOrFail($user->organization_id);
+    $team = sessionClosureTeam($org);
+    $member = sessionClosurePlayableMember($org, $team);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'role' => 'CAPTAIN',
+        'left_on' => '2026-02-01',
+    ]);
+    $member->update(['current_status' => 'INACTIVE']);
+
+    $this->actingAs($user)
+        ->patch(route('teams.session-status.activate', $team), [
+            'session_id' => $team->session_id,
+            'restore_member_ids' => [$member->id],
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
+
+    $this->assertDatabaseHas('team_session_statuses', [
+        'team_id' => $team->id,
+        'session_id' => $team->session_id,
+        'status' => TeamSessionStatus::STATUS_ACTIVE,
+    ]);
+
+    $this->assertDatabaseHas('team_members', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'role' => 'CAPTAIN',
+        'left_on' => null,
+    ]);
+
+    $this->assertDatabaseHas('members', [
+        'id' => $member->id,
+        'current_status' => 'ACTIVE',
+    ]);
+});
+
+test('activating a session without restore ids marks session active only', function (): void {
+    $user = sessionClosureUser('teams.update');
+    $org = Organization::findOrFail($user->organization_id);
+    $team = sessionClosureTeam($org);
+
+    TeamSessionStatus::factory()->create([
+        'organization_id' => $org->id,
+        'team_id' => $team->id,
+        'session_id' => $team->session_id,
+        'status' => TeamSessionStatus::STATUS_INACTIVE,
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('teams.session-status.activate', $team), [
+            'session_id' => $team->session_id,
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
+
+    $this->assertDatabaseHas('team_session_statuses', [
+        'team_id' => $team->id,
+        'session_id' => $team->session_id,
+        'status' => TeamSessionStatus::STATUS_ACTIVE,
+    ]);
 });

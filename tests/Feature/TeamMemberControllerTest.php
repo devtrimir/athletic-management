@@ -787,3 +787,47 @@ test('membership update rejects left date before joined date', function (): void
         ])
         ->assertSessionHasErrors(['left_on']);
 });
+
+test('re-adding a removed member reactivates the same row and marks member active', function (): void {
+    $user = teamUser('teams.update');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+    $member = playableMember($org, $team, ['current_status' => 'ACTIVE']);
+
+    $row = TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'role' => 'CAPTAIN',
+        'left_on' => '2026-02-01',
+    ]);
+
+    $member->update(['current_status' => 'INACTIVE']);
+
+    $this->actingAs($user)
+        ->post(route('teams.members.store', $team), [
+            'member_ids' => [$member->id],
+            'session_id' => $team->session_id,
+            'role' => 'CAPTAIN',
+            'joined_on' => '2026-03-01',
+        ])
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
+
+    expect($row->fresh())->not->toBeNull()
+        ->and($row->fresh()->left_on)->toBeNull()
+        ->and($row->fresh()->joined_on?->toDateString())->toBe('2026-03-01');
+
+    $this->assertDatabaseHas('members', [
+        'id' => $member->id,
+        'current_status' => 'ACTIVE',
+    ]);
+
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'action' => 'ADDED',
+        'role' => 'CAPTAIN',
+        'source' => 'manual',
+    ]);
+});

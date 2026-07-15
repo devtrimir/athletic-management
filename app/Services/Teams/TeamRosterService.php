@@ -93,6 +93,62 @@ class TeamRosterService
     }
 
     /**
+     * @param  list<array<string, mixed>>  $entries
+     */
+    public function restoreMembers(Team $team, int $sessionId, array $entries, int $userId): int
+    {
+        $preview = $this->previewEntries(
+            team: $team,
+            sessionId: $sessionId,
+            entries: $entries,
+            allowInactive: true,
+            allowExistingRemoved: true,
+            allowOnlyInactiveStatus: true,
+        );
+
+        $errors = $this->errorsForMemberInputs($preview['rows']);
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return DB::transaction(function () use ($team, $preview, $sessionId, $userId): int {
+            $count = 0;
+
+            foreach ($preview['rows'] as $row) {
+                $teamMember = TeamMember::updateOrCreate([
+                    'team_id' => $team->id,
+                    'member_id' => $row['member_id'],
+                    'session_id' => $sessionId,
+                ], [
+                    'role' => $row['role'],
+                    'joined_on' => $row['joined_on'],
+                    'left_on' => null,
+                ]);
+
+                $this->recordMovement(
+                    team: $team,
+                    teamMember: $teamMember,
+                    memberId: (int) $row['member_id'],
+                    sessionId: $sessionId,
+                    action: 'ADDED',
+                    role: (string) $row['role'],
+                    effectiveOn: $row['joined_on'],
+                    userId: $userId,
+                    source: 'manual',
+                );
+
+                $count++;
+            }
+
+            Member::whereIn('id', collect($preview['rows'])->pluck('member_id')->filter()->all())
+                ->update(['current_status' => 'ACTIVE']);
+
+            return $count;
+        });
+    }
+
+    /**
      * @param  list<int|string>  $memberIds
      */
     public function removeMembers(
