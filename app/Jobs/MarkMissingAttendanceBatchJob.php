@@ -16,12 +16,15 @@ class MarkMissingAttendanceBatchJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 120;
+    public int $timeout = 600;
 
     /**
-     * @param array<int, array<string, mixed>> $rows
+     * @param  array<int, array<string, mixed>>  $rows
      */
-    public function __construct(public readonly array $rows) {}
+    public function __construct(public readonly array $rows)
+    {
+        $this->onQueue('attendance');
+    }
 
     public function handle(): void
     {

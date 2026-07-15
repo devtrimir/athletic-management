@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Jobs\MarkMissingAttendanceBatchJob;
 use App\Models\ExternalCoach;
 use App\Models\ExternalCoachingAssignment;
 use App\Models\ExternalTrainingAttendance;
@@ -12,6 +13,7 @@ use App\Models\Sport;
 use App\Models\TrainingVenue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
 
@@ -44,6 +46,7 @@ function markAttendanceFixture(array $assignmentOverrides = []): array
         'start_date' => Carbon::today()->subWeek()->toDateString(),
         'end_date' => Carbon::today()->addWeek()->toDateString(),
         'status' => 'active',
+        'training_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
         ...$assignmentOverrides,
     ]);
 
@@ -228,4 +231,65 @@ test('command runs in dry-run mode without writing attendance', function (): voi
         ->count();
 
     expect($count)->toBe(0);
+});
+
+test('command dispatches batch jobs to attendance queue when --queue is used', function (): void {
+    $targetDate = Carbon::today()->subDays(1)->toDateString();
+    $fixture = markAttendanceFixture([
+        'start_date' => Carbon::today()->subWeek()->toDateString(),
+        'end_date' => Carbon::today()->toDateString(),
+    ]);
+
+    Queue::fake();
+
+    $this->artisan('external-coaching:mark-missing-attendance', [
+        '--date' => $targetDate,
+        '--queue' => true,
+    ])->assertSuccessful();
+
+    Queue::assertPushed(MarkMissingAttendanceBatchJob::class, function (MarkMissingAttendanceBatchJob $job): bool {
+        return $job->queue === 'attendance' && $job->rows !== [];
+    });
+
+    $count = ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)
+        ->where('external_coaching_assignment_id', $fixture['assignment']->id)
+        ->where('attendance_date', $targetDate)
+        ->count();
+
+    expect($count)->toBe(0);
+});
+
+test('attendance batch job inserts missing attendance rows', function (): void {
+    $targetDate = Carbon::today()->subDays(1)->toDateString();
+    $fixture = markAttendanceFixture([
+        'start_date' => Carbon::today()->subWeek()->toDateString(),
+        'end_date' => Carbon::today()->toDateString(),
+    ]);
+
+    $row = [
+        'organization_id' => $fixture['organization']->id,
+        'external_coaching_assignment_id' => $fixture['assignment']->id,
+        'member_id' => $fixture['member']->id,
+        'external_coach_id' => $fixture['coach']->id,
+        'training_venue_id' => $fixture['venue']->id,
+        'attendance_date' => $targetDate,
+        'attendance_status' => 'absent',
+        'review_status' => 'pending',
+        'geo_status' => 'manual_review_required',
+        'flag_reason' => 'coach_not_submitted_attendance',
+        'submitted_at' => now(),
+        'submitted_photo_path' => null,
+        'submitted_photo_source' => 'system',
+        'submitted_source' => 'auto_scheduler',
+    ];
+
+    (new MarkMissingAttendanceBatchJob([$row]))->handle();
+
+    $attendance = ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)
+        ->where('external_coaching_assignment_id', $fixture['assignment']->id)
+        ->where('attendance_date', $targetDate)
+        ->firstOrFail();
+
+    expect($attendance->attendance_status)->toBe('absent')
+        ->and($attendance->flag_reason)->toBe('coach_not_submitted_attendance');
 });

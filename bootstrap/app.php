@@ -24,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command(MarkMissingAttendanceCommand::class)
+        $schedule->command(MarkMissingAttendanceCommand::class, ['--queue'])
             ->dailyAt('00:00')
             ->onOneServer()
             ->withoutOverlapping(60)
