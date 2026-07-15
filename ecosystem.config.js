@@ -7,17 +7,18 @@
  *   pm2 startup
  *
  * Apps:
- *   - worker:            processes the default queue
- *   - attendance-worker: processes the attendance queue (auto-absent inserts)
- *   - scheduler:         runs `artisan schedule:work` every minute
+ *   - athletic-management-worker:            processes the default queue
+ *   - athletic-management-attendance-worker: processes the attendance queue (auto-absent inserts)
+ *   - athletic-management-scheduler:         runs `artisan schedule:work` every minute
  *
- * If you switch to Laravel Horizon, replace the `worker` and `attendance-worker`
- * apps with the commented `horizon` app below.
+ * If you switch to Laravel Horizon, replace the `athletic-management-worker` and
+ * `athletic-management-attendance-worker` apps with the commented
+ * `athletic-management-horizon` app below.
  */
 module.exports = {
     apps: [
         {
-            name: 'worker',
+            name: 'athletic-management-worker',
             script: 'artisan',
             args: 'queue:work --queue=default --sleep=3 --tries=3 --max-time=14400',
             interpreter: 'php',
@@ -37,7 +38,7 @@ module.exports = {
             time: true,
         },
         {
-            name: 'attendance-worker',
+            name: 'athletic-management-attendance-worker',
             script: 'artisan',
             args: 'queue:work --queue=attendance --sleep=3 --tries=3 --max-time=14400',
             interpreter: 'php',
@@ -57,7 +58,7 @@ module.exports = {
             time: true,
         },
         // {
-        //     name: 'horizon',
+        //     name: 'athletic-management-horizon',
         //     script: 'artisan',
         //     args: 'horizon',
         //     interpreter: 'php',
@@ -77,7 +78,7 @@ module.exports = {
         //     time: true,
         // },
         {
-            name: 'scheduler',
+            name: 'athletic-management-scheduler',
             script: 'artisan',
             args: 'schedule:work',
             interpreter: 'php',
