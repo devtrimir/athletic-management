@@ -11,6 +11,7 @@ import {
     Download,
     AlertTriangle,
     ArchiveRestore,
+    ChevronDown,
     History,
     LayoutDashboard,
     Copy,
@@ -75,6 +76,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
     Dialog,
     DialogContent,
     DialogFooter,
@@ -102,6 +108,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { cn } from '@/lib/utils';
 import {
     changelog as teamChangelogRoute,
     coaches as teamCoachesRoute,
@@ -402,6 +409,9 @@ export default function TeamsShow({
     const [coachSessionFilter, setCoachSessionFilter] = useState('');
     const [coachRoleFilter, setCoachRoleFilter] = useState('');
     const [coachSearch, setCoachSearch] = useState('');
+
+    // Roster movement visibility on Players tab
+    const [showRosterMovement, setShowRosterMovement] = useState(false);
 
     // Confirm dialog state
     type ConfirmState = {
@@ -3324,119 +3334,155 @@ export default function TeamsShow({
                                 </div>
                             </Deferred>
 
-                            <Deferred data="memberMovements" fallback={<></>}>
-                                <div className="overflow-x-auto rounded-2xl border bg-card p-4">
-                                    <div className="mb-3 flex items-center justify-between gap-3">
-                                        <div>
-                                            <h3 className="text-sm font-semibold">
-                                                {t('Roster movement')}
-                                            </h3>
-                                            <p className="text-xs text-muted-foreground">
-                                                {t(
-                                                    'Session add and remove history',
-                                                )}
-                                            </p>
-                                        </div>
+                            <Collapsible
+                                open={showRosterMovement}
+                                onOpenChange={setShowRosterMovement}
+                                className="rounded-2xl border bg-card p-4"
+                            >
+                                <div className="mb-3 flex items-center justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-sm font-semibold">
+                                            {t('Roster movement')}
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                'Session add and remove history',
+                                            )}
+                                        </p>
                                     </div>
-                                    <div className="min-w-[860px]">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="bg-muted">
-                                                    <TableHead>
-                                                        {t('Action')}
-                                                    </TableHead>
-                                                    <TableHead>
-                                                        {t('Name')}
-                                                    </TableHead>
-                                                    <TableHead className="hidden sm:table-cell">
-                                                        {t('Role')}
-                                                    </TableHead>
-                                                    <TableHead className="hidden md:table-cell">
-                                                        {t('Effective on')}
-                                                    </TableHead>
-                                                    <TableHead className="hidden md:table-cell">
-                                                        {t('Source')}
-                                                    </TableHead>
-                                                    <TableHead className="hidden lg:table-cell">
-                                                        {t('Reason')}
-                                                    </TableHead>
-                                                    <TableHead className="hidden xl:table-cell">
-                                                        {t('Recorded by')}
-                                                    </TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {(memberMovements ?? [])
-                                                    .length === 0 ? (
-                                                    <TableRow>
-                                                        <TableCell
-                                                            colSpan={7}
-                                                            className="text-center text-muted-foreground"
-                                                        >
-                                                            {t(
-                                                                'No roster movement recorded for this session.',
-                                                            )}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ) : (
-                                                    (memberMovements ?? []).map(
-                                                        (movement) => (
-                                                            <TableRow
-                                                                key={
-                                                                    movement.id
-                                                                }
-                                                            >
-                                                                <TableCell>
-                                                                    <Badge variant="outline">
-                                                                        {t(
-                                                                            movement.action,
-                                                                        )}
-                                                                    </Badge>
-                                                                </TableCell>
-                                                                <TableCell className="font-medium">
-                                                                    {movement
-                                                                        .member
-                                                                        ?.full_name ??
-                                                                        ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden sm:table-cell">
-                                                                    {movement.role
-                                                                        ? t(
-                                                                              movement.role,
-                                                                          )
-                                                                        : ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden md:table-cell">
-                                                                    {movement.effective_on ??
-                                                                        movement.created_at ??
-                                                                        ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden md:table-cell">
-                                                                    {movement.source
-                                                                        ? t(
-                                                                              movement.source,
-                                                                          )
-                                                                        : ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden max-w-xs text-xs text-muted-foreground lg:table-cell">
-                                                                    {movement.reason ??
-                                                                        ''}
-                                                                </TableCell>
-                                                                <TableCell className="hidden xl:table-cell">
-                                                                    {movement
-                                                                        .created_by
-                                                                        ?.name ??
-                                                                        ''}
+                                    <CollapsibleTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                        >
+                                            {showRosterMovement
+                                                ? t('Hide history')
+                                                : t('Show history')}
+                                            <ChevronDown
+                                                className={cn(
+                                                    'ml-1.5 h-4 w-4 transition-transform',
+                                                    showRosterMovement &&
+                                                        'rotate-180',
+                                                )}
+                                            />
+                                        </Button>
+                                    </CollapsibleTrigger>
+                                </div>
+                                <CollapsibleContent>
+                                    <Deferred
+                                        data="memberMovements"
+                                        fallback={<></>}
+                                    >
+                                        <div className="overflow-x-auto">
+                                            <div className="min-w-[860px]">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow className="bg-muted">
+                                                            <TableHead>
+                                                                {t('Action')}
+                                                            </TableHead>
+                                                            <TableHead>
+                                                                {t('Name')}
+                                                            </TableHead>
+                                                            <TableHead className="hidden sm:table-cell">
+                                                                {t('Role')}
+                                                            </TableHead>
+                                                            <TableHead className="hidden md:table-cell">
+                                                                {t(
+                                                                    'Effective on',
+                                                                )}
+                                                            </TableHead>
+                                                            <TableHead className="hidden md:table-cell">
+                                                                {t('Source')}
+                                                            </TableHead>
+                                                            <TableHead className="hidden lg:table-cell">
+                                                                {t('Reason')}
+                                                            </TableHead>
+                                                            <TableHead className="hidden xl:table-cell">
+                                                                {t(
+                                                                    'Recorded by',
+                                                                )}
+                                                            </TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {(memberMovements ?? [])
+                                                            .length === 0 ? (
+                                                            <TableRow>
+                                                                <TableCell
+                                                                    colSpan={7}
+                                                                    className="text-center text-muted-foreground"
+                                                                >
+                                                                    {t(
+                                                                        'No roster movement recorded for this session.',
+                                                                    )}
                                                                 </TableCell>
                                                             </TableRow>
-                                                        ),
-                                                    )
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </div>
-                            </Deferred>
+                                                        ) : (
+                                                            (
+                                                                memberMovements ??
+                                                                []
+                                                            ).map(
+                                                                (movement) => (
+                                                                    <TableRow
+                                                                        key={
+                                                                            movement.id
+                                                                        }
+                                                                    >
+                                                                        <TableCell>
+                                                                            <Badge variant="outline">
+                                                                                {t(
+                                                                                    movement.action,
+                                                                                )}
+                                                                            </Badge>
+                                                                        </TableCell>
+                                                                        <TableCell className="font-medium">
+                                                                            {movement
+                                                                                .member
+                                                                                ?.full_name ??
+                                                                                ''}
+                                                                        </TableCell>
+                                                                        <TableCell className="hidden sm:table-cell">
+                                                                            {movement.role
+                                                                                ? t(
+                                                                                      movement.role,
+                                                                                  )
+                                                                                : ''}
+                                                                        </TableCell>
+                                                                        <TableCell className="hidden md:table-cell">
+                                                                            {movement.effective_on ??
+                                                                                movement.created_at ??
+                                                                                ''}
+                                                                        </TableCell>
+                                                                        <TableCell className="hidden md:table-cell">
+                                                                            {movement.source
+                                                                                ? t(
+                                                                                      movement.source,
+                                                                                  )
+                                                                                : ''}
+                                                                        </TableCell>
+                                                                        <TableCell className="hidden max-w-xs text-xs text-muted-foreground lg:table-cell">
+                                                                            {movement.reason ??
+                                                                                ''}
+                                                                        </TableCell>
+                                                                        <TableCell className="hidden xl:table-cell">
+                                                                            {movement
+                                                                                .created_by
+                                                                                ?.name ??
+                                                                                ''}
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                ),
+                                                            )
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                    </Deferred>
+                                </CollapsibleContent>
+                            </Collapsible>
                         </div>
                     </TabsContent>
 
