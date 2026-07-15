@@ -2,7 +2,7 @@
  * PM2 ecosystem file for background Laravel processes.
  *
  * Usage:
- *   pm2 start ecosystem.config.js
+ *   pm2 start ecosystem.config.cjs
  *   pm2 save
  *   pm2 startup
  *
