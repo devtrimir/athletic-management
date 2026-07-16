@@ -757,6 +757,35 @@ export default function ExternalTrainingAttendanceIndex({
                             'Review submitted external training proof and geo flags.',
                         )}
                     />
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setDatePreset('today')}
+                        >
+                            {t('Today')}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setDatePreset('week')}
+                        >
+                            {t('This week')}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setDatePreset('month')}
+                        >
+                            {t('This month')}
+                        </Button>
+                    </div>
                 </div>
 
                 <form
@@ -764,148 +793,160 @@ export default function ExternalTrainingAttendanceIndex({
                     onSubmit={applyFilters}
                 >
                     <div className="grid gap-2 p-3">
-                        <div className="grid gap-2 xl:grid-cols-[minmax(220px,1fr)_190px_190px_145px_145px_170px_auto] xl:items-end">
-                            <div className="space-y-0.5">
-                                <Label
-                                    htmlFor="attendance_query"
-                                    className="text-xs font-medium text-muted-foreground"
-                                >
-                                    {t('Search')}
-                                </Label>
-                                <div className="relative">
-                                    <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                    <Input
-                                        id="attendance_query"
-                                        name="attendance_query"
-                                        value={query}
-                                        onChange={(event) =>
-                                            setQuery(event.target.value)
+                        <div className="flex flex-wrap items-end gap-2">
+                            <div className="grid min-w-0 flex-1 gap-2 xl:grid-cols-[200px_190px_190px_145px_145px_170px] xl:items-end">
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="attendance_query"
+                                        className="text-xs font-medium text-muted-foreground"
+                                    >
+                                        {t('Search')}
+                                    </Label>
+                                    <div className="relative">
+                                        <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+                                        <Input
+                                            id="attendance_query"
+                                            name="attendance_query"
+                                            value={query}
+                                            onChange={(event) =>
+                                                setQuery(event.target.value)
+                                            }
+                                            placeholder={t(
+                                                'Member, PNO, coach, venue, sport...',
+                                            )}
+                                            className="h-8 pl-9"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="coach_filter"
+                                        className="text-xs font-medium text-muted-foreground"
+                                    >
+                                        {t('Coach')}
+                                    </Label>
+                                    <Combobox
+                                        id="coach_filter"
+                                        value={
+                                            coachFilter === 'all'
+                                                ? ''
+                                                : coachFilter
                                         }
-                                        placeholder={t(
-                                            'Member, PNO, coach, venue, sport...',
-                                        )}
-                                        className="pl-9"
+                                        onValueChange={(value) =>
+                                            setCoachFilter(value || 'all')
+                                        }
+                                        items={coachItems}
+                                        placeholder={t('All coaches')}
+                                        searchPlaceholder={t('Search coach')}
+                                        emptyMessage={t('No coach found.')}
+                                        className="h-8"
                                     />
                                 </div>
-                            </div>
 
-                            <div className="space-y-0.5">
-                                <Label
-                                    htmlFor="coach_filter"
-                                    className="text-xs font-medium text-muted-foreground"
-                                >
-                                    {t('Coach')}
-                                </Label>
-                                <Combobox
-                                    id="coach_filter"
-                                    value={
-                                        coachFilter === 'all' ? '' : coachFilter
-                                    }
-                                    onValueChange={(value) =>
-                                        setCoachFilter(value || 'all')
-                                    }
-                                    items={coachItems}
-                                    placeholder={t('All coaches')}
-                                    searchPlaceholder={t('Search coach')}
-                                    emptyMessage={t('No coach found.')}
-                                />
-                            </div>
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="venue_filter"
+                                        className="text-xs font-medium text-muted-foreground"
+                                    >
+                                        {t('Venue')}
+                                    </Label>
+                                    <Combobox
+                                        id="venue_filter"
+                                        value={
+                                            venueFilter === 'all'
+                                                ? ''
+                                                : venueFilter
+                                        }
+                                        onValueChange={(value) =>
+                                            setVenueFilter(value || 'all')
+                                        }
+                                        items={venueItems}
+                                        placeholder={t('All venues')}
+                                        searchPlaceholder={t('Search venue')}
+                                        emptyMessage={t('No venue found.')}
+                                        className="h-8"
+                                    />
+                                </div>
 
-                            <div className="space-y-0.5">
-                                <Label
-                                    htmlFor="venue_filter"
-                                    className="text-xs font-medium text-muted-foreground"
-                                >
-                                    {t('Venue')}
-                                </Label>
-                                <Combobox
-                                    id="venue_filter"
-                                    value={
-                                        venueFilter === 'all' ? '' : venueFilter
-                                    }
-                                    onValueChange={(value) =>
-                                        setVenueFilter(value || 'all')
-                                    }
-                                    items={venueItems}
-                                    placeholder={t('All venues')}
-                                    searchPlaceholder={t('Search venue')}
-                                    emptyMessage={t('No venue found.')}
-                                />
-                            </div>
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="date_from"
+                                        className="text-xs font-medium text-muted-foreground"
+                                    >
+                                        {t('From date')}
+                                    </Label>
+                                    <DatePicker
+                                        id="date_from"
+                                        value={dateFrom}
+                                        onChange={setDateFrom}
+                                        placeholder={t('Start date')}
+                                    />
+                                </div>
 
-                            <div className="space-y-0.5">
-                                <Label
-                                    htmlFor="date_from"
-                                    className="text-xs font-medium text-muted-foreground"
-                                >
-                                    {t('From date')}
-                                </Label>
-                                <DatePicker
-                                    id="date_from"
-                                    value={dateFrom}
-                                    onChange={setDateFrom}
-                                    placeholder={t('Start date')}
-                                />
-                            </div>
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="date_to"
+                                        className="text-xs font-medium text-muted-foreground"
+                                    >
+                                        {t('To date')}
+                                    </Label>
+                                    <DatePicker
+                                        id="date_to"
+                                        value={dateTo}
+                                        onChange={setDateTo}
+                                        placeholder={t('End date')}
+                                        aria-invalid={hasDateError}
+                                    />
+                                </div>
 
-                            <div className="space-y-0.5">
-                                <Label
-                                    htmlFor="date_to"
-                                    className="text-xs font-medium text-muted-foreground"
-                                >
-                                    {t('To date')}
-                                </Label>
-                                <DatePicker
-                                    id="date_to"
-                                    value={dateTo}
-                                    onChange={setDateTo}
-                                    placeholder={t('End date')}
-                                    aria-invalid={hasDateError}
-                                />
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="review_queue"
+                                        className="text-xs font-medium text-muted-foreground"
+                                    >
+                                        {t('Review queue')}
+                                    </Label>
+                                    <Select
+                                        value={reviewQueue}
+                                        onValueChange={setReviewQueue}
+                                    >
+                                        <SelectTrigger
+                                            id="review_queue"
+                                            className="h-8"
+                                        >
+                                            <SelectValue
+                                                placeholder={t('All')}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">
+                                                {t('All')}
+                                            </SelectItem>
+                                            <SelectItem value="pending">
+                                                {t('Pending review')}
+                                            </SelectItem>
+                                            <SelectItem value="flagged">
+                                                {t('Geo flagged')}
+                                            </SelectItem>
+                                            <SelectItem value="outside_radius">
+                                                {t('Outside radius')}
+                                            </SelectItem>
+                                            <SelectItem value="missing_location">
+                                                {t('Missing location')}
+                                            </SelectItem>
+                                            <SelectItem value="low_accuracy">
+                                                {t('Low accuracy')}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
-
-                            <div className="space-y-0.5">
-                                <Label
-                                    htmlFor="review_queue"
-                                    className="text-xs font-medium text-muted-foreground"
-                                >
-                                    {t('Review queue')}
-                                </Label>
-                                <Select
-                                    value={reviewQueue}
-                                    onValueChange={setReviewQueue}
-                                >
-                                    <SelectTrigger id="review_queue">
-                                        <SelectValue placeholder={t('All')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">
-                                            {t('All')}
-                                        </SelectItem>
-                                        <SelectItem value="pending">
-                                            {t('Pending review')}
-                                        </SelectItem>
-                                        <SelectItem value="flagged">
-                                            {t('Geo flagged')}
-                                        </SelectItem>
-                                        <SelectItem value="outside_radius">
-                                            {t('Outside radius')}
-                                        </SelectItem>
-                                        <SelectItem value="missing_location">
-                                            {t('Missing location')}
-                                        </SelectItem>
-                                        <SelectItem value="low_accuracy">
-                                            {t('Low accuracy')}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2 sm:flex">
+                            <div className="flex shrink-0 gap-2">
                                 <Button
                                     type="submit"
                                     disabled={hasDateError}
-                                    className="h-9 w-full sm:w-auto"
+                                    className="h-8 text-xs"
                                 >
                                     {t('Apply')}
                                 </Button>
@@ -917,7 +958,7 @@ export default function ExternalTrainingAttendanceIndex({
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            className="h-9 w-full sm:w-auto"
+                                            className="h-8 text-xs"
                                         >
                                             <SlidersHorizontal className="size-4" />
                                             {t('More filters')}
@@ -941,54 +982,18 @@ export default function ExternalTrainingAttendanceIndex({
                             </p>
                         ) : null}
 
-                        <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-medium text-muted-foreground">
-                                    {t('Quick dates')}
+                                <span className="text-xs text-muted-foreground">
+                                    {paginationSummary}
                                 </span>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8"
-                                    onClick={() => setDatePreset('today')}
-                                >
-                                    {t('Today')}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8"
-                                    onClick={() => setDatePreset('week')}
-                                >
-                                    {t('This week')}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8"
-                                    onClick={() => setDatePreset('month')}
-                                >
-                                    {t('This month')}
-                                </Button>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                                {paginationSummary}
-                            </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div />
-                            <div className="flex flex-wrap gap-2">
                                 {hasFilters ? (
                                     <Button
                                         type="button"
                                         variant="ghost"
                                         size="sm"
                                         onClick={clearFilters}
-                                        className="h-8"
+                                        className="h-7 text-xs"
                                     >
                                         <X className="size-4" />
                                         {t('Clear filters')}
