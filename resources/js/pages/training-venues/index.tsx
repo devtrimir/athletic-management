@@ -86,6 +86,8 @@ export default function TrainingVenuesIndex({
     const hasFilters = search.trim() !== '' || status !== 'all';
 
     useEffect(() => {
+        // Keep form inputs in sync with URL filters when they change externally.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSearch(filters.q ?? '');
         setStatus(filters.status ?? 'all');
     }, [filters.q, filters.status]);
@@ -150,18 +152,19 @@ export default function TrainingVenuesIndex({
     return (
         <>
             <Head title={t('Training venues')} />
-            <div className="space-y-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
+                <div className="flex shrink-0 items-start justify-between gap-4">
                     <Heading
+                        variant="small"
                         title={t('Training venues')}
                         description={t(
                             'Manage external training locations and attendance radius settings.',
                         )}
                     />
                     {canCreateVenue ? (
-                        <Button asChild>
+                        <Button asChild size="sm">
                             <Link href={create.url()}>
-                                <Plus className="size-4" />
+                                <Plus className="mr-1.5 h-4 w-4" />
                                 {t('Add venue')}
                             </Link>
                         </Button>
@@ -170,7 +173,7 @@ export default function TrainingVenuesIndex({
 
                 <form
                     onSubmit={applyFilters}
-                    className="rounded-xl border bg-card p-4 shadow-sm"
+                    className="shrink-0 rounded-xl border bg-card p-3 shadow-sm"
                 >
                     <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end">
                         <div className="grid min-w-0 gap-2">
@@ -232,8 +235,8 @@ export default function TrainingVenuesIndex({
                     </div>
                 </form>
 
-                <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                    <div className="border-b bg-muted/30 px-4 py-3">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+                    <div className="shrink-0 border-b bg-muted/30 px-4 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <div>
                                 <h2 className="text-sm font-semibold">
@@ -247,10 +250,10 @@ export default function TrainingVenuesIndex({
                             </div>
                         </div>
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="min-h-0 flex-1 overflow-auto [&>[data-slot=table-container]]:h-full">
                         <Table className="border-separate border-spacing-0 text-sm">
-                            <TableHeader>
-                                <TableRow className="bg-muted/70 hover:bg-muted/70">
+                            <TableHeader className="sticky top-0 z-10">
+                                <TableRow className="bg-muted hover:bg-muted">
                                     <TableHead className="w-20 border-r border-b px-3 py-2 text-center font-semibold">
                                         {t('S.No.')}
                                     </TableHead>
@@ -390,6 +393,7 @@ export default function TrainingVenuesIndex({
                         options: [10, 25, 50, 100],
                         onChange: changePerPage,
                     }}
+                    className="shrink-0 shadow-sm"
                 />
             </div>
         </>

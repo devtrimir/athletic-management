@@ -344,7 +344,8 @@ function SportCell({ member }: { member: Member }) {
                                                     sport.pivot?.weight}
                                             </p>
                                         )}
-                                        {(sport.notes ?? sport.pivot?.notes) && (
+                                        {(sport.notes ??
+                                            sport.pivot?.notes) && (
                                             <p>
                                                 <span className="font-medium text-foreground">
                                                     {t('Notes')}:
@@ -553,13 +554,11 @@ export default function MembersIndex({
     const levelLabel = useCallback(
         (code: string | null | undefined): string =>
             code
-                ? (
-                      levels.find((l) => l.code === code) ?? {
-                          code,
-                          label_en: code,
-                          label_hi: code,
-                      }
-                  )[locale === 'en' ? 'label_en' : 'label_hi']
+                ? (levels.find((l) => l.code === code) ?? {
+                      code,
+                      label_en: code,
+                      label_hi: code,
+                  })[locale === 'en' ? 'label_en' : 'label_hi']
                 : '',
         [locale, levels],
     );
@@ -923,8 +922,8 @@ export default function MembersIndex({
         <>
             <Head title={t('Members')} />
 
-            <div className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
+            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
+                <div className="flex shrink-0 items-start justify-between gap-4">
                     <Heading
                         variant="small"
                         title={t('Members')}
@@ -953,7 +952,7 @@ export default function MembersIndex({
                     </div>
                 </div>
 
-                <Tabs value={activeStatusScope} className="w-full">
+                <Tabs value={activeStatusScope} className="w-full shrink-0">
                     <TabsList className="w-auto max-w-full">
                         {STATUS_TABS.map((tab) => (
                             <TabsTrigger
@@ -976,8 +975,8 @@ export default function MembersIndex({
                     </TabsList>
                 </Tabs>
 
-                {/* Filter bar — inline pills */}
-                <div className="flex flex-wrap items-center gap-2">
+                {/* Filter bar */}
+                <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
                     {/* Search */}
                     <div className="relative w-56 shrink-0">
                         <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1018,8 +1017,8 @@ export default function MembersIndex({
                         label={t('Level')}
                         activeLabel={
                             filters.player_level
-                            ? levelLabel(filters.player_level)
-                            : undefined
+                                ? levelLabel(filters.player_level)
+                                : undefined
                         }
                         onClear={() =>
                             applyFilters({ player_level: undefined })
@@ -1313,26 +1312,16 @@ export default function MembersIndex({
 
                 {/* Result count when filtering */}
                 {hasAnyFilter && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="shrink-0 text-xs text-muted-foreground">
                         {members.total} {t('results')}
                     </p>
                 )}
 
                 {/* Table */}
-                <ListingPagination
-                    paginator={members}
-                    itemLabel={t('members')}
-                    rowsPerPage={{
-                        value: perPage,
-                        options: [...PER_PAGE_OPTIONS],
-                        onChange: changeRowsPerPage,
-                    }}
-                    className="sticky top-0 z-40 shadow-sm"
-                />
-                <div className="overflow-x-auto rounded-xl border bg-card">
+                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm [&>[data-slot=table-container]]:h-full">
                     <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHeader className="sticky top-0 z-10">
+                            <TableRow className="bg-muted hover:bg-muted">
                                 <TableHead className="w-0 pr-0">
                                     <Checkbox
                                         checked={allPageSelected}
@@ -1360,7 +1349,7 @@ export default function MembersIndex({
                                 <TableHead>{t('Category')}</TableHead>
                                 <TableHead>{t('Level')}</TableHead>
                                 <TableHead>{t('Posting')}</TableHead>
-                                <TableHead className="sticky right-0 z-20 w-0 bg-card text-right">
+                                <TableHead className="sticky right-0 z-20 w-0 bg-muted text-right">
                                     {t('Actions')}
                                 </TableHead>
                             </TableRow>
@@ -1493,7 +1482,9 @@ export default function MembersIndex({
                                                     ]
                                                 }
                                             >
-                                                {levelLabel(member.player_level)}
+                                                {levelLabel(
+                                                    member.player_level,
+                                                )}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
@@ -1548,6 +1539,17 @@ export default function MembersIndex({
                         </TableBody>
                     </Table>
                 </div>
+
+                <ListingPagination
+                    paginator={members}
+                    itemLabel={t('members')}
+                    rowsPerPage={{
+                        value: perPage,
+                        options: [...PER_PAGE_OPTIONS],
+                        onChange: changeRowsPerPage,
+                    }}
+                    className="shrink-0 shadow-sm"
+                />
             </div>
 
             {/* Export Dialog */}

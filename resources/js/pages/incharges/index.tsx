@@ -87,24 +87,25 @@ export default function InchargesIndex({
         <>
             <Head title={t('Team Prabhari')} />
 
-            <div className="space-y-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
+                <div className="flex shrink-0 items-start justify-between gap-4">
                     <Heading
+                        variant="small"
                         title={t('Team Prabhari')}
                         description={t(
                             'Manage team prabhari and their assignments.',
                         )}
                     />
-                    <Button asChild>
+                    <Button asChild size="sm">
                         <Link href={InchargeController.create.url()}>
-                            <Plus className="size-4" />
+                            <Plus className="mr-1.5 h-4 w-4" />
                             {t('Add team prabhari')}
                         </Link>
                     </Button>
                 </div>
 
-                <div className="flex flex-col gap-3 rounded-md border bg-card p-4 sm:flex-row sm:items-center">
-                    <div className="relative flex-1">
+                <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
+                    <div className="relative min-w-0 flex-1">
                         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             value={query}
@@ -129,15 +130,10 @@ export default function InchargesIndex({
                     </Button>
                 </div>
 
-                <ListingPagination
-                    paginator={incharges}
-                    itemLabel={t('team prabhari')}
-                    className="sticky top-0 z-40 shadow-sm"
-                />
-                <div className="overflow-hidden rounded-md border bg-card">
+                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm [&>[data-slot=table-container]]:h-full">
                     <Table>
-                        <TableHeader>
-                            <TableRow>
+                        <TableHeader className="sticky top-0 z-10">
+                            <TableRow className="bg-muted hover:bg-muted">
                                 <TableHead className="w-16 text-center">
                                     {t('S. No.')}
                                 </TableHead>
@@ -194,36 +190,51 @@ export default function InchargesIndex({
                                                     rel="noopener noreferrer"
                                                     className="font-medium hover:underline"
                                                 >
-                                                    {displayValue(incharge.full_name)}
+                                                    {displayValue(
+                                                        incharge.full_name,
+                                                    )}
                                                 </a>
                                             </TableCell>
-                                            
+
                                             <TableCell>
                                                 {assignments.length > 0 ? (
                                                     <div className="w-full min-w-[520px]">
                                                         <Table>
                                                             <TableHeader className="bg-muted/50">
-                                                                    <TableRow>
-                                                                        <TableHead className="w-16">
-                                                                            {t('S. No.')}
-                                                                        </TableHead>
-                                                                        <TableHead>
-                                                                            {t('Team')}
-                                                                        </TableHead>
-                                                                        <TableHead>
-                                                                            {t('Session')}
-                                                                        </TableHead>
-                                                                        <TableHead>
-                                                                            {t('Location')}
-                                                                        </TableHead>
+                                                                <TableRow>
+                                                                    <TableHead className="w-16">
+                                                                        {t(
+                                                                            'S. No.',
+                                                                        )}
+                                                                    </TableHead>
                                                                     <TableHead>
-                                                                        {t('Assigned at')}
+                                                                        {t(
+                                                                            'Team',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Session',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Location',
+                                                                        )}
+                                                                    </TableHead>
+                                                                    <TableHead>
+                                                                        {t(
+                                                                            'Assigned at',
+                                                                        )}
                                                                     </TableHead>
                                                                 </TableRow>
                                                             </TableHeader>
                                                             <TableBody>
                                                                 {assignments.map(
-                                                                    (assignment, teamIndex) => (
+                                                                    (
+                                                                        assignment,
+                                                                        teamIndex,
+                                                                    ) => (
                                                                         <TableRow
                                                                             key={`${incharge.id}-team-${teamIndex}`}
                                                                         >
@@ -233,25 +244,33 @@ export default function InchargesIndex({
                                                                             </TableCell>
                                                                             <TableCell className="py-2 text-xs">
                                                                                 {displayValue(
-                                                                                    assignment.team?.name,
+                                                                                    assignment
+                                                                                        .team
+                                                                                        ?.name,
                                                                                 )}
                                                                             </TableCell>
                                                                             <TableCell className="max-w-28 py-2 text-xs">
                                                                                 {displayValue(
-                                                                                    assignment.team
-                                                                                        ?.session?.name,
+                                                                                    assignment
+                                                                                        .team
+                                                                                        ?.session
+                                                                                        ?.name,
                                                                                 )}
                                                                             </TableCell>
                                                                             <TableCell className="max-w-28 py-2 text-xs">
                                                                                 {displayValue(
-                                                                                    assignment.team
+                                                                                    assignment
+                                                                                        .team
                                                                                         ?.location_label,
                                                                                 )}
                                                                             </TableCell>
                                                                             <TableCell className="py-2 text-xs">
                                                                                 {formatDate(
                                                                                     assignment.assigned_at,
-                                                                                ) || t('Not assigned')}
+                                                                                ) ||
+                                                                                    t(
+                                                                                        'Not assigned',
+                                                                                    )}
                                                                             </TableCell>
                                                                         </TableRow>
                                                                     ),
@@ -306,6 +325,12 @@ export default function InchargesIndex({
                         </TableBody>
                     </Table>
                 </div>
+
+                <ListingPagination
+                    paginator={incharges}
+                    itemLabel={t('team prabhari')}
+                    className="shrink-0 shadow-sm"
+                />
             </div>
         </>
     );
