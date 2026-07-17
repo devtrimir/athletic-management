@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Edit3, Search, X, Printer } from 'lucide-react';
+import { Edit3, Plus, Search, X, Printer } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
@@ -203,34 +203,37 @@ export default function SportsCalendarsIndex({
     return (
         <>
             <Head title={t('Sports calendars')} />
-            <div className="space-y-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
+                <div className="flex shrink-0 items-start justify-between gap-4">
                     <Heading
+                        variant="small"
                         title={t('Sports calendars')}
                         description={t(
                             'Track yearly competition schedules and report availability.',
                         )}
                     />
                     <div className="flex gap-2">
-                        <Button asChild>
+                        <Button asChild size="sm">
                             <Link href={create.url()}>
+                                <Plus className="mr-1.5 h-4 w-4" />
                                 {t('Add competition')}
                             </Link>
                         </Button>
                         <Button
                             type="button"
+                            size="sm"
                             onClick={() => setPrintOpen(true)}
                             disabled={calendars.data.length === 0}
                             variant="outline"
                         >
-                            <Printer className="size-4" />
+                            <Printer className="mr-1.5 h-4 w-4" />
                             {t('Print')}
                         </Button>
                     </div>
                 </div>
 
                 <form
-                    className="space-y-4 rounded-xl border bg-card p-4"
+                    className="shrink-0 rounded-xl border bg-card p-3 shadow-sm"
                     onSubmit={applyFilters}
                 >
                     <div className="grid [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))] items-end gap-2">
@@ -322,10 +325,10 @@ export default function SportsCalendarsIndex({
                     </div>
                 </form>
 
-                <div className="overflow-hidden rounded-xl border bg-card">
+                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm [&>[data-slot=table-container]]:h-full">
                     <Table>
-                        <TableHeader>
-                            <TableRow>
+                        <TableHeader className="sticky top-0 z-10">
+                            <TableRow className="bg-muted hover:bg-muted">
                                 <TableHead className="w-16" rowSpan={2}>
                                     {t('S.No.')}
                                 </TableHead>
@@ -344,7 +347,7 @@ export default function SportsCalendarsIndex({
                                     {t('Actions')}
                                 </TableHead>
                             </TableRow>
-                            <TableRow>
+                            <TableRow className="bg-muted hover:bg-muted">
                                 <TableHead>
                                     {t(
                                         'Inter-unit / District competition month',
@@ -424,6 +427,7 @@ export default function SportsCalendarsIndex({
                 <ListingPagination
                     paginator={calendars}
                     itemLabel={t('calendar entries')}
+                    className="shrink-0 shadow-sm"
                 />
 
                 <Dialog open={printOpen} onOpenChange={setPrintOpen}>

@@ -11,6 +11,7 @@ import {
 } from '@/actions/App/Http/Controllers/ExternalCoachingAssignmentController';
 import type { ComboboxItem } from '@/components/combobox';
 import { Combobox } from '@/components/combobox';
+import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +33,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { DatePicker } from '@/components/date-picker';
 import { useAuthorization } from '@/hooks/use-authorization';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -116,19 +116,19 @@ export default function ExternalCoachingAssignmentsIndex({
     const hasDateError = fromDate !== '' && toDate !== '' && fromDate > toDate;
 
     useEffect(() => {
+        // Keep form inputs in sync with URL filters when they change externally.
         const query = new URLSearchParams(window.location.search);
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setMemberQuery(filters.member_query ?? '');
         setCoachQuery(filters.coach_query ?? '');
         setStatusFilter(filters.status ?? 'all');
         setSportFilter(filters.sport_id ?? 'all');
-
         setFromDate(
             query.get('filter[start_date_from]') ??
                 filters.start_date_from ??
                 '',
         );
-
         setToDate(
             query.get('filter[start_date_to]') ?? filters.start_date_to ?? '',
         );
@@ -243,18 +243,19 @@ export default function ExternalCoachingAssignmentsIndex({
     return (
         <>
             <Head title={t('External coaching assignments')} />
-            <div className="space-y-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
+                <div className="flex shrink-0 items-start justify-between gap-4">
                     <Heading
+                        variant="small"
                         title={t('External coaching assignments')}
                         description={t(
                             'Manage member assignments to external coaches and venues.',
                         )}
                     />
                     {canCreateAssignment ? (
-                        <Button asChild>
+                        <Button asChild size="sm">
                             <Link href={create.url()}>
-                                <Plus className="size-4" />
+                                <Plus className="mr-1.5 h-4 w-4" />
                                 {t('Add assignment')}
                             </Link>
                         </Button>
@@ -262,10 +263,10 @@ export default function ExternalCoachingAssignmentsIndex({
                 </div>
 
                 <form
-                    className="space-y-4 rounded-xl border bg-card p-4"
+                    className="shrink-0 rounded-xl border bg-card p-3 shadow-sm"
                     onSubmit={applyFilters}
                 >
-                    <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex flex-wrap items-end gap-3">
                         <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
                             <Label
                                 htmlFor="member_query"
@@ -453,10 +454,10 @@ export default function ExternalCoachingAssignmentsIndex({
                     </div>
                 </form>
 
-                <div className="overflow-hidden rounded-xl border bg-card">
+                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm [&>[data-slot=table-container]]:h-full">
                     <Table>
-                        <TableHeader>
-                            <TableRow>
+                        <TableHeader className="sticky top-0 z-10">
+                            <TableRow className="bg-muted hover:bg-muted">
                                 <TableHead className="w-20">
                                     {t('S.No.')}
                                 </TableHead>
@@ -578,6 +579,7 @@ export default function ExternalCoachingAssignmentsIndex({
                 <ListingPagination
                     paginator={assignments}
                     itemLabel={t('assignments')}
+                    className="shrink-0 shadow-sm"
                 />
             </div>
         </>

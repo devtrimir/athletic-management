@@ -1,10 +1,8 @@
 import { Head, Link, router, setLayoutProps, usePage } from '@inertiajs/react';
 import {
-    CalendarDays,
     Download,
     Eye,
     Info,
-    MapPin,
     Medal,
     FileDown,
     Plus,
@@ -333,7 +331,9 @@ export default function TournamentsIndex({
         return exportTournamentsUrl.url() + '?' + params.toString();
     }
 
-    function escapePrintValue(value: string | number | null | undefined): string {
+    function escapePrintValue(
+        value: string | number | null | undefined,
+    ): string {
         return String(value ?? '—')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -409,7 +409,8 @@ export default function TournamentsIndex({
             return;
         }
 
-        printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+        printWindow.document
+            .write(`<!DOCTYPE html><html><head><meta charset="utf-8">
             <title>${escapePrintValue(title)}</title>
             <style>
                 @page{size:A4 landscape;margin:6mm}
@@ -517,8 +518,8 @@ export default function TournamentsIndex({
         <>
             <Head title={t('Tournaments')} />
 
-            <div className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
+            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
+                <div className="flex shrink-0 items-start justify-between gap-4">
                     <Heading
                         variant="small"
                         title={t('Tournaments')}
@@ -561,7 +562,7 @@ export default function TournamentsIndex({
                 </div>
 
                 {/* Filter bar */}
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
                     <div className="relative max-w-xs flex-1">
                         <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -575,8 +576,7 @@ export default function TournamentsIndex({
                         value={filters.session_id ?? sessionDefaultValue}
                         onValueChange={(v) =>
                             applyFilters({
-                                session_id:
-                                    !v || v === 'all' ? undefined : v,
+                                session_id: !v || v === 'all' ? undefined : v,
                             })
                         }
                         items={sessionItems}
@@ -631,15 +631,10 @@ export default function TournamentsIndex({
                 </div>
 
                 {/* Table */}
-                <ListingPagination
-                    paginator={tournaments}
-                    itemLabel={t('tournaments')}
-                    className="sticky top-0 z-40 shadow-sm"
-                />
-                <div className="max-w-full overflow-x-auto rounded-xl border bg-card">
+                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm [&>[data-slot=table-container]]:h-full">
                     <Table className="min-w-[1700px] table-fixed text-[12px] leading-tight [&_td]:px-2 [&_td]:py-2 [&_th]:h-9 [&_th]:px-2 [&_th]:text-[11px] [&_th]:tracking-wide [&_th]:whitespace-nowrap">
-                        <TableHeader>
-                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHeader className="sticky top-0 z-10">
+                            <TableRow className="bg-muted hover:bg-muted">
                                 <TableHead className="w-10">
                                     <Checkbox
                                         checked={
@@ -806,21 +801,17 @@ export default function TournamentsIndex({
                                                                                             sport.id
                                                                                         }
                                                                                     >
-                                                                                    <td
-                                                                                        className="w-8 border-r border-border px-2 py-1 text-center font-medium text-muted-foreground tabular-nums"
-                                                                                    >
-                                                                                        {pairIndex *
-                                                                                            2 +
-                                                                                            sportOffset +
-                                                                                            1}
-                                                                                    </td>
-                                                                                    <td
-                                                                                        className="w-1/2 border-r border-border px-2 py-1 font-medium text-foreground"
-                                                                                    >
-                                                                                        {
-                                                                                            sport.name
-                                                                                        }
-                                                                                    </td>
+                                                                                        <td className="w-8 border-r border-border px-2 py-1 text-center font-medium text-muted-foreground tabular-nums">
+                                                                                            {pairIndex *
+                                                                                                2 +
+                                                                                                sportOffset +
+                                                                                                1}
+                                                                                        </td>
+                                                                                        <td className="w-1/2 border-r border-border px-2 py-1 font-medium text-foreground">
+                                                                                            {
+                                                                                                sport.name
+                                                                                            }
+                                                                                        </td>
                                                                                     </Fragment>
                                                                                 ),
                                                                             )}
@@ -899,8 +890,7 @@ export default function TournamentsIndex({
                                                             </td>
                                                             <td className="px-2 py-1 text-center font-medium text-foreground tabular-nums">
                                                                 {
-                                                                    t_
-                                                                        .events_count
+                                                                    t_.events_count
                                                                 }
                                                             </td>
                                                         </tr>
@@ -912,8 +902,7 @@ export default function TournamentsIndex({
                                                             </td>
                                                             <td className="px-2 py-1 text-center font-medium text-foreground tabular-nums">
                                                                 {
-                                                                    t_
-                                                                        .participants_count
+                                                                    t_.participants_count
                                                                 }
                                                             </td>
                                                         </tr>
@@ -1006,6 +995,12 @@ export default function TournamentsIndex({
                         </TableBody>
                     </Table>
                 </div>
+
+                <ListingPagination
+                    paginator={tournaments}
+                    itemLabel={t('tournaments')}
+                    className="shrink-0 shadow-sm"
+                />
             </div>
 
             <ExportDialog
