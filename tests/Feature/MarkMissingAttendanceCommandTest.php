@@ -71,7 +71,9 @@ test('command marks absent attendance for missing active assignments', function 
     expect($attendance->attendance_status)->toBe('absent')
         ->and($attendance->flag_reason)->toBe('coach_not_submitted_attendance')
         ->and($attendance->review_status)->toBe('pending')
-        ->and($attendance->attendance_date->toDateString())->toBe($targetDate);
+        ->and($attendance->attendance_date->toDateString())->toBe($targetDate)
+        ->and($attendance->created_at)->not->toBeNull()
+        ->and($attendance->updated_at)->not->toBeNull();
 });
 
 test('command defaults to yesterday when date is not provided', function (): void {
@@ -113,7 +115,7 @@ test('command does not duplicate attendance if already submitted manually', func
 
     $count = ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)
         ->where('external_coaching_assignment_id', $fixture['assignment']->id)
-        ->where('attendance_date', $targetDate)
+        ->whereDate('attendance_date', $targetDate)
         ->count();
 
     expect($count)->toBe(1);
@@ -248,7 +250,13 @@ test('command dispatches batch jobs to attendance queue when --queue is used', f
     ])->assertSuccessful();
 
     Queue::assertPushed(MarkMissingAttendanceBatchJob::class, function (MarkMissingAttendanceBatchJob $job): bool {
-        return $job->queue === 'attendance' && $job->rows !== [];
+        if ($job->queue !== 'attendance' || $job->rows === []) {
+            return false;
+        }
+
+        $firstRow = $job->rows[0];
+
+        return array_key_exists('created_at', $firstRow) && array_key_exists('updated_at', $firstRow);
     });
 
     $count = ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)
@@ -266,6 +274,7 @@ test('attendance batch job inserts missing attendance rows', function (): void {
         'end_date' => Carbon::today()->toDateString(),
     ]);
 
+    $now = now();
     $row = [
         'organization_id' => $fixture['organization']->id,
         'external_coaching_assignment_id' => $fixture['assignment']->id,
@@ -277,10 +286,12 @@ test('attendance batch job inserts missing attendance rows', function (): void {
         'review_status' => 'pending',
         'geo_status' => 'manual_review_required',
         'flag_reason' => 'coach_not_submitted_attendance',
-        'submitted_at' => now(),
+        'submitted_at' => $now,
         'submitted_photo_path' => null,
         'submitted_photo_source' => 'system',
         'submitted_source' => 'auto_scheduler',
+        'created_at' => $now,
+        'updated_at' => $now,
     ];
 
     (new MarkMissingAttendanceBatchJob([$row]))->handle();
@@ -291,5 +302,7 @@ test('attendance batch job inserts missing attendance rows', function (): void {
         ->firstOrFail();
 
     expect($attendance->attendance_status)->toBe('absent')
-        ->and($attendance->flag_reason)->toBe('coach_not_submitted_attendance');
+        ->and($attendance->flag_reason)->toBe('coach_not_submitted_attendance')
+        ->and($attendance->created_at->toDateTimeString())->toBe($now->toDateTimeString())
+        ->and($attendance->updated_at->toDateTimeString())->toBe($now->toDateTimeString());
 });

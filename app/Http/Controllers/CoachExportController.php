@@ -114,6 +114,7 @@ class CoachExportController extends Controller
                     AllowedFilter::callback('status_scope', fn (Builder $query, mixed $value): Builder => $this->filterByStatusScope($query, (string) $value)),
                     AllowedFilter::exact('nis_certified'),
                     AllowedFilter::exact('blood_group'),
+                    AllowedFilter::exact('gender'),
                     AllowedFilter::exact('district_id'),
                     AllowedFilter::exact('unit_id'),
                     AllowedFilter::exact('coach_status'),
