@@ -137,6 +137,8 @@ class MarkMissingAttendanceService
                             'submitted_photo_path' => null,
                             'submitted_photo_source' => 'system',
                             'submitted_source' => 'auto_scheduler',
+                            'created_at' => $submittedAt,
+                            'updated_at' => $submittedAt,
                         ];
                     }
 

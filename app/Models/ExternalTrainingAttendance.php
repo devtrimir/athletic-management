@@ -35,6 +35,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $submitted_photo_width
  * @property int|null $submitted_photo_height
  * @property Carbon $submitted_at
+ * @property string $submitted_source
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
  */
 #[Fillable([
     'organization_id',

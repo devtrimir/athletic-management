@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command(MarkMissingAttendanceCommand::class, ['--queue'])
             ->dailyAt('00:00')
             ->onOneServer()
+            ->timezone('Asia/Kolkata')
             ->withoutOverlapping(60)
             ->name('external-coaching:mark-missing-attendance');
     })

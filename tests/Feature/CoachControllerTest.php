@@ -250,6 +250,51 @@ test('index inactive tab shows coaches without active current-session team assig
         );
 });
 
+test('index gender filter returns matching coaches only', function () {
+    $user = coachUser('coaches.view');
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
+    $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
+    $maleCoach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Male Coach',
+        'gender' => 'M',
+    ]);
+    $femaleCoach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Female Coach',
+        'gender' => 'F',
+    ]);
+
+    CoachAssignment::factory()->create([
+        'coach_id' => $maleCoach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+    CoachAssignment::factory()->create([
+        'coach_id' => $femaleCoach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.index', ['filter' => ['gender' => 'M']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('coaches.total', 1)
+            ->where('coaches.data.0.full_name', 'Male Coach')
+        );
+
+    $this->actingAs($user)
+        ->get(route('coaches.index', ['filter' => ['gender' => 'F']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('coaches.total', 1)
+            ->where('coaches.data.0.full_name', 'Female Coach')
+        );
+});
+
 test('unauthenticated user is redirected from coaches print', function () {
     $this->get(route('coaches.print'))->assertRedirect(route('login'));
 });
