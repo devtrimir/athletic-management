@@ -212,3 +212,33 @@ test('retired status removes all active team memberships before updating status'
         ->and($secondRow->fresh()->left_on?->toDateString())->toBe('2026-06-30')
         ->and($member->fresh()->current_status)->toBe('RETIRED');
 });
+
+test('toast reflects closed memberships count', function () {
+    $user = statusUser('members.changeStatus');
+    $organization = Organization::findOrFail($user->organization_id);
+    $member = Member::factory()->create([
+        'organization_id' => $organization->id,
+        'current_status' => 'ACTIVE',
+    ]);
+    $team = Team::factory()->forOrganization($organization)->create();
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+        'role' => 'PLAYER',
+        'left_on' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('members.status.store', $member), [
+            'status' => 'INACTIVE',
+            'effective_on' => '2026-06-30',
+            'reason' => 'Not in current team',
+        ])
+        ->assertRedirect(route('members.status', $member))
+        ->assertSessionHas('inertia.flash_data.toast', [
+            'type' => 'success',
+            'message' => __('Status updated and :count team membership(s) closed.', ['count' => 1]),
+        ]);
+});
