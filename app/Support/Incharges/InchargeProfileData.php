@@ -5,17 +5,21 @@ declare(strict_types=1);
 namespace App\Support\Incharges;
 
 use App\Models\Incharge;
-use App\Models\TeamInchargeAssignment;
-use App\Models\Team;
-use App\Models\TournamentTier;
-use App\Models\InchargeSpecialAchievement;
 use App\Models\InchargeAchievement;
+use App\Models\InchargeSpecialAchievement;
 use App\Models\Sport;
+use App\Models\Team;
+use App\Models\TeamInchargeAssignment;
+use App\Models\TournamentTier;
+use App\Services\AuditLogBuilder;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Collection;
 
 class InchargeProfileData
 {
+    public function __construct(
+        private readonly AuditLogBuilder $auditLogBuilder,
+    ) {}
+
     /** @return array<string, mixed> */
     public function overview(Incharge $incharge): array
     {
@@ -82,6 +86,7 @@ class InchargeProfileData
         return [
             ...$this->shell($incharge),
             'activeTab' => 'changelog',
+            'auditLog' => $this->auditLogBuilder->forIncharge($incharge),
         ];
     }
 
@@ -106,9 +111,6 @@ class InchargeProfileData
                 : null,
             'incharge' => [
                 'id' => $incharge->id,
-                'created_at' => $incharge->created_at?->toDateTimeString(),
-                'updated_at' => $incharge->updated_at?->toDateTimeString(),
-                'deleted_at' => $incharge->deleted_at?->toDateTimeString(),
                 'full_name' => $incharge->full_name,
                 'pno' => $incharge->pno,
                 'rank' => $incharge->rank,
@@ -205,32 +207,32 @@ class InchargeProfileData
             ->get();
 
         return [
-                'summary' => [
-                    'total' => $achievements->count(),
-                ],
-                'records' => $achievements
-                    ->map(fn (InchargeAchievement $achievement): array => [
-                        'id' => $achievement->id,
-                        'period' => $achievement->period ?? 'POST_RECRUITMENT',
-                        'level' => $achievement->level ?? 'OTHER',
-                        'title' => $achievement->title,
-                        'competition_details' => $achievement->competition_details
-                            ?? $achievement->description,
-                        'event_date' => $achievement->event_date?->toDateString()
-                            ?? $achievement->achieved_on?->toDateString(),
-                        'venue' => $achievement->venue,
-                        'sport_discipline' => $achievement->sport_discipline,
-                        'event' => $achievement->event,
-                        'discipline' => $achievement->discipline,
-                        'weight_category' => $achievement->weight_category,
-                        'gender_class' => $achievement->gender_class,
-                        'medal_type' => $achievement->medal_type,
-                        'position' => $achievement->position,
-                        'description' => $achievement->description,
-                        'achieved_on' => $achievement->achieved_on?->toDateString(),
-                        'remarks' => $achievement->remarks,
-                    ])
-                    ->all(),
+            'summary' => [
+                'total' => $achievements->count(),
+            ],
+            'records' => $achievements
+                ->map(fn (InchargeAchievement $achievement): array => [
+                    'id' => $achievement->id,
+                    'period' => $achievement->period ?? 'POST_RECRUITMENT',
+                    'level' => $achievement->level ?? 'OTHER',
+                    'title' => $achievement->title,
+                    'competition_details' => $achievement->competition_details
+                        ?? $achievement->description,
+                    'event_date' => $achievement->event_date?->toDateString()
+                        ?? $achievement->achieved_on?->toDateString(),
+                    'venue' => $achievement->venue,
+                    'sport_discipline' => $achievement->sport_discipline,
+                    'event' => $achievement->event,
+                    'discipline' => $achievement->discipline,
+                    'weight_category' => $achievement->weight_category,
+                    'gender_class' => $achievement->gender_class,
+                    'medal_type' => $achievement->medal_type,
+                    'position' => $achievement->position,
+                    'description' => $achievement->description,
+                    'achieved_on' => $achievement->achieved_on?->toDateString(),
+                    'remarks' => $achievement->remarks,
+                ])
+                ->all(),
         ];
     }
 

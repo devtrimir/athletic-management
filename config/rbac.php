@@ -26,6 +26,10 @@ return [
         ['code' => 'members.update', 'group' => 'members', 'name_hi' => 'सदस्य अपडेट करें', 'name_en' => 'Update members'],
         ['code' => 'members.delete', 'group' => 'members', 'name_hi' => 'सदस्य हटाएं',     'name_en' => 'Delete members'],
         ['code' => 'members.manageBenefits',           'group' => 'members', 'name_hi' => 'उपलब्धि लाभ प्रबंधित करें',       'name_en' => 'Manage achievement benefits'],
+        ['code' => 'members.changeStatus',              'group' => 'members', 'name_hi' => 'सदस्य स्थिति बदलें',             'name_en' => 'Change member status'],
+        ['code' => 'members.restore',                   'group' => 'members', 'name_hi' => 'सदस्य पुनर्स्थापित करें',        'name_en' => 'Restore member'],
+        ['code' => 'members.manageAlias',               'group' => 'members', 'name_hi' => 'सदस्य उपनाम प्रबंधित करें',      'name_en' => 'Manage member aliases'],
+        ['code' => 'members.manageSpecialAchievements', 'group' => 'members', 'name_hi' => 'सदस्य विशिष्ट उपलब्धियाँ प्रबंधित करें', 'name_en' => 'Manage member special achievements'],
 
         // ── Coaches ───────────────────────────────────────────────────────────
         ['code' => 'coaches.view',   'group' => 'coaches', 'name_hi' => 'कोच देखें',    'name_en' => 'View coaches'],

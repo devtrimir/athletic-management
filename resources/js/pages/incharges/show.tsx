@@ -12,8 +12,8 @@ import {
     X,
     Trophy,
 } from 'lucide-react';
-import {   useState } from 'react';
-import type {ChangeEvent, FormEvent} from 'react';
+import { useState } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import InchargeController from '@/actions/App/Http/Controllers/InchargeController';
 import {
     changelog as inchargeChangelog,
@@ -71,9 +71,6 @@ import { cn } from '@/lib/utils';
 
 type Incharge = {
     id: number;
-    created_at: string | null;
-    updated_at: string | null;
-    deleted_at: string | null;
     full_name: string;
     pno: string;
     rank: string | null;
@@ -216,7 +213,7 @@ const GENDER_CLASS_ITEMS: Array<{ value: string; label: string }> = [
     { value: 'OPEN', label: 'Open' },
 ];
 
-    type AchievementFormState = {
+type AchievementFormState = {
     period: 'POST_RECRUITMENT';
     level: string;
     sport_id: string;
@@ -327,6 +324,17 @@ function formatDateOnly(value: string | null | undefined): string {
     return trimmed;
 }
 
+function detail(label: string, value: ReactNode) {
+    return (
+        <div className="grid gap-1">
+            <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {label}
+            </dt>
+            <dd className="text-sm font-medium text-foreground">{value}</dd>
+        </div>
+    );
+}
+
 export default function InchargesShow({
     incharge,
     activeTab,
@@ -366,9 +374,13 @@ export default function InchargesShow({
     const normalizedActiveTab =
         activeTab === 'profile' ? 'overview' : activeTab;
     const [addingAchievement, setAddingAchievement] = useState(false);
-    const [editingAchievementId, setEditingAchievementId] = useState<number | null>(null);
-    const [addingSpecialAchievement, setAddingSpecialAchievement] = useState(false);
-    const [editingSpecialAchievementId, setEditingSpecialAchievementId] = useState<number | null>(null);
+    const [editingAchievementId, setEditingAchievementId] = useState<
+        number | null
+    >(null);
+    const [addingSpecialAchievement, setAddingSpecialAchievement] =
+        useState(false);
+    const [editingSpecialAchievementId, setEditingSpecialAchievementId] =
+        useState<number | null>(null);
     const [confirmation, setConfirmation] = useState<ConfirmationDialogState>({
         open: false,
         title: '',
@@ -443,23 +455,27 @@ export default function InchargesShow({
         specialAchievementForm.clearErrors();
     }
 
-function submitAchievement(event: FormEvent): void {
+    function submitAchievement(event: FormEvent): void {
         event.preventDefault();
 
         const payload = {
             title: (achievementForm.data.title ?? '').trim(),
             period: 'POST_RECRUITMENT',
             level: (achievementForm.data.level ?? '').trim(),
-            competition_details: (achievementForm.data.competition_details ?? '').trim(),
+            competition_details: (
+                achievementForm.data.competition_details ?? ''
+            ).trim(),
             event_date: normalizeIsoDate(achievementForm.data.event_date || ''),
             venue: (achievementForm.data.venue ?? '').trim() || null,
             sport_discipline:
                 (achievementForm.data.sport_id
                     ? sportNameById.get(achievementForm.data.sport_id)
-                    : (achievementForm.data.sport_discipline ?? '').trim())?.trim() || null,
+                    : (achievementForm.data.sport_discipline ?? '').trim()
+                )?.trim() || null,
             event: (achievementForm.data.event ?? '').trim() || null,
             discipline: (achievementForm.data.discipline ?? '').trim() || null,
-            weight_category: (achievementForm.data.weight_category ?? '').trim() || null,
+            weight_category:
+                (achievementForm.data.weight_category ?? '').trim() || null,
             gender_class: achievementForm.data.gender_class || null,
             medal_type: achievementForm.data.medal_type || null,
             position: achievementForm.data.position
@@ -490,13 +506,19 @@ function submitAchievement(event: FormEvent): void {
         }
 
         if (!payload.sport_discipline) {
-            achievementForm.setError('sport_discipline', t('Sport is required.'));
+            achievementForm.setError(
+                'sport_discipline',
+                t('Sport is required.'),
+            );
 
             return;
         }
 
         if (!payload.event_date) {
-            achievementForm.setError('event_date', t('Event date is required.'));
+            achievementForm.setError(
+                'event_date',
+                t('Event date is required.'),
+            );
 
             return;
         }
@@ -514,7 +536,9 @@ function submitAchievement(event: FormEvent): void {
 
         if (
             payload.position !== null &&
-            (!Number.isInteger(payload.position) || payload.position < 1 || payload.position > 9999)
+            (!Number.isInteger(payload.position) ||
+                payload.position < 1 ||
+                payload.position > 9999)
         ) {
             achievementForm.setError('position', t('Enter a valid position.'));
 
@@ -558,12 +582,18 @@ function submitAchievement(event: FormEvent): void {
         event.preventDefault();
 
         const payload = {
-            achievement_type: specialAchievementForm.data.achievement_type ?? '',
+            achievement_type:
+                specialAchievementForm.data.achievement_type ?? '',
             title: (specialAchievementForm.data.title ?? '').trim(),
-            awarded_on: normalizeIsoDate(specialAchievementForm.data.awarded_on || ''),
-            issuing_authority:
-                (specialAchievementForm.data.issuing_authority ?? '').trim(),
-            order_reference: (specialAchievementForm.data.order_reference ?? '').trim(),
+            awarded_on: normalizeIsoDate(
+                specialAchievementForm.data.awarded_on || '',
+            ),
+            issuing_authority: (
+                specialAchievementForm.data.issuing_authority ?? ''
+            ).trim(),
+            order_reference: (
+                specialAchievementForm.data.order_reference ?? ''
+            ).trim(),
             order_document: specialAchievementForm.data.order_document ?? null,
             place: (specialAchievementForm.data.place ?? '').trim(),
             remarks: (specialAchievementForm.data.remarks ?? '').trim(),
@@ -575,8 +605,15 @@ function submitAchievement(event: FormEvent): void {
             return;
         }
 
-        if (!SPECIAL_ACHIEVEMENT_TYPES.includes(payload.achievement_type as (typeof SPECIAL_ACHIEVEMENT_TYPES)[number])) {
-            specialAchievementForm.setError('achievement_type', t('Invalid achievement type.'));
+        if (
+            !SPECIAL_ACHIEVEMENT_TYPES.includes(
+                payload.achievement_type as (typeof SPECIAL_ACHIEVEMENT_TYPES)[number],
+            )
+        ) {
+            specialAchievementForm.setError(
+                'achievement_type',
+                t('Invalid achievement type.'),
+            );
 
             return;
         }
@@ -586,7 +623,10 @@ function submitAchievement(event: FormEvent): void {
             payload.awarded_on !== '' &&
             !isIsoDate(payload.awarded_on)
         ) {
-            specialAchievementForm.setError('awarded_on', t('Use YYYY-MM-DD format.'));
+            specialAchievementForm.setError(
+                'awarded_on',
+                t('Use YYYY-MM-DD format.'),
+            );
 
             return;
         }
@@ -595,7 +635,9 @@ function submitAchievement(event: FormEvent): void {
             setConfirmation({
                 open: true,
                 title: t('Update special achievement'),
-                description: t('Do you want to update this special achievement?'),
+                description: t(
+                    'Do you want to update this special achievement?',
+                ),
                 confirmLabel: t('Update'),
                 onConfirm: () =>
                     specialAchievementForm.patch(
@@ -637,7 +679,9 @@ function submitAchievement(event: FormEvent): void {
             setConfirmation({
                 open: true,
                 title: t('Update photo'),
-                description: t('Do you want to replace the current incharge photo?'),
+                description: t(
+                    'Do you want to replace the current incharge photo?',
+                ),
                 confirmLabel: t('Update'),
                 onConfirm: () =>
                     router.post(`/incharges/${incharge.id}/photo`, formData, {
@@ -692,7 +736,9 @@ function submitAchievement(event: FormEvent): void {
             >
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>{confirmation.title}</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            {confirmation.title}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             {confirmation.description}
                         </AlertDialogDescription>
@@ -770,196 +816,158 @@ function submitAchievement(event: FormEvent): void {
                     </TabsList>
 
                     <TabsContent value="overview" className="mt-4">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="order-1 min-w-0 overflow-hidden rounded-lg border border-dashed sm:flex-1">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                            <TableHead className="w-40">
-                                                {t('Field')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Value')}
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Full name')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {displayValue(incharge.full_name)}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('PNO')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {displayValue(incharge.pno)}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Incharge ID')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {displayValue(incharge.id)}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Rank')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {displayValue(incharge.rank)}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Designation')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {displayValue(incharge.designation)}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Mobile')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {displayValue(incharge.mobile)}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Email')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {displayValue(incharge.email)}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Status')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {incharge.is_active
-                                                    ? t('Active')
-                                                    : t('Inactive')}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Current teams')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {summary?.current_teams_count ?? 0}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Total assignments')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {summary?.total_assignments_count ?? 0}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Created at')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {formatDateOnly(incharge.created_at)}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Updated at')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {formatDateOnly(incharge.updated_at)}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
-                                                {t('Deleted at')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {incharge.deleted_at
-                                                    ? formatDateOnly(incharge.deleted_at)
-                                                    : t('Not deleted')}
-                                            </TableCell>
-                                        </TableRow>
-                                        <TableRow>
-                                            <TableCell className="font-medium">
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                            <div className="space-y-6 lg:col-span-2">
+                                <div className="rounded-xl border bg-card p-6">
+                                    <section className="space-y-3">
+                                        <h3 className="text-sm font-semibold text-foreground">
+                                            {t('Identity')}
+                                        </h3>
+                                        <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
+                                            {detail(
+                                                t('Full name'),
+                                                incharge.full_name,
+                                            )}
+                                            {detail(
+                                                t('PNO'),
+                                                <span className="font-mono">
+                                                    {incharge.pno}
+                                                </span>,
+                                            )}
+                                            {detail(t('Rank'), incharge.rank)}
+                                            {detail(
+                                                t('Designation'),
+                                                incharge.designation,
+                                            )}
+                                            {detail(
+                                                t('Mobile'),
+                                                incharge.mobile,
+                                            )}
+                                            {detail(t('Email'), incharge.email)}
+                                        </dl>
+                                    </section>
+                                </div>
+
+                                <div className="rounded-xl border bg-card p-6">
+                                    <section className="space-y-3">
+                                        <h3 className="text-sm font-semibold text-foreground">
+                                            {t('Service status')}
+                                        </h3>
+                                        <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
+                                            {detail(
+                                                t('Status'),
+                                                <Badge
+                                                    variant="outline"
+                                                    className={
+                                                        incharge.is_active
+                                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                                            : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-300'
+                                                    }
+                                                >
+                                                    {incharge.is_active
+                                                        ? t('Active')
+                                                        : t('Inactive')}
+                                                </Badge>,
+                                            )}
+                                            {detail(
+                                                t('Current teams'),
+                                                summary?.current_teams_count ??
+                                                    0,
+                                            )}
+                                            {detail(
+                                                t('Total assignments'),
+                                                summary?.total_assignments_count ??
+                                                    0,
+                                            )}
+                                        </dl>
+                                    </section>
+                                </div>
+
+                                {incharge.remarks && (
+                                    <div className="rounded-xl border bg-card p-6">
+                                        <section className="space-y-3">
+                                            <h3 className="text-sm font-semibold text-foreground">
                                                 {t('Remarks')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {displayValue(incharge.remarks)}
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
-                            </div>
-                            <div className="order-2 sm:order-2 sm:ml-auto sm:shrink-0">
-                                {incharge.photo_path ? (
-                                    <div className="relative size-40 overflow-hidden rounded-xl border bg-muted">
-                                        <img
-                                            src={`/storage/${incharge.photo_path}`}
-                                            alt={incharge.full_name}
-                                            className="size-full object-cover"
-                                        />
-                                        <button
-                                            className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-medium text-white opacity-0 transition-opacity hover:opacity-100"
-                                            type="button"
-                                            onClick={() =>
-                                                setConfirmation({
-                                                    open: true,
-                                                    title: t('Delete photo'),
-                                                    description: t(
-                                                        'Do you want to remove the incharge photo?',
-                                                    ),
-                                                    confirmLabel: t('Delete'),
-                                                    onConfirm: () =>
-                                                        router.delete(
-                                                            `/incharges/${incharge.id}/photo`,
-                                                            {
-                                                                preserveScroll: true,
-                                                            },
-                                                        ),
-                                                })
-                                            }
-                                        >
-                                            {t('Remove photo')}
-                                        </button>
+                                            </h3>
+                                            <p className="text-sm text-foreground">
+                                                {incharge.remarks}
+                                            </p>
+                                        </section>
                                     </div>
-                                ) : (
-                                    <label className="flex size-40 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-muted transition-colors hover:bg-muted/80">
-                                        <span className="px-2 text-center text-xs text-muted-foreground">
-                                            {t('Upload photo')}
-                                        </span>
-                                        <input
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp"
-                                            className="sr-only"
-                                            onChange={handleInchargePhotoChange}
-                                        />
-                                    </label>
                                 )}
-                                {incharge.photo_path ? (
-                                    <label className="mt-2 inline-flex cursor-pointer items-center rounded-md border bg-background px-2 py-1 text-xs font-medium">
-                                        <Upload className="mr-1 h-3 w-3" />
-                                        {t('Update photo')}
-                                        <input
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp"
-                                            className="sr-only"
-                                            onChange={handleInchargePhotoChange}
-                                        />
-                                    </label>
-                                ) : null}
+                            </div>
+
+                            <div className="lg:col-span-1">
+                                <div className="flex flex-col items-center rounded-xl border bg-card p-6">
+                                    {incharge.photo_path ? (
+                                        <>
+                                            <div className="relative size-40 overflow-hidden rounded-xl border bg-muted">
+                                                <img
+                                                    src={`/storage/${incharge.photo_path}`}
+                                                    alt={incharge.full_name}
+                                                    className="size-full object-cover"
+                                                />
+                                                <button
+                                                    className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-medium text-white opacity-0 transition-opacity hover:opacity-100"
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setConfirmation({
+                                                            open: true,
+                                                            title: t(
+                                                                'Delete photo',
+                                                            ),
+                                                            description: t(
+                                                                'Do you want to remove the incharge photo?',
+                                                            ),
+                                                            confirmLabel:
+                                                                t('Delete'),
+                                                            onConfirm: () =>
+                                                                router.delete(
+                                                                    `/incharges/${incharge.id}/photo`,
+                                                                    {
+                                                                        preserveScroll: true,
+                                                                    },
+                                                                ),
+                                                        })
+                                                    }
+                                                >
+                                                    {t('Remove photo')}
+                                                </button>
+                                            </div>
+                                            <label className="mt-3 inline-flex cursor-pointer items-center rounded-md border bg-background px-2 py-1 text-xs font-medium">
+                                                <Upload className="mr-1 h-3 w-3" />
+                                                {t('Update photo')}
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/png,image/webp"
+                                                    className="sr-only"
+                                                    onChange={
+                                                        handleInchargePhotoChange
+                                                    }
+                                                />
+                                            </label>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <label className="flex size-40 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-muted transition-colors hover:bg-muted/80">
+                                                <span className="px-2 text-center text-xs text-muted-foreground">
+                                                    {t('Upload photo')}
+                                                </span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/png,image/webp"
+                                                    className="sr-only"
+                                                    onChange={
+                                                        handleInchargePhotoChange
+                                                    }
+                                                />
+                                            </label>
+                                            <span className="mt-3 text-xs text-muted-foreground">
+                                                {t('No photo uploaded')}
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </TabsContent>
@@ -967,19 +975,20 @@ function submitAchievement(event: FormEvent): void {
                     <TabsContent value="achievements" className="mt-4">
                         <div className="mb-4 flex items-center justify-between">
                             <div className="text-sm text-muted-foreground">
-                                {t('Total records')}: {achievements?.summary.total ?? 0}
+                                {t('Total records')}:{' '}
+                                {achievements?.summary.total ?? 0}
                             </div>
-                                <Badge variant="outline" className="gap-1">
-                                    <Trophy className="size-3" />
-                                    {t('Achievements')}
-                                </Badge>
+                            <Badge variant="outline" className="gap-1">
+                                <Trophy className="size-3" />
+                                {t('Achievements')}
+                            </Badge>
+                        </div>
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                            <div className="text-sm font-medium text-muted-foreground">
+                                {t('Achievements')}
                             </div>
-                            <div className="mb-4 flex items-center justify-between gap-3">
-                                <div className="text-sm font-medium text-muted-foreground">
-                                    {t('Achievements')}
-                                </div>
-                                <Button
-                                    size="sm"
+                            <Button
+                                size="sm"
                                 onClick={() => {
                                     setEditingAchievementId(null);
                                     setAddingAchievement(true);
@@ -1008,17 +1017,20 @@ function submitAchievement(event: FormEvent): void {
                             </Button>
                         </div>
 
-                            <Dialog
-                                open={addingAchievement || editingAchievementId !== null}
-                                onOpenChange={(open) => {
-                                    if (!open) {
-                                        setAddingAchievement(false);
-                                        setEditingAchievementId(null);
-                                    }
-                                }}
-                            >
+                        <Dialog
+                            open={
+                                addingAchievement ||
+                                editingAchievementId !== null
+                            }
+                            onOpenChange={(open) => {
+                                if (!open) {
+                                    setAddingAchievement(false);
+                                    setEditingAchievementId(null);
+                                }
+                            }}
+                        >
                             <DialogContent
-                                className="max-h-[88vh] overflow-y-auto overflow-x-hidden sm:max-w-3xl"
+                                className="max-h-[88vh] overflow-x-hidden overflow-y-auto sm:max-w-3xl"
                                 onPointerDownOutside={(event) => {
                                     event.preventDefault();
                                 }}
@@ -1035,7 +1047,9 @@ function submitAchievement(event: FormEvent): void {
                                         </DialogTitle>
                                         <DialogDescription>
                                             {editingAchievementId
-                                                ? t('Update achievement details.')
+                                                ? t(
+                                                      'Update achievement details.',
+                                                  )
                                                 : t(
                                                       'Add a post-recruitment achievement.',
                                                   )}
@@ -1049,7 +1063,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <Combobox
                                                 id="achievement_level"
-                                                value={achievementForm.data.level ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .level ?? ''
+                                                }
                                                 onValueChange={(value) => {
                                                     if (!value) {
                                                         return;
@@ -1060,17 +1077,25 @@ function submitAchievement(event: FormEvent): void {
                                                         value,
                                                     );
                                                 }}
-                                                items={achievementLevels.map((level) => ({
-                                                    value: level,
-                                                    label: level,
-                                                }))}
+                                                items={achievementLevels.map(
+                                                    (level) => ({
+                                                        value: level,
+                                                        label: level,
+                                                    }),
+                                                )}
                                                 placeholder={t('Level')}
-                                                searchPlaceholder={t('Search levels…')}
-                                                emptyMessage={t('No levels found.')}
+                                                searchPlaceholder={t(
+                                                    'Search levels…',
+                                                )}
+                                                emptyMessage={t(
+                                                    'No levels found.',
+                                                )}
                                                 className="bg-background"
                                             />
                                             <InputError
-                                                message={achievementForm.errors.level}
+                                                message={
+                                                    achievementForm.errors.level
+                                                }
                                             />
                                         </div>
                                         <div className="grid gap-3">
@@ -1079,7 +1104,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <Input
                                                 id="achievement_title"
-                                                value={achievementForm.data.title ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .title ?? ''
+                                                }
                                                 onChange={(event) =>
                                                     achievementForm.setData(
                                                         'title',
@@ -1088,7 +1116,9 @@ function submitAchievement(event: FormEvent): void {
                                                 }
                                             />
                                             <InputError
-                                                message={achievementForm.errors.title}
+                                                message={
+                                                    achievementForm.errors.title
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -1099,7 +1129,10 @@ function submitAchievement(event: FormEvent): void {
                                         </Label>
                                         <Textarea
                                             id="achievement_competition_details"
-                                            value={achievementForm.data.competition_details ?? ''}
+                                            value={
+                                                achievementForm.data
+                                                    .competition_details ?? ''
+                                            }
                                             onChange={(event) =>
                                                 achievementForm.setData(
                                                     'competition_details',
@@ -1110,7 +1143,8 @@ function submitAchievement(event: FormEvent): void {
                                         />
                                         <InputError
                                             message={
-                                                achievementForm.errors.competition_details
+                                                achievementForm.errors
+                                                    .competition_details
                                             }
                                         />
                                     </div>
@@ -1122,7 +1156,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <DatePicker
                                                 id="achievement_event_date"
-                                                value={achievementForm.data.event_date ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .event_date ?? ''
+                                                }
                                                 onChange={(value) =>
                                                     achievementForm.setData(
                                                         'event_date',
@@ -1131,7 +1168,10 @@ function submitAchievement(event: FormEvent): void {
                                                 }
                                             />
                                             <InputError
-                                                message={achievementForm.errors.event_date}
+                                                message={
+                                                    achievementForm.errors
+                                                        .event_date
+                                                }
                                             />
                                         </div>
                                         <div className="grid gap-3">
@@ -1140,7 +1180,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <Combobox
                                                 id="achievement_medal_type"
-                                                value={achievementForm.data.medal_type ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .medal_type ?? ''
+                                                }
                                                 onValueChange={(value) => {
                                                     if (!value) {
                                                         return;
@@ -1152,20 +1195,31 @@ function submitAchievement(event: FormEvent): void {
                                                     );
                                                     achievementForm.setData(
                                                         'position',
-                                                        MEDAL_TO_POSITION[value] ?? '',
+                                                        MEDAL_TO_POSITION[
+                                                            value
+                                                        ] ?? '',
                                                     );
                                                 }}
-                                                items={ACHIEVEMENT_MEDALS.map((medal) => ({
-                                                    value: medal,
-                                                    label: medal,
-                                                }))}
+                                                items={ACHIEVEMENT_MEDALS.map(
+                                                    (medal) => ({
+                                                        value: medal,
+                                                        label: medal,
+                                                    }),
+                                                )}
                                                 placeholder={t('Medal')}
-                                                searchPlaceholder={t('Search medals…')}
-                                                emptyMessage={t('No medals found.')}
+                                                searchPlaceholder={t(
+                                                    'Search medals…',
+                                                )}
+                                                emptyMessage={t(
+                                                    'No medals found.',
+                                                )}
                                                 className="bg-background"
                                             />
                                             <InputError
-                                                message={achievementForm.errors.medal_type}
+                                                message={
+                                                    achievementForm.errors
+                                                        .medal_type
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -1180,18 +1234,27 @@ function submitAchievement(event: FormEvent): void {
                                                 type="number"
                                                 min={1}
                                                 max={9999}
-                                                value={achievementForm.data.position ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .position ?? ''
+                                                }
                                                 onChange={(event) => {
-                                                    const value = event.target.value.trim();
+                                                    const value =
+                                                        event.target.value.trim();
                                                     achievementForm.setData({
                                                         position: value,
                                                         medal_type:
-                                                            POSITION_TO_MEDAL[value] ?? '',
+                                                            POSITION_TO_MEDAL[
+                                                                value
+                                                            ] ?? '',
                                                     });
                                                 }}
                                             />
                                             <InputError
-                                                message={achievementForm.errors.position}
+                                                message={
+                                                    achievementForm.errors
+                                                        .position
+                                                }
                                             />
                                         </div>
                                         <div className="grid gap-3">
@@ -1199,7 +1262,10 @@ function submitAchievement(event: FormEvent): void {
                                                 {t('Gender class')}
                                             </Label>
                                             <Select
-                                                value={achievementForm.data.gender_class ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .gender_class ?? ''
+                                                }
                                                 onValueChange={(value) =>
                                                     achievementForm.setData(
                                                         'gender_class',
@@ -1209,22 +1275,31 @@ function submitAchievement(event: FormEvent): void {
                                             >
                                                 <SelectTrigger id="achievement_gender_class">
                                                     <SelectValue
-                                                        placeholder={t('Gender class')}
+                                                        placeholder={t(
+                                                            'Gender class',
+                                                        )}
                                                     />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {GENDER_CLASS_ITEMS.map((item) => (
-                                                        <SelectItem
-                                                            key={item.value}
-                                                            value={item.value}
-                                                        >
-                                                            {item.label}
-                                                        </SelectItem>
-                                                    ))}
+                                                    {GENDER_CLASS_ITEMS.map(
+                                                        (item) => (
+                                                            <SelectItem
+                                                                key={item.value}
+                                                                value={
+                                                                    item.value
+                                                                }
+                                                            >
+                                                                {item.label}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                             <InputError
-                                                message={achievementForm.errors.gender_class}
+                                                message={
+                                                    achievementForm.errors
+                                                        .gender_class
+                                                }
                                             />
                                         </div>
                                         <div className="grid gap-3 sm:col-span-2">
@@ -1233,7 +1308,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <Input
                                                 id="achievement_event"
-                                                value={achievementForm.data.event ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .event ?? ''
+                                                }
                                                 onChange={(event) =>
                                                     achievementForm.setData(
                                                         'event',
@@ -1242,7 +1320,9 @@ function submitAchievement(event: FormEvent): void {
                                                 }
                                             />
                                             <InputError
-                                                message={achievementForm.errors.event}
+                                                message={
+                                                    achievementForm.errors.event
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -1254,7 +1334,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <Combobox
                                                 id="achievement_sport_id"
-                                                value={achievementForm.data.sport_id ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .sport_id ?? ''
+                                                }
                                                 onValueChange={(value) => {
                                                     achievementForm.setData(
                                                         'sport_id',
@@ -1262,22 +1345,34 @@ function submitAchievement(event: FormEvent): void {
                                                     );
                                                     achievementForm.setData(
                                                         'sport_discipline',
-                                                        value ? sportNameById.get(value) ?? '' : '',
+                                                        value
+                                                            ? (sportNameById.get(
+                                                                  value,
+                                                              ) ?? '')
+                                                            : '',
                                                     );
                                                 }}
-                                                items={(sports ?? []).map((sport) => ({
-                                                    value: String(sport.id),
-                                                    label: sport.name,
-                                                }))}
+                                                items={(sports ?? []).map(
+                                                    (sport) => ({
+                                                        value: String(sport.id),
+                                                        label: sport.name,
+                                                    }),
+                                                )}
                                                 placeholder={t('Select sport')}
-                                                searchPlaceholder={t('Search sports…')}
-                                                emptyMessage={t('No sports found.')}
+                                                searchPlaceholder={t(
+                                                    'Search sports…',
+                                                )}
+                                                emptyMessage={t(
+                                                    'No sports found.',
+                                                )}
                                                 className="bg-background"
                                             />
                                             <InputError
                                                 message={
-                                                    achievementForm.errors.sport_id ??
-                                                    achievementForm.errors.sport_discipline
+                                                    achievementForm.errors
+                                                        .sport_id ??
+                                                    achievementForm.errors
+                                                        .sport_discipline
                                                 }
                                             />
                                         </div>
@@ -1287,7 +1382,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <Input
                                                 id="achievement_weight_category"
-                                                value={achievementForm.data.weight_category ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .weight_category ?? ''
+                                                }
                                                 onChange={(event) =>
                                                     achievementForm.setData(
                                                         'weight_category',
@@ -1296,7 +1394,10 @@ function submitAchievement(event: FormEvent): void {
                                                 }
                                             />
                                             <InputError
-                                                message={achievementForm.errors.weight_category}
+                                                message={
+                                                    achievementForm.errors
+                                                        .weight_category
+                                                }
                                             />
                                         </div>
                                         <div className="grid gap-3">
@@ -1305,7 +1406,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <Input
                                                 id="achievement_discipline"
-                                                value={achievementForm.data.discipline ?? ''}
+                                                value={
+                                                    achievementForm.data
+                                                        .discipline ?? ''
+                                                }
                                                 onChange={(event) =>
                                                     achievementForm.setData(
                                                         'discipline',
@@ -1314,7 +1418,10 @@ function submitAchievement(event: FormEvent): void {
                                                 }
                                             />
                                             <InputError
-                                                message={achievementForm.errors.discipline}
+                                                message={
+                                                    achievementForm.errors
+                                                        .discipline
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -1325,7 +1432,9 @@ function submitAchievement(event: FormEvent): void {
                                         </Label>
                                         <Input
                                             id="achievement_venue"
-                                            value={achievementForm.data.venue ?? ''}
+                                            value={
+                                                achievementForm.data.venue ?? ''
+                                            }
                                             onChange={(event) =>
                                                 achievementForm.setData(
                                                     'venue',
@@ -1334,10 +1443,11 @@ function submitAchievement(event: FormEvent): void {
                                             }
                                         />
                                         <InputError
-                                            message={achievementForm.errors.venue}
+                                            message={
+                                                achievementForm.errors.venue
+                                            }
                                         />
                                     </div>
-
 
                                     <div className="grid gap-3">
                                         <Label htmlFor="achievement_remarks">
@@ -1345,7 +1455,10 @@ function submitAchievement(event: FormEvent): void {
                                         </Label>
                                         <Textarea
                                             id="achievement_remarks"
-                                            value={achievementForm.data.remarks ?? ''}
+                                            value={
+                                                achievementForm.data.remarks ??
+                                                ''
+                                            }
                                             onChange={(event) =>
                                                 achievementForm.setData(
                                                     'remarks',
@@ -1355,7 +1468,9 @@ function submitAchievement(event: FormEvent): void {
                                             rows={2}
                                         />
                                         <InputError
-                                            message={achievementForm.errors.remarks}
+                                            message={
+                                                achievementForm.errors.remarks
+                                            }
                                         />
                                     </div>
 
@@ -1370,7 +1485,9 @@ function submitAchievement(event: FormEvent): void {
                                         </Button>
                                         <Button
                                             type="submit"
-                                            disabled={achievementForm.processing}
+                                            disabled={
+                                                achievementForm.processing
+                                            }
                                         >
                                             <Save className="mr-1.5 h-4 w-4" />
                                             {editingAchievementId
@@ -1389,7 +1506,7 @@ function submitAchievement(event: FormEvent): void {
                             <div className="overflow-x-auto rounded-md border">
                                 <Table>
                                     <TableHeader>
-                                            <TableRow>
+                                        <TableRow>
                                             <TableHead className="w-16 text-center">
                                                 {t('S. No.')}
                                             </TableHead>
@@ -1406,7 +1523,9 @@ function submitAchievement(event: FormEvent): void {
                                                 {t('Event')}
                                             </TableHead>
                                             <TableHead>{t('Venue')}</TableHead>
-                                            <TableHead>{t('Event Date')}</TableHead>
+                                            <TableHead>
+                                                {t('Event Date')}
+                                            </TableHead>
                                             <TableHead>{t('Medal')}</TableHead>
                                             <TableHead className="text-right">
                                                 {t('Actions')}
@@ -1422,7 +1541,9 @@ function submitAchievement(event: FormEvent): void {
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="font-medium">
-                                                            {displayValue(achievement.title)}
+                                                            {displayValue(
+                                                                achievement.title,
+                                                            )}
                                                         </div>
                                                         {achievement.competition_details ? (
                                                             <div className="text-xs text-muted-foreground">
@@ -1433,10 +1554,16 @@ function submitAchievement(event: FormEvent): void {
                                                         ) : null}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
-                                                        {displayValue(achievement.level)}
+                                                        {displayValue(
+                                                            achievement.level,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
-                                                        <div>{displayValue(achievement.sport_discipline)}</div>
+                                                        <div>
+                                                            {displayValue(
+                                                                achievement.sport_discipline,
+                                                            )}
+                                                        </div>
                                                         {achievement.discipline ? (
                                                             <div className="text-xs text-muted-foreground">
                                                                 {displayValue(
@@ -1446,13 +1573,19 @@ function submitAchievement(event: FormEvent): void {
                                                         ) : null}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
-                                                        {displayValue(achievement.event)}
+                                                        {displayValue(
+                                                            achievement.event,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
-                                                        {displayValue(achievement.venue)}
+                                                        {displayValue(
+                                                            achievement.venue,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {displayValue(achievement.event_date)}
+                                                        {displayValue(
+                                                            achievement.event_date,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="font-medium">
@@ -1474,63 +1607,76 @@ function submitAchievement(event: FormEvent): void {
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 type="button"
-                                                                aria-label={t('Edit')}
+                                                                aria-label={t(
+                                                                    'Edit',
+                                                                )}
                                                                 onClick={() => {
                                                                     setEditingAchievementId(
                                                                         achievement.id,
                                                                     );
-                                                                    setAddingAchievement(false);
-                                                                    achievementForm.setData({
-                                                                        period: 'POST_RECRUITMENT',
-                                                                        level:
-                                                                            achievement.level ??
-                                                                            '',
-                                                                        sport_id:
-                                                                            Array.from(
-                                                                                sportNameById.entries(),
-                                                                            ).find(
-                                                                                ([, name]) =>
-                                                                                    name ===
-                                                                                    achievement.sport_discipline,
-                                                                            )?.[0] ??
-                                                                            '',
-                                                                        title: achievement.title,
-                                                                        competition_details:
-                                                                            achievement.competition_details ??
-                                                                            '',
-                                                                        event_date:
-                                                                            normalizeIsoDate(
-                                                                                achievement.event_date ??
-                                                                                    '',
-                                                                            ) ?? '',
-                                                                        venue:
-                                                                            achievement.venue ?? '',
-                                                                        sport_discipline:
-                                                                            achievement.sport_discipline ??
-                                                                            '',
-                                                                        event:
-                                                                            achievement.event ?? '',
-                                                                        discipline:
-                                                                            achievement.discipline ??
-                                                                            '',
-                                                                        weight_category:
-                                                                            achievement.weight_category ??
-                                                                            '',
-                                                                        gender_class:
-                                                                            achievement.gender_class ??
-                                                                            '',
-                                                                        medal_type:
-                                                                            achievement.medal_type ??
-                                                                            '',
-                                                                        position: achievement.position
-                                                                            ? String(
-                                                                                    achievement.position,
-                                                                                )
-                                                                            : '',
-                                                                        remarks:
-                                                                            achievement.remarks ??
-                                                                            '',
-                                                                    });
+                                                                    setAddingAchievement(
+                                                                        false,
+                                                                    );
+                                                                    achievementForm.setData(
+                                                                        {
+                                                                            period: 'POST_RECRUITMENT',
+                                                                            level:
+                                                                                achievement.level ??
+                                                                                '',
+                                                                            sport_id:
+                                                                                Array.from(
+                                                                                    sportNameById.entries(),
+                                                                                ).find(
+                                                                                    ([
+                                                                                        ,
+                                                                                        name,
+                                                                                    ]) =>
+                                                                                        name ===
+                                                                                        achievement.sport_discipline,
+                                                                                )?.[0] ??
+                                                                                '',
+                                                                            title: achievement.title,
+                                                                            competition_details:
+                                                                                achievement.competition_details ??
+                                                                                '',
+                                                                            event_date:
+                                                                                normalizeIsoDate(
+                                                                                    achievement.event_date ??
+                                                                                        '',
+                                                                                ) ??
+                                                                                '',
+                                                                            venue:
+                                                                                achievement.venue ??
+                                                                                '',
+                                                                            sport_discipline:
+                                                                                achievement.sport_discipline ??
+                                                                                '',
+                                                                            event:
+                                                                                achievement.event ??
+                                                                                '',
+                                                                            discipline:
+                                                                                achievement.discipline ??
+                                                                                '',
+                                                                            weight_category:
+                                                                                achievement.weight_category ??
+                                                                                '',
+                                                                            gender_class:
+                                                                                achievement.gender_class ??
+                                                                                '',
+                                                                            medal_type:
+                                                                                achievement.medal_type ??
+                                                                                '',
+                                                                            position:
+                                                                                achievement.position
+                                                                                    ? String(
+                                                                                          achievement.position,
+                                                                                      )
+                                                                                    : '',
+                                                                            remarks:
+                                                                                achievement.remarks ??
+                                                                                '',
+                                                                        },
+                                                                    );
                                                                     achievementForm.clearErrors();
                                                                 }}
                                                             >
@@ -1540,25 +1686,34 @@ function submitAchievement(event: FormEvent): void {
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 type="button"
-                                                                aria-label={t('Delete')}
+                                                                aria-label={t(
+                                                                    'Delete',
+                                                                )}
                                                                 onClick={() => {
-                                                                    setConfirmation({
-                                                                        open: true,
-                                                                        title: t(
-                                                                            'Remove achievement',
-                                                                        ),
-                                                                        description: t(
-                                                                            'Do you want to remove this achievement?',
-                                                                        ),
-                                                                        confirmLabel: t('Delete'),
-                                                                        onConfirm: () =>
-                                                                            router.delete(
-                                                                                `/incharges/${incharge.id}/achievements/${achievement.id}`,
-                                                                                {
-                                                                                    preserveScroll: true,
-                                                                                },
+                                                                    setConfirmation(
+                                                                        {
+                                                                            open: true,
+                                                                            title: t(
+                                                                                'Remove achievement',
                                                                             ),
-                                                                    });
+                                                                            description:
+                                                                                t(
+                                                                                    'Do you want to remove this achievement?',
+                                                                                ),
+                                                                            confirmLabel:
+                                                                                t(
+                                                                                    'Delete',
+                                                                                ),
+                                                                            onConfirm:
+                                                                                () =>
+                                                                                    router.delete(
+                                                                                        `/incharges/${incharge.id}/achievements/${achievement.id}`,
+                                                                                        {
+                                                                                            preserveScroll: true,
+                                                                                        },
+                                                                                    ),
+                                                                        },
+                                                                    );
                                                                 }}
                                                             >
                                                                 <Trash2 className="size-4" />
@@ -1594,7 +1749,7 @@ function submitAchievement(event: FormEvent): void {
                                 onClick={() => {
                                     setEditingSpecialAchievementId(null);
                                     setAddingSpecialAchievement(true);
-                                        specialAchievementForm.setData({
+                                    specialAchievementForm.setData({
                                         achievement_type: 'COMMENDATION_DISC',
                                         title: '',
                                         awarded_on: '',
@@ -1612,20 +1767,20 @@ function submitAchievement(event: FormEvent): void {
                             </Button>
                         </div>
 
-                            <Dialog
-                                open={
-                                    addingSpecialAchievement ||
-                                    editingSpecialAchievementId !== null
+                        <Dialog
+                            open={
+                                addingSpecialAchievement ||
+                                editingSpecialAchievementId !== null
+                            }
+                            onOpenChange={(open) => {
+                                if (!open) {
+                                    setAddingSpecialAchievement(false);
+                                    setEditingSpecialAchievementId(null);
                                 }
-                                onOpenChange={(open) => {
-                                    if (!open) {
-                                        setAddingSpecialAchievement(false);
-                                        setEditingSpecialAchievementId(null);
-                                    }
-                                }}
-                            >
+                            }}
+                        >
                             <DialogContent
-                                className="max-h-[88vh] overflow-y-auto overflow-x-hidden sm:max-w-2xl"
+                                className="max-h-[88vh] overflow-x-hidden overflow-y-auto sm:max-w-2xl"
                                 onPointerDownOutside={(event) => {
                                     event.preventDefault();
                                 }}
@@ -1642,7 +1797,9 @@ function submitAchievement(event: FormEvent): void {
                                         </DialogTitle>
                                         <DialogDescription>
                                             {editingSpecialAchievementId
-                                                ? t('Update special achievement details.')
+                                                ? t(
+                                                      'Update special achievement details.',
+                                                  )
                                                 : t(
                                                       'Add a special achievement without tournament linkage.',
                                                   )}
@@ -1654,7 +1811,10 @@ function submitAchievement(event: FormEvent): void {
                                             {t('Type')}
                                         </Label>
                                         <Select
-                                            value={specialAchievementForm.data.achievement_type ?? ''}
+                                            value={
+                                                specialAchievementForm.data
+                                                    .achievement_type ?? ''
+                                            }
                                             onValueChange={(value) =>
                                                 specialAchievementForm.setData(
                                                     'achievement_type',
@@ -1663,18 +1823,31 @@ function submitAchievement(event: FormEvent): void {
                                             }
                                         >
                                             <SelectTrigger className="w-full">
-                                                <SelectValue placeholder={t('Type')} />
+                                                <SelectValue
+                                                    placeholder={t('Type')}
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {SPECIAL_ACHIEVEMENT_TYPES.map((type) => (
-                                                    <SelectItem key={type} value={type}>
-                                                        {specialAchievementTypeLabel(type, t)}
-                                                    </SelectItem>
-                                                ))}
+                                                {SPECIAL_ACHIEVEMENT_TYPES.map(
+                                                    (type) => (
+                                                        <SelectItem
+                                                            key={type}
+                                                            value={type}
+                                                        >
+                                                            {specialAchievementTypeLabel(
+                                                                type,
+                                                                t,
+                                                            )}
+                                                        </SelectItem>
+                                                    ),
+                                                )}
                                             </SelectContent>
                                         </Select>
                                         <InputError
-                                            message={specialAchievementForm.errors.achievement_type}
+                                            message={
+                                                specialAchievementForm.errors
+                                                    .achievement_type
+                                            }
                                         />
                                     </div>
                                     <div className="grid gap-3">
@@ -1683,7 +1856,10 @@ function submitAchievement(event: FormEvent): void {
                                         </Label>
                                         <Input
                                             id="special_achievement_title"
-                                            value={specialAchievementForm.data.title ?? ''}
+                                            value={
+                                                specialAchievementForm.data
+                                                    .title ?? ''
+                                            }
                                             onChange={(event) =>
                                                 specialAchievementForm.setData(
                                                     'title',
@@ -1692,7 +1868,10 @@ function submitAchievement(event: FormEvent): void {
                                             }
                                         />
                                         <InputError
-                                            message={specialAchievementForm.errors.title}
+                                            message={
+                                                specialAchievementForm.errors
+                                                    .title
+                                            }
                                         />
                                     </div>
                                     <div className="grid gap-3">
@@ -1701,13 +1880,22 @@ function submitAchievement(event: FormEvent): void {
                                         </Label>
                                         <DatePicker
                                             id="special_achievement_awarded_on"
-                                            value={specialAchievementForm.data.awarded_on ?? ''}
+                                            value={
+                                                specialAchievementForm.data
+                                                    .awarded_on ?? ''
+                                            }
                                             onChange={(value) =>
-                                                specialAchievementForm.setData('awarded_on', value)
+                                                specialAchievementForm.setData(
+                                                    'awarded_on',
+                                                    value,
+                                                )
                                             }
                                         />
                                         <InputError
-                                            message={specialAchievementForm.errors.awarded_on}
+                                            message={
+                                                specialAchievementForm.errors
+                                                    .awarded_on
+                                            }
                                         />
                                     </div>
                                     <div className="grid gap-3">
@@ -1716,7 +1904,10 @@ function submitAchievement(event: FormEvent): void {
                                         </Label>
                                         <Input
                                             id="special_achievement_issuing_authority"
-                                            value={specialAchievementForm.data.issuing_authority ?? ''}
+                                            value={
+                                                specialAchievementForm.data
+                                                    .issuing_authority ?? ''
+                                            }
                                             onChange={(event) =>
                                                 specialAchievementForm.setData(
                                                     'issuing_authority',
@@ -1738,7 +1929,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <Input
                                                 id="special_achievement_order_reference"
-                                                value={specialAchievementForm.data.order_reference ?? ''}
+                                                value={
+                                                    specialAchievementForm.data
+                                                        .order_reference ?? ''
+                                                }
                                                 onChange={(event) =>
                                                     specialAchievementForm.setData(
                                                         'order_reference',
@@ -1748,8 +1942,8 @@ function submitAchievement(event: FormEvent): void {
                                             />
                                             <InputError
                                                 message={
-                                                    specialAchievementForm.errors
-                                                        .order_reference
+                                                    specialAchievementForm
+                                                        .errors.order_reference
                                                 }
                                             />
                                         </div>
@@ -1759,7 +1953,10 @@ function submitAchievement(event: FormEvent): void {
                                             </Label>
                                             <Input
                                                 id="special_achievement_place"
-                                                value={specialAchievementForm.data.place ?? ''}
+                                                value={
+                                                    specialAchievementForm.data
+                                                        .place ?? ''
+                                                }
                                                 onChange={(event) =>
                                                     specialAchievementForm.setData(
                                                         'place',
@@ -1768,7 +1965,10 @@ function submitAchievement(event: FormEvent): void {
                                                 }
                                             />
                                             <InputError
-                                                message={specialAchievementForm.errors.place}
+                                                message={
+                                                    specialAchievementForm
+                                                        .errors.place
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -1780,8 +1980,8 @@ function submitAchievement(event: FormEvent): void {
                                             </span>
                                             <span className="min-w-0 flex-1">
                                                 <span className="block text-sm font-medium break-words">
-                                                    {specialAchievementForm.data.order_document
-                                                        ?.name ??
+                                                    {specialAchievementForm.data
+                                                        .order_document?.name ??
                                                         t(
                                                             'Upload order document',
                                                         )}
@@ -1792,18 +1992,21 @@ function submitAchievement(event: FormEvent): void {
                                                     )}
                                                 </span>
                                             </span>
-                                        <Input
-                                            className="sr-only"
-                                            type="file"
-                                            accept="application/pdf,image/jpeg,image/png,image/webp"
-                                            onChange={(event) => {
-                                                specialAchievementForm.setData(
-                                                    'order_document',
-                                                    event.target.files?.[0] ?? null,
+                                            <Input
+                                                className="sr-only"
+                                                type="file"
+                                                accept="application/pdf,image/jpeg,image/png,image/webp"
+                                                onChange={(event) => {
+                                                    specialAchievementForm.setData(
+                                                        'order_document',
+                                                        event.target
+                                                            .files?.[0] ?? null,
                                                     );
-                                                specialAchievementForm.clearErrors('order_document');
-                                            }}
-                                        />
+                                                    specialAchievementForm.clearErrors(
+                                                        'order_document',
+                                                    );
+                                                }}
+                                            />
                                         </label>
                                         {specialAchievementForm.progress ? (
                                             <div className="h-1.5 overflow-hidden rounded-full bg-muted">
@@ -1816,7 +2019,10 @@ function submitAchievement(event: FormEvent): void {
                                             </div>
                                         ) : null}
                                         <InputError
-                                            message={specialAchievementForm.errors.order_document}
+                                            message={
+                                                specialAchievementForm.errors
+                                                    .order_document
+                                            }
                                         />
                                     </div>
                                     <div className="grid gap-3">
@@ -1825,7 +2031,10 @@ function submitAchievement(event: FormEvent): void {
                                         </Label>
                                         <Textarea
                                             id="special_achievement_remarks"
-                                            value={specialAchievementForm.data.remarks ?? ''}
+                                            value={
+                                                specialAchievementForm.data
+                                                    .remarks ?? ''
+                                            }
                                             onChange={(event) =>
                                                 specialAchievementForm.setData(
                                                     'remarks',
@@ -1835,7 +2044,10 @@ function submitAchievement(event: FormEvent): void {
                                             rows={3}
                                         />
                                         <InputError
-                                            message={specialAchievementForm.errors.remarks}
+                                            message={
+                                                specialAchievementForm.errors
+                                                    .remarks
+                                            }
                                         />
                                     </div>
 
@@ -1843,7 +2055,9 @@ function submitAchievement(event: FormEvent): void {
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            onClick={clearSpecialAchievementForm}
+                                            onClick={
+                                                clearSpecialAchievementForm
+                                            }
                                         >
                                             <X className="mr-1.5 h-4 w-4" />
                                             {t('Cancel')}
@@ -1883,37 +2097,59 @@ function submitAchievement(event: FormEvent): void {
                                         >
                                             <div className="flex flex-wrap items-start justify-between gap-2">
                                                 <div>
-                                                        <p className="text-sm font-semibold">
-                                                            {displayValue(entry.title)}
-                                                        </p>
-                                                        <p className="mt-1 text-xs text-muted-foreground">
-                                                            {t('Type')}: {displayValue(entry.achievement_type)}
-                                                        </p>
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {t('Awarded on')}: {displayValue(entry.awarded_on)}
-                                                    </div>
+                                                    <p className="text-sm font-semibold">
+                                                        {displayValue(
+                                                            entry.title,
+                                                        )}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        {t('Type')}:{' '}
+                                                        {displayValue(
+                                                            entry.achievement_type,
+                                                        )}
+                                                    </p>
                                                 </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {t('Awarded on')}:{' '}
+                                                    {displayValue(
+                                                        entry.awarded_on,
+                                                    )}
+                                                </div>
+                                            </div>
 
                                             <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
                                                 <p>
-                                                    {t('Issuing authority')}: {displayValue(entry.issuing_authority)}
+                                                    {t('Issuing authority')}:{' '}
+                                                    {displayValue(
+                                                        entry.issuing_authority,
+                                                    )}
                                                 </p>
                                                 <p>
-                                                    {t('Order reference')}: {displayValue(entry.order_reference)}
+                                                    {t('Order reference')}:{' '}
+                                                    {displayValue(
+                                                        entry.order_reference,
+                                                    )}
                                                 </p>
                                                 <p>
-                                                    {t('Place')}: {displayValue(entry.place)}
+                                                    {t('Place')}:{' '}
+                                                    {displayValue(entry.place)}
                                                 </p>
                                                 <p>
-                                                    {t('Order document')}: {entry.order_document ? (
+                                                    {t('Order document')}:{' '}
+                                                    {entry.order_document ? (
                                                         <a
-                                                            href={entry.order_document.preview_url}
+                                                            href={
+                                                                entry
+                                                                    .order_document
+                                                                    .preview_url
+                                                            }
                                                             target="_blank"
                                                             rel="noreferrer"
                                                             className="ml-1 text-xs text-primary underline"
                                                         >
-                                                            {entry.order_document.original_name ??
+                                                            {entry
+                                                                .order_document
+                                                                .original_name ??
                                                                 t('View')}
                                                         </a>
                                                     ) : (
@@ -1921,7 +2157,10 @@ function submitAchievement(event: FormEvent): void {
                                                     )}
                                                 </p>
                                                 <p>
-                                                    {t('Remarks')}: {displayValue(entry.remarks)}
+                                                    {t('Remarks')}:{' '}
+                                                    {displayValue(
+                                                        entry.remarks,
+                                                    )}
                                                 </p>
                                             </div>
                                             <div className="mt-3 flex justify-end gap-2">
@@ -1936,26 +2175,32 @@ function submitAchievement(event: FormEvent): void {
                                                         setAddingSpecialAchievement(
                                                             false,
                                                         );
-                                                        specialAchievementForm.setData({
-                                                            achievement_type:
-                                                                entry.achievement_type,
-                                                            title: entry.title,
-                                                            awarded_on:
-                                                                normalizeIsoDate(
-                                                                    entry.awarded_on ?? '',
-                                                                ) ??
-                                                                '',
-                                                            issuing_authority:
-                                                                entry
-                                                                    .issuing_authority ??
-                                                                '',
-                                                            order_reference:
-                                                            entry.order_reference ??
-                                                                '',
-                                                            order_document: null,
-                                                            place: entry.place ?? '',
-                                                            remarks: entry.remarks ?? '',
-                                                        });
+                                                        specialAchievementForm.setData(
+                                                            {
+                                                                achievement_type:
+                                                                    entry.achievement_type,
+                                                                title: entry.title,
+                                                                awarded_on:
+                                                                    normalizeIsoDate(
+                                                                        entry.awarded_on ??
+                                                                            '',
+                                                                    ) ?? '',
+                                                                issuing_authority:
+                                                                    entry.issuing_authority ??
+                                                                    '',
+                                                                order_reference:
+                                                                    entry.order_reference ??
+                                                                    '',
+                                                                order_document:
+                                                                    null,
+                                                                place:
+                                                                    entry.place ??
+                                                                    '',
+                                                                remarks:
+                                                                    entry.remarks ??
+                                                                    '',
+                                                            },
+                                                        );
                                                         specialAchievementForm.clearErrors();
                                                     }}
                                                 >
@@ -1975,7 +2220,8 @@ function submitAchievement(event: FormEvent): void {
                                                             description: t(
                                                                 'Do you want to remove this special achievement?',
                                                             ),
-                                                            confirmLabel: t('Delete'),
+                                                            confirmLabel:
+                                                                t('Delete'),
                                                             onConfirm: () =>
                                                                 router.delete(
                                                                     `/incharges/${incharge.id}/special-achievements/${entry.id}`,
@@ -1999,20 +2245,22 @@ function submitAchievement(event: FormEvent): void {
 
                     <TabsContent value="teams" className="mt-4">
                         <div className="overflow-hidden rounded-md border bg-card">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-16 text-center">
-                                    {t('S. No.')}
-                                </TableHead>
-                                <TableHead>{t('Team')}</TableHead>
-                                <TableHead>{t('Session')}</TableHead>
-                                <TableHead>{t('Location')}</TableHead>
-                                <TableHead>{t('Assigned on')}</TableHead>
-                                <TableHead>{t('Status')}</TableHead>
-                                <TableHead>{t('Notes')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-16 text-center">
+                                            {t('S. No.')}
+                                        </TableHead>
+                                        <TableHead>{t('Team')}</TableHead>
+                                        <TableHead>{t('Session')}</TableHead>
+                                        <TableHead>{t('Location')}</TableHead>
+                                        <TableHead>
+                                            {t('Assigned on')}
+                                        </TableHead>
+                                        <TableHead>{t('Status')}</TableHead>
+                                        <TableHead>{t('Notes')}</TableHead>
+                                    </TableRow>
+                                </TableHeader>
                                 <TableBody>
                                     {(assignments ?? []).length === 0 ? (
                                         <TableRow>
@@ -2041,7 +2289,8 @@ function submitAchievement(event: FormEvent): void {
                                                     <TableCell>
                                                         {displayValue(
                                                             assignment.team
-                                                                ?.session?.name ??
+                                                                ?.session
+                                                                ?.name ??
                                                                 assignment
                                                                     .session
                                                                     ?.name ??
