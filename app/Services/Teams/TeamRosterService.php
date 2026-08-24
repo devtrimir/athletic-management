@@ -20,6 +20,7 @@ class TeamRosterService
 
     /**
      * @param  list<int|string>  $memberIds
+     * @return array{added:int,sports_assigned:int}
      */
     public function addMembers(
         Team $team,
@@ -28,7 +29,7 @@ class TeamRosterService
         string $role,
         ?string $joinedOn,
         int $userId,
-    ): int {
+    ): array {
         $entries = collect($memberIds)
             ->values()
             ->map(fn (int|string $memberId, int $index): array => [
@@ -48,6 +49,7 @@ class TeamRosterService
             allowInactive: true,
             allowExistingRemoved: true,
             allowOnlyInactiveStatus: true,
+            autoAssignSport: true,
         );
 
         $errors = $this->errorsForMemberInputs($preview['rows']);
@@ -56,7 +58,7 @@ class TeamRosterService
             throw ValidationException::withMessages($errors);
         }
 
-        return DB::transaction(function () use ($team, $preview, $sessionId, $role, $joinedOn, $userId): int {
+        return DB::transaction(function () use ($team, $preview, $sessionId, $role, $joinedOn, $userId): array {
             $count = 0;
 
             foreach ($preview['rows'] as $row) {
@@ -85,17 +87,22 @@ class TeamRosterService
                 $count++;
             }
 
-            Member::whereIn('id', collect($preview['rows'])->pluck('member_id')->filter()->all())
+            $memberIds = collect($preview['rows'])->pluck('member_id')->filter()->all();
+
+            Member::whereIn('id', $memberIds)
                 ->update(['current_status' => 'ACTIVE']);
 
-            return $count;
+            $sportsAssigned = $this->assignTeamSportToMembers($team, $memberIds);
+
+            return ['added' => $count, 'sports_assigned' => $sportsAssigned];
         });
     }
 
     /**
      * @param  list<array<string, mixed>>  $entries
+     * @return array{added:int,sports_assigned:int}
      */
-    public function restoreMembers(Team $team, int $sessionId, array $entries, int $userId): int
+    public function restoreMembers(Team $team, int $sessionId, array $entries, int $userId): array
     {
         $preview = $this->previewEntries(
             team: $team,
@@ -104,6 +111,7 @@ class TeamRosterService
             allowInactive: true,
             allowExistingRemoved: true,
             allowOnlyInactiveStatus: true,
+            autoAssignSport: true,
         );
 
         $errors = $this->errorsForMemberInputs($preview['rows']);
@@ -112,7 +120,7 @@ class TeamRosterService
             throw ValidationException::withMessages($errors);
         }
 
-        return DB::transaction(function () use ($team, $preview, $sessionId, $userId): int {
+        return DB::transaction(function () use ($team, $preview, $sessionId, $userId): array {
             $count = 0;
 
             foreach ($preview['rows'] as $row) {
@@ -141,11 +149,53 @@ class TeamRosterService
                 $count++;
             }
 
-            Member::whereIn('id', collect($preview['rows'])->pluck('member_id')->filter()->all())
+            $memberIds = collect($preview['rows'])->pluck('member_id')->filter()->all();
+
+            Member::whereIn('id', $memberIds)
                 ->update(['current_status' => 'ACTIVE']);
 
-            return $count;
+            $sportsAssigned = $this->assignTeamSportToMembers($team, $memberIds);
+
+            return ['added' => $count, 'sports_assigned' => $sportsAssigned];
         });
+    }
+
+    /**
+     * Ensure every member has the team's sport in their playable sports.
+     *
+     * @param  list<int>  $memberIds
+     */
+    private function assignTeamSportToMembers(Team $team, array $memberIds): int
+    {
+        if ($memberIds === []) {
+            return 0;
+        }
+
+        $existingMemberIds = DB::table('member_sport')
+            ->where('sport_id', $team->sport_id)
+            ->whereIn('member_id', $memberIds)
+            ->pluck('member_id')
+            ->all();
+
+        $missingMemberIds = array_values(array_diff($memberIds, $existingMemberIds));
+
+        if ($missingMemberIds === []) {
+            return 0;
+        }
+
+        $now = now();
+        $rows = collect($missingMemberIds)
+            ->map(fn (int $memberId): array => [
+                'member_id' => $memberId,
+                'sport_id' => $team->sport_id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])
+            ->all();
+
+        DB::table('member_sport')->insert($rows);
+
+        return count($missingMemberIds);
     }
 
     /**
@@ -428,12 +478,13 @@ class TeamRosterService
         bool $allowInactive,
         bool $allowExistingRemoved,
         bool $allowOnlyInactiveStatus,
+        bool $autoAssignSport = false,
     ): array {
         $rows = [];
         $seenMemberIds = [];
 
         foreach ($entries as $entry) {
-            $row = $this->evaluateEntry($team, $sessionId, $entry, $allowInactive, $allowExistingRemoved, $allowOnlyInactiveStatus);
+            $row = $this->evaluateEntry($team, $sessionId, $entry, $allowInactive, $allowExistingRemoved, $allowOnlyInactiveStatus, $autoAssignSport);
 
             if ($row['member_id'] && in_array($row['member_id'], $seenMemberIds, true)) {
                 $row['messages'][] = __('This member appears more than once in the submitted roster.');
@@ -469,6 +520,7 @@ class TeamRosterService
         bool $allowInactive,
         bool $allowExistingRemoved,
         bool $allowOnlyInactiveStatus,
+        bool $autoAssignSport = false,
     ): array {
         $messages = [];
         $status = 'ready';
@@ -503,7 +555,7 @@ class TeamRosterService
             }
         }
 
-        if (! $member->playableSports()->where('sports.id', $team->sport_id)->exists()) {
+        if (! $autoAssignSport && ! $member->playableSports()->where('sports.id', $team->sport_id)->exists()) {
             $messages[] = __('This member is not eligible for this team sport.');
             $status = 'blocked';
         }

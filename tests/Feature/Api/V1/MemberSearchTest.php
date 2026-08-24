@@ -184,7 +184,7 @@ test('cross-org members are not returned', function () {
     expect($response->json('meta.count'))->toBe(0);
 });
 
-test('team availability search returns active and inactive playable available members', function () {
+test('team availability search returns active and inactive available members regardless of sport', function () {
     $user = searchUser('members.view');
     $org = Organization::find($user->organization_id);
     $team = Team::factory()->forOrganization($org)->create();
@@ -210,7 +210,7 @@ test('team availability search returns active and inactive playable available me
     ]);
     $retired->playableSports()->sync([$team->sport_id]);
 
-    Member::factory()->create([
+    $noSport = Member::factory()->create([
         'organization_id' => $org->id,
         'full_name' => 'राम अयोग्य',
         'current_status' => 'ACTIVE',
@@ -236,7 +236,7 @@ test('team availability search returns active and inactive playable available me
         ->assertOk();
 
     expect(collect($response->json('data'))->pluck('id')->all())
-        ->toEqualCanonicalizing([$available->id, $inactive->id]);
+        ->toEqualCanonicalizing([$available->id, $inactive->id, $noSport->id]);
 });
 
 test('historical team availability search includes inactive playable members', function () {

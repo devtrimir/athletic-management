@@ -530,11 +530,11 @@ test('member can join another team in the same session for a different playable 
     ]);
 });
 
-test('member without target team sport is rejected', function (): void {
+test('member without target team sport is accepted and sport is assigned', function (): void {
     $user = teamUser('teams.update');
     $org = Organization::find($user->organization_id);
     $team = teamWithOrg($org);
-    $member = Member::factory()->create(['organization_id' => $org->id]);
+    $member = Member::factory()->create(['organization_id' => $org->id, 'current_status' => 'ACTIVE']);
 
     $this->actingAs($user)
         ->post(route('teams.members.store', $team), [
@@ -542,9 +542,17 @@ test('member without target team sport is rejected', function (): void {
             'session_id' => $team->session_id,
             'role' => 'PLAYER',
         ])
-        ->assertSessionHasErrors(['member_ids.0']);
+        ->assertRedirect(route('teams.show', ['team' => $team, 'filter' => ['session_id' => $team->session_id]]));
 
-    $this->assertDatabaseMissing('team_members', ['team_id' => $team->id]);
+    $this->assertDatabaseHas('team_members', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $team->session_id,
+    ]);
+    $this->assertDatabaseHas('member_sport', [
+        'member_id' => $member->id,
+        'sport_id' => $team->sport_id,
+    ]);
 });
 
 test('retired member is rejected for manual add', function (): void {

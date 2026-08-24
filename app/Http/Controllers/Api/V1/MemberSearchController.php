@@ -48,7 +48,7 @@ class MemberSearchController extends Controller
             'player_level' => $validated['player_level'] ?? null,
             'current_status' => $team && ! $historical ? null : ($validated['current_status'] ?? null),
             'allowed_statuses' => $team && ! $historical ? ['ACTIVE', 'INACTIVE'] : null,
-            'sport_id' => $team?->sport_id ?? ($validated['sport_id'] ?? null),
+            'sport_id' => $team && ! $historical ? null : ($validated['sport_id'] ?? null),
             'available_session_id' => $validated['available_for_session_id'] ?? $team?->session_id,
             'available_sport_id' => $team?->sport_id,
         ]);
