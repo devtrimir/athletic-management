@@ -254,6 +254,7 @@ export default function TeamsPrint({
 
     const eventProfileParts = (member: TeamMemberRow): string[] => {
         const profile = member.member?.playable_profile;
+
         return [profile?.sport_event, profile?.weight, profile?.position]
             .map(cleanText)
             .filter(Boolean);

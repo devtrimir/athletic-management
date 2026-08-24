@@ -1201,6 +1201,7 @@ function printRelated(
         if (printed) {
             return;
         }
+
         printed = true;
         win.focus();
         win.print();
@@ -1218,6 +1219,7 @@ function printRelated(
             hasBody
         ) {
             printDocument();
+
             return;
         }
 

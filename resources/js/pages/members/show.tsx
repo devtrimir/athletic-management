@@ -44,9 +44,10 @@ import {
     teams as memberTeamsRoute,
 } from '@/actions/App/Http/Controllers/MemberProfileTabController';
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
+import AlertError from '@/components/alert-error';
+import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
-import AlertError from '@/components/alert-error';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
 import { MemberPerformanceTab } from '@/components/members/member-performance-tab';
 import type { MemberPerformanceData } from '@/components/members/member-performance-tab';
@@ -57,7 +58,6 @@ import { PromotionsTab } from '@/components/members/promotions-tab';
 import { SpecialAchievementsTab } from '@/components/members/special-achievements-tab';
 import type { SpecialAchievementsData } from '@/components/members/special-achievements-tab';
 import { StatusChangeModal } from '@/components/members/status-change-modal';
-import { Combobox } from '@/components/combobox';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { Badge } from '@/components/ui/badge';
@@ -1021,6 +1021,7 @@ export default function MembersShow({
 
         if (hasSingleOption && !isSelected) {
             setQuickAddField('team_id', quickAddTeamItems[0].value);
+
             return;
         }
 
