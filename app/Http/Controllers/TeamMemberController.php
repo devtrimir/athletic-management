@@ -36,7 +36,7 @@ class TeamMemberController extends Controller
         $role = $data['role'] ?? 'PLAYER';
         $joinedOn = $data['joined_on'] ?? null;
 
-        $roster->addMembers(
+        $result = $roster->addMembers(
             team: $team,
             memberIds: $data['member_ids'],
             sessionId: $sessionId,
@@ -46,7 +46,13 @@ class TeamMemberController extends Controller
         );
         $this->teamSessionStatusManager->ensureActive($team, $sessionId);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Members added to team.')]);
+        $message = match (true) {
+            $result['sports_assigned'] === 0 => __('Members added to team.'),
+            $result['sports_assigned'] === 1 => __('Members added to team. 1 sport profile updated.'),
+            default => __('Members added to team. :count sport profiles updated.', ['count' => $result['sports_assigned']]),
+        };
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 
         return to_route('teams.show', ['team' => $team, 'filter' => ['session_id' => $sessionId]]);
     }
