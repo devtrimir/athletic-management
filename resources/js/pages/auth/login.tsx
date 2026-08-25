@@ -1,6 +1,5 @@
 import { Form, Head, setLayoutProps } from '@inertiajs/react';
 import InputError from '@/components/input-error';
-import PasskeyVerify from '@/components/passkey-verify';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
@@ -35,8 +34,6 @@ export default function Login({ status, canResetPassword }: Props) {
                 </div>
             )}
 
-            <PasskeyVerify />
-
             <Form
                 {...store.form()}
                 resetOnSuccess={['password']}
@@ -44,7 +41,7 @@ export default function Login({ status, canResetPassword }: Props) {
             >
                 {({ processing, errors }) => (
                     <>
-                        <div className="grid gap-6">
+                        <div className="grid gap-5">
                             <div className="grid gap-2">
                                 <Label htmlFor="email">
                                     {t('Email address')}
@@ -58,6 +55,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     tabIndex={1}
                                     autoComplete="email"
                                     placeholder="email@example.com"
+                                    className="h-11 rounded-lg border-white/60 bg-white/60 px-4"
                                 />
                                 <InputError message={errors.email} />
                             </div>
@@ -84,6 +82,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     tabIndex={2}
                                     autoComplete="current-password"
                                     placeholder="Password"
+                                    className="h-11 rounded-lg border-white/60 bg-white/60 px-4"
                                 />
                                 <InputError message={errors.password} />
                             </div>
@@ -101,7 +100,7 @@ export default function Login({ status, canResetPassword }: Props) {
 
                             <Button
                                 type="submit"
-                                className="mt-4 w-full"
+                                className="mt-2 h-11 w-full"
                                 tabIndex={4}
                                 disabled={processing}
                                 data-test="login-button"
