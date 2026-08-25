@@ -29,7 +29,7 @@ class AdminUserSeeder extends Seeder
 
         $org = Organization::firstOrCreate(
             ['code' => 'UPP'],
-            ['name' => 'UP Police Sports Unit'],
+            ['name' => 'UP Police Sports Control Board'],
         );
 
         $adminRole = Role::firstOrCreate(

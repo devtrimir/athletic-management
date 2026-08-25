@@ -221,8 +221,8 @@ const UI_LABELS: Record<
     Print: { en: 'Print', hi: 'प्रिंट' },
     'Print preview': { en: 'Print preview', hi: 'प्रिंट पूर्वावलोकन' },
     'Print options': { en: 'Print options', hi: 'प्रिंट विकल्प' },
-    'UP Police Sports Unit': {
-        en: 'UP Police Sport Control Board (UPPSCB)',
+    'UP Police Sports Control Board': {
+        en: 'UP Police Sports Control Board (UPPSCB)',
         hi: 'उत्तर प्रदेश पुलिस खेल नियंत्रण बोर्ड (यूपीपीएससीबी)',
     },
     'Member profile record': {
@@ -1004,9 +1004,7 @@ function Timeline({
     t: (key: string) => string;
     mode: TimelineMode;
 }) {
-    const visibleEntries = entries.filter(
-        (entry) => entry.subject !== 'Alias',
-    );
+    const visibleEntries = entries.filter((entry) => entry.subject !== 'Alias');
     void mode;
 
     if (visibleEntries.length === 0) {
@@ -1374,12 +1372,12 @@ export default function PrintPreview({
                 <div className="relative z-10 flex items-center gap-4 border-b-2 border-neutral-900 pb-3 print:gap-3 print:pb-2">
                     <img
                         src={LETTERHEAD_LOGO_SRC}
-                        alt={uiText('UP Police Sports Unit', locale)}
+                        alt={uiText('UP Police Sports Control Board', locale)}
                         className="size-20 shrink-0 object-contain print:size-16"
                     />
                     <div className="min-w-0 flex-1 text-center">
                         <div className="text-lg font-bold tracking-wide uppercase print:text-[16px]">
-                            {uiText('UP Police Sports Unit', locale)}
+                            {uiText('UP Police Sports Control Board', locale)}
                         </div>
                         <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase print:text-[11px] print:text-black">
                             {uiText('Member profile record', locale)}
@@ -1702,8 +1700,7 @@ export default function PrintPreview({
                                                     )}
                                                     {hasAnyPrintableValue(
                                                         member.playable_sports,
-                                                        (sport) =>
-                                                            sport.weight,
+                                                        (sport) => sport.weight,
                                                     ) && (
                                                         <th className="p-2">
                                                             {uiText(

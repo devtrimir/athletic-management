@@ -14,7 +14,7 @@ class SportSeeder extends Seeder
     {
         $org = Organization::firstOrCreate(
             ['code' => 'UPP'],
-            ['name' => 'UP Police Sports Unit'],
+            ['name' => 'UP Police Sports Control Board'],
         );
 
         $csv = new SplFileObject(database_path('data/sports.csv'));

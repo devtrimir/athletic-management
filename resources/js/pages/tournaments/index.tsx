@@ -441,9 +441,9 @@ export default function TournamentsIndex({
             <img class="watermark" src="/logo.jpg" alt="">
             <div class="print-content">
             <div class="letterhead">
-                <img class="letterhead-logo" src="/logo.jpg" alt="${escapePrintValue(t('UP Police Sport Control Board (UPPSCB)'))}">
+                <img class="letterhead-logo" src="/logo.jpg" alt="${escapePrintValue(t('UP Police Sports Control Board (UPPSCB)'))}">
                 <div class="letterhead-body">
-                    <h1>${escapePrintValue(t('UP Police Sport Control Board (UPPSCB)'))}</h1>
+                    <h1>${escapePrintValue(t('UP Police Sports Control Board (UPPSCB)'))}</h1>
                     <p>${escapePrintValue(t('Tournament Listing'))}</p>
                     <p>${escapePrintValue(t('Official print preview'))}</p>
                 </div>

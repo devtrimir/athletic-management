@@ -8,13 +8,7 @@ import {
     Search,
     X,
 } from 'lucide-react';
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import CoachController, {
     print as printCoachesUrl,
@@ -23,7 +17,6 @@ import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachE
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Command,
     CommandEmpty,
@@ -394,7 +387,10 @@ function buildCoachTeamSportRows(
                 coaches: [
                     {
                         id: coach.id,
-                        rank: coach.rank_master?.name ?? coach.rank_master?.short_name ?? null,
+                        rank:
+                            coach.rank_master?.name ??
+                            coach.rank_master?.short_name ??
+                            null,
                         pno: coach.pno,
                         full_name: coach.full_name,
                         mobile: coach.mobile,
@@ -413,24 +409,30 @@ function buildCoachTeamSportRows(
 
         assignments.forEach((assignment) => {
             const teamId = assignment.team?.id ?? 0;
-            const sportId = assignment.team?.sport?.id ?? assignment.team?.sport_id ?? 0;
+            const sportId =
+                assignment.team?.sport?.id ?? assignment.team?.sport_id ?? 0;
             const key = `${sportId}-${teamId}`;
 
-                const row =
-                    grouped.get(key) ??
-                    ({
-                        sport:
-                            assignment.team?.sport?.name
-                            ?? (sportId ? sportNameById.get(sportId) : undefined)
-                            ?? t('Unspecified sport'),
-                        team: assignment.team?.name ?? t('Unspecified team'),
-                        coaches: [],
-                    } as SportTeamGroupRow);
+            const row =
+                grouped.get(key) ??
+                ({
+                    sport:
+                        assignment.team?.sport?.name ??
+                        (sportId ? sportNameById.get(sportId) : undefined) ??
+                        t('Unspecified sport'),
+                    team: assignment.team?.name ?? t('Unspecified team'),
+                    coaches: [],
+                } as SportTeamGroupRow);
 
-            if (!row.coaches.some((coachInTeam) => coachInTeam.id === coach.id)) {
+            if (
+                !row.coaches.some((coachInTeam) => coachInTeam.id === coach.id)
+            ) {
                 row.coaches.push({
                     id: coach.id,
-                    rank: coach.rank_master?.name ?? coach.rank_master?.short_name ?? null,
+                    rank:
+                        coach.rank_master?.name ??
+                        coach.rank_master?.short_name ??
+                        null,
                     pno: coach.pno,
                     full_name: coach.full_name,
                     mobile: coach.mobile,
@@ -493,9 +495,7 @@ export default function CoachesIndex({
     const { t } = useTranslation();
 
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-    const [reportAction, setReportAction] = useState<ReportAction | null>(
-        null,
-    );
+    const [reportAction, setReportAction] = useState<ReportAction | null>(null);
     const [printOrientation, setPrintOrientation] =
         useState<PrintOrientation>('landscape');
     const [showMoreFilters, setShowMoreFilters] = useState(false);
@@ -529,7 +529,8 @@ export default function CoachesIndex({
                 certification_name: filters.certification_name,
                 certification_type: filters.certification_type,
                 sport_id: filters.sport_id,
-                has_active_assignment: assignmentFilterFromStatus(nextStatusScope),
+                has_active_assignment:
+                    assignmentFilterFromStatus(nextStatusScope),
             };
             const merged: Filters = { ...current, ...patch };
             merged.has_active_assignment = assignmentFilterFromStatus(
@@ -691,7 +692,8 @@ export default function CoachesIndex({
         const printFilters: Filters = {
             q: query || filters.q,
             status_scope: activeStatusScope,
-            has_active_assignment: assignmentFilterFromStatus(activeStatusScope),
+            has_active_assignment:
+                assignmentFilterFromStatus(activeStatusScope),
         };
 
         if (filters.nis_certified) {
@@ -744,8 +746,9 @@ export default function CoachesIndex({
             q: query || undefined,
             ...patch,
         };
-        merged.has_active_assignment =
-            assignmentFilterFromStatus(merged.status_scope ?? activeStatusScope);
+        merged.has_active_assignment = assignmentFilterFromStatus(
+            merged.status_scope ?? activeStatusScope,
+        );
         const params = new URLSearchParams();
 
         for (const [key, value] of Object.entries(merged)) {
@@ -925,9 +928,9 @@ export default function CoachesIndex({
                         </TabsList>
                     </Tabs>
 
-            <div className="max-w-full min-w-0 space-y-1.5 rounded-xl border bg-card p-3">
+                    <div className="max-w-full min-w-0 space-y-1.5 rounded-xl border bg-card p-3">
                         <div className="flex flex-wrap items-center gap-2">
-                            <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-[320px]">
+                            <div className="relative w-full sm:w-auto sm:max-w-[320px] sm:flex-1">
                                 <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     placeholder={t('Search coaches…')}
@@ -967,7 +970,9 @@ export default function CoachesIndex({
                                         filters.nis_certified,
                                     )}
                                     onClear={() =>
-                                        applyFilters({ nis_certified: undefined })
+                                        applyFilters({
+                                            nis_certified: undefined,
+                                        })
                                     }
                                 >
                                     <OptionList
@@ -981,88 +986,90 @@ export default function CoachesIndex({
                                     />
                                 </FilterPill>
 
-                            <FilterPill
-                                label={t('Blood group')}
-                                activeLabel={filters.blood_group}
-                                onClear={() =>
-                                    applyFilters({ blood_group: undefined })
-                                }
-                            >
-                                <OptionList
-                                    options={bloodGroupOptions}
-                                    value={filters.blood_group}
-                                    onSelect={(value) =>
-                                        applyFilters({ blood_group: value })
+                                <FilterPill
+                                    label={t('Blood group')}
+                                    activeLabel={filters.blood_group}
+                                    onClear={() =>
+                                        applyFilters({ blood_group: undefined })
                                     }
-                                />
-                            </FilterPill>
+                                >
+                                    <OptionList
+                                        options={bloodGroupOptions}
+                                        value={filters.blood_group}
+                                        onSelect={(value) =>
+                                            applyFilters({ blood_group: value })
+                                        }
+                                    />
+                                </FilterPill>
 
-                            <FilterPill
-                                label={t('Gender')}
-                                activeLabel={optionLabel(
-                                    genderOptions,
-                                    filters.gender,
-                                )}
-                                onClear={() =>
-                                    applyFilters({ gender: undefined })
-                                }
-                            >
-                                <OptionList
-                                    options={genderOptions}
-                                    value={filters.gender}
-                                    onSelect={(value) =>
-                                        applyFilters({ gender: value })
+                                <FilterPill
+                                    label={t('Gender')}
+                                    activeLabel={optionLabel(
+                                        genderOptions,
+                                        filters.gender,
+                                    )}
+                                    onClear={() =>
+                                        applyFilters({ gender: undefined })
                                     }
-                                />
-                            </FilterPill>
+                                >
+                                    <OptionList
+                                        options={genderOptions}
+                                        value={filters.gender}
+                                        onSelect={(value) =>
+                                            applyFilters({ gender: value })
+                                        }
+                                    />
+                                </FilterPill>
 
-                            <FilterPill
-                                label={t('Certification')}
-                                activeLabel={optionLabel(
-                                    certificationOptions,
-                                    filters.has_certification,
-                                )}
-                                onClear={() =>
-                                    applyFilters({
-                                        has_certification: undefined,
-                                    })
-                                }
-                            >
-                                <OptionList
-                                    options={certificationOptions}
-                                    value={filters.has_certification}
-                                    onSelect={(value) =>
+                                <FilterPill
+                                    label={t('Certification')}
+                                    activeLabel={optionLabel(
+                                        certificationOptions,
+                                        filters.has_certification,
+                                    )}
+                                    onClear={() =>
                                         applyFilters({
-                                            has_certification: value,
+                                            has_certification: undefined,
                                         })
                                     }
-                                />
-                            </FilterPill>
+                                >
+                                    <OptionList
+                                        options={certificationOptions}
+                                        value={filters.has_certification}
+                                        onSelect={(value) =>
+                                            applyFilters({
+                                                has_certification: value,
+                                            })
+                                        }
+                                    />
+                                </FilterPill>
 
-                            <FilterPill
-                                label={t('Sport')}
-                                activeLabel={optionLabel(
-                                    sportOptions,
-                                    filters.sport_id,
-                                )}
-                                onClear={() =>
-                                    applyFilters({ sport_id: undefined })
-                                }
-                            >
-                                <SearchableOptionList
-                                    options={sportOptions}
-                                    value={filters.sport_id}
-                                    onSelect={(value) =>
-                                        applyFilters({ sport_id: value })
+                                <FilterPill
+                                    label={t('Sport')}
+                                    activeLabel={optionLabel(
+                                        sportOptions,
+                                        filters.sport_id,
+                                    )}
+                                    onClear={() =>
+                                        applyFilters({ sport_id: undefined })
                                     }
-                                    searchPlaceholder={t('Search sports…')}
-                                />
-                            </FilterPill>
+                                >
+                                    <SearchableOptionList
+                                        options={sportOptions}
+                                        value={filters.sport_id}
+                                        onSelect={(value) =>
+                                            applyFilters({ sport_id: value })
+                                        }
+                                        searchPlaceholder={t('Search sports…')}
+                                    />
+                                </FilterPill>
                             </div>
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setShowMoreFilters((prev) => !prev)}
+                                onClick={() =>
+                                    setShowMoreFilters((prev) => !prev)
+                                }
                                 className="h-7 px-2.5 text-xs"
                             >
                                 {showMoreFilters
@@ -1110,12 +1117,17 @@ export default function CoachesIndex({
                                     <div className="w-64 p-3">
                                         <Input
                                             autoFocus
-                                            placeholder={t('Certification name')}
-                                            value={filters.certification_name ?? ''}
+                                            placeholder={t(
+                                                'Certification name',
+                                            )}
+                                            value={
+                                                filters.certification_name ?? ''
+                                            }
                                             onChange={(e) =>
                                                 applyFilters({
                                                     certification_name:
-                                                        e.target.value || undefined,
+                                                        e.target.value ||
+                                                        undefined,
                                                 })
                                             }
                                         />
@@ -1175,9 +1187,7 @@ export default function CoachesIndex({
                                             <TableHead className="w-[120px]">
                                                 {t('Rank')}
                                             </TableHead>
-                                            <TableHead>
-                                                {t('Name')}
-                                            </TableHead>
+                                            <TableHead>{t('Name')}</TableHead>
                                             <TableHead className="w-[120px]">
                                                 {t('PNO')}
                                             </TableHead>
@@ -1192,23 +1202,49 @@ export default function CoachesIndex({
                                             </TableHead>
                                         </>
                                     ) : (
-                                        <TableHead>
+                                        <TableHead className="whitespace-normal">
                                             <div className="space-y-1">
-                                                <div>{t('Coaches in team')}</div>
-                                                <div
-                                                    className={[
-                                                        'grid gap-2 text-[11px] font-medium text-muted-foreground',
-                                                        'grid-cols-[0.12fr_0.26fr_0.16fr_0.12fr_0.10fr_0.12fr_0.12fr]',
-                                                    ].join(' ')}
-                                                >
-                                                    <span>{t('Rank')}</span>
-                                                    <span>{t('Name')}</span>
-                                                    <span>{t('PNO')}</span>
-                                                    <span>{t('Mobile')}</span>
-                                                    <span>{t('Role')}</span>
-                                                    <span>{t('Posting')}</span>
-                                                    <span>{t('NIS Certified')}</span>
+                                                <div>
+                                                    {t('Coaches in team')}
                                                 </div>
+                                                <Table className="w-full table-fixed border-none">
+                                                    <colgroup>
+                                                        <col className="w-[12%]" />
+                                                        <col className="w-[26%]" />
+                                                        <col className="w-[16%]" />
+                                                        <col className="w-[12%]" />
+                                                        <col className="w-[10%]" />
+                                                        <col className="w-[12%]" />
+                                                        <col className="w-[12%]" />
+                                                    </colgroup>
+                                                    <TableBody>
+                                                        <TableRow className="border-none hover:bg-transparent">
+                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
+                                                                {t('Rank')}
+                                                            </TableCell>
+                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
+                                                                {t('Name')}
+                                                            </TableCell>
+                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
+                                                                {t('PNO')}
+                                                            </TableCell>
+                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
+                                                                {t('Mobile')}
+                                                            </TableCell>
+                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
+                                                                {t('Role')}
+                                                            </TableCell>
+                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
+                                                                {t('Posting')}
+                                                            </TableCell>
+                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
+                                                                {t(
+                                                                    'NIS Certified',
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </TableBody>
+                                                </Table>
                                             </div>
                                         </TableHead>
                                     )}
@@ -1223,7 +1259,9 @@ export default function CoachesIndex({
                                                 className="py-12 text-center text-muted-foreground"
                                             >
                                                 {hasActiveFilters
-                                                    ? t('No coaches match your filters.')
+                                                    ? t(
+                                                          'No coaches match your filters.',
+                                                      )
                                                     : t('No coaches yet.')}
                                             </TableCell>
                                         </TableRow>
@@ -1240,7 +1278,8 @@ export default function CoachesIndex({
                                                     <TableCell className="py-2 text-xs">
                                                         {coach.rank_master
                                                             ?.name ??
-                                                            coach.rank_master?.short_name ??
+                                                            coach.rank_master
+                                                                ?.short_name ??
                                                             '-'}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
@@ -1277,7 +1316,8 @@ export default function CoachesIndex({
                                                     <TableCell className="text-xs">
                                                         {[
                                                             coach.unit?.name,
-                                                            coach.district?.name,
+                                                            coach.district
+                                                                ?.name,
                                                         ]
                                                             .filter(Boolean)
                                                             .join(' - ') || '-'}
@@ -1298,13 +1338,16 @@ export default function CoachesIndex({
                                             className="py-12 text-center text-muted-foreground"
                                         >
                                             {hasActiveFilters
-                                                ? t('No coaches match your filters.')
+                                                ? t(
+                                                      'No coaches match your filters.',
+                                                  )
                                                 : t('No coaches yet.')}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     teamSportRows.map((row, index) => {
-                                        const serialNumber = (coaches.from ?? 1) + index;
+                                        const serialNumber =
+                                            (coaches.from ?? 1) + index;
 
                                         return (
                                             <TableRow
@@ -1314,12 +1357,12 @@ export default function CoachesIndex({
                                                     {serialNumber}
                                                 </TableCell>
                                                 <TableCell
-                                                    className="text-sm whitespace-normal break-words"
+                                                    className="text-sm break-words whitespace-normal"
                                                     title={row.sport}
                                                 >
                                                     {row.sport}
                                                 </TableCell>
-                                                <TableCell className="text-sm whitespace-normal break-words">
+                                                <TableCell className="text-sm break-words whitespace-normal">
                                                     {row.team}
                                                 </TableCell>
                                                 <TableCell>
@@ -1336,7 +1379,9 @@ export default function CoachesIndex({
                                                             </colgroup>
                                                             <TableBody>
                                                                 {row.coaches.map(
-                                                                    (coachInTeam) => (
+                                                                    (
+                                                                        coachInTeam,
+                                                                    ) => (
                                                                         <TableRow
                                                                             key={
                                                                                 coachInTeam.id
@@ -1348,7 +1393,9 @@ export default function CoachesIndex({
                                                                             </TableCell>
                                                                             <TableCell className="w-[26%] py-2 text-sm">
                                                                                 <Link
-                                                                                    href={CoachController.show.url(coachInTeam.id)}
+                                                                                    href={CoachController.show.url(
+                                                                                        coachInTeam.id,
+                                                                                    )}
                                                                                     className="text-primary hover:underline"
                                                                                     target="_blank"
                                                                                     rel="noopener noreferrer"
@@ -1361,7 +1408,9 @@ export default function CoachesIndex({
                                                                             <TableCell className="w-[16%] py-2 text-sm">
                                                                                 {coachInTeam.pno ? (
                                                                                     <Link
-                                                                                        href={CoachController.show.url(coachInTeam.id)}
+                                                                                        href={CoachController.show.url(
+                                                                                            coachInTeam.id,
+                                                                                        )}
                                                                                         className="text-primary hover:underline"
                                                                                         target="_blank"
                                                                                         rel="noopener noreferrer"
@@ -1379,19 +1428,26 @@ export default function CoachesIndex({
                                                                                     '-'}
                                                                             </TableCell>
                                                                             <TableCell className="w-[10%] py-2 text-xs">
-                                                                                {coachInTeam.role}
+                                                                                {
+                                                                                    coachInTeam.role
+                                                                                }
                                                                             </TableCell>
                                                                             <TableCell className="w-[12%] py-2 text-xs">
-                                                                                {coachInTeam.posting || '-'}
+                                                                                {coachInTeam.posting ||
+                                                                                    '-'}
                                                                             </TableCell>
                                                                             <TableCell className="w-[12%] py-2 text-xs">
                                                                                 {coachInTeam.nis_certified
-                                                                                    ? t('Yes')
-                                                                                    : t('No')}
+                                                                                    ? t(
+                                                                                          'Yes',
+                                                                                      )
+                                                                                    : t(
+                                                                                          'No',
+                                                                                      )}
                                                                             </TableCell>
                                                                         </TableRow>
                                                                     ),
-                                                            )}
+                                                                )}
                                                             </TableBody>
                                                         </Table>
                                                     </div>
@@ -1422,7 +1478,6 @@ export default function CoachesIndex({
                 onPrint={handlePrint}
                 t={t}
             />
-
         </>
     );
 }
@@ -1465,10 +1520,9 @@ function ExportDialog({
                     </DialogTitle>
                     <DialogDescription>
                         {isPrint
-                            ? t('Printing all :count filtered coaches.').replace(
-                                  ':count',
-                                  String(coaches.total),
-                              )
+                            ? t(
+                                  'Printing all :count filtered coaches.',
+                              ).replace(':count', String(coaches.total))
                             : selectedIds.size > 0
                               ? t('Exporting :n selected coaches.').replace(
                                     ':n',
@@ -1480,7 +1534,7 @@ function ExportDialog({
                                 )}
                     </DialogDescription>
                 </DialogHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto py-2">
+                <div className="min-h-0 flex-1 overflow-y-auto py-2">
                     {isPrint ? (
                         <div className="mt-5 space-y-2">
                             <Label htmlFor="print-orientation">

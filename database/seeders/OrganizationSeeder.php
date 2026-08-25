@@ -11,7 +11,7 @@ class OrganizationSeeder extends Seeder
     {
         Organization::firstOrCreate(
             ['code' => 'UPP'],
-            ['name' => 'UP Police Sports Unit'],
+            ['name' => 'UP Police Sports Control Board'],
         );
     }
 }

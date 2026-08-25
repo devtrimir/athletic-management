@@ -263,7 +263,9 @@ function SpecialAchievementDialog({
 
         const options = {
             preserveScroll: true,
-            preserveState: true,
+            preserveState: (page: {
+                props: { errors?: Record<string, string> };
+            }) => Object.keys(page.props.errors ?? {}).length > 0,
             onError: (errors: Record<string, string>) => {
                 form.setError(errors as SpecialAchievementFormErrors);
                 setVisibleErrors(errors as SpecialAchievementFormErrors);
@@ -772,7 +774,18 @@ export function SpecialAchievementsTab({
                                                 }),
                                                 {
                                                     preserveScroll: true,
-                                                    preserveState: true,
+                                                    preserveState: (page: {
+                                                        props: {
+                                                            errors?: Record<
+                                                                string,
+                                                                string
+                                                            >;
+                                                        };
+                                                    }) =>
+                                                        Object.keys(
+                                                            page.props.errors ??
+                                                                {},
+                                                        ).length > 0,
                                                 },
                                             )
                                         }

@@ -208,7 +208,7 @@ class TeamExportController extends Controller
 
         if ($isSummaryReport) {
             return [
-                array_pad(['UP Police Sport Control Board (UPPSCB)'], $columnCount, ''),
+                array_pad(['UP Police Sports Control Board (UPPSCB)'], $columnCount, ''),
                 array_pad([$title], $columnCount, ''),
                 array_pad(['Generated on '.now()->format('d M Y')], $columnCount, ''),
                 array_pad([
@@ -222,7 +222,7 @@ class TeamExportController extends Controller
         }
 
         return [
-            array_pad(['UP Police Sport Control Board (UPPSCB)'], $columnCount, ''),
+            array_pad(['UP Police Sports Control Board (UPPSCB)'], $columnCount, ''),
             array_pad([$title], $columnCount, ''),
             array_pad(['Generated on '.now()->format('d M Y')], $columnCount, ''),
         ];

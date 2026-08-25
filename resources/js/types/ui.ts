@@ -13,9 +13,12 @@ export type FlashToast = {
     message: string;
 };
 
+export type AuthBackgroundPreset = 'crest' | 'stadium' | 'training';
+
 export type AuthLayoutProps = {
     children?: ReactNode;
     name?: string;
     title?: string;
     description?: string;
+    defaultBackground?: AuthBackgroundPreset;
 };

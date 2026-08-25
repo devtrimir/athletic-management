@@ -12,7 +12,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
-    $this->org = Organization::factory()->create(['code' => 'UPP', 'name' => 'UP Police Sports Unit']);
+    $this->org = Organization::factory()->create(['code' => 'UPP', 'name' => 'UP Police Sports Control Board']);
 
     // ── admin (system role — Gate::before short-circuits to true) ─────────
     $adminRole = Role::factory()->create([
