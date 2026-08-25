@@ -21,6 +21,10 @@ const PRESETS: Record<
         image: string;
     }
 > = {
+    logo: {
+        label: 'Logo',
+        image: '/images/login-bg.png',
+    },
     crest: {
         label: 'Crest',
         image: '/images/auth/crest-bg.jpg',
@@ -39,7 +43,7 @@ export default function AuthSplitLayout({
     children,
     title,
     description,
-    defaultBackground = 'crest',
+    defaultBackground = 'logo',
 }: AuthLayoutProps) {
     const { name } = usePage().props;
     const [preset, setPreset] = useState<AuthBackgroundPreset>(() => {
@@ -68,7 +72,7 @@ export default function AuthSplitLayout({
 
     return (
         <div className="relative flex min-h-svh items-center justify-center p-4 sm:p-8">
-            {/* Dynamic full-screen background image */}
+            {/* Dynamic full-screen background */}
             <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500"
                 style={{
@@ -76,13 +80,26 @@ export default function AuthSplitLayout({
                 }}
             />
 
-            {/* Dark overlay to keep the card readable */}
-            <div className="absolute inset-0 bg-black/50" />
+            {/* Vignette overlay: brighter center, darker edges for selector/link contrast */}
+            <div
+                className="absolute inset-0"
+                style={{
+                    background:
+                        'radial-gradient(ellipse at center, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.45) 100%)',
+                }}
+            />
 
             {/* Centered auth card */}
             <div className="relative z-10 w-full max-w-md">
-                <Card className="border-white/10 shadow-2xl">
-                    <CardHeader className="text-center">
+                <div
+                    className="absolute -top-1 left-1/2 z-20 h-1 w-28 -translate-x-1/2 rounded-full shadow-lg"
+                    style={{
+                        background:
+                            'linear-gradient(to right, #c8962b, #f0c55a, #c8962b)',
+                    }}
+                />
+                <Card className="overflow-hidden rounded-2xl border-white/40 bg-gradient-to-br from-white/45 via-white/30 to-white/15 shadow-2xl backdrop-blur-2xl">
+                    <CardHeader className="pb-2 text-center">
                         <div className="mx-auto mb-4 flex flex-col items-center gap-3">
                             <div className="relative">
                                 {/* Gold ring around logo */}
@@ -100,13 +117,10 @@ export default function AuthSplitLayout({
                                 />
                             </div>
                             <div className="space-y-0.5">
-                                <h1 className="text-sm font-bold tracking-widest uppercase">
+                                <h1 className="text-sm font-bold tracking-widest text-[#0b1e6b] uppercase">
                                     UP Police
                                 </h1>
-                                <h2
-                                    className="text-xs font-semibold tracking-wider uppercase"
-                                    style={{ color: '#c8962b' }}
-                                >
+                                <h2 className="text-xs font-bold tracking-wider text-[#0b1e6b] uppercase drop-shadow-sm">
                                     Sports Control Board
                                 </h2>
                             </div>
@@ -115,7 +129,9 @@ export default function AuthSplitLayout({
                         <CardTitle className="text-xl font-medium">
                             {title}
                         </CardTitle>
-                        <CardDescription>{description}</CardDescription>
+                        <CardDescription className="text-[#0b1e6b]/90">
+                            {description}
+                        </CardDescription>
                     </CardHeader>
 
                     <CardContent>{children}</CardContent>
