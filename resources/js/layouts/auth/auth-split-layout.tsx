@@ -9,7 +9,6 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { cn } from '@/lib/utils';
 import { home } from '@/routes';
 import type { AuthBackgroundPreset, AuthLayoutProps } from '@/types';
 
@@ -19,22 +18,20 @@ const PRESETS: Record<
     AuthBackgroundPreset,
     {
         label: string;
-        className: string;
+        image: string;
     }
 > = {
-    gradient: {
-        label: 'Classic',
-        className:
-            'bg-[linear-gradient(160deg,#0b1e6b_0%,#152a8a_45%,#0a1650_100%)]',
-    },
     crest: {
         label: 'Crest',
-        className:
-            'bg-[linear-gradient(160deg,#070f35_0%,#0b1e6b_55%,#0a1650_100%)]',
+        image: '/images/auth/crest-bg.jpg',
     },
     stadium: {
         label: 'Stadium',
-        className: 'bg-[#0a1650]',
+        image: '/images/auth/stadium-bg.jpg',
+    },
+    training: {
+        label: 'Training',
+        image: '/images/auth/training-bg.jpg',
     },
 };
 
@@ -42,7 +39,7 @@ export default function AuthSplitLayout({
     children,
     title,
     description,
-    defaultBackground = 'gradient',
+    defaultBackground = 'crest',
 }: AuthLayoutProps) {
     const { name } = usePage().props;
     const [preset, setPreset] = useState<AuthBackgroundPreset>(() => {
@@ -71,48 +68,16 @@ export default function AuthSplitLayout({
 
     return (
         <div className="relative flex min-h-svh items-center justify-center p-4 sm:p-8">
-            {/* Dynamic full-screen background */}
+            {/* Dynamic full-screen background image */}
             <div
-                className={cn(
-                    'absolute inset-0 transition-colors duration-500',
-                    PRESETS[preset].className,
-                )}
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500"
+                style={{
+                    backgroundImage: `url(${PRESETS[preset].image})`,
+                }}
             />
 
-            {/* Gold radial glows for classic / crest themes */}
-            {preset !== 'stadium' && (
-                <div
-                    className="pointer-events-none absolute inset-0"
-                    style={{
-                        backgroundImage:
-                            'radial-gradient(ellipse at 15% 85%, rgba(200,150,40,0.18) 0%, transparent 55%), radial-gradient(ellipse at 85% 15%, rgba(200,150,40,0.12) 0%, transparent 50%)',
-                    }}
-                />
-            )}
-
-            {/* Crest watermark */}
-            {preset === 'crest' && (
-                <img
-                    src="/logo.jpg"
-                    alt=""
-                    className="pointer-events-none absolute inset-0 m-auto h-96 w-96 rounded-full object-cover opacity-[0.06]"
-                    aria-hidden="true"
-                />
-            )}
-
-            {/* Stadium track pattern */}
-            {preset === 'stadium' && (
-                <div
-                    className="pointer-events-none absolute inset-0 opacity-20"
-                    style={{
-                        backgroundImage:
-                            'repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(255,255,255,0.04) 80px, rgba(255,255,255,0.04) 81px), repeating-linear-gradient(0deg, transparent, transparent 80px, rgba(255,255,255,0.03) 80px, rgba(255,255,255,0.03) 81px)',
-                    }}
-                />
-            )}
-
             {/* Dark overlay to keep the card readable */}
-            <div className="absolute inset-0 bg-black/10" />
+            <div className="absolute inset-0 bg-black/50" />
 
             {/* Centered auth card */}
             <div className="relative z-10 w-full max-w-md">
