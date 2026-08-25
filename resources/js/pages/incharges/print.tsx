@@ -26,14 +26,12 @@ type Assignment = {
     removal_reason: string | null;
     remarks: string | null;
     is_current: boolean;
-    team:
-        | {
-              id: number;
-              name: string;
-              sport: { id: number; name: string } | null;
-              session: { id: number; name: string } | null;
-          }
-        | null;
+    team: {
+        id: number;
+        name: string;
+        sport: { id: number; name: string } | null;
+        session: { id: number; name: string } | null;
+    } | null;
     sport?: { id: number; name: string } | null;
     session?: { id: number; name: string } | null;
 };
@@ -82,7 +80,7 @@ type SpecialAchievementPayload = {
 };
 
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
-const PRINT_HEADING = 'UP Police Sport Control Board (UPPSCB)';
+const PRINT_HEADING = 'UP Police Sports Control Board (UPPSCB)';
 type SectionKey = 'overview' | 'teams' | 'achievements' | 'specialAchievements';
 const AVAILABLE_SECTIONS: SectionKey[] = [
     'overview',
@@ -110,10 +108,10 @@ function formatDate(value: string | null): string {
     }
 
     const dateOnly = trimmed.includes('T')
-        ? trimmed.split('T')[0] ?? ''
+        ? (trimmed.split('T')[0] ?? '')
         : trimmed.includes(' ')
-              ? trimmed.split(' ')[0] ?? ''
-              : trimmed;
+          ? (trimmed.split(' ')[0] ?? '')
+          : trimmed;
     const ymdMatch = dateOnly.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
     if (ymdMatch) {
@@ -182,7 +180,10 @@ function normalizeEnumValue(value: string | null | undefined): string {
         .map((word) => {
             const normalizedWord = word.toUpperCase();
 
-            if (normalizedWord === word.toUpperCase() && normalizedWord.length <= 4) {
+            if (
+                normalizedWord === word.toUpperCase() &&
+                normalizedWord.length <= 4
+            ) {
                 return normalizedWord;
             }
 
@@ -258,7 +259,9 @@ export default function InchargePrintPreview({
         );
 
         const styles = Array.from(
-            document.head.querySelectorAll('meta, link[rel="stylesheet"], style'),
+            document.head.querySelectorAll(
+                'meta, link[rel="stylesheet"], style',
+            ),
         )
             .map((node) => node.outerHTML)
             .join('');
@@ -354,19 +357,21 @@ export default function InchargePrintPreview({
 
     return (
         <>
-            <Head title={`${inchargeRecord.full_name} — ${t('Print preview')}`} />
+            <Head
+                title={`${inchargeRecord.full_name} — ${t('Print preview')}`}
+            />
 
             <div
                 ref={printTargetRef}
                 id="quick-view-print-target"
-                className="relative mx-auto max-w-5xl space-y-4 overflow-hidden rounded-2xl border border-neutral-300 bg-white p-4 text-black shadow-sm print:max-w-none print:w-full print:space-y-1 print:rounded-none print:border-0 print:p-0 print:text-[10px] print:leading-4 print:shadow-none"
+                className="relative mx-auto max-w-5xl space-y-4 overflow-hidden rounded-2xl border border-neutral-300 bg-white p-4 text-black shadow-sm print:w-full print:max-w-none print:space-y-1 print:rounded-none print:border-0 print:p-0 print:text-[10px] print:leading-4 print:shadow-none"
             >
                 <div
                     className="flex items-center justify-between gap-2 print:hidden"
                     data-print-hide
                 >
                     <Button variant="outline" size="sm" asChild>
-                            <Link href={`/incharges/${inchargeRecord.id}`}>
+                        <Link href={`/incharges/${inchargeRecord.id}`}>
                             <span className="inline-flex items-center">
                                 <ArrowLeft className="mr-1.5 h-4 w-4" />
                                 {t('Back')}
@@ -396,7 +401,9 @@ export default function InchargePrintPreview({
                             >
                                 <Checkbox
                                     checked={sectionEnabled(section)}
-                                    onCheckedChange={() => toggleSection(section)}
+                                    onCheckedChange={() =>
+                                        toggleSection(section)
+                                    }
                                 />
                                 <span>{t(SECTION_LABELS[section])}</span>
                             </label>
@@ -414,7 +421,7 @@ export default function InchargePrintPreview({
                         <div className="text-lg font-bold tracking-wide uppercase">
                             {PRINT_HEADING}
                         </div>
-                        <div className="mt-1 text-sm font-semibold uppercase text-neutral-700">
+                        <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase">
                             {t('Incharge profile record')}
                         </div>
                         <div className="mt-1 text-xs text-neutral-700">
@@ -424,288 +431,325 @@ export default function InchargePrintPreview({
                 </div>
 
                 {sectionEnabled('overview') && (
-                <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2 print:space-y-2">
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                            <h1 className="text-2xl font-bold text-foreground print:text-[16px] print:leading-tight">
-                                {inchargeRecord.full_name}
-                            </h1>
-                            {hasValue(inchargeRecord.pno) && (
-                                <p className="text-sm text-muted-foreground">
-                                    {t('PNO')}: {inchargeRecord.pno}
-                                </p>
+                    <section className="rounded-xl border p-4 print:space-y-2 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                                <h1 className="text-2xl font-bold text-foreground print:text-[16px] print:leading-tight">
+                                    {inchargeRecord.full_name}
+                                </h1>
+                                {hasValue(inchargeRecord.pno) && (
+                                    <p className="text-sm text-muted-foreground">
+                                        {t('PNO')}: {inchargeRecord.pno}
+                                    </p>
+                                )}
+                            </div>
+                            {inchargeRecord.photo_path && (
+                                <img
+                                    src={`/storage/${inchargeRecord.photo_path}`}
+                                    alt={inchargeRecord.full_name}
+                                    className="size-20 shrink-0 rounded-lg border object-cover"
+                                />
                             )}
                         </div>
-                        {inchargeRecord.photo_path && (
-                            <img
-                                src={`/storage/${inchargeRecord.photo_path}`}
-                                alt={inchargeRecord.full_name}
-                                className="size-20 shrink-0 rounded-lg border object-cover"
-                            />
-                        )}
-                    </div>
 
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        {hasValue(inchargeRecord.rank) && (
-                        <dl className="grid gap-1">
-                            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t('Rank')}
-                            </dt>
-                            <dd>{identityValue(inchargeRecord.rank)}</dd>
-                        </dl>
-                        )}
-                        {hasValue(inchargeRecord.designation) && (
-                        <dl className="grid gap-1">
-                            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t('Designation')}
-                            </dt>
-                            <dd>{identityValue(inchargeRecord.designation)}</dd>
-                        </dl>
-                        )}
-                        {hasValue(inchargeRecord.mobile) && (
-                        <dl className="grid gap-1">
-                            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t('Mobile')}
-                            </dt>
-                            <dd>{identityValue(inchargeRecord.mobile)}</dd>
-                        </dl>
-                        )}
-                        {hasValue(inchargeRecord.email) && (
-                        <dl className="grid gap-1">
-                            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t('Email')}
-                            </dt>
-                            <dd>{identityValue(inchargeRecord.email)}</dd>
-                        </dl>
-                        )}
-                        <dl className="grid gap-1">
-                            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t('Status')}
-                            </dt>
-                            <dd>
-                                {inchargeRecord.is_active ? t('Active') : t('Inactive')}
-                            </dd>
-                        </dl>
-                    </div>
-
-                    {hasValue(inchargeRecord.remarks) && (
-                        <div className="mt-3">
-                            <h2 className="mb-1 text-sm font-semibold">
-                                {t('Remarks')}
-                            </h2>
-                            <p className="text-sm text-muted-foreground">
-                                {identityValue(inchargeRecord.remarks)}
-                            </p>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            {hasValue(inchargeRecord.rank) && (
+                                <dl className="grid gap-1">
+                                    <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {t('Rank')}
+                                    </dt>
+                                    <dd>
+                                        {identityValue(inchargeRecord.rank)}
+                                    </dd>
+                                </dl>
+                            )}
+                            {hasValue(inchargeRecord.designation) && (
+                                <dl className="grid gap-1">
+                                    <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {t('Designation')}
+                                    </dt>
+                                    <dd>
+                                        {identityValue(
+                                            inchargeRecord.designation,
+                                        )}
+                                    </dd>
+                                </dl>
+                            )}
+                            {hasValue(inchargeRecord.mobile) && (
+                                <dl className="grid gap-1">
+                                    <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {t('Mobile')}
+                                    </dt>
+                                    <dd>
+                                        {identityValue(inchargeRecord.mobile)}
+                                    </dd>
+                                </dl>
+                            )}
+                            {hasValue(inchargeRecord.email) && (
+                                <dl className="grid gap-1">
+                                    <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {t('Email')}
+                                    </dt>
+                                    <dd>
+                                        {identityValue(inchargeRecord.email)}
+                                    </dd>
+                                </dl>
+                            )}
+                            <dl className="grid gap-1">
+                                <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                    {t('Status')}
+                                </dt>
+                                <dd>
+                                    {inchargeRecord.is_active
+                                        ? t('Active')
+                                        : t('Inactive')}
+                                </dd>
+                            </dl>
                         </div>
-                    )}
-                </section>
+
+                        {hasValue(inchargeRecord.remarks) && (
+                            <div className="mt-3">
+                                <h2 className="mb-1 text-sm font-semibold">
+                                    {t('Remarks')}
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    {identityValue(inchargeRecord.remarks)}
+                                </p>
+                            </div>
+                        )}
+                    </section>
                 )}
 
                 {sectionEnabled('teams') && (
-                <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
-                    <h2 className="mb-2 text-lg font-semibold">
-                        {t('Team assignments')}
-                    </h2>
-                    {assignments.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            {t('No teams assigned yet.')}
-                        </p>
-                    ) : (
-                        <div className="overflow-auto">
-                            <table className="w-full table-auto border-collapse text-sm">
-                                <thead>
-                                    <tr className="bg-muted/50 text-left">
-                                        <th className="border p-2">{t('Team')}</th>
-                                        <th className="border p-2">
-                                            {t('Session')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Assigned at')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Removed at')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Reason')}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {assignments.map((assignment) => (
-                                        <tr key={assignment.id}>
-                                            <td className="border p-2">
-                                                {assignment.team?.name}
-                                            </td>
-                                            <td className="border p-2">
-                                                {assignment.team?.session?.name ??
-                                                    assignment.session?.name ??
-                                                    ''}
-                                            </td>
-                                            <td className="border p-2">
-                                                {formatDate(assignment.assigned_at)}
-                                            </td>
-                                            <td className="border p-2">
-                                                {formatDate(assignment.removed_at)}
-                                            </td>
-                                            <td className="border p-2">
-                                                {assignment.is_current
-                                                    ? t('Current')
-                                                    : assignment.removal_reason ??
-                                                      assignment.assignment_reason ??
-                                                      ''}
-                                            </td>
+                    <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
+                        <h2 className="mb-2 text-lg font-semibold">
+                            {t('Team assignments')}
+                        </h2>
+                        {assignments.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                {t('No teams assigned yet.')}
+                            </p>
+                        ) : (
+                            <div className="overflow-auto">
+                                <table className="w-full table-auto border-collapse text-sm">
+                                    <thead>
+                                        <tr className="bg-muted/50 text-left">
+                                            <th className="border p-2">
+                                                {t('Team')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Session')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Assigned at')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Removed at')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Reason')}
+                                            </th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </section>
+                                    </thead>
+                                    <tbody>
+                                        {assignments.map((assignment) => (
+                                            <tr key={assignment.id}>
+                                                <td className="border p-2">
+                                                    {assignment.team?.name}
+                                                </td>
+                                                <td className="border p-2">
+                                                    {assignment.team?.session
+                                                        ?.name ??
+                                                        assignment.session
+                                                            ?.name ??
+                                                        ''}
+                                                </td>
+                                                <td className="border p-2">
+                                                    {formatDate(
+                                                        assignment.assigned_at,
+                                                    )}
+                                                </td>
+                                                <td className="border p-2">
+                                                    {formatDate(
+                                                        assignment.removed_at,
+                                                    )}
+                                                </td>
+                                                <td className="border p-2">
+                                                    {assignment.is_current
+                                                        ? t('Current')
+                                                        : (assignment.removal_reason ??
+                                                          assignment.assignment_reason ??
+                                                          '')}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
                 )}
 
                 {sectionEnabled('achievements') && (
-                <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
-                    <h2 className="mb-2 text-lg font-semibold">
-                        {t('Achievements')}
-                    </h2>
-                    {achievementRecords.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            {t('No achievement records yet.')}
-                        </p>
-                    ) : (
-                        <div className="overflow-auto">
-                            <table className="w-full table-auto border-collapse text-sm">
-                                <thead>
-                                    <tr className="bg-muted/50 text-left">
-                                        <th className="border p-2">{t('Title')}</th>
-                                        <th className="border p-2">{t('Level')}</th>
-                                        <th className="border p-2">{t('Date')}</th>
-                                        <th className="border p-2">
-                                            {t('Sport / Event')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Medal')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Position')}
-                                        </th>
-                                        <th className="border p-2">{t('Venue')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {achievementRecords.map((achievement) => (
-                                        <tr key={achievement.id}>
-                                            <td className="border p-2">
-                                                {achievement.title}
-                                            </td>
-                                            <td className="border p-2">
-                                                {normalizeEnumValue(
-                                                    achievement.level,
-                                                )}
-                                            </td>
-                                            <td className="border p-2">
-                                                {formatDate(
-                                                    achievement.event_date ??
-                                                        achievement.achieved_on,
-                                                )}
-                                            </td>
-                                            <td className="border p-2">
-                                                {[
-                                                    normalizeEnumValue(
-                                                        achievement.sport_discipline,
-                                                    ),
-                                                    achievement.event,
-                                                    achievement.discipline,
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' · ') || ''}
-                                            </td>
-                                            <td className="border p-2">
-                                                {normalizeEnumValue(
-                                                    achievement.medal_type,
-                                                )}
-                                            </td>
-                                            <td className="border p-2">
-                                                {achievement.position ?? ''}
-                                            </td>
-                                            <td className="border p-2">
-                                                {achievement.venue ?? ''}
-                                            </td>
+                    <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
+                        <h2 className="mb-2 text-lg font-semibold">
+                            {t('Achievements')}
+                        </h2>
+                        {achievementRecords.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                {t('No achievement records yet.')}
+                            </p>
+                        ) : (
+                            <div className="overflow-auto">
+                                <table className="w-full table-auto border-collapse text-sm">
+                                    <thead>
+                                        <tr className="bg-muted/50 text-left">
+                                            <th className="border p-2">
+                                                {t('Title')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Level')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Date')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Sport / Event')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Medal')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Position')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Venue')}
+                                            </th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </section>
+                                    </thead>
+                                    <tbody>
+                                        {achievementRecords.map(
+                                            (achievement) => (
+                                                <tr key={achievement.id}>
+                                                    <td className="border p-2">
+                                                        {achievement.title}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {normalizeEnumValue(
+                                                            achievement.level,
+                                                        )}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {formatDate(
+                                                            achievement.event_date ??
+                                                                achievement.achieved_on,
+                                                        )}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {[
+                                                            normalizeEnumValue(
+                                                                achievement.sport_discipline,
+                                                            ),
+                                                            achievement.event,
+                                                            achievement.discipline,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' · ') || ''}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {normalizeEnumValue(
+                                                            achievement.medal_type,
+                                                        )}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {achievement.position ??
+                                                            ''}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {achievement.venue ??
+                                                            ''}
+                                                    </td>
+                                                </tr>
+                                            ),
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
                 )}
 
                 {sectionEnabled('specialAchievements') && (
-                <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
-                    <h2 className="mb-2 text-lg font-semibold">
-                        {t('Special achievements')}
-                    </h2>
-                    {specialAchievementRecords.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            {t('No special achievements yet.')}
-                        </p>
-                    ) : (
-                        <div className="overflow-auto">
-                            <table className="w-full table-auto border-collapse text-sm">
-                                <thead>
-                                    <tr className="bg-muted/50 text-left">
-                                        <th className="border p-2">
-                                            {t('Type')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Title')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Awarded on')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Authority')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Place')}
-                                        </th>
-                                        <th className="border p-2">
-                                            {t('Reference')}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {specialAchievementRecords.map((achievement) => (
-                                        <tr key={achievement.id}>
-                                            <td className="border p-2">
-                                                {normalizeEnumValue(
-                                                    achievement.achievement_type,
-                                                )}
-                                            </td>
-                                            <td className="border p-2">
-                                                {achievement.title}
-                                            </td>
-                                            <td className="border p-2">
-                                                {formatDate(achievement.awarded_on)}
-                                            </td>
-                                            <td className="border p-2">
-                                                {achievement.issuing_authority ??
-                                                    ''}
-                                            </td>
-                                            <td className="border p-2">
-                                                {achievement.place ?? ''}
-                                            </td>
-                                            <td className="border p-2">
-                                                {achievement.order_reference ??
-                                                    ''}
-                                            </td>
+                    <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
+                        <h2 className="mb-2 text-lg font-semibold">
+                            {t('Special achievements')}
+                        </h2>
+                        {specialAchievementRecords.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                {t('No special achievements yet.')}
+                            </p>
+                        ) : (
+                            <div className="overflow-auto">
+                                <table className="w-full table-auto border-collapse text-sm">
+                                    <thead>
+                                        <tr className="bg-muted/50 text-left">
+                                            <th className="border p-2">
+                                                {t('Type')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Title')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Awarded on')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Authority')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Place')}
+                                            </th>
+                                            <th className="border p-2">
+                                                {t('Reference')}
+                                            </th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </section>
+                                    </thead>
+                                    <tbody>
+                                        {specialAchievementRecords.map(
+                                            (achievement) => (
+                                                <tr key={achievement.id}>
+                                                    <td className="border p-2">
+                                                        {normalizeEnumValue(
+                                                            achievement.achievement_type,
+                                                        )}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {achievement.title}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {formatDate(
+                                                            achievement.awarded_on,
+                                                        )}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {achievement.issuing_authority ??
+                                                            ''}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {achievement.place ??
+                                                            ''}
+                                                    </td>
+                                                    <td className="border p-2">
+                                                        {achievement.order_reference ??
+                                                            ''}
+                                                    </td>
+                                                </tr>
+                                            ),
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
                 )}
             </div>
         </>

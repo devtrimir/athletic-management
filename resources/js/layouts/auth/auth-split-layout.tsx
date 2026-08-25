@@ -1,26 +1,86 @@
 import { Link, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { cn } from '@/lib/utils';
 import { home } from '@/routes';
-import type { AuthLayoutProps } from '@/types';
+import type { AuthBackgroundPreset, AuthLayoutProps } from '@/types';
+
+const STORAGE_KEY = 'auth-background-preset';
+
+const PRESETS: Record<
+    AuthBackgroundPreset,
+    {
+        label: string;
+        className: string;
+    }
+> = {
+    gradient: {
+        label: 'Classic',
+        className:
+            'bg-[linear-gradient(160deg,#0b1e6b_0%,#152a8a_45%,#0a1650_100%)]',
+    },
+    crest: {
+        label: 'Crest',
+        className:
+            'bg-[linear-gradient(160deg,#070f35_0%,#0b1e6b_55%,#0a1650_100%)]',
+    },
+    stadium: {
+        label: 'Stadium',
+        className: 'bg-[#0a1650]',
+    },
+};
 
 export default function AuthSplitLayout({
     children,
     title,
     description,
+    defaultBackground = 'gradient',
 }: AuthLayoutProps) {
     const { name } = usePage().props;
+    const [preset, setPreset] = useState<AuthBackgroundPreset>(() => {
+        if (typeof window === 'undefined') {
+            return defaultBackground;
+        }
+
+        const stored = localStorage.getItem(
+            STORAGE_KEY,
+        ) as AuthBackgroundPreset | null;
+
+        return stored && PRESETS[stored] ? stored : defaultBackground;
+    });
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY, preset);
+    }, [preset]);
+
+    const handlePresetChange = (value: AuthBackgroundPreset) => {
+        if (!value) {
+            return;
+        }
+
+        setPreset(value);
+    };
 
     return (
-        <div className="relative grid h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0">
-            {/* Left brand panel */}
+        <div className="relative flex min-h-svh items-center justify-center p-4 sm:p-8">
+            {/* Dynamic full-screen background */}
             <div
-                className="relative hidden h-full flex-col overflow-hidden p-10 text-white lg:flex dark:border-r"
-                style={{
-                    background:
-                        'linear-gradient(160deg, #0b1e6b 0%, #152a8a 45%, #0a1650 100%)',
-                }}
-            >
-                {/* Gold radial glows */}
+                className={cn(
+                    'absolute inset-0 transition-colors duration-500',
+                    PRESETS[preset].className,
+                )}
+            />
+
+            {/* Gold radial glows for classic / crest themes */}
+            {preset !== 'stadium' && (
                 <div
                     className="pointer-events-none absolute inset-0"
                     style={{
@@ -28,84 +88,111 @@ export default function AuthSplitLayout({
                             'radial-gradient(ellipse at 15% 85%, rgba(200,150,40,0.18) 0%, transparent 55%), radial-gradient(ellipse at 85% 15%, rgba(200,150,40,0.12) 0%, transparent 50%)',
                     }}
                 />
+            )}
 
-                {/* Centered branding */}
-                <div className="relative z-20 flex flex-1 flex-col items-center justify-center gap-8">
-                    <div className="relative">
-                        {/* Gold ring around logo */}
-                        <div
-                            className="absolute -inset-2 rounded-full opacity-60"
-                            style={{
-                                background:
-                                    'conic-gradient(from 0deg, #c8962b, #f0c55a, #c8962b, #8a6010, #c8962b)',
-                            }}
-                        />
-                        <img
-                            src="/logo.jpg"
-                            alt="UP Police Sports Control Board"
-                            className="relative h-44 w-44 rounded-full object-cover shadow-2xl ring-4 ring-white/20"
-                        />
-                    </div>
+            {/* Crest watermark */}
+            {preset === 'crest' && (
+                <img
+                    src="/logo.jpg"
+                    alt=""
+                    className="pointer-events-none absolute inset-0 m-auto h-96 w-96 rounded-full object-cover opacity-[0.06]"
+                    aria-hidden="true"
+                />
+            )}
 
-                    <div className="space-y-1 text-center">
-                        <h1 className="text-3xl font-bold tracking-widest text-white uppercase">
-                            UP Police
-                        </h1>
-                        <h2
-                            className="text-lg font-semibold tracking-wider uppercase"
-                            style={{ color: '#f0c55a' }}
-                        >
-                            Sports Control Board
-                        </h2>
-                        <div
-                            className="mx-auto my-3 h-px w-24 opacity-50"
-                            style={{
-                                background:
-                                    'linear-gradient(to right, transparent, #c8962b, transparent)',
-                            }}
-                        />
-                        <p className="mx-auto max-w-xs text-sm leading-relaxed text-blue-200">
-                            Athlete, coach, team &amp; tournament management
-                            system for the Uttar Pradesh Police organisation.
-                        </p>
-                    </div>
+            {/* Stadium track pattern */}
+            {preset === 'stadium' && (
+                <div
+                    className="pointer-events-none absolute inset-0 opacity-20"
+                    style={{
+                        backgroundImage:
+                            'repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(255,255,255,0.04) 80px, rgba(255,255,255,0.04) 81px), repeating-linear-gradient(0deg, transparent, transparent 80px, rgba(255,255,255,0.03) 80px, rgba(255,255,255,0.03) 81px)',
+                    }}
+                />
+            )}
+
+            {/* Dark overlay to keep the card readable */}
+            <div className="absolute inset-0 bg-black/10" />
+
+            {/* Centered auth card */}
+            <div className="relative z-10 w-full max-w-md">
+                <Card className="border-white/10 shadow-2xl">
+                    <CardHeader className="text-center">
+                        <div className="mx-auto mb-4 flex flex-col items-center gap-3">
+                            <div className="relative">
+                                {/* Gold ring around logo */}
+                                <div
+                                    className="absolute -inset-1 rounded-full opacity-60"
+                                    style={{
+                                        background:
+                                            'conic-gradient(from 0deg, #c8962b, #f0c55a, #c8962b, #8a6010, #c8962b)',
+                                    }}
+                                />
+                                <img
+                                    src="/logo.jpg"
+                                    alt="UP Police Sports Control Board"
+                                    className="relative h-20 w-20 rounded-full object-cover shadow-xl ring-2 ring-white/20"
+                                />
+                            </div>
+                            <div className="space-y-0.5">
+                                <h1 className="text-sm font-bold tracking-widest uppercase">
+                                    UP Police
+                                </h1>
+                                <h2
+                                    className="text-xs font-semibold tracking-wider uppercase"
+                                    style={{ color: '#c8962b' }}
+                                >
+                                    Sports Control Board
+                                </h2>
+                            </div>
+                        </div>
+
+                        <CardTitle className="text-xl font-medium">
+                            {title}
+                        </CardTitle>
+                        <CardDescription>{description}</CardDescription>
+                    </CardHeader>
+
+                    <CardContent>{children}</CardContent>
+                </Card>
+
+                {/* Background selector and home link */}
+                <div className="mt-6 flex flex-col items-center gap-4">
+                    <ToggleGroup
+                        type="single"
+                        value={preset}
+                        onValueChange={(value) =>
+                            handlePresetChange(value as AuthBackgroundPreset)
+                        }
+                        variant="outline"
+                        size="sm"
+                        aria-label="Select login background"
+                    >
+                        {(Object.keys(PRESETS) as AuthBackgroundPreset[]).map(
+                            (key) => (
+                                <ToggleGroupItem
+                                    key={key}
+                                    value={key}
+                                    className="bg-white/80 text-xs capitalize data-[state=on]:bg-white data-[state=on]:text-[#0b1e6b]"
+                                >
+                                    {PRESETS[key].label}
+                                </ToggleGroupItem>
+                            ),
+                        )}
+                    </ToggleGroup>
+
+                    <Link
+                        href={home()}
+                        className="text-xs text-white/80 transition-colors hover:text-white"
+                    >
+                        {name}
+                    </Link>
                 </div>
-
-                {/* Bottom site name */}
-                <Link
-                    href={home()}
-                    className="relative z-20 flex items-center text-sm text-blue-300 transition-colors hover:text-white"
-                >
-                    {name}
-                </Link>
             </div>
 
-            {/* Right form panel */}
-            <div className="relative w-full lg:p-8">
-                <div className="absolute top-4 right-4 z-10">
-                    <LocaleSwitcher />
-                </div>
-                <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-                    {/* Mobile: logo */}
-                    <div className="flex flex-col items-center gap-3 lg:hidden">
-                        <img
-                            src="/logo.jpg"
-                            alt="UP Police Sports Control Board"
-                            className="h-16 w-16 rounded-full object-cover ring-2 ring-[#0b1e6b]"
-                        />
-                        <span className="text-sm font-semibold tracking-wider text-primary uppercase">
-                            UP Police Sports Control Board
-                        </span>
-                    </div>
-
-                    <div className="flex flex-col items-start gap-2 text-left sm:items-center sm:text-center">
-                        <h1 className="text-xl font-medium">{title}</h1>
-                        <p className="text-sm text-balance text-muted-foreground">
-                            {description}
-                        </p>
-                    </div>
-                    {children}
-                </div>
+            {/* Locale switcher */}
+            <div className="absolute top-4 right-4 z-10">
+                <LocaleSwitcher />
             </div>
         </div>
     );

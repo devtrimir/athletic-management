@@ -148,8 +148,16 @@ type CoachPromotion = {
         id: number;
         summary: string | null;
         session: { id: number; name: string } | null;
-        tournament: { id: number; name: string; tier_code: string | null } | null;
-        event: { id: number; name: string; weight_category: string | null } | null;
+        tournament: {
+            id: number;
+            name: string;
+            tier_code: string | null;
+        } | null;
+        event: {
+            id: number;
+            name: string;
+            weight_category: string | null;
+        } | null;
         team: { id: number; name: string } | null;
     }[];
 };
@@ -277,7 +285,7 @@ function DetailTable({
             <tbody>
                 {visibleRows.map((row) => (
                     <tr key={row.label}>
-                        <th className="w-1/3 border bg-muted/30 px-2 py-1.5 text-left align-top text-xs font-semibold uppercase text-muted-foreground print:px-1 print:py-0.5 print:text-[8px]">
+                        <th className="w-1/3 border bg-muted/30 px-2 py-1.5 text-left align-top text-xs font-semibold text-muted-foreground uppercase print:px-1 print:py-0.5 print:text-[8px]">
                             {row.label}
                         </th>
                         <td className="border px-2 py-1.5 align-top print:px-1 print:py-0.5">
@@ -299,7 +307,7 @@ function Section({
 }) {
     return (
         <section className="break-inside-avoid space-y-2 rounded-lg border bg-white p-3 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
-            <h2 className="border-b pb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground print:text-[10px] print:text-black">
+            <h2 className="border-b pb-1 text-sm font-semibold tracking-wide text-muted-foreground uppercase print:text-[10px] print:text-black">
                 {title}
             </h2>
             {children}
@@ -451,7 +459,7 @@ export default function CoachPrintPreview({
                             />
                             <div className="text-center">
                                 <h2 className="text-xl font-bold uppercase print:text-sm">
-                                    UP Police Sport Control Board (UPPSCB)
+                                    UP Police Sports Control Board (UPPSCB)
                                 </h2>
                                 <p className="text-sm font-semibold text-muted-foreground print:text-[10px] print:text-black">
                                     {t('Coach profile record')}
@@ -763,63 +771,59 @@ export default function CoachPrintPreview({
                                     </Section>
                                 )}
 
-                            {enabled('promotions') &&
-                                promotions.length > 0 && (
-                                    <Section title={t('Promotions / rewards')}>
-                                        <DataTable
-                                            columns={[
-                                                t('Promotion date'),
-                                                t('From rank'),
-                                                t('To rank'),
-                                                t('Cash reward amount'),
-                                                t('Cash reward date'),
-                                                t('Reference'),
-                                                t('Evidence'),
-                                            ]}
-                                            rows={promotions.map(
-                                                (promotion) => [
-                                                    formatDate(
-                                                        promotion.promotion_date,
-                                                    ),
-                                                    promotion.from_rank,
-                                                    promotion.to_rank,
-                                                    promotion.cash_reward_amount,
-                                                    formatDate(
-                                                        promotion.cash_reward_date,
-                                                    ),
-                                                    promotion.cash_reward_reference,
-                                                    promotion.evidences
-                                                        .map(
-                                                            (evidence) =>
-                                                                evidence.summary,
-                                                        )
-                                                        .filter(Boolean)
-                                                        .join('; '),
-                                                ],
-                                            )}
-                                        />
-                                    </Section>
-                                )}
+                            {enabled('promotions') && promotions.length > 0 && (
+                                <Section title={t('Promotions / rewards')}>
+                                    <DataTable
+                                        columns={[
+                                            t('Promotion date'),
+                                            t('From rank'),
+                                            t('To rank'),
+                                            t('Cash reward amount'),
+                                            t('Cash reward date'),
+                                            t('Reference'),
+                                            t('Evidence'),
+                                        ]}
+                                        rows={promotions.map((promotion) => [
+                                            formatDate(
+                                                promotion.promotion_date,
+                                            ),
+                                            promotion.from_rank,
+                                            promotion.to_rank,
+                                            promotion.cash_reward_amount,
+                                            formatDate(
+                                                promotion.cash_reward_date,
+                                            ),
+                                            promotion.cash_reward_reference,
+                                            promotion.evidences
+                                                .map(
+                                                    (evidence) =>
+                                                        evidence.summary,
+                                                )
+                                                .filter(Boolean)
+                                                .join('; '),
+                                        ])}
+                                    />
+                                </Section>
+                            )}
 
-                            {enabled('status') &&
-                                statusHistory.length > 0 && (
-                                    <Section title={t('Status history')}>
-                                        <DataTable
-                                            columns={[
-                                                t('Status'),
-                                                t('Effective on'),
-                                                t('Reason'),
-                                                t('Recorded by'),
-                                            ]}
-                                            rows={statusHistory.map((row) => [
-                                                humanize(row.status),
-                                                formatDate(row.effective_on),
-                                                row.reason,
-                                                row.recorded_by_name,
-                                            ])}
-                                        />
-                                    </Section>
-                                )}
+                            {enabled('status') && statusHistory.length > 0 && (
+                                <Section title={t('Status history')}>
+                                    <DataTable
+                                        columns={[
+                                            t('Status'),
+                                            t('Effective on'),
+                                            t('Reason'),
+                                            t('Recorded by'),
+                                        ]}
+                                        rows={statusHistory.map((row) => [
+                                            humanize(row.status),
+                                            formatDate(row.effective_on),
+                                            row.reason,
+                                            row.recorded_by_name,
+                                        ])}
+                                    />
+                                </Section>
+                            )}
                         </div>
                     </main>
                 </div>

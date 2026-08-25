@@ -23,10 +23,10 @@ export default function Welcome() {
                             />
                             <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold tracking-tight">
-                                    {t('Uttar Pradesh Police')}
+                                    {t('UP Police Sports Control Board')}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    {t('Sports Unit')}
+                                    {t('UPPSCB')}
                                 </p>
                             </div>
                         </div>
@@ -65,7 +65,7 @@ export default function Welcome() {
                                 className="mb-8 h-16 w-16"
                             />
                             <p className="mb-3 text-sm font-medium text-muted-foreground">
-                                {t('UP Police Sports Unit')}
+                                {t('UP Police Sports Control Board (UPPSCB)')}
                             </p>
                             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
                                 {t(
@@ -136,7 +136,8 @@ export default function Welcome() {
                 </main>
 
                 <footer className="border-t border-border/70 px-4 py-4 text-center text-xs text-muted-foreground">
-                    {t('Uttar Pradesh Police')} · {t('Sports Unit')}
+                    {t('Uttar Pradesh Police Sports Control Board')} ·{' '}
+                    {t('UPPSCB')}
                 </footer>
             </div>
         </>
