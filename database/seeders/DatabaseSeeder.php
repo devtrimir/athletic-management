@@ -35,7 +35,7 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             RbacRolesSeeder::class,
             // CoachSeeder::class,
-            TyagpatraSeeder::class,
+            // TyagpatraSeeder::class,
             // TournamentSeeder::class,
             ParticipationSeeder::class,
             AuditLogSeeder::class,
