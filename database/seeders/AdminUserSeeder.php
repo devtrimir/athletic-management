@@ -23,8 +23,8 @@ class AdminUserSeeder extends Seeder
                 );
             }
 
-            $email ??= 'admin@upp.local';
-            $password ??= 'password';
+            $email ??= 'systemadmin@uppscb.com';
+            $password ??= 'G7#kP2!xQ9';
         }
 
         $org = Organization::firstOrCreate(
