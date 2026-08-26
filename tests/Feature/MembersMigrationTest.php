@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\Member;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 test('members table is created by migration', function () {
@@ -25,4 +28,11 @@ test('members table has all required columns', function () {
         expect(Schema::hasColumn('members', $column))
             ->toBeTrue("Missing column: {$column}");
     }
+});
+
+test('members current_status rejects invalid values', function () {
+    $member = Member::factory()->create();
+
+    expect(fn () => DB::table('members')->where('id', $member->id)->update(['current_status' => 'INVALID']))
+        ->toThrow(QueryException::class);
 });

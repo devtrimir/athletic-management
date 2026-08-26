@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\MemberStatusHistory;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 test('member_status_history table is created by migration', function () {
@@ -15,4 +18,11 @@ test('member_status_history table has all required columns', function () {
         expect(Schema::hasColumn('member_status_history', $column))
             ->toBeTrue("Missing column: {$column}");
     }
+});
+
+test('member_status_history status rejects invalid values', function () {
+    $history = MemberStatusHistory::factory()->create();
+
+    expect(fn () => DB::table('member_status_history')->where('id', $history->id)->update(['status' => 'INVALID']))
+        ->toThrow(QueryException::class);
 });
