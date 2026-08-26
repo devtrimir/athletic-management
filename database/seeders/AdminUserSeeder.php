@@ -14,7 +14,7 @@ class AdminUserSeeder extends Seeder
     {
         $email = env('SEED_ADMIN_EMAIL');
         $password = env('SEED_ADMIN_PASSWORD');
-        $name = env('SEED_ADMIN_NAME', 'Administrator');
+        $name = env('SEED_ADMIN_NAME', 'System Admin');
 
         if (empty($email) || empty($password)) {
             if (! app()->isLocal()) {
@@ -28,7 +28,7 @@ class AdminUserSeeder extends Seeder
         }
 
         $org = Organization::firstOrCreate(
-            ['code' => 'UPP'],
+            ['code' => 'UPPSCB'],
             ['name' => 'UP Police Sports Control Board'],
         );
 
