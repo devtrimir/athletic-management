@@ -99,6 +99,8 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_0900_ai_ci'),
+
         ],
 
         'sqlsrv' => [
