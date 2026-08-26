@@ -19,7 +19,7 @@ test('admin user is created with correct attributes', function (): void {
     $user = User::where('email', 'admin@upp.local')->first();
 
     expect($user)->not->toBeNull()
-        ->and($user->name)->toBe('Administrator')
+        ->and($user->name)->toBe('System Admin')
         ->and($user->email_verified_at)->not->toBeNull()
         ->and($user->organization->code)->toBe('UPP');
 });
