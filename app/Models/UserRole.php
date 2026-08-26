@@ -13,6 +13,8 @@ class UserRole extends Model
 
     public $timestamps = false;
 
+    public $incrementing = false;
+
     protected static function booted(): void
     {
         static::saved(static function (self $model): void {

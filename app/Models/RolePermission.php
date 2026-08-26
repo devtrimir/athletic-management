@@ -11,6 +11,8 @@ class RolePermission extends Model
 
     public $timestamps = false;
 
+    public $incrementing = false;
+
     protected static function booted(): void
     {
         // When a role's permission set changes, invalidate every user who holds that role.
