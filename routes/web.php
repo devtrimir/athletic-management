@@ -36,6 +36,7 @@ use App\Http\Controllers\MemberAchievementContextController;
 use App\Http\Controllers\MemberAliasController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberExportController;
+use App\Http\Controllers\MemberImportController;
 use App\Http\Controllers\MemberPhotoController;
 use App\Http\Controllers\MemberProfileTabController;
 use App\Http\Controllers\MemberPromotionController;
@@ -99,6 +100,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('external-coach-performance-updates/{performance_update}', [AdminExternalCoachPerformanceUpdateController::class, 'show'])->name('external-coach-performance-updates.show');
     Route::patch('external-coach-performance-updates/{performance_update}/review', [AdminExternalCoachPerformanceUpdateController::class, 'review'])->name('external-coach-performance-updates.review');
     Route::get('members/export', [MemberExportController::class, 'index'])->name('members.export');
+    Route::get('members/import/template', [MemberImportController::class, 'template'])->name('members.import.template');
+    Route::post('members/import', [MemberImportController::class, 'store'])->name('members.import.store');
+    Route::get('imports/{import}/errors', [MemberImportController::class, 'errors'])->name('imports.errors');
     Route::resource('members', MemberController::class);
     Route::get('members/{member}/teams', [MemberProfileTabController::class, 'teams'])->name('members.teams');
     Route::get('members/{member}/events', [MemberProfileTabController::class, 'events'])->name('members.events');

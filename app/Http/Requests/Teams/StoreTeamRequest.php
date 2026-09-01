@@ -52,7 +52,6 @@ class StoreTeamRequest extends FormRequest
                 Rule::excludeIf($locationType === 'unit'),
                 'nullable',
                 'integer',
-                Rule::requiredIf($locationType === 'district'),
                 Rule::exists('districts', 'id'),
             ],
             'name' => [
@@ -65,7 +64,7 @@ class StoreTeamRequest extends FormRequest
                     ->where('location_type', (string) $locationType)
                     ->where(
                         $locationType === 'unit' ? 'unit_id' : 'district_id',
-                        (int) ($locationType === 'unit' ? $this->input('unit_id') : $this->input('district_id'))
+                        $locationType === 'unit' ? (int) $this->input('unit_id') : $this->input('district_id')
                     ),
             ],
             'is_active' => ['sometimes', 'boolean'],

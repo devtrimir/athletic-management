@@ -251,8 +251,7 @@ export default function TeamsEdit({
                         ) : (
                             <div className="grid gap-2">
                                 <Label htmlFor="district_id">
-                                    {t('District')}{' '}
-                                    <span className="text-destructive">*</span>
+                                    {t('District')}
                                 </Label>
                                 <Select
                                     value={data.district_id}

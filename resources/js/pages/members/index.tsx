@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     Check,
     ChevronDown,
@@ -11,12 +11,14 @@ import {
     Printer,
     Search,
     ShieldCheck,
+    Upload,
     UserCheck,
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
+import MemberImportController from '@/actions/App/Http/Controllers/MemberImportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { MemberQuickView } from '@/components/members/member-quick-view';
@@ -56,6 +58,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { errors as importErrorsUrl } from '@/routes/imports';
 
 type PaginationLink = {
     url: string | null;
@@ -549,7 +552,21 @@ export default function MembersIndex({
     perPage: number;
 }) {
     const { t } = useTranslation();
-    const { locale } = usePage().props as { locale: string };
+    const { locale, auth, flash } = usePage().props as {
+        locale: string;
+        auth: { permissions: string[] };
+        flash: {
+            import_result?: {
+                created: number;
+                updated: number;
+                skipped: number;
+                failed: number;
+                import_id: number | null;
+            } | null;
+        };
+    };
+    const canImport = auth.permissions.includes('imports.run');
+    const importResult = flash.import_result ?? null;
 
     const levelLabel = useCallback(
         (code: string | null | undefined): string =>
@@ -566,6 +583,8 @@ export default function MembersIndex({
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
+    const importForm = useForm<{ file: File | null }>({ file: null });
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
@@ -930,6 +949,16 @@ export default function MembersIndex({
                         description={t('Manage athlete roster')}
                     />
                     <div className="flex shrink-0 gap-2">
+                        {canImport && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setImportOpen(true)}
+                            >
+                                <Upload className="mr-1.5 h-4 w-4" />
+                                {t('Import')}
+                            </Button>
+                        )}
                         <Button
                             variant="outline"
                             size="sm"
@@ -1660,6 +1689,134 @@ export default function MembersIndex({
                         >
                             <Download className="mr-1.5 h-4 w-4" />
                             {t('Download Excel')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Import Dialog */}
+            <Dialog open={importOpen} onOpenChange={setImportOpen}>
+                <DialogContent
+                    className="max-w-lg"
+                    aria-describedby={undefined}
+                >
+                    <DialogHeader>
+                        <DialogTitle>{t('Import members')}</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+                            <li>
+                                {t(
+                                    'Download the sample template and fill in member data. Do not rename, reorder, or delete columns.',
+                                )}
+                            </li>
+                            <li>
+                                {t(
+                                    'Upload the filled file. Valid rows are imported; rows with problems are listed in an error report.',
+                                )}
+                            </li>
+                        </ol>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                window.location.href =
+                                    MemberImportController.template.url();
+                            }}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Download sample template')}
+                        </Button>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="member-import-file">
+                                {t('Filled template file')}
+                            </Label>
+                            <Input
+                                id="member-import-file"
+                                type="file"
+                                accept=".xlsx,.xls,.csv"
+                                onChange={(event) =>
+                                    importForm.setData(
+                                        'file',
+                                        event.target.files?.[0] ?? null,
+                                    )
+                                }
+                            />
+                            {importForm.errors.file && (
+                                <p className="text-sm text-destructive">
+                                    {importForm.errors.file}
+                                </p>
+                            )}
+                        </div>
+
+                        {importResult && (
+                            <div className="space-y-2 rounded-md border bg-muted/40 p-3 text-sm">
+                                <p>
+                                    {t(
+                                        'Import finished: :created created, :updated updated, :skipped skipped, :failed failed.',
+                                    )
+                                        .replace(
+                                            ':created',
+                                            String(importResult.created),
+                                        )
+                                        .replace(
+                                            ':updated',
+                                            String(importResult.updated),
+                                        )
+                                        .replace(
+                                            ':skipped',
+                                            String(importResult.skipped),
+                                        )
+                                        .replace(
+                                            ':failed',
+                                            String(importResult.failed),
+                                        )}
+                                </p>
+                                {importResult.import_id !== null && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            window.location.href =
+                                                importErrorsUrl.url({
+                                                    import: importResult.import_id as number,
+                                                });
+                                        }}
+                                    >
+                                        <Download className="mr-1.5 h-4 w-4" />
+                                        {t('Download error report')}
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setImportOpen(false)}
+                        >
+                            {t('Close')}
+                        </Button>
+                        <Button
+                            disabled={
+                                importForm.data.file === null ||
+                                importForm.processing
+                            }
+                            onClick={() =>
+                                importForm.post(
+                                    MemberImportController.store.url(),
+                                    { forceFormData: true },
+                                )
+                            }
+                        >
+                            <Upload className="mr-1.5 h-4 w-4" />
+                            {importForm.processing
+                                ? t('Importing…')
+                                : t('Upload and import')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

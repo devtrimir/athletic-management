@@ -27,7 +27,7 @@ class UpdateTeamRequest extends FormRequest
         $team = $this->route('team');
         $locationType = (string) ($this->input('location_type') ?? $team?->location_type);
         $resolvedUnitId = (int) ($this->input('unit_id') ?? $team?->unit_id);
-        $resolvedDistrictId = (int) ($this->input('district_id') ?? $team?->district_id);
+        $resolvedDistrictId = $this->input('district_id') ?? $team?->district_id;
 
         return [
             'sport_id' => ['required', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
@@ -58,7 +58,6 @@ class UpdateTeamRequest extends FormRequest
                 Rule::excludeIf($locationType === 'unit'),
                 'nullable',
                 'integer',
-                Rule::requiredIf($locationType === 'district'),
                 Rule::exists('districts', 'id'),
             ],
             'name' => [

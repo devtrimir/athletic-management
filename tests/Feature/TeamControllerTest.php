@@ -398,8 +398,8 @@ test('unit based team derives district from the selected unit', function (): voi
     ]);
 });
 
-test('district based team requires district_id', function (): void {
-    $user = teamIndexUser('teams.create');
+test('district based team can be created without district_id', function (): void {
+    $user = teamIndexUser('teams.create', 'teams.view');
     $org = Organization::findOrFail($user->organization_id);
 
     $this->actingAs($user)
@@ -407,8 +407,17 @@ test('district based team requires district_id', function (): void {
             'location_type' => 'district',
             'district_id' => null,
             'unit_id' => null,
+            'name' => 'जिला रहित टीम',
         ]))
-        ->assertSessionHasErrors(['district_id']);
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('teams', [
+        'organization_id' => $org->id,
+        'name' => 'जिला रहित टीम',
+        'location_type' => 'district',
+        'district_id' => null,
+        'unit_id' => null,
+    ]);
 });
 
 test('unit based team requires unit_id', function (): void {

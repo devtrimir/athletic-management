@@ -222,5 +222,16 @@
     "Bronze": "Bronze",
     "Merit": "Merit",
     "Clear filters": "Clear filters",
-    "No review actions are available for this attendance.": "No review actions are available for this attendance."
+    "No review actions are available for this attendance.": "No review actions are available for this attendance.",
+    "Import": "Import",
+    "Import members": "Import members",
+    "Download the sample template and fill in member data. Do not rename, reorder, or delete columns.": "Download the sample template and fill in member data. Do not rename, reorder, or delete columns.",
+    "Upload the filled file. Valid rows are imported; rows with problems are listed in an error report.": "Upload the filled file. Valid rows are imported; rows with problems are listed in an error report.",
+    "Download sample template": "Download sample template",
+    "Filled template file": "Filled template file",
+    "Import finished: :created created, :updated updated, :skipped skipped, :failed failed.": "Import finished: :created created, :updated updated, :skipped skipped, :failed failed.",
+    "Download error report": "Download error report",
+    "Close": "Close",
+    "Upload and import": "Upload and import",
+    "Importing…": "Importing…"
 }

@@ -52,6 +52,7 @@ class HandleInertiaRequests extends Middleware
             'translations' => fn (): array => $this->loadTranslations(),
             'flash' => fn (): array => [
                 'toast' => $request->session()->get('flash.toast'),
+                'import_result' => $request->session()->get('import_result'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
