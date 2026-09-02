@@ -23,15 +23,7 @@ const PRESETS: Record<
 > = {
     logo: {
         label: 'Logo',
-        image: '/images/login-bg.png',
-    },
-    crest: {
-        label: 'Crest',
-        image: '/images/auth/crest-bg.jpg',
-    },
-    stadium: {
-        label: 'Stadium',
-        image: '/images/auth/stadium-bg.jpg',
+        image: '/images/auth/first-bg.jpg',
     },
     training: {
         label: 'Training',
@@ -70,27 +62,49 @@ export default function AuthSplitLayout({
         setPreset(value);
     };
 
+    const isLogo = preset === 'logo';
+
     return (
         <div className="relative flex min-h-svh items-center justify-center p-4 sm:p-8">
-            {/* Dynamic full-screen background */}
-            <div
-                className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500"
-                style={{
-                    backgroundImage: `url(${PRESETS[preset].image})`,
-                }}
-            />
+            {/* Crossfading full-screen backgrounds (all preloaded for smooth switching) */}
+            {(Object.keys(PRESETS) as AuthBackgroundPreset[]).map((key) => (
+                <div
+                    key={key}
+                    aria-hidden
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out"
+                    style={{
+                        backgroundImage: `url(${PRESETS[key].image})`,
+                        opacity: preset === key ? 1 : 0,
+                    }}
+                />
+            ))}
 
-            {/* Vignette overlay: brighter center, darker edges for selector/link contrast */}
+            {/* Crossfading overlays: dark vignette for photos, soft white wash for logo */}
             <div
-                className="absolute inset-0"
+                aria-hidden
+                className="absolute inset-0 transition-opacity duration-700 ease-in-out"
                 style={{
                     background:
                         'radial-gradient(ellipse at center, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.45) 100%)',
+                    opacity: isLogo ? 0 : 1,
+                }}
+            />
+            <div
+                aria-hidden
+                className="absolute inset-0 transition-opacity duration-700 ease-in-out"
+                style={{
+                    background:
+                        'linear-gradient(to left, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 45%, rgba(255,255,255,0) 100%)',
+                    opacity: isLogo ? 1 : 0,
                 }}
             />
 
-            {/* Centered auth card */}
-            <div className="relative z-10 w-full max-w-md">
+            {/* Auth card: centered by default, slides right for the logo preset */}
+            <div
+                className={`relative z-10 w-full max-w-md transition-transform duration-700 ease-in-out ${
+                    isLogo ? 'lg:translate-x-[22vw]' : 'translate-x-0'
+                }`}
+            >
                 <div
                     className="absolute -top-1 left-1/2 z-20 h-1 w-28 -translate-x-1/2 rounded-full shadow-lg"
                     style={{
@@ -98,7 +112,13 @@ export default function AuthSplitLayout({
                             'linear-gradient(to right, #c8962b, #f0c55a, #c8962b)',
                     }}
                 />
-                <Card className="overflow-hidden rounded-2xl border-white/40 bg-gradient-to-br from-white/45 via-white/30 to-white/15 shadow-2xl backdrop-blur-2xl">
+                <Card
+                    className={`overflow-hidden rounded-2xl shadow-2xl backdrop-blur-2xl transition-colors duration-700 ${
+                        isLogo
+                            ? 'border-[#0b1e6b]/10 bg-white/80'
+                            : 'border-white/40 bg-gradient-to-br from-white/45 via-white/30 to-white/15'
+                    }`}
+                >
                     <CardHeader className="pb-2 text-center">
                         <div className="mx-auto mb-4 flex flex-col items-center gap-3">
                             <div className="relative">
@@ -164,7 +184,11 @@ export default function AuthSplitLayout({
 
                     <Link
                         href={home()}
-                        className="text-xs text-white/80 transition-colors hover:text-white"
+                        className={`text-xs transition-colors ${
+                            isLogo
+                                ? 'text-[#0b1e6b]/80 hover:text-[#0b1e6b]'
+                                : 'text-white/80 hover:text-white'
+                        }`}
                     >
                         {name}
                     </Link>

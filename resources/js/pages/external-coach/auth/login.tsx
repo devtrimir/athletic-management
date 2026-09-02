@@ -41,6 +41,7 @@ export default function ExternalCoachLogin() {
                                 autoFocus
                                 autoComplete="email"
                                 placeholder="coach@example.com"
+                                className="h-11 rounded-lg border-[#0b1e6b]/15 bg-white/70 px-4"
                             />
                             <InputError message={errors.email} />
                         </div>
@@ -53,6 +54,7 @@ export default function ExternalCoachLogin() {
                                 required
                                 autoComplete="current-password"
                                 placeholder={t('Password')}
+                                className="h-11 rounded-lg border-[#0b1e6b]/15 bg-white/70 px-4"
                             />
                             <InputError message={errors.password} />
                         </div>
@@ -64,7 +66,7 @@ export default function ExternalCoachLogin() {
 
                         <Button
                             type="submit"
-                            className="w-full"
+                            className="mt-2 h-11 w-full"
                             disabled={processing}
                         >
                             {processing && <Spinner />}

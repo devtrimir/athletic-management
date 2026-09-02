@@ -55,7 +55,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     tabIndex={1}
                                     autoComplete="email"
                                     placeholder="email@example.com"
-                                    className="h-11 rounded-lg border-white/60 bg-white/60 px-4"
+                                    className="h-11 rounded-lg border-[#0b1e6b]/15 bg-white/70 px-4"
                                 />
                                 <InputError message={errors.email} />
                             </div>
@@ -82,7 +82,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     tabIndex={2}
                                     autoComplete="current-password"
                                     placeholder="Password"
-                                    className="h-11 rounded-lg border-white/60 bg-white/60 px-4"
+                                    className="h-11 rounded-lg border-[#0b1e6b]/15 bg-white/70 px-4"
                                 />
                                 <InputError message={errors.password} />
                             </div>
