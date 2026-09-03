@@ -153,6 +153,12 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // Enum dropdown (inline list).
     expect($sheet->getCell('D2')->getDataValidation()->getFormula1())->toBe('"M,F,O"');
 
+    // The in-cell dropdown arrow must be visible (OOXML showDropDown is
+    // inverted: "1" hides the arrow — PhpSpreadsheet models it as "show").
+    expect($sheet->getCell('D2')->getDataValidation()->getShowDropDown())->toBeTrue()
+        ->and($sheet->getCell('J2')->getDataValidation()->getShowDropDown())->toBeTrue()
+        ->and($sheet->getCell('S2')->getDataValidation()->getShowDropDown())->toBeTrue();
+
     // Category dropdown shows friendly labels, not raw codes.
     expect($sheet->getCell('H2')->getDataValidation()->getFormula1())->toBe('"Ground Duty,Sports Quota"');
 

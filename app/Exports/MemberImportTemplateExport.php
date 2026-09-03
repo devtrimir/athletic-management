@@ -145,6 +145,9 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
                         $validation->setErrorStyle(DataValidation::STYLE_INFORMATION);
                         $validation->setAllowBlank(true);
                         $validation->setShowInputMessage(true);
+                        // In the OOXML spec this attribute is inverted: "1" HIDES the
+                        // in-cell dropdown arrow, so it must be set to true to show it.
+                        $validation->setShowDropdown(true);
                         $validation->setFormula1($formula);
                     }
                 }
