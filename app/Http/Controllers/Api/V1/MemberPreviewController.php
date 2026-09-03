@@ -58,7 +58,6 @@ class MemberPreviewController extends Controller
             'caste' => $member->caste,
             'promotion_date' => $member->promotion_date?->toDateString(),
             'initial_rank' => $member->initial_rank,
-            'recruitment_type' => $member->recruitment_type,
             'home_address' => $member->home_address,
             'other_notes' => $member->other_notes,
             'team_since' => $member->team_since?->toDateString(),

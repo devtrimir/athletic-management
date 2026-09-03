@@ -236,7 +236,6 @@ return [
         'rank' => 'पद',
         'raw_date_text' => 'दिनांक पाठ',
         'reason' => 'कारण',
-        'recruitment_type' => 'भर्ती प्रकार',
         'remarks' => 'टिप्पणी',
         'role' => 'भूमिका',
         'session_id' => 'सत्र',

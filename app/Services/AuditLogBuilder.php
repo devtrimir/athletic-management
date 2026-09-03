@@ -217,7 +217,6 @@ class AuditLogBuilder
                 'joining_date' => 'Joining date',
                 'blood_group' => 'Blood group',
                 'caste' => 'Caste',
-                'recruitment_type' => 'Recruitment type',
                 'initial_rank' => 'Initial rank',
                 'promotion_date' => 'Promotion date',
                 'team_since' => 'Team since',

@@ -115,7 +115,6 @@ type Member = {
     promotion_date: string | null;
     initial_rank: string | null;
     home_address: string | null;
-    recruitment_type: string | null;
     sport: { id: number; name: string } | null;
     playable_sports: {
         id: number;

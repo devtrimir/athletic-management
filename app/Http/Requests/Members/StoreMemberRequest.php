@@ -47,7 +47,6 @@ class StoreMemberRequest extends FormRequest
             'caste' => ['nullable', 'string', 'max:100'],
             'promotion_date' => ['nullable', 'date'],
             'home_address' => ['nullable', 'string'],
-            'recruitment_type' => ['nullable', Rule::in(['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER'])],
             'playable_sports' => ['nullable', 'array'],
             'playable_sports.*.sport_id' => ['required', 'integer', 'distinct', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'playable_sports.*.role' => ['nullable', 'string', 'max:100'],

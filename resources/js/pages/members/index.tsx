@@ -144,7 +144,6 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'designation', label: 'Designation' },
     { key: 'player_category', label: 'Category' },
     { key: 'player_level', label: 'Level' },
-    { key: 'unit', label: 'Posting' },
     { key: 'home_district', label: 'Home district' },
     { key: 'posting_district', label: 'Posting' },
     { key: 'joining_date', label: 'Joining date' },

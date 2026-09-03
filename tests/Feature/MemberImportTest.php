@@ -89,7 +89,6 @@ function importRow(array $overrides = []): array
         'caste' => null,
         'designation' => null,
         'initial_rank' => null,
-        'recruitment_type' => null,
         'sport' => null,
         'sport_event' => null,
         'team_since' => null,
@@ -171,7 +170,7 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // inverted: "1" hides the arrow — PhpSpreadsheet models it as "show").
     expect($sheet->getCell('D2')->getDataValidation()->getShowDropDown())->toBeTrue()
         ->and($sheet->getCell('J2')->getDataValidation()->getShowDropDown())->toBeTrue()
-        ->and($sheet->getCell('S2')->getDataValidation()->getShowDropDown())->toBeTrue();
+        ->and($sheet->getCell('R2')->getDataValidation()->getShowDropDown())->toBeTrue();
 
     // Category dropdown shows friendly labels, not raw codes.
     expect($sheet->getCell('H2')->getDataValidation()->getFormula1())->toBe('"Ground Duty,Sports Quota"');
@@ -179,7 +178,7 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // DB-backed dropdowns via named ranges.
     expect($sheet->getCell('J2')->getDataValidation()->getFormula1())->toBe('DistrictList')
         ->and($sheet->getCell('L2')->getDataValidation()->getFormula1())->toBe('UnitList')
-        ->and($sheet->getCell('S2')->getDataValidation()->getFormula1())->toBe('SportList')
+        ->and($sheet->getCell('R2')->getDataValidation()->getFormula1())->toBe('SportList')
         ->and($sheet->getCell('I2')->getDataValidation()->getFormula1())->toBe('TierList');
 
     $districtRange = $spreadsheet->getNamedRange('DistrictList');
@@ -196,7 +195,7 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // Date columns carry a real Excel date format.
     expect($sheet->getStyle('E2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
         ->and($sheet->getStyle('M2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
-        ->and($sheet->getStyle('U2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY');
+        ->and($sheet->getStyle('T2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY');
 });
 
 // ---------------------------------------------------------------------------
@@ -241,7 +240,6 @@ test('valid rows are imported with generated codes and playable sport pivot', fu
             'sport' => $sport->name,
             'sport_event' => '48 kg Sanda',
             'blood_group' => 'B+',
-            'recruitment_type' => 'SPORTS_QUOTA',
         ]),
         importRow([
             'full_name' => 'Second Player',
@@ -540,8 +538,10 @@ test('template headings carry the initial rank column instead of appointment', f
 
     expect(implode('|', $headings))->toContain('Initial Rank')
         ->and(implode('|', $headings))->not->toContain('Appointment')
+        ->and(implode('|', $headings))->not->toContain('Recruitment')
         ->and($keys)->toContain('initial_rank')
-        ->and($keys)->not->toContain('appointment');
+        ->and($keys)->not->toContain('appointment')
+        ->and($keys)->not->toContain('recruitment_type');
 });
 
 test('initial rank is imported onto the member', function () {

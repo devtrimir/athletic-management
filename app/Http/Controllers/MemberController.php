@@ -73,7 +73,6 @@ class MemberController extends Controller
                 AllowedFilter::exact('mobile'),
                 AllowedFilter::exact('gender'),
                 AllowedFilter::exact('blood_group'),
-                AllowedFilter::exact('recruitment_type'),
                 AllowedFilter::callback('sport_id', fn ($query, mixed $value): mixed => $this->filterByPlayableSports($query, $value)),
                 AllowedFilter::callback('sport_ids', fn ($query, mixed $value): mixed => $this->filterByPlayableSports($query, $value)),
                 AllowedFilter::callback('q', function ($query, string $value): void {

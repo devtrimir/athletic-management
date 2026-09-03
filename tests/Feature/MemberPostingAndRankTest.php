@@ -198,7 +198,9 @@ test('member export headings use initial rank instead of appointment', function 
     $headings = $sheet->rangeToArray('A1:AZ1')[0];
 
     expect(implode('|', $headings))->toContain('Initial Rank')
-        ->and(implode('|', $headings))->not->toContain('Appointment');
+        ->and(implode('|', $headings))->toContain('Posting')
+        ->and(implode('|', $headings))->not->toContain('Appointment')
+        ->and(implode('|', $headings))->not->toContain('Recruitment');
 });
 
 test('member print renders the listing with letterhead props', function () {

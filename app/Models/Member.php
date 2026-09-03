@@ -50,7 +50,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $promotion_date
  * @property string|null $appointment
  * @property string|null $home_address
- * @property string|null $recruitment_type
  * @property int|null $sport_id
  * @property string|null $sport_event
  * @property string|null $other_notes
@@ -81,7 +80,6 @@ use Illuminate\Support\Carbon;
     'promotion_date',
     'appointment',
     'home_address',
-    'recruitment_type',
     'sport_id',
     'sport_event',
     'other_notes',

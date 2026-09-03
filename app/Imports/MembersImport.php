@@ -283,7 +283,6 @@ class MembersImport implements ToCollection, WithMultipleSheets
             'caste' => $str('caste'),
             'designation' => $str('designation'),
             'initial_rank' => $str('initial_rank'),
-            'recruitment_type' => null,
             'sport_event' => $str('sport_event'),
             'team_since' => null,
             'other_notes' => $str('other_notes'),
@@ -394,14 +393,6 @@ class MembersImport implements ToCollection, WithMultipleSheets
             $errors[] = __('Blood group must be one of: :values.', ['values' => implode(', ', MemberImportSchema::BLOOD_GROUPS)]);
         } else {
             $payload['blood_group'] = $bloodGroup;
-        }
-
-        $recruitmentType = $this->normalizeEnum($get('recruitment_type'), array_fill_keys(MemberImportSchema::RECRUITMENT_TYPES, null));
-
-        if ($recruitmentType === null && $str('recruitment_type') !== null) {
-            $errors[] = __('Recruitment type must be one of: :values.', ['values' => implode(', ', MemberImportSchema::RECRUITMENT_TYPES)]);
-        } else {
-            $payload['recruitment_type'] = $recruitmentType;
         }
 
         // Name-resolved references

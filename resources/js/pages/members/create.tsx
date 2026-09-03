@@ -48,7 +48,6 @@ type FormData = {
     promotion_date: string;
     initial_rank: string;
     home_address: string;
-    recruitment_type: string;
     sport_event: string;
     playable_sports: {
         sport_id: string;
@@ -113,7 +112,6 @@ export default function MembersCreate({
             promotion_date: '',
             initial_rank: '',
             home_address: '',
-            recruitment_type: '',
             playable_sports: [
                 { sport_id: '', role: '', position: '', sport_event: '', weight: '', notes: '' },
             ],

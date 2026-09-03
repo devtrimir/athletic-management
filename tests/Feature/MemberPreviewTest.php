@@ -55,7 +55,7 @@ test('authorized user can view member preview', function () {
     $this->actingAs($user)
         ->getJson(route('v1.members.preview', $member))
         ->assertOk()
-        ->assertJsonStructure(['id', 'full_name', 'pno', 'recruitment_type', 'playable_sports']);
+        ->assertJsonStructure(['id', 'full_name', 'pno', 'initial_rank', 'playable_sports']);
 });
 
 test('member preview includes posting unit fallback and sport details', function () {

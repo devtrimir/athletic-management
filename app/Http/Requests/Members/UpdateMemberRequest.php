@@ -48,7 +48,6 @@ class UpdateMemberRequest extends FormRequest
             'caste' => ['sometimes', 'nullable', 'string', 'max:100'],
             'promotion_date' => ['sometimes', 'nullable', 'date'],
             'home_address' => ['sometimes', 'nullable', 'string'],
-            'recruitment_type' => ['sometimes', 'nullable', Rule::in(['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER'])],
             'playable_sports' => ['sometimes', 'nullable', 'array'],
             'playable_sports.*.sport_id' => ['required', 'integer', 'distinct', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'playable_sports.*.role' => ['nullable', 'string', 'max:100'],

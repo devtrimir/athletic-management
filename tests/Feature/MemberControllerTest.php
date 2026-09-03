@@ -383,7 +383,7 @@ test('member export uses posting district fallback from current unit', function 
 
     $this->actingAs($user)
         ->get(route('members.export.show', $member, [
-            'columns' => ['unit', 'posting_district', 'promotion_date'],
+            'columns' => ['posting_district', 'promotion_date'],
         ]))
         ->assertOk()
         ->assertHeader('content-disposition');

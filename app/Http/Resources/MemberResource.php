@@ -41,7 +41,6 @@ class MemberResource extends JsonResource
             'caste' => $this->caste,
             'promotion_date' => $this->promotion_date?->toDateString(),
             'home_address' => $this->home_address,
-            'recruitment_type' => $this->recruitment_type,
             'other_notes' => $this->other_notes,
             'team_since' => $this->team_since?->toDateString(),
             'playable_sports' => $this->whenLoaded('playableSports', fn () => $this->playableSports

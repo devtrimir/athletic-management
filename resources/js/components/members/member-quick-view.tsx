@@ -66,7 +66,6 @@ type MemberPreview = {
     caste: string | null;
     promotion_date: string | null;
     initial_rank: string | null;
-    recruitment_type: string | null;
     home_address: string | null;
     other_notes: string | null;
     team_since: string | null;

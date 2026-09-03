@@ -35,7 +35,6 @@ type Member = {
     promotion_date: string | null;
     initial_rank: string | null;
     home_address: string | null;
-    recruitment_type: string | null;
     sport: { id: number; name: string } | null;
     playable_sports: {
         id: number;
@@ -314,7 +313,6 @@ const UI_LABELS: Record<
     'Home address': { en: 'Home address', hi: 'गृह पता' },
     'Blood group': { en: 'Blood group', hi: 'ब्लड ग्रुप' },
     Caste: { en: 'Caste', hi: 'जाति' },
-    'Recruitment type': { en: 'Recruitment type', hi: 'भर्ती प्रकार' },
     'Other notes': { en: 'Other notes', hi: 'अन्य नोट्स' },
     'Joining date': { en: 'Joining date', hi: 'जॉइनिंग तिथि' },
     'Promotion date': { en: 'Promotion date', hi: 'पदोन्नति तिथि' },
@@ -616,7 +614,6 @@ const STORY_FIELDS: Record<string, { en: string; hi: string }> = {
     'Joining date': { en: 'the joining date', hi: 'जॉइनिंग तिथि' },
     'Blood group': { en: 'the blood group', hi: 'ब्लड ग्रुप' },
     Caste: { en: 'the caste', hi: 'जाति' },
-    'Recruitment type': { en: 'the recruitment type', hi: 'भर्ती प्रकार' },
     'Initial rank': { en: 'the initial rank', hi: 'भर्ती पद' },
     'Promotion date': { en: 'the promotion date', hi: 'पदोन्नति तिथि' },
     'Team since': { en: 'the team-since date', hi: 'टीम से जुड़ने की तिथि' },
@@ -1555,16 +1552,6 @@ export default function PrintPreview({
                                     {
                                         label: uiText('Caste', locale),
                                         value: member.caste,
-                                    },
-                                    {
-                                        label: uiText(
-                                            'Recruitment type',
-                                            locale,
-                                        ),
-                                        value: printValue(
-                                            member.recruitment_type,
-                                            t,
-                                        ),
                                     },
                                     {
                                         label: uiText('Other notes', locale),

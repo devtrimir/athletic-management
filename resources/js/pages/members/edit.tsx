@@ -64,7 +64,6 @@ type Member = {
     promotion_date: string | null;
     initial_rank: string | null;
     home_address: string | null;
-    recruitment_type: string | null;
     playable_sports: Array<
         PlayableSport & {
             pivot?: {
@@ -107,7 +106,6 @@ type FormData = {
     promotion_date: string;
     initial_rank: string;
     home_address: string;
-    recruitment_type: string;
     playable_sports: {
         sport_id: string;
         role: string;
@@ -221,7 +219,6 @@ export default function MembersEdit({
             promotion_date: member.promotion_date ?? '',
             initial_rank: member.initial_rank ?? '',
             home_address: member.home_address ?? '',
-            recruitment_type: member.recruitment_type ?? '',
             playable_sports:
                 member.playable_sports.length > 0
                     ? member.playable_sports.map((sport) => ({
