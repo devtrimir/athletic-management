@@ -6,6 +6,7 @@ use App\Http\Requests\Members\UpdateMemberRequest;
 use App\Models\District;
 use App\Models\Member;
 use App\Models\Organization;
+use App\Models\TournamentTier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Validator;
@@ -16,6 +17,16 @@ beforeEach(function () {
     $this->org = Organization::factory()->create();
     $this->user = User::factory()->create(['organization_id' => $this->org->id]);
     $this->member = Member::factory()->create(['organization_id' => $this->org->id, 'pno' => null]);
+
+    // Mirror production: the tournament tier master is always seeded.
+    TournamentTier::upsert([
+        ['code' => 'INTERNATIONAL', 'label_hi' => 'अंतर्राष्ट्रीय', 'label_en' => 'International', 'weight' => 100],
+        ['code' => 'NATIONAL', 'label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+        ['code' => 'AIPSC', 'label_hi' => 'अखिल भारतीय पुलिस खेल', 'label_en' => 'AIPSC', 'weight' => 70],
+        ['code' => 'STATE', 'label_hi' => 'राज्यस्तरीय', 'label_en' => 'State', 'weight' => 60],
+        ['code' => 'ZONAL', 'label_hi' => 'क्षेत्रीय', 'label_en' => 'Zonal', 'weight' => 40],
+        ['code' => 'OTHER', 'label_hi' => 'अन्य', 'label_en' => 'Other', 'weight' => 10],
+    ], uniqueBy: ['code']);
 });
 
 function updateRules(User $user, Member $member): array
@@ -63,6 +74,13 @@ test('player_level invalid fails', function () {
 
     expect($result->fails())->toBeTrue()
         ->and($result->errors()->has('player_level'))->toBeTrue();
+});
+
+test('player_level accepts any tier code from the database', function () {
+    $rules = updateRules($this->user, $this->member);
+    $result = Validator::make(['player_level' => 'STATE'], $rules);
+
+    expect($result->passes())->toBeTrue();
 });
 
 test('posting_district_id must exist', function () {

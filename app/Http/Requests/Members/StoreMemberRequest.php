@@ -39,7 +39,7 @@ class StoreMemberRequest extends FormRequest
             'posting_district_id' => ['nullable', 'integer', 'exists:districts,id', 'prohibits:current_unit_id'],
             'current_unit_id' => ['nullable', 'integer', 'exists:units,id', 'prohibits:posting_district_id'],
             'player_category' => ['required', Rule::in(['GD', 'SPORTS_QUOTA'])],
-            'player_level' => ['required', Rule::in(['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'])],
+            'player_level' => ['required', Rule::exists('tournament_tiers', 'code')],
             'source_refs' => ['nullable', 'array'],
 
             // P2B profile extension fields

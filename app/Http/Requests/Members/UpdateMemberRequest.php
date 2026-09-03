@@ -40,7 +40,7 @@ class UpdateMemberRequest extends FormRequest
             'posting_district_id' => ['sometimes', 'nullable', 'integer', 'exists:districts,id', 'prohibits:current_unit_id'],
             'current_unit_id' => ['sometimes', 'nullable', 'integer', 'exists:units,id', 'prohibits:posting_district_id'],
             'player_category' => ['sometimes', 'required', Rule::in(['GD', 'SPORTS_QUOTA'])],
-            'player_level' => ['sometimes', 'required', Rule::in(['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'])],
+            'player_level' => ['sometimes', 'required', Rule::exists('tournament_tiers', 'code')],
             'source_refs' => ['sometimes', 'nullable', 'array'],
 
             // P2B profile extension fields
