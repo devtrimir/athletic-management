@@ -396,7 +396,7 @@ test('a data row matching the example values below row 2 is real data and gets i
         ->and($members->first()->full_name)->toBe('मोहित राठोर');
 });
 
-test('an upload with no data rows flashes a no-data warning instead of a zero-count success', function () {
+test('an upload with no data rows completes with zero counts so the client can warn', function () {
     $user = importUser('imports.run');
 
     $exampleRow = array_map(
@@ -411,10 +411,16 @@ test('an upload with no data rows flashes a no-data warning instead of a zero-co
     $response->assertRedirect(route('members.index'))
         ->assertSessionHas('inertia.flash_data', [
             'toast' => [
-                'type' => 'warning',
-                'message' => 'No data rows found in the uploaded file. Fill the Members sheet (starting at row 2) and re-upload.',
+                'type' => 'info',
+                'message' => 'Import queued. The members table will update automatically when it finishes.',
             ],
         ]);
+
+    // Sync queue: the job has already run. Zero total counts is the signal the
+    // frontend uses to flash the no-data warning on the broadcast event.
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->status)->toBe(Import::STATUS_COMPLETED)
+        ->and($record->rowErrors())->toBe([]);
 
     expect(Member::withoutGlobalScopes()->count())->toBe(0);
 });
