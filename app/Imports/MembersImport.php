@@ -13,6 +13,7 @@ use App\Support\Members\MemberImportSchema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
@@ -88,7 +89,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
                 }
             }
 
-            \Illuminate\Support\Facades\Log::warning('Member import template mismatch', [
+            Log::warning('Member import template mismatch', [
                 'filename' => $this->filename,
                 'header_cells' => count(collect($rows->first())->all()),
                 'differences' => $differsAt === [] ? ['column count only'] : array_slice($differsAt, 0, 5),
@@ -277,7 +278,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
             'blood_group' => null,
             'caste' => $str('caste'),
             'designation' => $str('designation'),
-            'appointment' => $str('appointment'),
+            'initial_rank' => $str('initial_rank'),
             'recruitment_type' => null,
             'sport_event' => $str('sport_event'),
             'team_since' => null,
@@ -412,6 +413,11 @@ class MembersImport implements ToCollection, WithMultipleSheets
             } else {
                 $payload[$idKey] = $id;
             }
+        }
+
+        // A member is posted at a unit OR dedicated to a district — never both.
+        if ($payload['posting_district_id'] !== null && $payload['current_unit_id'] !== null) {
+            $errors[] = __('Posting district and unit cannot both be filled — a member is posted at a unit or a district, not both.');
         }
 
         $sport = $str('sport');

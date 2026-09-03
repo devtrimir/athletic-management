@@ -271,6 +271,7 @@ class MemberSeeder extends Seeder
                 'blood_group' => null,
                 'caste' => null,
                 'promotion_date' => null,
+                'initial_rank' => null,
                 'appointment' => null,
                 'home_address' => null,
                 'recruitment_type' => 'SPORTS_QUOTA',

@@ -62,7 +62,7 @@ type Member = {
     blood_group: string | null;
     caste: string | null;
     promotion_date: string | null;
-    appointment: string | null;
+    initial_rank: string | null;
     home_address: string | null;
     recruitment_type: string | null;
     playable_sports: Array<
@@ -105,7 +105,7 @@ type FormData = {
     blood_group: string;
     caste: string;
     promotion_date: string;
-    appointment: string;
+    initial_rank: string;
     home_address: string;
     recruitment_type: string;
     playable_sports: {
@@ -159,6 +159,20 @@ export default function MembersEdit({
     const [rankCustom, setRankCustom] = useState(
         initialRankSelection === '__other__' ? (member.rank ?? '') : '',
     );
+    const resolvedInitialRankSelection =
+        ranks.find((rank) =>
+            [rank.code, rank.name, rank.name, rank.short_name]
+                .filter(Boolean)
+                .includes(member.initial_rank ?? ''),
+        )?.code ?? '__other__';
+    const [hiringRankSelection, setHiringRankSelection] = useState(
+        resolvedInitialRankSelection,
+    );
+    const [hiringRankCustom, setHiringRankCustom] = useState(
+        resolvedInitialRankSelection === '__other__'
+            ? (member.initial_rank ?? '')
+            : '',
+    );
     const [designationSelection, setDesignationSelection] = useState(
         initialDesignationSelection,
     );
@@ -205,7 +219,7 @@ export default function MembersEdit({
             blood_group: member.blood_group ?? '',
             caste: member.caste ?? '',
             promotion_date: member.promotion_date ?? '',
-            appointment: member.appointment ?? '',
+            initial_rank: member.initial_rank ?? '',
             home_address: member.home_address ?? '',
             recruitment_type: member.recruitment_type ?? '',
             playable_sports:
@@ -258,7 +272,7 @@ export default function MembersEdit({
         errors.current_unit_id ||
         errors.home_district_id ||
         errors.posting_district_id ||
-        errors.appointment ||
+        errors.initial_rank ||
         errors.promotion_date
     );
     const hasSportsErrors = !!(
@@ -818,22 +832,72 @@ export default function MembersEdit({
                                             />
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label htmlFor="appointment">
-                                                {t('Appointment')}
+                                            <Label htmlFor="initial_rank">
+                                                {t('Initial rank')}{' '}
+                                                <span className="text-muted-foreground">
+                                                    {t('(rank at hiring)')}
+                                                </span>
                                             </Label>
-                                            <Input
-                                                id="appointment"
-                                                value={data.appointment}
-                                                onChange={(e) =>
+                                            <Select
+                                                value={hiringRankSelection}
+                                                onValueChange={(value) => {
+                                                    setHiringRankSelection(
+                                                        value,
+                                                    );
                                                     setData(
-                                                        'appointment',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                maxLength={255}
-                                            />
+                                                        'initial_rank',
+                                                        value === '__other__'
+                                                            ? hiringRankCustom
+                                                            : value,
+                                                    );
+                                                }}
+                                            >
+                                                <SelectTrigger
+                                                    id="initial_rank"
+                                                    className="h-9 w-full"
+                                                >
+                                                    <SelectValue
+                                                        placeholder={t(
+                                                            'Select rank',
+                                                        )}
+                                                    />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {ranks.map((rank) => (
+                                                        <SelectItem
+                                                            key={rank.code}
+                                                            value={rank.code}
+                                                        >
+                                                            {masterLabel(rank)}
+                                                        </SelectItem>
+                                                    ))}
+                                                    <SelectItem value="__other__">
+                                                        {t('Other')}
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {hiringRankSelection ===
+                                                '__other__' && (
+                                                <Input
+                                                    className="mt-2 h-9"
+                                                    value={hiringRankCustom}
+                                                    onChange={(e) => {
+                                                        setHiringRankCustom(
+                                                            e.target.value,
+                                                        );
+                                                        setData(
+                                                            'initial_rank',
+                                                            e.target.value.trim(),
+                                                        );
+                                                    }}
+                                                    maxLength={100}
+                                                    placeholder={t(
+                                                        'Enter rank',
+                                                    )}
+                                                />
+                                            )}
                                             <InputError
-                                                message={errors.appointment}
+                                                message={errors.initial_rank}
                                             />
                                         </div>
                                     </div>
@@ -846,12 +910,20 @@ export default function MembersEdit({
                                             <Combobox
                                                 id="current_unit_id"
                                                 value={data.current_unit_id}
-                                                onValueChange={(v) =>
+                                                onValueChange={(v) => {
                                                     setData(
                                                         'current_unit_id',
                                                         v,
-                                                    )
-                                                }
+                                                    );
+
+                                                    // A member is posted at a unit OR a district, never both.
+                                                    if (v !== '') {
+                                                        setData(
+                                                            'posting_district_id',
+                                                            '',
+                                                        );
+                                                    }
+                                                }}
                                                 items={units.map((u) => ({
                                                     value: String(u.id),
                                                     label:
@@ -875,11 +947,22 @@ export default function MembersEdit({
                                             <Combobox
                                                 id="posting_district_id"
                                                 value={data.posting_district_id}
-                                                onValueChange={(v) =>
+                                                onValueChange={(v) => {
                                                     setData(
                                                         'posting_district_id',
                                                         v,
-                                                    )
+                                                    );
+
+                                                    // A member is posted at a unit OR a district, never both.
+                                                    if (v !== '') {
+                                                        setData(
+                                                            'current_unit_id',
+                                                            '',
+                                                        );
+                                                    }
+                                                }}
+                                                disabled={
+                                                    data.current_unit_id !== ''
                                                 }
                                                 items={districts.map((d) => ({
                                                     value: String(d.id),
@@ -895,6 +978,11 @@ export default function MembersEdit({
                                                     'Search districts…',
                                                 )}
                                             />
+                                            <p className="text-xs text-muted-foreground">
+                                                {t(
+                                                    'Posted at a unit or a district — not both.',
+                                                )}
+                                            </p>
                                             <InputError
                                                 message={
                                                     errors.posting_district_id

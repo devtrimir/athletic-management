@@ -74,7 +74,7 @@ function importRow(array $overrides = []): array
         'blood_group' => null,
         'caste' => null,
         'designation' => null,
-        'appointment' => null,
+        'initial_rank' => null,
         'recruitment_type' => null,
         'sport' => null,
         'sport_event' => null,
@@ -475,4 +475,54 @@ test('error report is tenanted and requires permission', function () {
 
     $noPermission = User::factory()->create(['organization_id' => $user->organization_id]);
     $this->actingAs($noPermission)->get(route('imports.errors', $record))->assertForbidden();
+});
+
+test('template headings carry the initial rank column instead of appointment', function () {
+    $headings = MemberImportSchema::headings();
+    $keys = array_map(static fn (array $column): string => $column['key'], MemberImportSchema::columns());
+
+    expect(implode('|', $headings))->toContain('Initial Rank')
+        ->and(implode('|', $headings))->not->toContain('Appointment')
+        ->and($keys)->toContain('initial_rank')
+        ->and($keys)->not->toContain('appointment');
+});
+
+test('initial rank is imported onto the member', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow([
+                'full_name' => 'Ranked Player',
+                'pno' => '210712827',
+                'initial_rank' => 'सिपाही',
+            ]),
+        ]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->firstOrFail();
+    expect($member->initial_rank)->toBe('सिपाही');
+});
+
+test('a row with both unit and posting district is rejected', function () {
+    $user = importUser('imports.run');
+    $district = District::factory()->create();
+    $unit = Unit::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow([
+                'full_name' => 'Both Postings',
+                'pno' => '210712827',
+                'unit' => $unit->name,
+                'posting_district' => $district->name,
+            ]),
+        ]),
+    ]);
+
+    expect(Member::withoutGlobalScopes()->count())->toBe(0);
+
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->rowErrors())->toHaveCount(1)
+        ->and($record->rowErrors()[0]['errors'][0])->toContain('unit');
 });

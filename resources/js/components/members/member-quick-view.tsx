@@ -65,7 +65,7 @@ type MemberPreview = {
     blood_group: string | null;
     caste: string | null;
     promotion_date: string | null;
-    appointment: string | null;
+    initial_rank: string | null;
     recruitment_type: string | null;
     home_address: string | null;
     other_notes: string | null;
@@ -252,7 +252,7 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     ${row(t('Posting'), postingLocation(data))}
     ${row(t('Joining date'), formatDisplayDate(data.joining_date, 'hi'))}
     ${row(t('Promotion date'), formatDisplayDate(data.promotion_date, 'hi'))}
-    ${row(t('Appointment'), data.appointment)}
+    ${row(t('Initial rank'), data.initial_rank)}
     ${row(t('Sport'), data.sport?.name)}
     ${data.playable_sports.length ? `<div class="section"><h2>${t('Playable sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name}</span><span class="val">${[sport.role, sport.sport_event, sport.weight, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
     ${row(t('Home address'), data.home_address)}
@@ -461,8 +461,8 @@ export function MemberQuickView({
                                     )}
                                 />
                                 <InfoRow
-                                    label={t('Appointment')}
-                                    value={data.appointment}
+                                    label={t('Initial rank')}
+                                    value={data.initial_rank}
                                 />
                                 <InfoRow
                                     label={t('Designation')}

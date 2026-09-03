@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
-import { index as exportMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
+import { index as exportMembersUrl, print as printMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
 import MemberImportController from '@/actions/App/Http/Controllers/MemberImportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
@@ -150,7 +150,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
-    { key: 'appointment', label: 'Appointment' },
+    { key: 'initial_rank', label: 'Initial rank' },
     { key: 'playable_sports', label: 'Playable sports' },
     { key: 'promotion_date', label: 'Promotion date' },
     { key: 'team_since', label: 'Team since' },
@@ -231,38 +231,6 @@ function sportSummary(sport: Member['playable_sports'][number]): string {
     ]
         .filter(Boolean)
         .join(' · ');
-}
-
-function parseDateValue(value: string): Date | null {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const [year, month, day] = value.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDisplayDate(
-    value: string | null | undefined,
-    locale: string,
-): string | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        dateStyle: 'medium',
-    }).format(date);
 }
 
 function SportCell({ member }: { member: Member }) {
@@ -799,9 +767,7 @@ export default function MembersIndex({
         );
     }
 
-    function buildExportUrl(): string {
-        const params = new URLSearchParams();
-
+    function appendListParams(params: URLSearchParams): void {
         if (selectedIds.size > 0) {
             // Export only the selected rows by ID
             for (const id of selectedIds) {
@@ -843,6 +809,12 @@ export default function MembersIndex({
                 }
             }
         }
+    }
+
+    function buildExportUrl(): string {
+        const params = new URLSearchParams();
+
+        appendListParams(params);
 
         for (const col of selectedColumns) {
             params.append('columns[]', col);
@@ -851,57 +823,16 @@ export default function MembersIndex({
         return exportMembersUrl.url() + '?' + params.toString();
     }
 
-    function handlePrint() {
-        const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
-        const headers = cols.map((c) => `<th>${t(c.label)}</th>`).join('');
-        const bodyRows = members.data
-            .map(
-                (m) =>
-                    `<tr>${cols
-                        .map((c) => {
-                            if (c.key === 'unit') {
-                                return `<td>${m.current_unit?.name ?? '\u2014'}</td>`;
-                            }
+    function buildPrintUrl(): string {
+        const params = new URLSearchParams();
 
-                            if (c.key === 'home_district') {
-                                return `<td>${m.home_district?.name ?? '\u2014'}</td>`;
-                            }
+        appendListParams(params);
 
-                            if (c.key === 'posting_district') {
-                                return `<td>${m.current_unit?.name ?? m.posting_district?.name ?? '\u2014'}</td>`;
-                            }
-
-                            if (
-                                [
-                                    'dob',
-                                    'joining_date',
-                                    'promotion_date',
-                                    'team_since',
-                                ].includes(c.key)
-                            ) {
-                                const value = (m as Record<string, unknown>)[
-                                    c.key
-                                ];
-
-                                return `<td>${typeof value === 'string' ? (formatDisplayDate(value, locale) ?? '\u2014') : '\u2014'}</td>`;
-                            }
-
-                            const v = (m as Record<string, unknown>)[c.key];
-
-                            return `<td>${v != null && v !== '' ? String(v) : '\u2014'}</td>`;
-                        })
-                        .join('')}</tr>`,
-            )
-            .join('');
-        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('Members')}</title><style>body{font-family:sans-serif;font-size:10px;line-height:1.3;padding:12px}h2{font-size:13px;margin:0 0 8px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:3px 6px;text-align:left;vertical-align:top}th{background:#f0f0f0;font-weight:600}</style></head><body><h2>${t('Members')}</h2><table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table><script>window.onload=function(){window.print();window.close();}</script></body></html>`;
-        const win = window.open('', '_blank', 'width=900,height=700');
-
-        if (!win) {
-            return;
+        for (const col of selectedColumns) {
+            params.append('columns[]', col);
         }
 
-        win.document.write(html);
-        win.document.close();
+        return printMembersUrl.url() + '?' + params.toString();
     }
 
     const pageIds = members.data.map((m) => m.id);
@@ -1673,7 +1604,7 @@ export default function MembersIndex({
                             variant="outline"
                             disabled={selectedColumns.length === 0}
                             onClick={() => {
-                                handlePrint();
+                                window.open(buildPrintUrl(), '_blank');
                                 setExportOpen(false);
                             }}
                         >
