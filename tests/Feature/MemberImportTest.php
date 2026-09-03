@@ -10,6 +10,7 @@ use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sport;
+use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Models\User;
 use App\Support\Members\MemberImportSchema;
@@ -23,6 +24,19 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    // Mirror production: the tournament tier master is always seeded and the
+    // member import resolves player levels against it.
+    TournamentTier::upsert([
+        ['code' => 'INTERNATIONAL', 'label_hi' => 'अंतर्राष्ट्रीय', 'label_en' => 'International', 'weight' => 100],
+        ['code' => 'NATIONAL', 'label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+        ['code' => 'AIPSC', 'label_hi' => 'अखिल भारतीय पुलिस खेल', 'label_en' => 'AIPSC', 'weight' => 70],
+        ['code' => 'STATE', 'label_hi' => 'राज्यस्तरीय', 'label_en' => 'State', 'weight' => 60],
+        ['code' => 'ZONAL', 'label_hi' => 'क्षेत्रीय', 'label_en' => 'Zonal', 'weight' => 40],
+        ['code' => 'OTHER', 'label_hi' => 'अन्य', 'label_en' => 'Other', 'weight' => 10],
+    ], uniqueBy: ['code']);
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -165,14 +179,19 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // DB-backed dropdowns via named ranges.
     expect($sheet->getCell('J2')->getDataValidation()->getFormula1())->toBe('DistrictList')
         ->and($sheet->getCell('L2')->getDataValidation()->getFormula1())->toBe('UnitList')
-        ->and($sheet->getCell('S2')->getDataValidation()->getFormula1())->toBe('SportList');
+        ->and($sheet->getCell('S2')->getDataValidation()->getFormula1())->toBe('SportList')
+        ->and($sheet->getCell('I2')->getDataValidation()->getFormula1())->toBe('TierList');
 
     $districtRange = $spreadsheet->getNamedRange('DistrictList');
     expect($districtRange)->not->toBeNull()
         ->and($districtRange->getWorksheet()->getTitle())->toBe('Reference');
 
-    // Reference sheet lists the seeded district.
-    expect($reference->getCell('A3')->getValue())->toBe($district->name);
+    $tierRange = $spreadsheet->getNamedRange('TierList');
+    expect($tierRange)->not->toBeNull();
+
+    // Reference sheet lists the seeded district and the top-weight tier label.
+    expect($reference->getCell('A3')->getValue())->toBe($district->name)
+        ->and($reference->getCell('D3')->getValue())->toBe('International');
 
     // Date columns carry a real Excel date format.
     expect($sheet->getStyle('E2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
@@ -312,6 +331,38 @@ test('category dropdown labels resolve to codes on import', function () {
         ->and($members->firstWhere('full_name', 'Label Player GD')->player_category)->toBe('GD')
         ->and($members->firstWhere('full_name', 'Label Player SQ')->player_category)->toBe('SPORTS_QUOTA')
         ->and($members->firstWhere('full_name', 'Code Player')->player_category)->toBe('GD');
+});
+
+test('level dropdown labels resolve to tournament tier codes on import', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'Label Level Player', 'player_level' => 'National']),
+            importRow(['full_name' => 'Code Level Player', 'player_level' => 'NATIONAL', 'pno' => '210712827']),
+        ]),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members)->toHaveCount(2)
+        ->and($members->firstWhere('full_name', 'Label Level Player')->player_level)->toBe('NATIONAL')
+        ->and($members->firstWhere('full_name', 'Code Level Player')->player_level)->toBe('NATIONAL');
+});
+
+test('an unknown level is rejected', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'Bad Level Player', 'player_level' => 'Galactic']),
+        ]),
+    ]);
+
+    expect(Member::withoutGlobalScopes()->count())->toBe(0);
+
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->rowErrors())->toHaveCount(1)
+        ->and($record->rowErrors()[0]['errors'][0])->toContain('NATIONAL');
 });
 
 test('re-uploading the same PNO updates the member instead of duplicating', function () {

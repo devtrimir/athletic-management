@@ -7,6 +7,7 @@ namespace App\Imports;
 use App\Models\District;
 use App\Models\Member;
 use App\Models\Sport;
+use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\MemberCodeGenerator;
 use App\Support\Members\MemberImportSchema;
@@ -49,6 +50,9 @@ class MembersImport implements ToCollection, WithMultipleSheets
     private array $errors = [];
 
     private ?string $templateError = null;
+
+    /** @var array<string, string>|null */
+    private ?array $tierMap = null;
 
     public function __construct(
         private readonly int $organizationId,
@@ -327,11 +331,13 @@ class MembersImport implements ToCollection, WithMultipleSheets
             $payload['player_category'] = $category;
         }
 
-        // Player level (required)
-        $level = $this->normalizeEnum($get('player_level'), array_fill_keys(MemberImportSchema::PLAYER_LEVELS, null));
+        // Player level (required) — backed by the tournament_tiers master;
+        // accepts the dropdown labels as well as the raw codes.
+        $levelMap = $this->tierMap();
+        $level = $this->normalizeEnum($get('player_level'), $levelMap);
 
         if ($level === null) {
-            $errors[] = __('Level is required and must be one of: ZONAL, NATIONAL, INTERNATIONAL, AIPSC.');
+            $errors[] = __('Level is required and must be one of: :values.', ['values' => implode(', ', array_unique(array_values($levelMap)))]);
         } else {
             $payload['player_level'] = $level;
         }
@@ -442,6 +448,28 @@ class MembersImport implements ToCollection, WithMultipleSheets
      *
      * @param  array<string, string|null>  $map
      */
+    /**
+     * Dropdown-label → code map for player levels, built once per import from
+     * the tournament_tiers master (codes stay accepted as-is).
+     *
+     * @return array<string, string>
+     */
+    private function tierMap(): array
+    {
+        if ($this->tierMap !== null) {
+            return $this->tierMap;
+        }
+
+        $map = [];
+
+        foreach (TournamentTier::orderByDesc('weight')->get(['code', 'label_en']) as $tier) {
+            $map[$tier->code] = $tier->code;
+            $map[strtoupper(str_replace([' ', '-'], '_', $tier->label_en))] = $tier->code;
+        }
+
+        return $this->tierMap = $map;
+    }
+
     private function normalizeEnum(mixed $raw, array $map): ?string
     {
         $value = trim((string) $raw);

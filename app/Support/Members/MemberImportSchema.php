@@ -21,8 +21,6 @@ class MemberImportSchema
         'SPORTS_QUOTA' => 'Sports Quota',
     ];
 
-    public const PLAYER_LEVELS = ['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'];
-
     public const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
     public const RECRUITMENT_TYPES = ['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER'];
@@ -30,7 +28,7 @@ class MemberImportSchema
     /**
      * `date` marks date columns (Excel date format in the template); `ref`
      * marks columns backed by a DB reference list (`districts`, `units`,
-     * `sports`) which becomes a named-range dropdown in the template.
+     * `sports`, `tiers`) which becomes a named-range dropdown in the template.
      *
      * @return list<array{key: string, label: string, required: bool, example: string|null, list: list<string>|null, date: bool, ref: string|null}>
      */
@@ -45,7 +43,7 @@ class MemberImportSchema
             ['key' => 'rank', 'label' => 'Rank / पद', 'required' => false, 'example' => 'Constable', 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'mobile', 'label' => 'Mobile / मोबाइल नंबर', 'required' => false, 'example' => '6397707210', 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'player_category', 'label' => 'Category / श्रेणी', 'required' => true, 'example' => 'Ground Duty', 'list' => array_values(self::PLAYER_CATEGORY_LABELS), 'date' => false, 'ref' => null],
-            ['key' => 'player_level', 'label' => 'Level / स्तर', 'required' => true, 'example' => 'NATIONAL', 'list' => self::PLAYER_LEVELS, 'date' => false, 'ref' => null],
+            ['key' => 'player_level', 'label' => 'Level / स्तर', 'required' => true, 'example' => 'NATIONAL', 'list' => null, 'date' => false, 'ref' => 'tiers'],
             ['key' => 'home_district', 'label' => 'Home District / गृह जनपद', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'districts'],
             ['key' => 'posting_district', 'label' => 'Posting District / तैनाती जनपद', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'districts'],
             ['key' => 'unit', 'label' => 'Unit / इकाई', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'units'],
@@ -71,6 +69,7 @@ class MemberImportSchema
             'districts' => 'DistrictList',
             'units' => 'UnitList',
             'sports' => 'SportList',
+            'tiers' => 'TierList',
             default => throw new \InvalidArgumentException("Unknown member import reference: {$ref}"),
         };
     }
