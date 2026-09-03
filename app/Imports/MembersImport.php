@@ -6,6 +6,7 @@ namespace App\Imports;
 
 use App\Models\District;
 use App\Models\Member;
+use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
 use App\Models\Unit;
@@ -53,6 +54,9 @@ class MembersImport implements ToCollection, WithMultipleSheets
 
     /** @var array<string, string>|null */
     private ?array $tierMap = null;
+
+    /** @var array<string, string>|null */
+    private ?array $rankMap = null;
 
     public function __construct(
         private readonly int $organizationId,
@@ -271,7 +275,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
             'father_name' => $str('father_name'),
             'gender' => null,
             'dob' => null,
-            'rank' => $str('rank'),
+            'rank' => $this->resolveRank($str('rank')),
             'mobile' => null,
             'player_category' => null,
             'player_level' => null,
@@ -282,7 +286,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
             'blood_group' => null,
             'caste' => $str('caste'),
             'designation' => $str('designation'),
-            'initial_rank' => $str('initial_rank'),
+            'initial_rank' => $this->resolveRank($str('initial_rank')),
             'sport_event' => $str('sport_event'),
             'team_since' => null,
             'home_address' => $str('home_address'),
@@ -459,6 +463,43 @@ class MembersImport implements ToCollection, WithMultipleSheets
         }
 
         return $this->tierMap = $map;
+    }
+
+    /**
+     * Name/alias → code map for ranks, built once per import from the ranks
+     * master (codes stay accepted as-is). Unknown values pass through
+     * unchanged — the forms also allow a custom free-text rank.
+     *
+     * @return array<string, string>
+     */
+    private function rankMap(): array
+    {
+        if ($this->rankMap !== null) {
+            return $this->rankMap;
+        }
+
+        $map = [];
+
+        foreach (Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'aliases']) as $rank) {
+            foreach (array_filter([$rank->code, $rank->short_name, $rank->name, $rank->name_en, ...($rank->aliases ?? [])]) as $value) {
+                $map[strtoupper(str_replace([' ', '-'], '_', $value))] = $rank->code;
+            }
+        }
+
+        return $this->rankMap = $map;
+    }
+
+    /**
+     * Resolve a rank cell to its master code; unmatched non-empty text is
+     * kept as-is (custom ranks), empty stays null. Never errors the row.
+     */
+    private function resolveRank(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return $this->rankMap()[strtoupper(str_replace([' ', '-'], '_', $value))] ?? $value;
     }
 
     private function normalizeEnum(mixed $raw, array $map): ?string

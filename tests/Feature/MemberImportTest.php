@@ -8,6 +8,7 @@ use App\Models\Import;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Permission;
+use App\Models\Rank;
 use App\Models\Role;
 use App\Models\Sport;
 use App\Models\TournamentTier;
@@ -36,6 +37,18 @@ beforeEach(function () {
         ['code' => 'ZONAL', 'label_hi' => 'क्षेत्रीय', 'label_en' => 'Zonal', 'weight' => 40],
         ['code' => 'OTHER', 'label_hi' => 'अन्य', 'label_en' => 'Other', 'weight' => 10],
     ], uniqueBy: ['code']);
+
+    // Mirror production: the ranks master is always seeded and the member
+    // import resolves rank / initial rank dropdown values against it.
+    Rank::create([
+        'code' => 'CONSTABLE',
+        'name' => 'आरक्षी / सिपाही',
+        'name_en' => 'Police Constable',
+        'short_name' => 'Constable',
+        'rank_order' => 10,
+        'aliases' => ['Sipahi', 'Police Constable', 'आरक्षी', 'सिपाही'],
+        'is_active' => true,
+    ]);
 });
 
 // ---------------------------------------------------------------------------
@@ -179,7 +192,11 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     expect($sheet->getCell('J2')->getDataValidation()->getFormula1())->toBe('DistrictList')
         ->and($sheet->getCell('L2')->getDataValidation()->getFormula1())->toBe('UnitList')
         ->and($sheet->getCell('R2')->getDataValidation()->getFormula1())->toBe('SportList')
-        ->and($sheet->getCell('I2')->getDataValidation()->getFormula1())->toBe('TierList');
+        ->and($sheet->getCell('I2')->getDataValidation()->getFormula1())->toBe('TierList')
+        ->and($sheet->getCell('F2')->getDataValidation()->getFormula1())->toBe('RankList')
+        ->and($sheet->getCell('Q2')->getDataValidation()->getFormula1())->toBe('RankList')
+        ->and($sheet->getCell('F2')->getDataValidation()->getShowDropDown())->toBeTrue()
+        ->and($sheet->getCell('Q2')->getDataValidation()->getShowDropDown())->toBeTrue();
 
     $districtRange = $spreadsheet->getNamedRange('DistrictList');
     expect($districtRange)->not->toBeNull()
@@ -188,9 +205,14 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     $tierRange = $spreadsheet->getNamedRange('TierList');
     expect($tierRange)->not->toBeNull();
 
+    $rankRange = $spreadsheet->getNamedRange('RankList');
+    expect($rankRange)->not->toBeNull()
+        ->and($rankRange->getWorksheet()->getTitle())->toBe('Reference');
+
     // Reference sheet lists the seeded district and the top-weight tier label.
     expect($reference->getCell('A3')->getValue())->toBe($district->name)
-        ->and($reference->getCell('D3')->getValue())->toBe('International');
+        ->and($reference->getCell('D3')->getValue())->toBe('International')
+        ->and($reference->getCell('E3')->getValue())->toBe('आरक्षी / सिपाही');
 
     // Date columns carry a real Excel date format.
     expect($sheet->getStyle('E2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
@@ -294,6 +316,49 @@ test('real Excel dates in date-formatted cells are converted on import', functio
     $member = Member::withoutGlobalScopes()->firstOrFail();
     expect($member->dob->toDateString())->toBe('1999-05-10')
         ->and($member->joining_date->toDateString())->toBe('2021-12-15');
+});
+
+test('rank and initial rank cells resolve master names, short names, and aliases to codes', function () {
+    $user = importUser('imports.run');
+
+    $rows = [
+        // Alias picks the CONSTABLE code.
+        importRow(['full_name' => 'Alias Rank', 'pno' => '210712821', 'rank' => 'सिपाही']),
+        // Short name picks the CONSTABLE code.
+        importRow(['full_name' => 'Short Rank', 'pno' => '210712822', 'rank' => 'Constable']),
+        // Initial rank resolves through the same map.
+        importRow(['full_name' => 'Initial Rank', 'pno' => '210712823', 'initial_rank' => 'Police Constable']),
+    ];
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile($rows),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members->firstWhere('full_name', 'Alias Rank')->rank)->toBe('CONSTABLE')
+        ->and($members->firstWhere('full_name', 'Short Rank')->rank)->toBe('CONSTABLE')
+        ->and($members->firstWhere('full_name', 'Initial Rank')->initial_rank)->toBe('CONSTABLE');
+
+    $record = Import::withoutGlobalScopes()->first();
+    expect($record->status)->toBe(Import::STATUS_COMPLETED)
+        ->and($record->error_log)->toBeNull();
+});
+
+test('custom rank text that matches no master rank is kept as-is without a row error', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'Custom Rank', 'pno' => '210712824', 'rank' => 'मंच अध्यक्ष']),
+        ]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->firstOrFail();
+    expect($member->rank)->toBe('मंच अध्यक्ष');
+
+    $record = Import::withoutGlobalScopes()->first();
+    expect($record->status)->toBe(Import::STATUS_COMPLETED)
+        ->and($record->error_log)->toBeNull();
 });
 
 test('the template example row is never imported as a member', function () {
@@ -554,13 +619,13 @@ test('initial rank is imported onto the member', function () {
             importRow([
                 'full_name' => 'Ranked Player',
                 'pno' => '210712827',
-                'initial_rank' => 'सिपाही',
+                'initial_rank' => 'हवलदार',
             ]),
         ]),
     ]);
 
     $member = Member::withoutGlobalScopes()->firstOrFail();
-    expect($member->initial_rank)->toBe('सिपाही');
+    expect($member->initial_rank)->toBe('हवलदार');
 });
 
 test('home address is imported onto the member', function () {
