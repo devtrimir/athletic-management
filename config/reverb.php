@@ -32,7 +32,12 @@ return [
             'host' => env('REVERB_SERVER_HOST', '0.0.0.0'),
             'port' => env('REVERB_SERVER_PORT', 8080),
             'path' => env('REVERB_SERVER_PATH', ''),
-            'hostname' => env('REVERB_HOST'),
+            // NOT REVERB_HOST: the hostname is only used to auto-resolve a TLS
+            // certificate for the socket. Pointing it at a Herd (*.test) domain
+            // makes Reverb silently serve TLS itself while every local hop
+            // (Laravel publish, Herd proxy) speaks plain HTTP. Set
+            // REVERB_SERVER_HOSTNAME only when Reverb terminates TLS directly.
+            'hostname' => env('REVERB_SERVER_HOSTNAME'),
             'options' => [
                 'tls' => [],
             ],
