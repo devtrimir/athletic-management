@@ -48,7 +48,6 @@ class MemberImportSchema
             ['key' => 'joining_date', 'label' => 'Joining Date / भर्ती तिथि', 'required' => false, 'example' => '15.12.2021', 'list' => null, 'date' => true, 'ref' => null],
             ['key' => 'blood_group', 'label' => 'Blood Group / रक्त समूह', 'required' => false, 'example' => 'B+', 'list' => self::BLOOD_GROUPS, 'date' => false, 'ref' => null],
             ['key' => 'caste', 'label' => 'Caste / जाति', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => null],
-            ['key' => 'designation', 'label' => 'Designation / पदनाम', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'initial_rank', 'label' => 'Initial Rank / भर्ती पद', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'ranks'],
             ['key' => 'sport', 'label' => 'Sport / खेल', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'sports'],
             ['key' => 'sport_event', 'label' => 'Sport Event / स्पर्धा', 'required' => false, 'example' => '48 kg Sanda', 'list' => null, 'date' => false, 'ref' => null],

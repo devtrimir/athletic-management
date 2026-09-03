@@ -48,7 +48,6 @@ type Member = {
     full_name_normalized: string | null;
     father_name: string | null;
     rank: string | null;
-    designation: string | null;
     gender: string;
     dob: string | null;
     joining_date: string | null;
@@ -91,7 +90,6 @@ type FormData = {
     full_name_normalized: string;
     father_name: string;
     rank: string;
-    designation: string;
     gender: string;
     dob: string;
     joining_date: string;
@@ -125,14 +123,12 @@ export default function MembersEdit({
     units,
     sports,
     ranks,
-    designations,
 }: {
     member: Member;
     districts: District[];
     units: Unit[];
     sports: SportOption[];
     ranks: MasterOption[];
-    designations: MasterOption[];
 }) {
     const { t } = useTranslation();
     const { locale } = usePage().props;
@@ -141,17 +137,6 @@ export default function MembersEdit({
             [rank.code, rank.name, rank.name, rank.short_name]
                 .filter(Boolean)
                 .includes(member.rank ?? ''),
-        )?.code ?? '__other__';
-    const initialDesignationSelection =
-        designations.find((designation) =>
-            [
-                designation.code,
-                designation.name,
-                designation.name,
-                designation.short_name,
-            ]
-                .filter(Boolean)
-                .includes(member.designation ?? ''),
         )?.code ?? '__other__';
     const [rankSelection, setRankSelection] = useState(initialRankSelection);
     const [rankCustom, setRankCustom] = useState(
@@ -171,14 +156,6 @@ export default function MembersEdit({
             ? (member.initial_rank ?? '')
             : '',
     );
-    const [designationSelection, setDesignationSelection] = useState(
-        initialDesignationSelection,
-    );
-    const [designationCustom, setDesignationCustom] = useState(
-        initialDesignationSelection === '__other__'
-            ? (member.designation ?? '')
-            : '',
-    );
 
     setLayoutProps({
         breadcrumbs: [
@@ -195,7 +172,6 @@ export default function MembersEdit({
             full_name_normalized: member.full_name_normalized ?? '',
             father_name: member.father_name ?? '',
             rank: member.rank ?? '',
-            designation: member.designation ?? '',
             gender: member.gender,
             dob: member.dob ?? '',
             joining_date: member.joining_date ?? '',
@@ -264,7 +240,6 @@ export default function MembersEdit({
     const hasServiceErrors = !!(
         errors.pno ||
         errors.rank ||
-        errors.designation ||
         errors.joining_date ||
         errors.current_unit_id ||
         errors.home_district_id ||
@@ -284,8 +259,6 @@ export default function MembersEdit({
 
         return item.short_name ? `${item.short_name} - ${name}` : name;
     }
-
-    const designationLabel = t('Designation');
 
     function normalizedPlayableSports() {
         return data.playable_sports
@@ -717,83 +690,6 @@ export default function MembersEdit({
                                                 />
                                             )}
                                             <InputError message={errors.rank} />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="designation">
-                                                {designationLabel}{' '}
-                                                <span className="text-muted-foreground">
-                                                    {t('(optional)')}
-                                                </span>
-                                            </Label>
-                                            <Select
-                                                value={designationSelection}
-                                                onValueChange={(value) => {
-                                                    setDesignationSelection(
-                                                        value,
-                                                    );
-                                                    setData(
-                                                        'designation',
-                                                        value === '__other__'
-                                                            ? designationCustom
-                                                            : value,
-                                                    );
-                                                }}
-                                            >
-                                                <SelectTrigger
-                                                    id="designation"
-                                                    className="h-9 w-full"
-                                                >
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select designation',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {designations.map(
-                                                        (designation) => (
-                                                            <SelectItem
-                                                                key={
-                                                                    designation.code
-                                                                }
-                                                                value={
-                                                                    designation.code
-                                                                }
-                                                            >
-                                                                {masterLabel(
-                                                                    designation,
-                                                                )}
-                                                            </SelectItem>
-                                                        ),
-                                                    )}
-                                                    <SelectItem value="__other__">
-                                                        {t('Other')}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {designationSelection ===
-                                                '__other__' && (
-                                                <Input
-                                                    className="mt-2 h-9"
-                                                    value={designationCustom}
-                                                    onChange={(e) => {
-                                                        setDesignationCustom(
-                                                            e.target.value,
-                                                        );
-                                                        setData(
-                                                            'designation',
-                                                            e.target.value.trim(),
-                                                        );
-                                                    }}
-                                                    maxLength={100}
-                                                    placeholder={t(
-                                                        'Enter designation',
-                                                    )}
-                                                />
-                                            )}
-                                            <InputError
-                                                message={errors.designation}
-                                            />
                                         </div>
                                     </div>
 

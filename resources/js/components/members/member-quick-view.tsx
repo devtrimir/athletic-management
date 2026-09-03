@@ -54,7 +54,6 @@ type MemberPreview = {
     full_name: string;
     father_name: string | null;
     rank: string | null;
-    designation: string | null;
     gender: string;
     dob: string | null;
     joining_date: string | null;
@@ -247,7 +246,6 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     ${row(t('Home district'), data.home_district?.name)}
     <h2>${t('Service')}</h2>
     ${row(t('Rank'), data.rank ? t(data.rank) : null)}
-    ${row(t('Designation'), data.designation ? t(data.designation) : null)}
     ${row(t('Posting'), postingLocation(data))}
     ${row(t('Joining date'), formatDisplayDate(data.joining_date, 'hi'))}
     ${row(t('Promotion date'), formatDisplayDate(data.promotion_date, 'hi'))}
@@ -462,14 +460,6 @@ export function MemberQuickView({
                                 <InfoRow
                                     label={t('Initial rank')}
                                     value={data.initial_rank}
-                                />
-                                <InfoRow
-                                    label={t('Designation')}
-                                    value={
-                                        data.designation
-                                            ? t(data.designation)
-                                            : null
-                                    }
                                 />
                                 <InfoRow
                                     label={t('Sport')}

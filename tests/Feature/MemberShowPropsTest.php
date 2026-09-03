@@ -31,7 +31,6 @@ test('show returns member resource in Inertia props', function (): void {
                 ->has('full_name')
                 ->has('father_name')
                 ->has('rank')
-                ->has('designation')
                 ->has('gender')
                 ->has('dob')
                 ->has('joining_date')

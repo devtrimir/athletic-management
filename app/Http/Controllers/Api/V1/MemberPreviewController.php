@@ -46,7 +46,6 @@ class MemberPreviewController extends Controller
             'full_name' => $member->full_name,
             'father_name' => $member->father_name,
             'rank' => $member->rank,
-            'designation' => $member->designation,
             'gender' => $member->gender,
             'dob' => $member->dob?->toDateString(),
             'joining_date' => $member->joining_date?->toDateString(),

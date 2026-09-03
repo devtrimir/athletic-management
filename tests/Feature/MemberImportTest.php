@@ -100,7 +100,6 @@ function importRow(array $overrides = []): array
         'joining_date' => null,
         'blood_group' => null,
         'caste' => null,
-        'designation' => null,
         'initial_rank' => null,
         'sport' => null,
         'sport_event' => null,
@@ -183,7 +182,7 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // inverted: "1" hides the arrow — PhpSpreadsheet models it as "show").
     expect($sheet->getCell('D2')->getDataValidation()->getShowDropDown())->toBeTrue()
         ->and($sheet->getCell('J2')->getDataValidation()->getShowDropDown())->toBeTrue()
-        ->and($sheet->getCell('R2')->getDataValidation()->getShowDropDown())->toBeTrue();
+        ->and($sheet->getCell('Q2')->getDataValidation()->getShowDropDown())->toBeTrue();
 
     // Category dropdown shows friendly labels, not raw codes.
     expect($sheet->getCell('H2')->getDataValidation()->getFormula1())->toBe('"Ground Duty,Sports Quota"');
@@ -191,12 +190,12 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // DB-backed dropdowns via named ranges.
     expect($sheet->getCell('J2')->getDataValidation()->getFormula1())->toBe('DistrictList')
         ->and($sheet->getCell('L2')->getDataValidation()->getFormula1())->toBe('UnitList')
-        ->and($sheet->getCell('R2')->getDataValidation()->getFormula1())->toBe('SportList')
+        ->and($sheet->getCell('Q2')->getDataValidation()->getFormula1())->toBe('SportList')
         ->and($sheet->getCell('I2')->getDataValidation()->getFormula1())->toBe('TierList')
         ->and($sheet->getCell('F2')->getDataValidation()->getFormula1())->toBe('RankList')
-        ->and($sheet->getCell('Q2')->getDataValidation()->getFormula1())->toBe('RankList')
+        ->and($sheet->getCell('P2')->getDataValidation()->getFormula1())->toBe('RankList')
         ->and($sheet->getCell('F2')->getDataValidation()->getShowDropDown())->toBeTrue()
-        ->and($sheet->getCell('Q2')->getDataValidation()->getShowDropDown())->toBeTrue();
+        ->and($sheet->getCell('P2')->getDataValidation()->getShowDropDown())->toBeTrue();
 
     $districtRange = $spreadsheet->getNamedRange('DistrictList');
     expect($districtRange)->not->toBeNull()
@@ -217,7 +216,7 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // Date columns carry a real Excel date format.
     expect($sheet->getStyle('E2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
         ->and($sheet->getStyle('M2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
-        ->and($sheet->getStyle('T2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY');
+        ->and($sheet->getStyle('S2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY');
 });
 
 // ---------------------------------------------------------------------------
@@ -605,6 +604,7 @@ test('template headings carry the initial rank column instead of appointment', f
         ->and(implode('|', $headings))->not->toContain('Appointment')
         ->and(implode('|', $headings))->not->toContain('Recruitment')
         ->and($keys)->toContain('initial_rank')
+        ->and($keys)->not->toContain('designation')
         ->and($keys)->not->toContain('appointment')
         ->and($keys)->not->toContain('recruitment_type')
         ->and($keys)->toContain('home_address')

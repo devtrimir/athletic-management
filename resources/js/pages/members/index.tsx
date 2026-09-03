@@ -72,7 +72,6 @@ type Member = {
     pno: string | null;
     full_name: string;
     rank: string | null;
-    designation?: string | null;
     gender?: string | null;
     blood_group?: string | null;
     player_category: string;
@@ -141,7 +140,6 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'dob', label: 'Date of birth' },
     { key: 'rank', label: 'Rank' },
     { key: 'mobile', label: 'Mobile' },
-    { key: 'designation', label: 'Designation' },
     { key: 'player_category', label: 'Category' },
     { key: 'player_level', label: 'Level' },
     { key: 'home_district', label: 'Home district' },
@@ -1371,13 +1369,6 @@ export default function MembersIndex({
                                                 <span className="truncate font-semibold text-foreground">
                                                     {member.full_name}
                                                 </span>
-                                                <div className="flex shrink-0 items-center gap-1.5">
-                                                    {member.designation && (
-                                                        <span className="truncate text-xs font-medium text-amber-700 dark:text-amber-300">
-                                                            {member.designation}
-                                                        </span>
-                                                    )}
-                                                </div>
                                             </div>
                                         </TableCell>
                                         <TableCell className="hidden text-muted-foreground md:table-cell">

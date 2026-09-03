@@ -96,7 +96,6 @@ test('teams.export writes roster details across multiple rows and merges team ce
         'pno' => 'PNO001',
         'gender' => 'M',
         'rank' => 'Constable',
-        'designation' => 'Player',
         'mobile' => '9000000001',
     ]);
     $secondMember = Member::factory()->create([
@@ -105,7 +104,6 @@ test('teams.export writes roster details across multiple rows and merges team ce
         'pno' => 'PNO002',
         'gender' => 'F',
         'rank' => 'Head Constable',
-        'designation' => 'Captain',
         'mobile' => '9000000002',
     ]);
 

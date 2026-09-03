@@ -18,7 +18,6 @@ type Member = {
     full_name: string;
     father_name: string | null;
     rank: string | null;
-    designation: string | null;
     gender: string;
     dob: string | null;
     joining_date: string | null;
@@ -317,7 +316,6 @@ const UI_LABELS: Record<
     'Joining date': { en: 'Joining date', hi: 'जॉइनिंग तिथि' },
     'Promotion date': { en: 'Promotion date', hi: 'पदोन्नति तिथि' },
     Rank: { en: 'Rank', hi: 'रैंक' },
-    Designation: { en: 'Designation', hi: 'पदनाम' },
     'Current unit': { en: 'Current unit', hi: 'वर्तमान इकाई' },
     'Home district': { en: 'Home district', hi: 'गृह जनपद' },
     Posting: { en: 'Posting', hi: 'तैनाती' },
@@ -596,7 +594,6 @@ const STORY_FIELDS: Record<string, { en: string; hi: string }> = {
     "Father's name": { en: "the father's name", hi: 'पिता का नाम' },
     PNO: { en: 'the PNO', hi: 'पीएनओ' },
     Rank: { en: 'the rank', hi: 'रैंक' },
-    Designation: { en: 'the designation', hi: 'पदनाम' },
     Gender: { en: 'the gender', hi: 'लिंग' },
     'Date of birth': { en: 'the date of birth', hi: 'जन्म तिथि' },
     Mobile: { en: 'the mobile number', hi: 'मोबाइल नंबर' },
@@ -1583,10 +1580,6 @@ export default function PrintPreview({
                                     {
                                         label: uiText('Rank', locale),
                                         value: member.rank,
-                                    },
-                                    {
-                                        label: uiText('Designation', locale),
-                                        value: member.designation,
                                     },
                                     {
                                         label: uiText('Home district', locale),

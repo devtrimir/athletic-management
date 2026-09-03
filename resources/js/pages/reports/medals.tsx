@@ -63,11 +63,6 @@ type Unit = { id: number; name: string };
 type Session = { id: number; name: string; is_current: boolean };
 type District = { id: number; name: string };
 type RankOption = { code: string; name: string; short_name: string | null };
-type DesignationOption = {
-    code: string;
-    name: string;
-    short_name: string | null;
-};
 type TournamentOption = {
     id: number;
     session_id: number | null;
@@ -181,7 +176,6 @@ type Filters = {
     unit_ids: string[];
     district_ids: string[];
     rank_codes: string[];
-    designations: string[];
     player_categories: string[];
     player_levels: string[];
     statuses: string[];
@@ -222,7 +216,6 @@ const ARRAY_FILTER_KEYS: Array<keyof Filters> = [
     'unit_ids',
     'district_ids',
     'rank_codes',
-    'designations',
     'player_categories',
     'player_levels',
     'statuses',
@@ -356,7 +349,6 @@ function emptyFilters(): Filters {
         unit_ids: [],
         district_ids: [],
         rank_codes: [],
-        designations: [],
         player_categories: [],
         player_levels: [],
         statuses: [],
@@ -1854,7 +1846,6 @@ export default function ReportsMedals({
     units,
     districts,
     ranks,
-    designations,
     venues,
     disciplines,
     weightCategories,
@@ -1869,7 +1860,6 @@ export default function ReportsMedals({
     units: Unit[];
     districts: District[];
     ranks: RankOption[];
-    designations: DesignationOption[];
     venues: string[];
     disciplines: string[];
     weightCategories: string[];
@@ -2169,12 +2159,6 @@ export default function ReportsMedals({
     const rankOptions = ranks.map((rank) => ({
         value: rank.code,
         label: [rank.name, rank.short_name].filter(Boolean).join(' · '),
-    }));
-    const designationOptions = designations.map((designation) => ({
-        value: designation.code,
-        label: [designation.name, designation.short_name]
-            .filter(Boolean)
-            .join(' · '),
     }));
     const selectedTournamentId = filters.tournament_ids[0] ?? ALL;
     const venueOptions = venues.map((venue) => ({
@@ -2568,15 +2552,6 @@ export default function ReportsMedals({
                                 options={rankOptions}
                                 placeholder={t('All Ranks')}
                                 searchPlaceholder={t('Search ranks…')}
-                            />
-                            <OptionMultiSelect
-                                value={filters.designations}
-                                onValueChange={(value) =>
-                                    setArrayFilter('designations', value)
-                                }
-                                options={designationOptions}
-                                placeholder={t('All Designations')}
-                                searchPlaceholder={t('Search designations…')}
                             />
                             <OptionMultiSelect
                                 value={filters.district_ids}

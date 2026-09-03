@@ -11,7 +11,6 @@ use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
 use App\Models\Achievement;
 use App\Models\AuditLog;
-use App\Models\Designation;
 use App\Models\District;
 use App\Models\Member;
 use App\Models\MemberPromotion;
@@ -69,7 +68,6 @@ class MemberController extends Controller
                 AllowedFilter::exact('current_unit_id'),
                 AllowedFilter::exact('pno'),
                 AllowedFilter::exact('rank'),
-                AllowedFilter::exact('designation'),
                 AllowedFilter::exact('mobile'),
                 AllowedFilter::exact('gender'),
                 AllowedFilter::exact('blood_group'),
@@ -142,7 +140,6 @@ class MemberController extends Controller
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'totalCount' => Member::count(),
         ]);
     }
@@ -210,7 +207,6 @@ class MemberController extends Controller
                 ->orderByDesc('id')
                 ->get(),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
     }
 
@@ -260,7 +256,6 @@ class MemberController extends Controller
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ]);
     }
 
@@ -437,7 +432,6 @@ class MemberController extends Controller
                 ->orderByDesc('id')
                 ->get(),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
                 ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
                 ->orderByDesc('id')

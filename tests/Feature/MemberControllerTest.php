@@ -405,22 +405,6 @@ test('index filters by rank', function () {
         );
 });
 
-test('index filters by designation', function () {
-    $user = memberUser('members.view');
-    connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'designation' => 'Station House Officer']));
-    Member::factory()->create(['organization_id' => $user->organization_id, 'designation' => 'Inspector']);
-
-    $this->actingAs($user)
-        ->get(route('members.index', ['filter' => ['designation' => 'Station House Officer']]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('members/index')
-            ->where('filters.designation', 'Station House Officer')
-            ->where('members.total', 1)
-            ->where('members.data.0.designation', 'Station House Officer')
-        );
-});
-
 test('index q filter searches by full_name', function () {
     $user = memberUser('members.view');
     connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'full_name' => 'राम कुमार']));
@@ -467,7 +451,6 @@ test('user with members.create sees create form', function () {
             ->has('districts')
             ->has('units')
             ->has('ranks')
-            ->has('designations')
         );
 });
 
@@ -752,7 +735,6 @@ test('edit returns member and selects', function () {
             ->has('districts')
             ->has('units')
             ->has('ranks')
-            ->has('designations')
         );
 });
 

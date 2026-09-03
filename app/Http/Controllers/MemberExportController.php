@@ -37,7 +37,6 @@ class MemberExportController extends Controller
         'joining_date' => 'Joining Date',
         'blood_group' => 'Blood Group',
         'caste' => 'Caste',
-        'designation' => 'Designation',
         'initial_rank' => 'Initial Rank',
         'playable_sports' => 'Playable Sports',
         'promotion_date' => 'Promotion Date',

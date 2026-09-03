@@ -32,7 +32,6 @@ use Illuminate\Support\Carbon;
  * @property string|null $father_name
  * @property string|null $rank
  * @property string|null $initial_rank
- * @property string|null $designation
  * @property string $gender
  * @property Carbon|null $dob
  * @property Carbon|null $joining_date
@@ -73,7 +72,6 @@ use Illuminate\Support\Carbon;
     'father_name',
     'rank',
     'initial_rank',
-    'designation',
     'photo_path',
     'blood_group',
     'caste',

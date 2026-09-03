@@ -29,7 +29,6 @@ class StoreMemberRequest extends FormRequest
             'father_name' => ['nullable', 'string', 'max:255'],
             'rank' => ['nullable', 'string', 'max:100'],
             'initial_rank' => ['nullable', 'string', 'max:100'],
-            'designation' => ['nullable', 'string', 'max:100'],
             'gender' => ['required', Rule::in(['M', 'F', 'O'])],
             'dob' => ['nullable', 'date', 'before:today'],
             'joining_date' => ['nullable', 'date'],

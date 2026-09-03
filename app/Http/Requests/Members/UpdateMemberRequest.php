@@ -30,7 +30,6 @@ class UpdateMemberRequest extends FormRequest
             'father_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'rank' => ['sometimes', 'nullable', 'string', 'max:100'],
             'initial_rank' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'designation' => ['sometimes', 'nullable', 'string', 'max:100'],
             'gender' => ['sometimes', 'required', Rule::in(['M', 'F', 'O'])],
             'dob' => ['sometimes', 'nullable', 'date', 'before:today'],
             'joining_date' => ['sometimes', 'nullable', 'date'],

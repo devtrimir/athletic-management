@@ -285,7 +285,6 @@ class MembersImport implements ToCollection, WithMultipleSheets
             'joining_date' => null,
             'blood_group' => null,
             'caste' => $str('caste'),
-            'designation' => $str('designation'),
             'initial_rank' => $this->resolveRank($str('initial_rank')),
             'sport_event' => $str('sport_event'),
             'team_since' => null,

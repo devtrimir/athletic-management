@@ -202,7 +202,6 @@ class AuditLogBuilder
                 'father_name' => "Father's name",
                 'pno' => 'PNO',
                 'rank' => 'Rank',
-                'designation' => 'Designation',
                 'gender' => 'Gender',
                 'dob' => 'Date of birth',
                 'mobile' => 'Mobile',
