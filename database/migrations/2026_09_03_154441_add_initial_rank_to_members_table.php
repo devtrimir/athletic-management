@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('members', function (Blueprint $table) {
-            $table->string('initial_rank', 100)->nullable()->after('rank');
-        });
+
+        if (!Schema::hasColumn('members', 'initial_rank')) {
+            Schema::table('members', function (Blueprint $table) {
+                $table->string('initial_rank', 100)->nullable()->after('rank');
+            });
+        }
     }
 
     /**
@@ -21,8 +24,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('members', function (Blueprint $table) {
-            $table->dropColumn('initial_rank');
-        });
+
+        if (Schema::hasColumn('memebers', 'initial_rank')) {
+            Schema::table('members', function (Blueprint $table) {
+                $table->dropColumn('initial_rank');
+            });
+        }
     }
 };
