@@ -43,7 +43,6 @@ class UpdateCoachRequest extends FormRequest
             'coach_status' => ['sometimes', 'nullable', Rule::in(['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'])],
             'bio' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'address' => ['sometimes', 'nullable', 'string', 'max:4000'],
-            'photo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
 
             'certifications' => ['sometimes', 'nullable', 'array'],
             'certifications.*.id' => ['sometimes', 'integer'],

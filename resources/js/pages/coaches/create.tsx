@@ -74,7 +74,6 @@ type FormData = {
     coach_status: string;
     bio: string;
     address: string;
-    photo_path: string;
 };
 
 export default function CoachesCreate({
@@ -167,7 +166,6 @@ export default function CoachesCreate({
         coach_status: 'ACTIVE',
         bio: '',
         address: '',
-        photo_path: '',
     });
 
     function handleSubmit(e: React.FormEvent): void {

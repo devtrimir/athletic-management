@@ -1,10 +1,14 @@
-import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
+import { Head, Link, router, setLayoutProps, useForm } from '@inertiajs/react';
 import { IdCard, UserRound } from 'lucide-react';
 import {
     index as coachesIndex,
     show as showCoach,
     update,
 } from '@/actions/App/Http/Controllers/CoachController';
+import {
+    destroy as destroyCoachPhoto,
+    store as storeCoachPhoto,
+} from '@/actions/App/Http/Controllers/CoachPhotoController';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
@@ -76,6 +80,7 @@ type Coach = {
     designation_master_id: number | null;
     bio: string | null;
     address: string | null;
+    photo_path: string | null;
 };
 
 type FormData = {
@@ -97,7 +102,6 @@ type FormData = {
     coach_status: string;
     bio: string;
     address: string;
-    photo_path: string;
 };
 
 export default function CoachesEdit({
@@ -199,7 +203,6 @@ export default function CoachesEdit({
         coach_status: coach.coach_status,
         bio: coach.bio ?? '',
         address: coach.address ?? '',
-        photo_path: '',
     });
 
     function handleSubmit(e: React.FormEvent): void {
@@ -244,8 +247,56 @@ export default function CoachesEdit({
                     </div>
                     <div className="grid gap-4 px-6 py-5 md:grid-cols-[1fr_auto] md:items-center">
                         <div className="flex min-w-0 items-center gap-4">
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                <UserRound className="h-7 w-7" />
+                            <div className="group relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                                {coach.photo_path ? (
+                                    <>
+                                        <img
+                                            src={`/storage/${coach.photo_path}`}
+                                            alt={coach.full_name}
+                                            className="h-full w-full object-cover"
+                                        />
+                                        <button
+                                            type="button"
+                                            className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                            onClick={() =>
+                                                router.delete(
+                                                    destroyCoachPhoto.url(
+                                                        coach,
+                                                    ),
+                                                )
+                                            }
+                                        >
+                                            {t('Remove photo')}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center bg-primary/10 text-primary transition-colors hover:bg-primary/20">
+                                        <UserRound className="h-7 w-7" />
+                                        <span className="sr-only">
+                                            {t('Upload photo')}
+                                        </span>
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="sr-only"
+                                            onChange={(e) => {
+                                                const file =
+                                                    e.target.files?.[0];
+
+                                                if (!file) {
+                                                    return;
+                                                }
+
+                                                const fd = new FormData();
+                                                fd.append('photo', file);
+                                                router.post(
+                                                    storeCoachPhoto.url(coach),
+                                                    fd,
+                                                );
+                                            }}
+                                        />
+                                    </label>
+                                )}
                             </div>
                             <div className="min-w-0">
                                 <p className="truncate text-lg font-semibold">

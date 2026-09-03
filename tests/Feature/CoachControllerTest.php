@@ -1551,6 +1551,24 @@ test('update persists changed fields and redirects', function () {
         ->nis_certified->toBeTrue();
 });
 
+test('update keeps the existing photo and ignores any submitted photo_path', function () {
+    $user = coachUser('coaches.update');
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'photo_path' => 'coach-photos/1/photo.jpg',
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('coaches.update', $coach), [
+            'full_name' => 'नया नाम',
+            'mobile' => '9876543210',
+            'photo_path' => null,
+        ])
+        ->assertRedirect(route('coaches.show', $coach));
+
+    expect($coach->fresh()->photo_path)->toBe('coach-photos/1/photo.jpg');
+});
+
 test('update ignores submitted member_id because coach members come from team assignments', function () {
     $user = coachUser('coaches.update');
     $member = Member::factory()->create([
