@@ -136,7 +136,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
         /** @var list<array{row: int, payload: array<string, mixed>, sport_id: int|null, sport_event: string|null}> $valid */
         $valid = [];
 
-        foreach ($rows->slice(1) as $index => $row) {
+        foreach ($rows->slice(1)->values() as $index => $row) {
             $rowNumber = $index + 2; // Excel row number (1-based + header)
             $cells = collect($row)->values();
 
@@ -144,8 +144,10 @@ class MembersImport implements ToCollection, WithMultipleSheets
                 continue;
             }
 
-            // The template ships with one example row — never import it.
-            if ($this->isExampleRow($cells)) {
+            // The template ships with one example row at row 2 — never import
+            // it. Only that position is skipped: a data row further down that
+            // happens to share the example values is real user data.
+            if ($rowNumber === 2 && $this->isExampleRow($cells)) {
                 continue;
             }
 

@@ -29,6 +29,8 @@ class Import extends Model
 
     public const STATUS_FAILED = 'FAILED';
 
+    public const STATUS_PROCESSING = 'PROCESSING';
+
     protected $fillable = [
         'organization_id',
         'uploaded_by',

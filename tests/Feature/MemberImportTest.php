@@ -377,6 +377,48 @@ test('the template example row is never imported as a member', function () {
         ->and($members->first()->full_name)->toBe('Real Player');
 });
 
+test('a data row matching the example values below row 2 is real data and gets imported', function () {
+    $user = importUser('imports.run');
+
+    // Row 2 is the untouched example row; row 3 repeats its values — that is
+    // user data (e.g. only PNO/date columns filled) and must not be skipped.
+    $exampleRow = array_map(
+        static fn (array $column): ?string => $column['example'],
+        MemberImportSchema::columns(),
+    );
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([$exampleRow, $exampleRow]),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members)->toHaveCount(1)
+        ->and($members->first()->full_name)->toBe('मोहित राठोर');
+});
+
+test('an upload with no data rows flashes a no-data warning instead of a zero-count success', function () {
+    $user = importUser('imports.run');
+
+    $exampleRow = array_map(
+        static fn (array $column): ?string => $column['example'],
+        MemberImportSchema::columns(),
+    );
+
+    $response = $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([$exampleRow]),
+    ]);
+
+    $response->assertRedirect(route('members.index'))
+        ->assertSessionHas('inertia.flash_data', [
+            'toast' => [
+                'type' => 'warning',
+                'message' => 'No data rows found in the uploaded file. Fill the Members sheet (starting at row 2) and re-upload.',
+            ],
+        ]);
+
+    expect(Member::withoutGlobalScopes()->count())->toBe(0);
+});
+
 test('category dropdown labels resolve to codes on import', function () {
     $user = importUser('imports.run');
 
