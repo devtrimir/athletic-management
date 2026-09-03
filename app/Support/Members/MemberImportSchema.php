@@ -53,7 +53,7 @@ class MemberImportSchema
             ['key' => 'sport', 'label' => 'Sport / खेल', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'sports'],
             ['key' => 'sport_event', 'label' => 'Sport Event / स्पर्धा', 'required' => false, 'example' => '48 kg Sanda', 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'team_since', 'label' => 'Team Since / टीम में कब से', 'required' => false, 'example' => null, 'list' => null, 'date' => true, 'ref' => null],
-            ['key' => 'other_notes', 'label' => 'Notes / टिप्पणी', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => null],
+            ['key' => 'home_address', 'label' => 'Home Address / गृह पता', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => null],
         ];
     }
 

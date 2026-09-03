@@ -92,7 +92,7 @@ function importRow(array $overrides = []): array
         'sport' => null,
         'sport_event' => null,
         'team_since' => null,
-        'other_notes' => null,
+        'home_address' => null,
     ], $overrides);
 
     return array_map(
@@ -541,7 +541,9 @@ test('template headings carry the initial rank column instead of appointment', f
         ->and(implode('|', $headings))->not->toContain('Recruitment')
         ->and($keys)->toContain('initial_rank')
         ->and($keys)->not->toContain('appointment')
-        ->and($keys)->not->toContain('recruitment_type');
+        ->and($keys)->not->toContain('recruitment_type')
+        ->and($keys)->toContain('home_address')
+        ->and($keys)->not->toContain('other_notes');
 });
 
 test('initial rank is imported onto the member', function () {
@@ -559,6 +561,23 @@ test('initial rank is imported onto the member', function () {
 
     $member = Member::withoutGlobalScopes()->firstOrFail();
     expect($member->initial_rank)->toBe('सिपाही');
+});
+
+test('home address is imported onto the member', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow([
+                'full_name' => 'Addressed Player',
+                'pno' => '210712827',
+                'home_address' => '123, सरदार पटेल मार्ग, लखनऊ',
+            ]),
+        ]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->firstOrFail();
+    expect($member->home_address)->toBe('123, सरदार पटेल मार्ग, लखनऊ');
 });
 
 test('a row with both unit and posting district is rejected', function () {

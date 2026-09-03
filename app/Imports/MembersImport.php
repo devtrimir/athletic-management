@@ -285,7 +285,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
             'initial_rank' => $str('initial_rank'),
             'sport_event' => $str('sport_event'),
             'team_since' => null,
-            'other_notes' => $str('other_notes'),
+            'home_address' => $str('home_address'),
             '_sport_id' => null,
         ];
 
