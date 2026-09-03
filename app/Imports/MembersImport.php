@@ -12,6 +12,7 @@ use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\MemberCodeGenerator;
 use App\Support\Members\MemberImportSchema;
+use Closure;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,9 @@ class MembersImport implements ToCollection, WithMultipleSheets
 
     private bool $sheetProcessed = false;
 
+    /** Number of data rows a progress event has been emitted for. */
+    private int $processed = 0;
+
     /** @var list<array{row: int, name: string, errors: list<string>}> */
     private array $errors = [];
 
@@ -58,9 +62,14 @@ class MembersImport implements ToCollection, WithMultipleSheets
     /** @var array<string, string>|null */
     private ?array $rankMap = null;
 
+    /**
+     * @param  (Closure(int, string|null, string, string, list<string>, int): void)|null  $onProgress
+     *                                                                                                 Receives (excel row, pno, name, result, errors, processed counter) per data row.
+     */
     public function __construct(
         private readonly int $organizationId,
         private readonly string $filename,
+        private readonly ?Closure $onProgress = null,
     ) {}
 
     /** @return array<string|int, $this> */
@@ -156,6 +165,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
             if ($rowErrors !== []) {
                 $this->failed++;
                 $this->recordError($rowNumber, (string) ($payload['full_name'] ?? ''), $rowErrors);
+                $this->emitProgress($rowNumber, $payload['pno'], $payload['full_name'], 'failed', $rowErrors);
 
                 continue;
             }
@@ -176,17 +186,37 @@ class MembersImport implements ToCollection, WithMultipleSheets
         $byPno = [];
         $byName = [];
 
-        foreach ($valid as $entry) {
+        foreach ($valid as $index => $entry) {
             $pno = $entry['payload']['pno'];
 
             if ($pno !== null) {
-                $byPno[$pno] = $entry;
+                $byPno[$pno] = $index;
             } else {
-                $byName[$entry['payload']['full_name'].'|'.$entry['payload']['player_category']] = $entry;
+                $byName[$entry['payload']['full_name'].'|'.$entry['payload']['player_category']] = $index;
             }
         }
 
-        $deduped = array_values(array_merge(array_values($byPno), array_values($byName)));
+        $keptIndexes = array_flip(array_merge(array_values($byPno), array_values($byName)));
+
+        // Superseded duplicates are not written (the later row wins) but still
+        // get a row outcome so the uploader's dialog ticks off every data row.
+        foreach ($valid as $index => $entry) {
+            if (! isset($keptIndexes[$index])) {
+                $this->emitProgress(
+                    $entry['row'],
+                    $entry['payload']['pno'],
+                    $entry['payload']['full_name'],
+                    'skipped',
+                    [__('Duplicate of a later row in the file — the later row was imported.')],
+                );
+            }
+        }
+
+        $deduped = [];
+
+        foreach (array_merge(array_values($byPno), array_values($byName)) as $index) {
+            $deduped[] = $valid[$index];
+        }
 
         // ── Split creates vs updates and assign member codes ─────────────
         /** @var list<array{row: int, payload: array<string, mixed>, sport_id: int|null, sport_event: string|null, member_id: int|null}> $entries */
@@ -232,16 +262,19 @@ class MembersImport implements ToCollection, WithMultipleSheets
                     $member = Member::withoutGlobalScopes()->findOrFail($entry['member_id']);
                     $member->update(array_filter($payload, static fn (mixed $value): bool => $value !== null));
                     $this->updated++;
+                    $this->emitProgress($entry['row'], $payload['pno'], $payload['full_name'], 'updated', []);
                 } elseif ($entry['member_id'] !== null) {
                     // No-PNO row matching an existing (name, category) — leave untouched.
                     $member = Member::withoutGlobalScopes()->findOrFail($entry['member_id']);
                     $this->skipped++;
+                    $this->emitProgress($entry['row'], $payload['pno'], $payload['full_name'], 'skipped', []);
                 } else {
                     $member = Member::withoutGlobalScopes()->create(array_merge($payload, [
                         'organization_id' => $this->organizationId,
                         'member_code' => $codes[$codeIndex++],
                     ]));
                     $this->created++;
+                    $this->emitProgress($entry['row'], $payload['pno'], $payload['full_name'], 'created', []);
                 }
 
                 if ($entry['sport_id'] !== null) {
@@ -622,6 +655,21 @@ class MembersImport implements ToCollection, WithMultipleSheets
         }
 
         $this->errors[] = ['row' => $rowNumber, 'name' => $name, 'errors' => $rowErrors];
+    }
+
+    /**
+     * Report a single data-row outcome to the optional progress callback.
+     * Errors are capped at two messages — the full list lands in the error report.
+     *
+     * @param  list<string>  $errors
+     */
+    private function emitProgress(int $row, ?string $pno, ?string $name, string $result, array $errors): void
+    {
+        if ($this->onProgress === null) {
+            return;
+        }
+
+        ($this->onProgress)($row, $pno, $name ?? '', $result, array_slice($errors, 0, 2), ++$this->processed);
     }
 
     public function sheetProcessed(): bool

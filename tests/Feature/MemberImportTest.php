@@ -408,13 +408,14 @@ test('an upload with no data rows completes with zero counts so the client can w
         'file' => importFile([$exampleRow]),
     ]);
 
-    $response->assertRedirect(route('members.index'))
-        ->assertSessionHas('inertia.flash_data', [
-            'toast' => [
-                'type' => 'info',
-                'message' => 'Import queued. The members table will update automatically when it finishes.',
-            ],
-        ]);
+    $response->assertRedirect(route('members.index'));
+
+    expect(session('inertia.flash_data.toast'))->toBe([
+        'type' => 'info',
+        'message' => 'Import queued. The members table will update automatically when it finishes.',
+    ])->and(session('inertia.flash_data.import_id'))->toBe(
+        Import::withoutGlobalScopes()->firstOrFail()->id,
+    );
 
     // Sync queue: the job has already run. Zero total counts is the signal the
     // frontend uses to flash the no-data warning on the broadcast event.

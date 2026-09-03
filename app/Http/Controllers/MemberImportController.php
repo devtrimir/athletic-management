@@ -33,12 +33,13 @@ class MemberImportController extends Controller
         /** @var UploadedFile $file */
         $file = $request->file('file');
 
-        $queueMemberImport($request->user(), $file);
+        $import = $queueMemberImport($request->user(), $file);
 
         Inertia::flash('toast', [
             'type' => 'info',
             'message' => __('Import queued. The members table will update automatically when it finishes.'),
         ]);
+        Inertia::flash('import_id', $import->id);
 
         return to_route('members.index');
     }

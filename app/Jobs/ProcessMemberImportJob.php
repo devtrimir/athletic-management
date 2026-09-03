@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Events\MemberImportFinished;
+use App\Events\MemberImportRowProcessed;
 use App\Imports\MembersFirstSheetImport;
 use App\Imports\MembersImport;
 use App\Models\Import;
+use Closure;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -45,7 +48,9 @@ class ProcessMemberImportJob implements ShouldBeUnique, ShouldQueue
     {
         $absolutePath = Storage::path($this->filePath);
 
-        $import = new MembersImport($this->import->organization_id, $this->import->filename);
+        $onProgress = $this->makeProgressCallback();
+
+        $import = new MembersImport($this->import->organization_id, $this->import->filename, $onProgress);
 
         try {
             // Workbooks without a "Members" sheet (CSV uploads, renamed sheets)
@@ -57,24 +62,24 @@ class ProcessMemberImportJob implements ShouldBeUnique, ShouldQueue
             }
 
             if (! $import->sheetProcessed()) {
-                $import = new MembersFirstSheetImport($this->import->organization_id, $this->import->filename);
+                $import = new MembersFirstSheetImport($this->import->organization_id, $this->import->filename, $onProgress);
                 Excel::import($import, $absolutePath);
             }
 
             $this->recordResult($import);
+            Storage::delete($this->filePath);
         } catch (Throwable $exception) {
             $this->markFailed($exception->getMessage());
-            $this->broadcastFinished(['created' => 0, 'updated' => 0, 'skipped' => 0, 'failed' => 0], $exception->getMessage());
+            $this->publishSafely(new MemberImportFinished($this->import->refresh(), ['created' => 0, 'updated' => 0, 'skipped' => 0, 'failed' => 0], $exception->getMessage()));
 
             throw $exception;
-        } finally {
-            Storage::delete($this->filePath);
         }
     }
 
     public function failed(?Throwable $exception): void
     {
         $this->markFailed($exception?->getMessage() ?? 'Unknown error');
+        Storage::delete($this->filePath);
 
         Log::error('Member import job failed', [
             'import_id' => $this->import->id,
@@ -93,25 +98,59 @@ class ProcessMemberImportJob implements ShouldBeUnique, ShouldQueue
             'uploaded_at' => now(),
         ]);
 
-        $this->broadcastFinished([
+        $this->publishSafely(new MemberImportFinished($this->import->refresh(), [
             'created' => $import->createdCount(),
             'updated' => $import->updatedCount(),
             'skipped' => $import->skippedCount(),
             'failed' => $import->failedCount(),
-        ], $templateError);
+        ], $templateError));
     }
 
     /**
-     * @param  array{created: int, updated: int, skipped: int, failed: int}  $counts
+     * Per-row progress reporter handed to the import. Transport errors are
+     * swallowed by publishSafely so a websocket outage can never fail the
+     * import or flip its status — the DB work is the source of truth.
+     *
+     * @return (Closure(int, string|null, string, string, list<string>, int): void)|null
      */
-    private function broadcastFinished(array $counts, ?string $templateError): void
+    private function makeProgressCallback(): ?Closure
     {
-        // Retries after a mid-import crash must not re-notify subscribers.
         if ($this->attempts() > 1) {
-            return;
+            // A retry re-runs the whole file after the first attempt rolled
+            // back; replaying row events would duplicate checkmarks. The
+            // finished event still tells the modal the final outcome.
+            return null;
         }
 
-        broadcast(new MemberImportFinished($this->import->refresh(), $counts, $templateError));
+        return function (int $row, ?string $pno, string $name, string $result, array $errors, int $processed): void {
+            $this->publishSafely(new MemberImportRowProcessed(
+                $this->import->id,
+                $this->import->organization_id,
+                $row,
+                $pno,
+                $name,
+                $result,
+                $errors,
+                $processed,
+            ));
+        };
+    }
+
+    /**
+     * Broadcast now; never let a transport failure bubble into the job —
+     * the import itself has already succeeded at that point.
+     */
+    private function publishSafely(ShouldBroadcastNow $event): void
+    {
+        try {
+            broadcast($event);
+        } catch (Throwable $exception) {
+            Log::warning('Member import broadcast failed', [
+                'import_id' => $this->import->id,
+                'event' => $event::class,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function markFailed(string $message): void

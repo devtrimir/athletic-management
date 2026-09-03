@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Events\MemberImportFinished;
+use App\Events\MemberImportRowProcessed;
 use App\Jobs\ProcessMemberImportJob;
 use App\Models\Import;
 use App\Models\Member;
@@ -10,6 +11,7 @@ use App\Models\Rank;
 use App\Models\TournamentTier;
 use Illuminate\Queue\Jobs\SyncJob;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -119,7 +121,7 @@ test('a crashing job marks the import failed and notifies subscribers', function
     );
 });
 
-test('a crashing job only notifies once across retries', function () {
+test('a retrying job still notifies subscribers of the failure', function () {
     Event::fake([MemberImportFinished::class]);
 
     $user = rcUser('imports.run');
@@ -152,5 +154,76 @@ test('a crashing job only notifies once across retries', function () {
         // Expected.
     }
 
-    Event::assertNotDispatched(MemberImportFinished::class);
+    // Broadcasts are transport-fatal-proof and must never be swallowed by the
+    // retry guard — a crashed retry still tells subscribers the import failed.
+    Event::assertDispatched(
+        MemberImportFinished::class,
+        fn (MemberImportFinished $event): bool => $event->broadcastWith()['status'] === Import::STATUS_FAILED,
+    );
+});
+
+test('row outcomes are broadcast per row as the import processes them', function () {
+    Event::fake([MemberImportFinished::class, MemberImportRowProcessed::class]);
+
+    $user = rcUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => memberImportUpload([
+            memberImportRow(['pno' => '210712827', 'full_name' => 'मोहित राठोर']),
+            memberImportRow(['pno' => '210712828', 'gender' => 'X']),
+        ]),
+    ])->assertRedirect(route('members.index'));
+
+    Event::assertDispatched(
+        MemberImportRowProcessed::class,
+        fn (MemberImportRowProcessed $event): bool => $event->result === 'failed'
+            && $event->row === 3
+            && $event->pno === '210712828'
+            && $event->errors !== []
+            && $event->processed === 1,
+    );
+
+    Event::assertDispatched(
+        MemberImportRowProcessed::class,
+        fn (MemberImportRowProcessed $event): bool => $event->result === 'created'
+            && $event->row === 2
+            && $event->pno === '210712827'
+            && $event->name === 'मोहित राठोर'
+            && $event->processed === 2,
+    );
+});
+
+test('a broadcast transport failure never fails the import', function () {
+    Log::spy();
+
+    // Point the reverb broadcaster at a dead port: every broadcast now throws,
+    // which must be swallowed — the import itself is the source of truth.
+    config([
+        'broadcasting.default' => 'reverb',
+        'broadcasting.connections.reverb.key' => 'test-key',
+        'broadcasting.connections.reverb.secret' => 'test-secret',
+        'broadcasting.connections.reverb.app_id' => 'test-id',
+        'broadcasting.connections.reverb.options.host' => '127.0.0.1',
+        'broadcasting.connections.reverb.options.port' => 1,
+        'broadcasting.connections.reverb.options.scheme' => 'http',
+        'broadcasting.connections.reverb.options.useTLS' => false,
+    ]);
+
+    $user = rcUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => memberImportUpload([
+            memberImportRow(['pno' => '210712827', 'full_name' => 'मोहित राठोर']),
+        ]),
+    ])->assertRedirect(route('members.index'));
+
+    $record = Import::withoutGlobalScopes()->sole();
+
+    expect($record->status)->toBe(Import::STATUS_COMPLETED)
+        ->and($record->error_log)->toBeNull()
+        ->and(Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->count())->toBe(1);
+
+    Log::shouldHaveReceived('warning')->withArgs(
+        fn (string $message): bool => $message === 'Member import broadcast failed',
+    );
 });

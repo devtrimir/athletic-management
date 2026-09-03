@@ -1,5 +1,4 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useEcho } from '@laravel/echo-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Check,
     ChevronDown,
@@ -17,15 +16,14 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import {
     index as exportMembersUrl,
     print as printMembersUrl,
 } from '@/actions/App/Http/Controllers/MemberExportController';
-import MemberImportController from '@/actions/App/Http/Controllers/MemberImportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
+import { MemberImportDialog } from '@/components/members/member-import-dialog';
 import { MemberQuickView } from '@/components/members/member-quick-view';
 import { OptionMultiSelect } from '@/components/option-multi-select';
 import { Badge } from '@/components/ui/badge';
@@ -63,7 +61,6 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
-import { errors as importErrorsUrl } from '@/routes/imports';
 
 type PaginationLink = {
     url: string | null;
@@ -500,90 +497,6 @@ function SearchableOptionList({
 
 const PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
 
-type MemberImportFinishedPayload = {
-    import_id: number;
-    filename: string;
-    status: string;
-    uploaded_by: number;
-    counts: {
-        created: number;
-        updated: number;
-        skipped: number;
-        failed: number;
-    };
-    error_count: number;
-    template_error: string | null;
-};
-
-/**
- * Subscribes to the org-scoped Reverb channel and reacts when the background
- * member import job finishes: notification + in-place table refresh, no polling.
- */
-function ImportFinishedListener({
-    organizationId,
-}: {
-    organizationId: number;
-}) {
-    const { t } = useTranslation();
-
-    useEcho<MemberImportFinishedPayload>(
-        `organization.${organizationId}`,
-        'MemberImportFinished',
-        (event) => {
-            const total =
-                event.counts.created +
-                event.counts.updated +
-                event.counts.skipped +
-                event.counts.failed;
-            const errorReportAction = {
-                label: t('Download error report'),
-                onClick: () => {
-                    window.location.href = importErrorsUrl.url({
-                        import: event.import_id,
-                    });
-                },
-            };
-
-            if (event.template_error !== null || event.status === 'FAILED') {
-                toast.error(
-                    event.template_error ??
-                        t(
-                            'Import failed. Download the error report for details.',
-                        ),
-                    event.error_count > 0
-                        ? { action: errorReportAction }
-                        : undefined,
-                );
-            } else if (total === 0) {
-                toast.warning(
-                    t(
-                        'No data rows found in the uploaded file. Fill the Members sheet (starting at row 2) and re-upload.',
-                    ),
-                );
-            } else {
-                const message = t(
-                    'Import finished: :created created, :updated updated, :skipped skipped, :failed failed.',
-                )
-                    .replace(':created', String(event.counts.created))
-                    .replace(':updated', String(event.counts.updated))
-                    .replace(':skipped', String(event.counts.skipped))
-                    .replace(':failed', String(event.counts.failed));
-
-                if (event.counts.failed > 0) {
-                    toast.warning(message, { action: errorReportAction });
-                } else {
-                    toast.success(message);
-                }
-            }
-
-            router.reload({ only: ['members', 'totalCount'] });
-        },
-        [organizationId],
-    );
-
-    return null;
-}
-
 export default function MembersIndex({
     members,
     filters,
@@ -632,7 +545,6 @@ export default function MembersIndex({
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
-    const importForm = useForm<{ file: File | null }>({ file: null });
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
         ALL_COLUMNS.map((c) => c.key),
     );
@@ -1698,98 +1610,6 @@ export default function MembersIndex({
                 </DialogContent>
             </Dialog>
 
-            {/* Import Dialog */}
-            <Dialog open={importOpen} onOpenChange={setImportOpen}>
-                <DialogContent
-                    className="max-w-lg"
-                    aria-describedby={undefined}
-                >
-                    <DialogHeader>
-                        <DialogTitle>{t('Import members')}</DialogTitle>
-                    </DialogHeader>
-
-                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-                        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-                            <li>
-                                {t(
-                                    'Download the sample template and fill in member data. Do not rename, reorder, or delete columns.',
-                                )}
-                            </li>
-                            <li>
-                                {t(
-                                    'Upload the filled file. Valid rows are imported; rows with problems are listed in an error report.',
-                                )}
-                            </li>
-                            <li>
-                                {t(
-                                    'The import runs in the background — the table updates automatically and a notification appears when it finishes.',
-                                )}
-                            </li>
-                        </ol>
-
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                window.location.href =
-                                    MemberImportController.template.url();
-                            }}
-                        >
-                            <Download className="mr-1.5 h-4 w-4" />
-                            {t('Download sample template')}
-                        </Button>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="member-import-file">
-                                {t('Filled template file')}
-                            </Label>
-                            <Input
-                                id="member-import-file"
-                                type="file"
-                                accept=".xlsx,.xls,.csv"
-                                onChange={(event) =>
-                                    importForm.setData(
-                                        'file',
-                                        event.target.files?.[0] ?? null,
-                                    )
-                                }
-                            />
-                            {importForm.errors.file && (
-                                <p className="text-sm text-destructive">
-                                    {importForm.errors.file}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setImportOpen(false)}
-                        >
-                            {t('Close')}
-                        </Button>
-                        <Button
-                            disabled={
-                                importForm.data.file === null ||
-                                importForm.processing
-                            }
-                            onClick={() =>
-                                importForm.post(
-                                    MemberImportController.store.url(),
-                                    { forceFormData: true },
-                                )
-                            }
-                        >
-                            <Upload className="mr-1.5 h-4 w-4" />
-                            {importForm.processing
-                                ? t('Importing…')
-                                : t('Upload and import')}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
             <MemberQuickView
                 memberId={quickViewId}
                 open={quickViewId !== null}
@@ -1797,7 +1617,11 @@ export default function MembersIndex({
             />
 
             {organizationId !== null && (
-                <ImportFinishedListener organizationId={organizationId} />
+                <MemberImportDialog
+                    open={importOpen}
+                    onOpenChange={setImportOpen}
+                    organizationId={organizationId}
+                />
             )}
         </>
     );

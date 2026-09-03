@@ -43,15 +43,17 @@ test('upload without the imports.run permission does not dispatch the job', func
     Bus::assertNotDispatched(ProcessMemberImportJob::class);
 });
 
-test('upload flashes a queued notice instead of a finished result', function () {
+test('upload flashes a queued notice with the import id', function () {
     $user = rcUser('imports.run');
 
     $this->actingAs($user)->post(route('members.import.store'), [
         'file' => memberImportUpload([memberImportRow()]),
-    ])->assertSessionHas('inertia.flash_data', [
-        'toast' => [
-            'type' => 'info',
-            'message' => 'Import queued. The members table will update automatically when it finishes.',
-        ],
-    ]);
+    ])->assertRedirect(route('members.index'));
+
+    $record = Import::withoutGlobalScopes()->sole();
+
+    expect(session('inertia.flash_data.toast'))->toBe([
+        'type' => 'info',
+        'message' => 'Import queued. The members table will update automatically when it finishes.',
+    ])->and(session('inertia.flash_data.import_id'))->toBe($record->id);
 });
