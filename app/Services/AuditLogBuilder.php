@@ -81,17 +81,12 @@ class AuditLogBuilder
 
             if ($entity === 'PromotionEvidence') {
                 if ($promotionIds->isNotEmpty()) {
-                    $holders = implode(',', array_fill(0, $promotionIds->count(), '?'));
-
-                    $createdDeletedQuery->whereRaw(
-                        "JSON_EXTRACT(diff, '$.member_promotion_id') IN ({$holders})",
-                        $promotionIds->all(),
-                    );
+                    $createdDeletedQuery->whereIn('diff->member_promotion_id', $promotionIds->all());
                 } else {
                     $createdDeletedQuery->whereRaw('0 = 1');
                 }
             } else {
-                $createdDeletedQuery->whereRaw("JSON_EXTRACT(diff, '$.member_id') = ?", [$member->id]);
+                $createdDeletedQuery->where('diff->member_id', $member->id);
             }
 
             $logs = $logs->merge($createdDeletedQuery->get());
@@ -106,12 +101,10 @@ class AuditLogBuilder
         }
 
         if ($participationIds->isNotEmpty()) {
-            $pidList = $participationIds->all();
-            $holders = implode(',', array_fill(0, count($pidList), '?'));
             $logs = $logs->merge(
                 AuditLog::where('entity', 'Achievement')
                     ->whereIn('action', ['created', 'deleted'])
-                    ->whereRaw("JSON_EXTRACT(diff, '$.participation_id') IN ({$holders})", $pidList)
+                    ->whereIn('diff->participation_id', $participationIds)
                     ->get()
             );
             if ($achievementIds->isNotEmpty()) {
@@ -366,7 +359,7 @@ class AuditLogBuilder
         $logs = $logs->merge(
             AuditLog::where('entity', 'TeamMember')
                 ->whereIn('action', ['created', 'deleted'])
-                ->whereRaw("JSON_EXTRACT(diff, '$.team_id') = ?", [$team->id])
+                ->where('diff->team_id', $team->id)
                 ->get()
         );
         if ($teamMemberIds->isNotEmpty()) {
@@ -382,7 +375,7 @@ class AuditLogBuilder
         $logs = $logs->merge(
             AuditLog::where('entity', 'CoachAssignment')
                 ->whereIn('action', ['created', 'deleted'])
-                ->whereRaw("JSON_EXTRACT(diff, '$.team_id') = ?", [$team->id])
+                ->where('diff->team_id', $team->id)
                 ->get()
         );
         if ($coachAssignmentIds->isNotEmpty()) {
@@ -397,7 +390,7 @@ class AuditLogBuilder
         $logs = $logs->merge(
             AuditLog::where('entity', 'TeamSessionStatus')
                 ->whereIn('action', ['created', 'deleted'])
-                ->whereRaw("JSON_EXTRACT(diff, '$.team_id') = ?", [$team->id])
+                ->where('diff->team_id', $team->id)
                 ->get()
         );
         if ($teamSessionStatusIds->isNotEmpty()) {
@@ -498,19 +491,19 @@ class AuditLogBuilder
         $logs = $logs->merge(
             AuditLog::where('entity', 'TeamInchargeAssignment')
                 ->whereIn('action', ['created', 'deleted'])
-                ->whereRaw("JSON_EXTRACT(diff, '$.incharge_id') = ?", [$incharge->id])
+                ->where('diff->incharge_id', $incharge->id)
                 ->get()
         );
         $logs = $logs->merge(
             AuditLog::where('entity', 'InchargeAchievement')
                 ->whereIn('action', ['created', 'deleted'])
-                ->whereRaw("JSON_EXTRACT(diff, '$.incharge_id') = ?", [$incharge->id])
+                ->where('diff->incharge_id', $incharge->id)
                 ->get()
         );
         $logs = $logs->merge(
             AuditLog::where('entity', 'InchargeSpecialAchievement')
                 ->whereIn('action', ['created', 'deleted'])
-                ->whereRaw("JSON_EXTRACT(diff, '$.incharge_id') = ?", [$incharge->id])
+                ->where('diff->incharge_id', $incharge->id)
                 ->get()
         );
 
@@ -642,7 +635,7 @@ class AuditLogBuilder
             $logs = $logs->merge(
                 AuditLog::where('entity', $entity)
                     ->whereIn('action', ['created', 'deleted'])
-                    ->whereRaw("JSON_EXTRACT(diff, '$.coach_id') = ?", [$coach->id])
+                    ->where('diff->coach_id', $coach->id)
                     ->get()
             );
 
@@ -668,7 +661,7 @@ class AuditLogBuilder
         $logs = $logs->merge(
             AuditLog::where('entity', 'CoachAssignment')
                 ->whereIn('action', ['created', 'deleted'])
-                ->whereRaw("JSON_EXTRACT(diff, '$.coach_id') = ?", [$coach->id])
+                ->where('diff->coach_id', $coach->id)
                 ->get()
         );
         if ($coachAssignmentIds->isNotEmpty()) {

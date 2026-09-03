@@ -30,11 +30,13 @@ class MemberSearchService
             return collect();
         }
 
-        if (DB::connection()->getDriverName() === 'sqlite') {
-            return $this->searchSqlite($orgId, $q, $filters);
-        }
+        $driver = DB::connection()->getDriverName();
 
-        return $this->searchMysql($orgId, $q, $filters);
+        return match ($driver) {
+            'sqlite' => $this->searchEloquent($orgId, $q, $filters, 'LIKE'),
+            'pgsql' => $this->searchEloquent($orgId, $q, $filters, 'ILIKE'),
+            default => $this->searchMysql($orgId, $q, $filters),
+        };
     }
 
     /**
@@ -104,12 +106,13 @@ class MemberSearchService
     }
 
     /**
-     * SQLite path (test environment): PNO exact + LIKE on full_name OR alias.
-     * Mirrors the MySQL path which also searches name_aliases via FULLTEXT.
+     * Eloquent path (SQLite test environment / PostgreSQL): PNO exact + LIKE (or
+     * ILIKE on Postgres, where LIKE is case-sensitive) on full_name, normalized
+     * name, and aliases. Mirrors the MySQL path which searches aliases via FULLTEXT.
      *
      * @param  array<string, string|int|list<string>>  $filters
      */
-    private function searchSqlite(int $orgId, string $q, array $filters = []): Collection
+    private function searchEloquent(int $orgId, string $q, array $filters = [], string $likeOperator = 'LIKE'): Collection
     {
         $base = Member::withoutGlobalScopes()
             ->where('organization_id', $orgId)
@@ -156,11 +159,11 @@ class MemberSearchService
         }
 
         return (clone $base)
-            ->where(function ($query) use ($q): void {
-                $query->where('pno', 'LIKE', '%'.$q.'%')
-                    ->orWhere('full_name', 'LIKE', '%'.$q.'%')
-                    ->orWhere('full_name_normalized', 'LIKE', '%'.$q.'%')
-                    ->orWhereHas('aliases', fn ($a) => $a->where('alias', 'LIKE', '%'.$q.'%'));
+            ->where(function ($query) use ($q, $likeOperator): void {
+                $query->where('pno', $likeOperator, '%'.$q.'%')
+                    ->orWhere('full_name', $likeOperator, '%'.$q.'%')
+                    ->orWhere('full_name_normalized', $likeOperator, '%'.$q.'%')
+                    ->orWhereHas('aliases', fn ($a) => $a->where('alias', $likeOperator, '%'.$q.'%'));
             })
             ->limit(50)
             ->get();
