@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { useEcho } from '@laravel/echo-react';
 import {
     Check,
     ChevronDown,
@@ -16,8 +17,12 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
-import { index as exportMembersUrl, print as printMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
+import {
+    index as exportMembersUrl,
+    print as printMembersUrl,
+} from '@/actions/App/Http/Controllers/MemberExportController';
 import MemberImportController from '@/actions/App/Http/Controllers/MemberImportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
@@ -495,6 +500,90 @@ function SearchableOptionList({
 
 const PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
 
+type MemberImportFinishedPayload = {
+    import_id: number;
+    filename: string;
+    status: string;
+    uploaded_by: number;
+    counts: {
+        created: number;
+        updated: number;
+        skipped: number;
+        failed: number;
+    };
+    error_count: number;
+    template_error: string | null;
+};
+
+/**
+ * Subscribes to the org-scoped Reverb channel and reacts when the background
+ * member import job finishes: notification + in-place table refresh, no polling.
+ */
+function ImportFinishedListener({
+    organizationId,
+}: {
+    organizationId: number;
+}) {
+    const { t } = useTranslation();
+
+    useEcho<MemberImportFinishedPayload>(
+        `organization.${organizationId}`,
+        'MemberImportFinished',
+        (event) => {
+            const total =
+                event.counts.created +
+                event.counts.updated +
+                event.counts.skipped +
+                event.counts.failed;
+            const errorReportAction = {
+                label: t('Download error report'),
+                onClick: () => {
+                    window.location.href = importErrorsUrl.url({
+                        import: event.import_id,
+                    });
+                },
+            };
+
+            if (event.template_error !== null || event.status === 'FAILED') {
+                toast.error(
+                    event.template_error ??
+                        t(
+                            'Import failed. Download the error report for details.',
+                        ),
+                    event.error_count > 0
+                        ? { action: errorReportAction }
+                        : undefined,
+                );
+            } else if (total === 0) {
+                toast.warning(
+                    t(
+                        'No data rows found in the uploaded file. Fill the Members sheet (starting at row 2) and re-upload.',
+                    ),
+                );
+            } else {
+                const message = t(
+                    'Import finished: :created created, :updated updated, :skipped skipped, :failed failed.',
+                )
+                    .replace(':created', String(event.counts.created))
+                    .replace(':updated', String(event.counts.updated))
+                    .replace(':skipped', String(event.counts.skipped))
+                    .replace(':failed', String(event.counts.failed));
+
+                if (event.counts.failed > 0) {
+                    toast.warning(message, { action: errorReportAction });
+                } else {
+                    toast.success(message);
+                }
+            }
+
+            router.reload({ only: ['members', 'totalCount'] });
+        },
+        [organizationId],
+    );
+
+    return null;
+}
+
 export default function MembersIndex({
     members,
     filters,
@@ -517,21 +606,15 @@ export default function MembersIndex({
     perPage: number;
 }) {
     const { t } = useTranslation();
-    const { locale, auth, flash } = usePage().props as {
+    const { locale, auth } = usePage().props as {
         locale: string;
-        auth: { permissions: string[] };
-        flash: {
-            import_result?: {
-                created: number;
-                updated: number;
-                skipped: number;
-                failed: number;
-                import_id: number | null;
-            } | null;
+        auth: {
+            permissions: string[];
+            user: { organization_id: number } | null;
         };
     };
     const canImport = auth.permissions.includes('imports.run');
-    const importResult = flash.import_result ?? null;
+    const organizationId = auth.user?.organization_id ?? null;
 
     const levelLabel = useCallback(
         (code: string | null | undefined): string =>
@@ -1637,6 +1720,11 @@ export default function MembersIndex({
                                     'Upload the filled file. Valid rows are imported; rows with problems are listed in an error report.',
                                 )}
                             </li>
+                            <li>
+                                {t(
+                                    'The import runs in the background — the table updates automatically and a notification appears when it finishes.',
+                                )}
+                            </li>
                         </ol>
 
                         <Button
@@ -1672,47 +1760,6 @@ export default function MembersIndex({
                                 </p>
                             )}
                         </div>
-
-                        {importResult && (
-                            <div className="space-y-2 rounded-md border bg-muted/40 p-3 text-sm">
-                                <p>
-                                    {t(
-                                        'Import finished: :created created, :updated updated, :skipped skipped, :failed failed.',
-                                    )
-                                        .replace(
-                                            ':created',
-                                            String(importResult.created),
-                                        )
-                                        .replace(
-                                            ':updated',
-                                            String(importResult.updated),
-                                        )
-                                        .replace(
-                                            ':skipped',
-                                            String(importResult.skipped),
-                                        )
-                                        .replace(
-                                            ':failed',
-                                            String(importResult.failed),
-                                        )}
-                                </p>
-                                {importResult.import_id !== null && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            window.location.href =
-                                                importErrorsUrl.url({
-                                                    import: importResult.import_id as number,
-                                                });
-                                        }}
-                                    >
-                                        <Download className="mr-1.5 h-4 w-4" />
-                                        {t('Download error report')}
-                                    </Button>
-                                )}
-                            </div>
-                        )}
                     </div>
 
                     <DialogFooter>
@@ -1748,6 +1795,10 @@ export default function MembersIndex({
                 open={quickViewId !== null}
                 onClose={() => setQuickViewId(null)}
             />
+
+            {organizationId !== null && (
+                <ImportFinishedListener organizationId={organizationId} />
+            )}
         </>
     );
 }
