@@ -29,6 +29,7 @@ class StoreCoachRequest extends FormRequest
             'blood_group' => ['nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'])],
             'district_id' => ['nullable', 'integer', Rule::exists('districts', 'id')],
             'unit_id' => ['nullable', 'integer', Rule::exists('units', 'id')],
+            'nis_master_id' => ['nullable', 'integer', Rule::exists('nis_masters', 'id')->where('kind', 'nis')],
             'tier_master_id' => ['nullable', 'integer', Rule::exists('tournament_tiers', 'id')],
             'rank_master_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')],
             'designation_master_id' => ['nullable', 'integer', Rule::exists('designations', 'id')],

@@ -497,7 +497,7 @@ test('index includes own organization certificate type filter values', function 
         );
 });
 
-test('index does not include nis master names as certificate type filter values', function () {
+test('index includes active nis master names as certificate type filter values', function () {
     $user = coachUser('coaches.view');
 
     NisMaster::query()->create([
@@ -512,7 +512,9 @@ test('index does not include nis master names as certificate type filter values'
     $this->actingAs($user)
         ->get(route('coaches.index', ['filter' => ['status_scope' => 'active']]))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->missing('certificateTypes.0'));
+        ->assertInertia(fn ($page) => $page
+            ->where('certificateTypes.0', 'NIS diploma')
+        );
 });
 
 // ---------------------------------------------------------------------------
@@ -630,6 +632,32 @@ test('show returns coach resource in Inertia props', function () {
                 ->where('team_activity_status', 'inactive')
                 ->etc()
             )
+        );
+});
+
+test('show includes nis master name when coach has nis info', function () {
+    $user = coachUser('coaches.view');
+
+    $nisMaster = NisMaster::query()->create([
+        'kind' => 'nis',
+        'code' => 'NIS_DIPLOMA',
+        'name' => 'NIS diploma',
+        'short_name' => 'Diploma',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'nis_master_id' => $nisMaster->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.show', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('coach.nis_master.id', $nisMaster->id)
+            ->where('coach.nis_master.name', 'NIS diploma')
         );
 });
 

@@ -28,9 +28,9 @@ test('coaches table has all required columns', function () {
     }
 });
 
-test('nis_certified and nis_master_id columns are dropped', function () {
+test('nis_certified column is dropped while nis_master_id is kept', function () {
     expect(Schema::hasColumn('coaches', 'nis_certified'))->toBeFalse();
-    expect(Schema::hasColumn('coaches', 'nis_master_id'))->toBeFalse();
+    expect(Schema::hasColumn('coaches', 'nis_master_id'))->toBeTrue();
 });
 
 test('pno is nullable', function () {
