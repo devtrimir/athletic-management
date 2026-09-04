@@ -1,6 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import CoachController from '@/actions/App/Http/Controllers/CoachController';
+import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTranslation } from '@/hooks/use-translation';
@@ -267,7 +269,24 @@ function rankLabel(coach: Coach): string {
     );
 }
 
-function DetailTable({
+function Section({
+    title,
+    children,
+}: {
+    title: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <section className="break-inside-avoid rounded-lg border bg-white p-3 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
+            <h2 className="mb-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase print:mb-1 print:text-[10px] print:text-black">
+                {title}
+            </h2>
+            {children}
+        </section>
+    );
+}
+
+function DetailsTable({
     rows,
 }: {
     rows: { label: string; value: React.ReactNode }[];
@@ -279,37 +298,25 @@ function DetailTable({
     }
 
     return (
-        <table className="w-full border-collapse text-sm print:text-[10px]">
-            <tbody>
-                {visibleRows.map((row) => (
-                    <tr key={row.label}>
-                        <th className="w-1/3 border bg-muted/30 px-2 py-1.5 text-left align-top text-xs font-semibold text-muted-foreground uppercase print:px-1 print:py-0.5 print:text-[8px]">
-                            {row.label}
-                        </th>
-                        <td className="border px-2 py-1.5 align-top print:px-1 print:py-0.5">
-                            {row.value}
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-    );
-}
-
-function Section({
-    title,
-    children,
-}: {
-    title: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <section className="break-inside-avoid space-y-2 rounded-lg border bg-white p-3 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
-            <h2 className="border-b pb-1 text-sm font-semibold tracking-wide text-muted-foreground uppercase print:text-[10px] print:text-black">
-                {title}
-            </h2>
-            {children}
-        </section>
+        <div className="overflow-hidden rounded-md border print:rounded-sm">
+            <table className="w-full text-sm">
+                <tbody className="print:text-[10px]">
+                    {visibleRows.map((row) => (
+                        <tr
+                            key={row.label}
+                            className="border-t first:border-t-0"
+                        >
+                            <th className="w-1/3 bg-muted/30 p-2 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase print:py-1 print:text-[9px]">
+                                {row.label}
+                            </th>
+                            <td className="p-2 text-foreground print:py-1">
+                                {row.value}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
     );
 }
 
@@ -325,40 +332,37 @@ function DataTable({
     }
 
     return (
-        <table className="w-full border-collapse text-xs print:text-[9px]">
-            <thead className="bg-muted/40">
-                <tr>
-                    <th className="w-10 border px-2 py-1 text-center">
-                        S. No.
-                    </th>
-                    {columns.map((column) => (
-                        <th
-                            key={column}
-                            className="border px-2 py-1 text-left font-semibold"
-                        >
-                            {column}
-                        </th>
-                    ))}
-                </tr>
-            </thead>
-            <tbody>
-                {rows.map((row, index) => (
-                    <tr key={index}>
-                        <td className="border px-2 py-1 text-center text-muted-foreground">
-                            {index + 1}
-                        </td>
-                        {row.map((cell, cellIndex) => (
-                            <td
-                                key={cellIndex}
-                                className="border px-2 py-1 align-top"
-                            >
-                                {cell}
-                            </td>
+        <div className="overflow-hidden rounded-md border print:rounded-sm">
+            <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                    <tr>
+                        <th className="w-10 p-2 text-center">S. No.</th>
+                        {columns.map((column) => (
+                            <th key={column} className="p-2 font-semibold">
+                                {column}
+                            </th>
                         ))}
                     </tr>
-                ))}
-            </tbody>
-        </table>
+                </thead>
+                <tbody className="print:text-[10px]">
+                    {rows.map((row, index) => (
+                        <tr key={index} className="border-t print:align-top">
+                            <td className="p-2 text-center text-muted-foreground print:py-1">
+                                {index + 1}
+                            </td>
+                            {row.map((cell, cellIndex) => (
+                                <td
+                                    key={cellIndex}
+                                    className="p-2 align-top print:py-1"
+                                >
+                                    {cell}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
     );
 }
 
@@ -369,6 +373,7 @@ export default function CoachPrintPreview({
     coachAchievements,
 }: Props) {
     const { t } = useTranslation();
+    const printTargetRef = useRef<HTMLDivElement | null>(null);
     const [selectedSections, setSelectedSections] =
         useState<SectionKey[]>(DEFAULT_SECTIONS);
     const enabled = (section: SectionKey) => selectedSections.includes(section);
@@ -383,6 +388,26 @@ export default function CoachPrintPreview({
         return `uppscb-coach-${safeName || coach.id}-${coach.pno || 'no-pno'}-${date}`;
     }, [coach.full_name, coach.id, coach.pno]);
 
+    useEffect(() => {
+        const style = document.createElement('style');
+        style.dataset.printPreviewOverride = 'true';
+        style.textContent = `
+            @media print {
+                body > * { display: none !important; }
+                body #app { display: block !important; }
+                body #app > * { display: none !important; }
+                body #app #quick-view-print-target { display: block !important; }
+                body #app #quick-view-print-target * { color: black !important; background: transparent !important; box-shadow: none !important; border-color: #ccc !important; }
+                body #app #quick-view-print-target [data-print-hide] { display: none !important; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        return () => {
+            style.remove();
+        };
+    }, []);
+
     function toggleSection(section: SectionKey): void {
         setSelectedSections((current) =>
             current.includes(section)
@@ -391,9 +416,52 @@ export default function CoachPrintPreview({
         );
     }
 
-    function printPage(): void {
+    function handlePrint(): void {
+        const target = printTargetRef.current;
+
+        if (!target) {
+            return;
+        }
+
         document.title = filename;
-        window.print();
+
+        const printWindow = window.open('', '_blank', 'width=1200,height=900');
+
+        if (!printWindow) {
+            return;
+        }
+
+        const styles = Array.from(
+            document.head.querySelectorAll(
+                'meta, link[rel="stylesheet"], style',
+            ),
+        )
+            .map((node) => node.outerHTML)
+            .join('');
+
+        printWindow.document.open();
+        printWindow.document.write(`<!doctype html>
+            <html>
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    ${styles}
+                    <style>
+                        @page { margin: 0.6cm; }
+                        body { margin: 0; background: white; }
+                        img { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                    </style>
+                </head>
+                <body>
+                    ${target.outerHTML}
+                </body>
+            </html>`);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.onload = () => {
+            printWindow.print();
+            printWindow.close();
+        };
     }
 
     const sports = coach.sports ?? [];
@@ -403,102 +471,123 @@ export default function CoachPrintPreview({
 
     return (
         <>
-            <Head title={t('Coach print preview')} />
+            <Head title={`${coach.full_name} - ${t('Print preview')}`} />
 
-            <div className="min-h-screen bg-muted/30 p-4 print:bg-white print:p-0">
-                <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[280px_1fr] print:block print:max-w-none">
-                    <aside className="space-y-3 rounded-lg border bg-card p-4 shadow-sm print:hidden">
-                        <div>
-                            <h1 className="font-semibold">
-                                {t('Print options')}
-                            </h1>
-                            <p className="text-sm text-muted-foreground">
-                                {t('Choose sections to include in print.')}
-                            </p>
-                        </div>
-                        <div className="space-y-2">
-                            {DEFAULT_SECTIONS.map((section) => (
-                                <label
-                                    key={section}
-                                    className="flex cursor-pointer items-center gap-2 text-sm"
-                                >
-                                    <Checkbox
-                                        checked={selectedSections.includes(
-                                            section,
-                                        )}
-                                        onCheckedChange={() =>
-                                            toggleSection(section)
-                                        }
-                                    />
-                                    {t(SECTION_LABELS[section])}
-                                </label>
-                            ))}
-                        </div>
-                        <div className="flex flex-col gap-2 pt-2">
-                            <Button type="button" onClick={printPage}>
-                                <Printer className="mr-2 size-4" />
-                                {t('Print')}
-                            </Button>
-                            <Button variant="outline" asChild>
-                                <Link href={`/coaches/${coach.id}`}>
-                                    <ArrowLeft className="mr-2 size-4" />
-                                    {t('Back to profile')}
-                                </Link>
-                            </Button>
-                        </div>
-                    </aside>
+            <div
+                ref={printTargetRef}
+                id="quick-view-print-target"
+                className="relative mx-auto max-w-5xl space-y-4 overflow-hidden rounded-2xl border border-neutral-300 bg-white p-4 text-black shadow-sm print:max-w-none print:space-y-2 print:rounded-none print:border-0 print:p-0 print:text-[10px] print:leading-4 print:shadow-none"
+            >
+                <div className="pointer-events-none absolute inset-0 hidden print:block">
+                    <div className="absolute inset-0 border border-neutral-300/70" />
+                    <div className="absolute inset-3 border border-dashed border-neutral-300/60" />
+                </div>
+                <img
+                    src={LETTERHEAD_LOGO_SRC}
+                    alt=""
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-1/2 left-1/2 z-0 hidden size-[520px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.045] print:block"
+                />
 
-                    <main className="mx-auto w-full max-w-5xl bg-white p-6 shadow-sm print:max-w-none print:p-0 print:shadow-none">
-                        <div className="mb-4 flex items-center justify-between gap-4 border-b pb-3 print:mb-2 print:pb-2">
-                            <img
-                                src={LETTERHEAD_LOGO_SRC}
-                                alt=""
-                                className="h-16 w-16 object-contain print:h-12 print:w-12"
-                            />
-                            <div className="text-center">
-                                <h2 className="text-xl font-bold uppercase print:text-sm">
-                                    UP Police Sports Control Board (UPPSCB)
-                                </h2>
-                                <p className="text-sm font-semibold text-muted-foreground print:text-[10px] print:text-black">
-                                    {t('Coach profile record')}
-                                </p>
+                <div className="flex items-start justify-between gap-4 print:hidden">
+                    <div className="flex items-start gap-4">
+                        <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">
+                                {[t('Coaches'), coach.full_name].join(' / ')}
                             </div>
-                            <div className="h-16 w-16 print:h-12 print:w-12">
-                                {coach.photo_path ? (
-                                    <img
-                                        src={`/storage/${coach.photo_path}`}
-                                        alt={coach.full_name}
-                                        className="h-full w-full rounded border object-cover"
-                                    />
-                                ) : null}
-                            </div>
-                        </div>
-
-                        <div className="mb-4 text-center print:mb-2">
-                            <h1 className="text-lg font-bold print:text-xs">
+                            <h1 className="text-2xl font-bold">
                                 {coach.full_name}
                             </h1>
-                            <p className="text-sm text-muted-foreground print:text-[10px] print:text-black">
-                                {coach.pno}
-                            </p>
+                            <div className="pt-1">
+                                <LocaleSwitcher />
+                            </div>
                         </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <Link href={CoachController.show.url(coach)}>
+                                <ArrowLeft className="mr-1.5 size-4" />
+                                {t('Back')}
+                            </Link>
+                        </Button>
+                        <Button type="button" onClick={handlePrint}>
+                            <Printer className="mr-1.5 size-4" />
+                            {t('Print')}
+                        </Button>
+                    </div>
+                </div>
 
-                        <div className="space-y-4 print:space-y-2">
-                            {enabled('profile') && (
-                                <Section title={t('Profile details')}>
-                                    <DetailTable
+                <div className="relative z-10 flex items-center gap-4 border-b-2 border-neutral-900 pb-3 print:gap-3 print:pb-2">
+                    <img
+                        src={LETTERHEAD_LOGO_SRC}
+                        alt={t('UP Police Sports Control Board')}
+                        className="size-20 shrink-0 object-contain print:size-16"
+                    />
+                    <div className="min-w-0 flex-1 text-center">
+                        <div className="text-lg font-bold tracking-wide uppercase print:text-[16px]">
+                            {t('UP Police Sports Control Board')}
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase print:text-[11px] print:text-black">
+                            {t('Coach profile record')}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground print:text-[9px] print:text-neutral-700">
+                            {t('Official print preview')}
+                        </div>
+                    </div>
+                    <div
+                        className="hidden w-20 print:block"
+                        aria-hidden="true"
+                    />
+                </div>
+
+                <div className="grid gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 print:hidden">
+                    <div className="text-sm font-semibold text-foreground">
+                        {t('Print options')}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {DEFAULT_SECTIONS.map((section) => (
+                            <label
+                                key={section}
+                                className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-sm"
+                            >
+                                <Checkbox
+                                    checked={selectedSections.includes(section)}
+                                    onCheckedChange={() =>
+                                        toggleSection(section)
+                                    }
+                                />
+                                <span>{t(SECTION_LABELS[section])}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="relative z-10 grid gap-3 print:gap-2">
+                    {enabled('profile') && (
+                        <Section title={t('Profile details')}>
+                            <div className="flex items-start gap-4 print:gap-3">
+                                <div className="min-w-0 flex-1 space-y-3 print:space-y-2">
+                                    <div>
+                                        <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase print:text-[8px]">
+                                            {t('Name')}
+                                        </div>
+                                        <div className="mt-1 text-2xl leading-tight font-bold text-foreground print:text-[16px]">
+                                            {coach.full_name}
+                                        </div>
+                                    </div>
+                                    <DetailsTable
                                         rows={[
                                             {
-                                                label: t('Name'),
-                                                value: coach.full_name,
+                                                label: t('PNO'),
+                                                value: coach.pno ? (
+                                                    <span className="font-mono">
+                                                        {coach.pno}
+                                                    </span>
+                                                ) : null,
                                             },
                                             {
                                                 label: t('Display name'),
                                                 value: coach.display_name,
-                                            },
-                                            {
-                                                label: t('PNO'),
-                                                value: coach.pno,
                                             },
                                             {
                                                 label: t('Rank'),
@@ -528,290 +617,262 @@ export default function CoachPrintPreview({
                                             },
                                         ]}
                                     />
-                                </Section>
-                            )}
-
-                            {enabled('service') && (
-                                <Section title={t('Service and contact')}>
-                                    <DetailTable
-                                        rows={[
-                                            {
-                                                label: t('Mobile'),
-                                                value: coach.mobile,
-                                            },
-                                            {
-                                                label: t('Email'),
-                                                value: coach.email,
-                                            },
-                                            {
-                                                label: t('Unit'),
-                                                value: coach.unit?.name,
-                                            },
-                                            {
-                                                label: t('District'),
-                                                value: coach.district?.name,
-                                            },
-                                            {
-                                                label: t('Address'),
-                                                value: coach.address,
-                                            },
-                                            {
-                                                label: t('Bio'),
-                                                value: coach.bio,
-                                            },
-                                        ]}
-                                    />
-                                </Section>
-                            )}
-
-                            {enabled('sports') && sports.length > 0 && (
-                                <Section title={t('Playable sports')}>
-                                    <DataTable
-                                        columns={[
-                                            t('Sport'),
-                                            t('Event / Weight'),
-                                            t('Primary'),
-                                            t('Effective from'),
-                                            t('Effective to'),
-                                            t('Notes'),
-                                        ]}
-                                        rows={sports.map((sport) => [
-                                            sport.name,
-                                            sport.sport_event,
-                                            sport.is_primary ? t('Yes') : '',
-                                            formatDate(sport.effective_from),
-                                            formatDate(sport.effective_to),
-                                            sport.notes,
-                                        ])}
-                                    />
-                                </Section>
-                            )}
-
-                            {enabled('assignments') &&
-                                coachTeams.length > 0 && (
-                                    <Section title={t('Team assignments')}>
-                                        <DataTable
-                                            columns={[
-                                                t('Team'),
-                                                t('Sport'),
-                                                t('Session'),
-                                                t('Role'),
-                                                t('Assigned at'),
-                                                t('Removed at'),
-                                                t('Status'),
-                                            ]}
-                                            rows={coachTeams.map(
-                                                (assignment) => [
-                                                    assignment.team?.name,
-                                                    assignment.sport?.name,
-                                                    assignment.session?.name,
-                                                    humanize(assignment.role),
-                                                    formatDate(
-                                                        assignment.assigned_at,
-                                                    ),
-                                                    formatDate(
-                                                        assignment.removed_at,
-                                                    ),
-                                                    assignment.is_current
-                                                        ? t('Current')
-                                                        : t('Removed'),
-                                                ],
-                                            )}
+                                </div>
+                                <div className="size-28 shrink-0 overflow-hidden rounded-md border bg-muted print:size-24">
+                                    {coach.photo_path ? (
+                                        <img
+                                            src={`/storage/${coach.photo_path}`}
+                                            alt={coach.full_name}
+                                            className="size-full object-cover"
                                         />
-                                    </Section>
-                                )}
-
-                            {enabled('achievements') &&
-                                achievements.length > 0 && (
-                                    <Section title={t('Achievements')}>
-                                        <div className="mb-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-6 print:grid-cols-6 print:text-[9px]">
-                                            {[
-                                                'GOLD',
-                                                'SILVER',
-                                                'BRONZE',
-                                                'MERIT',
-                                            ].map((medal) => (
-                                                <div
-                                                    key={medal}
-                                                    className="rounded border px-2 py-1 text-center"
-                                                >
-                                                    <div className="font-semibold">
-                                                        {humanize(medal)}
-                                                    </div>
-                                                    <div>
-                                                        {
-                                                            coachAchievements
-                                                                ?.summary[
-                                                                medal as keyof Pick<
-                                                                    CoachAchievementsData['summary'],
-                                                                    | 'GOLD'
-                                                                    | 'SILVER'
-                                                                    | 'BRONZE'
-                                                                    | 'MERIT'
-                                                                >
-                                                            ]
-                                                        }
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            <div className="rounded border px-2 py-1 text-center">
-                                                <div className="font-semibold">
-                                                    {t('Events')}
-                                                </div>
-                                                <div>
-                                                    {
-                                                        coachAchievements
-                                                            ?.summary
-                                                            .total_events
-                                                    }
-                                                </div>
-                                            </div>
-                                            <div className="rounded border px-2 py-1 text-center">
-                                                <div className="font-semibold">
-                                                    {t('Players')}
-                                                </div>
-                                                <div>
-                                                    {
-                                                        coachAchievements
-                                                            ?.summary
-                                                            .medal_winning_players
-                                                    }
-                                                </div>
-                                            </div>
+                                    ) : (
+                                        <div className="flex size-full items-center justify-center px-2 text-center text-xs text-muted-foreground print:text-[9px]">
+                                            {t('No photo')}
                                         </div>
-                                        <DataTable
-                                            columns={[
-                                                t('Session'),
-                                                t('Team'),
-                                                t('Tournament'),
-                                                t('Event / Weight'),
-                                                t('Medals'),
-                                                t('Players'),
-                                            ]}
-                                            rows={achievements.map((group) => [
-                                                group.session.name,
-                                                group.team.name,
-                                                [
-                                                    group.tournament.name,
-                                                    group.tournament.tier_code,
-                                                    formatDate(
-                                                        group.tournament
-                                                            .date_from,
-                                                    ),
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' · '),
-                                                [
-                                                    group.event.name,
-                                                    group.event.weight_category,
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' / '),
-                                                medalSummary(
-                                                    group.medal_counts,
-                                                ),
-                                                group.players
-                                                    .map((player) =>
-                                                        [
-                                                            player.member
-                                                                .full_name,
-                                                            player.member.pno,
-                                                            humanize(
-                                                                player.medal_type,
-                                                            ),
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' - '),
-                                                    )
-                                                    .join('; '),
-                                            ])}
-                                        />
-                                    </Section>
-                                )}
+                                    )}
+                                </div>
+                            </div>
+                        </Section>
+                    )}
 
-                            {enabled('certifications') &&
-                                certifications.length > 0 && (
-                                    <Section title={t('Certifications')}>
-                                        <DataTable
-                                            columns={[
-                                                t('Name'),
-                                                t('Type'),
-                                                t('Issuer'),
-                                                t('Issued at'),
-                                                t('Expired at'),
-                                            ]}
-                                            rows={certifications.map(
-                                                (certification) => [
-                                                    certification.name,
-                                                    certification.certificate_type,
-                                                    certification.issuer,
-                                                    formatDate(
-                                                        certification.issued_at,
-                                                    ),
-                                                    formatDate(
-                                                        certification.expired_at,
-                                                    ),
-                                                ],
-                                            )}
-                                        />
-                                    </Section>
-                                )}
+                    {enabled('service') && (
+                        <Section title={t('Service and contact')}>
+                            <DetailsTable
+                                rows={[
+                                    {
+                                        label: t('Mobile'),
+                                        value: coach.mobile,
+                                    },
+                                    {
+                                        label: t('Email'),
+                                        value: coach.email,
+                                    },
+                                    {
+                                        label: t('Unit'),
+                                        value: coach.unit?.name,
+                                    },
+                                    {
+                                        label: t('District'),
+                                        value: coach.district?.name,
+                                    },
+                                    {
+                                        label: t('Address'),
+                                        value: coach.address,
+                                    },
+                                    {
+                                        label: t('Bio'),
+                                        value: coach.bio,
+                                    },
+                                ]}
+                            />
+                        </Section>
+                    )}
 
-                            {enabled('promotions') && promotions.length > 0 && (
-                                <Section title={t('Promotions / rewards')}>
-                                    <DataTable
-                                        columns={[
-                                            t('Promotion date'),
-                                            t('From rank'),
-                                            t('To rank'),
-                                            t('Cash reward amount'),
-                                            t('Cash reward date'),
-                                            t('Reference'),
-                                            t('Evidence'),
-                                        ]}
-                                        rows={promotions.map((promotion) => [
-                                            formatDate(
-                                                promotion.promotion_date,
-                                            ),
-                                            promotion.from_rank,
-                                            promotion.to_rank,
-                                            promotion.cash_reward_amount,
-                                            formatDate(
-                                                promotion.cash_reward_date,
-                                            ),
-                                            promotion.cash_reward_reference,
-                                            promotion.evidences
-                                                .map(
-                                                    (evidence) =>
-                                                        evidence.summary,
-                                                )
+                    {enabled('sports') && sports.length > 0 && (
+                        <Section title={t('Playable sports')}>
+                            <DataTable
+                                columns={[
+                                    t('Sport'),
+                                    t('Event / Weight'),
+                                    t('Primary'),
+                                    t('Effective from'),
+                                    t('Effective to'),
+                                    t('Notes'),
+                                ]}
+                                rows={sports.map((sport) => [
+                                    sport.name,
+                                    sport.sport_event,
+                                    sport.is_primary ? t('Yes') : '',
+                                    formatDate(sport.effective_from),
+                                    formatDate(sport.effective_to),
+                                    sport.notes,
+                                ])}
+                            />
+                        </Section>
+                    )}
+
+                    {enabled('assignments') && coachTeams.length > 0 && (
+                        <Section title={t('Team assignments')}>
+                            <DataTable
+                                columns={[
+                                    t('Team'),
+                                    t('Sport'),
+                                    t('Session'),
+                                    t('Role'),
+                                    t('Assigned at'),
+                                    t('Removed at'),
+                                    t('Status'),
+                                ]}
+                                rows={coachTeams.map((assignment) => [
+                                    assignment.team?.name,
+                                    assignment.sport?.name,
+                                    assignment.session?.name,
+                                    humanize(assignment.role),
+                                    formatDate(assignment.assigned_at),
+                                    formatDate(assignment.removed_at),
+                                    assignment.is_current
+                                        ? t('Current')
+                                        : t('Removed'),
+                                ])}
+                            />
+                        </Section>
+                    )}
+
+                    {enabled('achievements') && achievements.length > 0 && (
+                        <Section title={t('Achievements')}>
+                            <div className="mb-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-6 print:grid-cols-6 print:text-[9px]">
+                                {(
+                                    [
+                                        'GOLD',
+                                        'SILVER',
+                                        'BRONZE',
+                                        'MERIT',
+                                    ] as const
+                                ).map((medal) => (
+                                    <div
+                                        key={medal}
+                                        className="rounded-md border px-2 py-1.5 text-center print:py-1"
+                                    >
+                                        <div className="font-semibold">
+                                            {humanize(medal)}
+                                        </div>
+                                        <div>
+                                            {coachAchievements?.summary[medal]}
+                                        </div>
+                                    </div>
+                                ))}
+                                <div className="rounded-md border px-2 py-1.5 text-center print:py-1">
+                                    <div className="font-semibold">
+                                        {t('Events')}
+                                    </div>
+                                    <div>
+                                        {
+                                            coachAchievements?.summary
+                                                .total_events
+                                        }
+                                    </div>
+                                </div>
+                                <div className="rounded-md border px-2 py-1.5 text-center print:py-1">
+                                    <div className="font-semibold">
+                                        {t('Players')}
+                                    </div>
+                                    <div>
+                                        {
+                                            coachAchievements?.summary
+                                                .medal_winning_players
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <DataTable
+                                columns={[
+                                    t('Session'),
+                                    t('Team'),
+                                    t('Tournament'),
+                                    t('Event / Weight'),
+                                    t('Medals'),
+                                    t('Players'),
+                                ]}
+                                rows={achievements.map((group) => [
+                                    group.session.name,
+                                    group.team.name,
+                                    [
+                                        group.tournament.name,
+                                        group.tournament.tier_code,
+                                        formatDate(group.tournament.date_from),
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' · '),
+                                    [
+                                        group.event.name,
+                                        group.event.weight_category,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' / '),
+                                    medalSummary(group.medal_counts),
+                                    group.players
+                                        .map((player) =>
+                                            [
+                                                player.member.full_name,
+                                                player.member.pno,
+                                                humanize(player.medal_type),
+                                            ]
                                                 .filter(Boolean)
-                                                .join('; '),
-                                        ])}
-                                    />
-                                </Section>
-                            )}
+                                                .join(' - '),
+                                        )
+                                        .join('; '),
+                                ])}
+                            />
+                        </Section>
+                    )}
 
-                            {enabled('status') && statusHistory.length > 0 && (
-                                <Section title={t('Status history')}>
-                                    <DataTable
-                                        columns={[
-                                            t('Status'),
-                                            t('Effective on'),
-                                            t('Reason'),
-                                            t('Recorded by'),
-                                        ]}
-                                        rows={statusHistory.map((row) => [
-                                            humanize(row.status),
-                                            formatDate(row.effective_on),
-                                            row.reason,
-                                            row.recorded_by_name,
-                                        ])}
-                                    />
-                                </Section>
-                            )}
-                        </div>
-                    </main>
+                    {enabled('certifications') && certifications.length > 0 && (
+                        <Section title={t('Certifications')}>
+                            <DataTable
+                                columns={[
+                                    t('Name'),
+                                    t('Type'),
+                                    t('Issuer'),
+                                    t('Issued at'),
+                                    t('Expired at'),
+                                ]}
+                                rows={certifications.map((certification) => [
+                                    certification.name,
+                                    certification.certificate_type,
+                                    certification.issuer,
+                                    formatDate(certification.issued_at),
+                                    formatDate(certification.expired_at),
+                                ])}
+                            />
+                        </Section>
+                    )}
+
+                    {enabled('promotions') && promotions.length > 0 && (
+                        <Section title={t('Promotions / rewards')}>
+                            <DataTable
+                                columns={[
+                                    t('Promotion date'),
+                                    t('From rank'),
+                                    t('To rank'),
+                                    t('Cash reward amount'),
+                                    t('Cash reward date'),
+                                    t('Reference'),
+                                    t('Evidence'),
+                                ]}
+                                rows={promotions.map((promotion) => [
+                                    formatDate(promotion.promotion_date),
+                                    promotion.from_rank,
+                                    promotion.to_rank,
+                                    promotion.cash_reward_amount,
+                                    formatDate(promotion.cash_reward_date),
+                                    promotion.cash_reward_reference,
+                                    promotion.evidences
+                                        .map((evidence) => evidence.summary)
+                                        .filter(Boolean)
+                                        .join('; '),
+                                ])}
+                            />
+                        </Section>
+                    )}
+
+                    {enabled('status') && statusHistory.length > 0 && (
+                        <Section title={t('Status history')}>
+                            <DataTable
+                                columns={[
+                                    t('Status'),
+                                    t('Effective on'),
+                                    t('Reason'),
+                                    t('Recorded by'),
+                                ]}
+                                rows={statusHistory.map((row) => [
+                                    humanize(row.status),
+                                    formatDate(row.effective_on),
+                                    row.reason,
+                                    row.recorded_by_name,
+                                ])}
+                            />
+                        </Section>
+                    )}
                 </div>
             </div>
         </>
