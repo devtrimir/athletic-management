@@ -9,7 +9,6 @@ use App\Http\Requests\Coaches\UpdateCoachRequest;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\CoachCertification;
-use App\Models\Designation;
 use App\Models\District;
 use App\Models\NisMaster;
 use App\Models\Rank;
@@ -58,7 +57,6 @@ class CoachController extends Controller
         'unit_district' => 'Posting',
         'mobile' => 'Mobile Number',
         'display_name' => 'Display Name',
-        'designation' => 'Designation',
         'email' => 'Email',
         'coach_status' => 'Status',
         'certifications' => 'Certifications',
@@ -289,7 +287,6 @@ class CoachController extends Controller
             'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
             'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
             'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'certificateTypes' => CoachCertification::query()
@@ -409,12 +406,13 @@ class CoachController extends Controller
                     });
                 }),
             ])
-            ->allowedSorts(['full_name', 'pno', 'coach_status', 'designation', 'created_at'])
+            ->allowedSorts(['full_name', 'pno', 'coach_status', 'created_at'])
             ->defaultSort('full_name')
             ->with([
                 'district:id,name',
                 'unit:id,name',
                 'rankMaster:id,code,name,short_name',
+                'nisMaster:id,kind,code,name,short_name',
                 'sports' => fn ($q) => $q
                     ->select('sports.id', 'sports.name', 'sports.name_en')
                     ->withPivot([
@@ -631,10 +629,7 @@ class CoachController extends Controller
     {
         return match ($column) {
             'serial_number' => (string) $serialNumber,
-            'coach' => implode(' | ', array_filter([
-                trim((string) ($coach->designation ?? '')) !== '' ? trim((string) $coach->designation) : null,
-                $coach->full_name,
-            ])),
+            'coach' => $coach->full_name,
             'pno' => (string) ($coach->pno ?? ''),
             'gender' => self::PRINT_GENDER_LABELS[$coach->gender] ?? ($coach->gender ?? ''),
             'unit_district' => (string) ($coach->unit?->name ?? $coach->district?->name ?? ''),
@@ -766,7 +761,6 @@ class CoachController extends Controller
             'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
             'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
             'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
@@ -784,7 +778,6 @@ class CoachController extends Controller
             $payload['organization_id'] = (int) $request->user()->organization_id;
             $payload['display_name'] = $payload['full_name'];
             $payload['coach_status'] = $payload['coach_status'] ?? 'ACTIVE';
-            $payload['designation'] = $payload['designation'] ?? null;
 
             /** @var Coach $coach */
             $coach = Coach::create(Arr::except($payload, ['certifications', 'sports']));
@@ -828,7 +821,6 @@ class CoachController extends Controller
             'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
             'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
             'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],

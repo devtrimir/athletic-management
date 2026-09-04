@@ -33,6 +33,12 @@ test('nis_certified column is dropped while nis_master_id is kept', function () 
     expect(Schema::hasColumn('coaches', 'nis_master_id'))->toBeTrue();
 });
 
+test('designation columns are dropped from coaches', function () {
+    expect(Schema::hasColumn('coaches', 'designation'))->toBeFalse();
+    expect(Schema::hasColumn('coaches', 'designation_master_id'))->toBeFalse();
+    expect(Schema::hasColumn('coaches', 'designation_en'))->toBeFalse();
+});
+
 test('coach_certifications table has attachment meta columns', function () {
     expect(Schema::hasTable('coach_certifications'))->toBeTrue();
 

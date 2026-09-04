@@ -25,7 +25,6 @@ class CoachSearchResource extends JsonResource
             'mobile' => $this->mobile,
             'blood_group' => $this->blood_group,
             'display_name' => $this->display_name,
-            'designation' => $this->designation,
             'email' => $this->email,
             'gender' => $this->gender,
             'date_of_birth' => $this->date_of_birth?->toDateString(),

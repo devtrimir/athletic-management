@@ -49,7 +49,6 @@ class CoachExportController extends Controller
         'unit_district' => 'Posting',
         'mobile' => 'Mobile Number',
         'display_name' => 'Display Name',
-        'designation' => 'Designation',
         'email' => 'Email',
         'coach_status' => 'Status',
         'certifications' => 'Certifications',
@@ -168,7 +167,7 @@ class CoachExportController extends Controller
                         });
                     }),
                 ])
-                ->allowedSorts(['full_name', 'pno', 'coach_status', 'designation', 'created_at'])
+                ->allowedSorts(['full_name', 'pno', 'coach_status', 'created_at'])
                 ->defaultSort('full_name')
                 ->with([
                     'district:id,name',
@@ -528,10 +527,7 @@ class CoachExportController extends Controller
         foreach ($keys as $key) {
             $row[$key] = match ($key) {
                 'serial_number' => $serialNumber,
-                'coach' => implode(' | ', array_filter([
-                    trim((string) ($coach->designation ?? '')) !== '' ? trim((string) $coach->designation) : null,
-                    $coach->full_name,
-                ])),
+                'coach' => $coach->full_name,
                 'pno' => $coach->pno,
                 'gender' => self::GENDER_LABELS[$coach->gender] ?? ($coach->gender ?? ''),
                 'unit_district' => (string) ($coach->unit?->name ?? $coach->district?->name),

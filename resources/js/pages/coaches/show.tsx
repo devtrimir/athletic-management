@@ -314,7 +314,6 @@ type Coach = {
     id: number;
     full_name: string;
     display_name: string | null;
-    designation: string | null;
     email: string | null;
     gender: string | null;
     date_of_birth: string | null;
@@ -365,7 +364,6 @@ const ALL_COLUMNS = [
     { key: 'pno', label: 'PNO' },
     { key: 'full_name', label: 'Name' },
     { key: 'display_name', label: 'Display Name' },
-    { key: 'designation', label: 'Designation' },
     { key: 'mobile', label: 'Mobile' },
 ] as const;
 
@@ -1455,11 +1453,6 @@ export default function CoachesShow({
                                             {t(coach.coach_status)}
                                         </Badge>
                                     ) : null}
-                                    {coach.designation ? (
-                                        <Badge variant="outline">
-                                            {coach.designation}
-                                        </Badge>
-                                    ) : null}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                     {coach.pno
@@ -1556,10 +1549,6 @@ export default function CoachesShow({
                                     {detail(
                                         t('Display name'),
                                         coach.display_name ?? '',
-                                    )}
-                                    {detail(
-                                        t('Designation'),
-                                        coach.designation ?? '',
                                     )}
                                     {detail(
                                         t('NIS info'),

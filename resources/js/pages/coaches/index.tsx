@@ -68,7 +68,6 @@ type Coach = {
     id: number;
     full_name: string;
     pno: string | null;
-    designation: string | null;
     blood_group?: string | null;
     gender?: string | null;
     mobile: string | null;
@@ -76,6 +75,13 @@ type Coach = {
     coach_status: string | null;
     rank_master?: {
         id: number;
+        code: string | null;
+        name: string | null;
+        short_name: string | null;
+    } | null;
+    nis_master?: {
+        id: number;
+        kind: string | null;
         code: string | null;
         name: string | null;
         short_name: string | null;
@@ -136,6 +142,7 @@ type TeamCoach = {
     posting: string;
     role: string;
     team: string;
+    nis_master_name: string | null;
 };
 
 type SportTeamGroupRow = {
@@ -164,7 +171,6 @@ type Filters = {
     q?: string;
     blood_group?: string;
     coach_status?: string;
-    designation?: string;
     email?: string;
     gender?: string;
     has_certification?: string;
@@ -396,6 +402,7 @@ function buildCoachTeamSportRows(
                             .join(' - '),
                         team: '-',
                         role: t('Inactive'),
+                        nis_master_name: coach.nis_master?.name ?? null,
                     },
                 ],
             });
@@ -437,6 +444,7 @@ function buildCoachTeamSportRows(
                         .join(' - '),
                     team: assignment.team?.name ?? t('Unspecified team'),
                     role: formatRole(assignment.role),
+                    nis_master_name: coach.nis_master?.name ?? null,
                 });
             }
 
@@ -799,7 +807,6 @@ export default function CoachesIndex({
         { value: 'false', label: t('No active assignment') },
     ];
     const activeFilterCount = [
-        filters.designation,
         filters.email,
         filters.gender,
         filters.has_certification,
@@ -1158,11 +1165,12 @@ export default function CoachesIndex({
                                                 </div>
                                                 <Table className="w-full table-fixed border-none">
                                                     <colgroup>
-                                                        <col className="w-[12%]" />
-                                                        <col className="w-[26%]" />
-                                                        <col className="w-[16%]" />
-                                                        <col className="w-[12%]" />
                                                         <col className="w-[10%]" />
+                                                        <col className="w-[22%]" />
+                                                        <col className="w-[13%]" />
+                                                        <col className="w-[11%]" />
+                                                        <col className="w-[10%]" />
+                                                        <col className="w-[12%]" />
                                                         <col className="w-[12%]" />
                                                     </colgroup>
                                                     <TableBody>
@@ -1184,6 +1192,9 @@ export default function CoachesIndex({
                                                             </TableCell>
                                                             <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
                                                                 {t('Posting')}
+                                                            </TableCell>
+                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
+                                                                {t('NIS info')}
                                                             </TableCell>
                                                         </TableRow>
                                                     </TableBody>
@@ -1307,11 +1318,12 @@ export default function CoachesIndex({
                                                     <div className="w-full">
                                                         <Table className="w-full table-fixed border-none">
                                                             <colgroup>
-                                                                <col className="w-[12%]" />
-                                                                <col className="w-[26%]" />
-                                                                <col className="w-[16%]" />
-                                                                <col className="w-[12%]" />
                                                                 <col className="w-[10%]" />
+                                                                <col className="w-[22%]" />
+                                                                <col className="w-[13%]" />
+                                                                <col className="w-[11%]" />
+                                                                <col className="w-[10%]" />
+                                                                <col className="w-[12%]" />
                                                                 <col className="w-[12%]" />
                                                             </colgroup>
                                                             <TableBody>
@@ -1324,11 +1336,11 @@ export default function CoachesIndex({
                                                                                 coachInTeam.id
                                                                             }
                                                                         >
-                                                                            <TableCell className="w-[12%] py-2 text-xs">
+                                                                            <TableCell className="w-[10%] py-2 text-xs">
                                                                                 {coachInTeam.rank ??
                                                                                     '-'}
                                                                             </TableCell>
-                                                                            <TableCell className="w-[26%] py-2 text-sm">
+                                                                            <TableCell className="w-[22%] py-2 text-sm">
                                                                                 <Link
                                                                                     href={CoachController.show.url(
                                                                                         coachInTeam.id,
@@ -1342,7 +1354,7 @@ export default function CoachesIndex({
                                                                                     }
                                                                                 </Link>
                                                                             </TableCell>
-                                                                            <TableCell className="w-[16%] py-2 text-sm">
+                                                                            <TableCell className="w-[13%] py-2 text-sm">
                                                                                 {coachInTeam.pno ? (
                                                                                     <Link
                                                                                         href={CoachController.show.url(
@@ -1360,7 +1372,7 @@ export default function CoachesIndex({
                                                                                     '-'
                                                                                 )}
                                                                             </TableCell>
-                                                                            <TableCell className="w-[12%] py-2 text-sm">
+                                                                            <TableCell className="w-[11%] py-2 text-sm">
                                                                                 {coachInTeam.mobile ??
                                                                                     '-'}
                                                                             </TableCell>
@@ -1372,6 +1384,10 @@ export default function CoachesIndex({
                                                                             <TableCell className="w-[12%] py-2 text-xs">
                                                                                 {coachInTeam.posting ||
                                                                                     '-'}
+                                                                            </TableCell>
+                                                                            <TableCell className="w-[12%] py-2 text-xs">
+                                                                                {coachInTeam.nis_master_name ||
+                                                                                    '—'}
                                                                             </TableCell>
                                                                         </TableRow>
                                                                     ),

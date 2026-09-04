@@ -82,7 +82,6 @@ type CoachPreview = {
     pno: string | null;
     mobile: string | null;
     display_name: string | null;
-    designation: string | null;
     email: string | null;
     gender: string | null;
     date_of_birth: string | null;
@@ -177,7 +176,6 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     <div class="header">
         <h1>${data.full_name}${data.full_name ? ` <small>(${data.full_name})</small>` : ''}</h1>
         <span class="meta">${data.pno ?? ''}</span>
-        ${data.designation ? `<p>${t('Designation')}: ${data.designation}</p>` : ''}
         <p>${t('Team status')}: ${data.team_activity_status === 'active' ? t('Active') : t('Inactive')}</p>
         ${data.coach_status ? `<p>${t('Profile status')}: ${t(data.coach_status)}</p>` : ''}
         ${data.email ? `<p>${t('Email')}: ${data.email}</p>` : ''}
@@ -304,11 +302,6 @@ export function CoachQuickView({
                                         {data.pno}
                                     </span>
                                 )}
-                                {data.designation && (
-                                    <span className="text-xs text-muted-foreground">
-                                        {data.designation}
-                                    </span>
-                                )}
                                 <Badge
                                     variant={
                                         data.team_activity_status === 'active'
@@ -352,10 +345,6 @@ export function CoachQuickView({
                                 <InfoRow
                                     label={t('Display name')}
                                     value={data.display_name}
-                                />
-                                <InfoRow
-                                    label={t('Designation')}
-                                    value={data.designation}
                                 />
                                 <InfoRow
                                     label={t('Email')}

@@ -204,7 +204,6 @@ class CoachProfileData
             'nisMaster:id,kind,code,name,short_name',
             'tierMaster:id,code,label_hi,label_en,weight',
             'rankMaster:id,code,name,short_name',
-            'designationMaster:id,code,name,short_name',
         ]);
 
         $coachData = (new CoachResource($coach))->resolve();

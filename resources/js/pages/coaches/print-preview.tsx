@@ -9,7 +9,6 @@ type Coach = {
     id: number;
     full_name: string;
     display_name: string | null;
-    designation: string | null;
     blood_group: string | null;
     email: string | null;
     gender: string | null;
@@ -480,9 +479,7 @@ export default function CoachPrintPreview({
                                 {coach.full_name}
                             </h1>
                             <p className="text-sm text-muted-foreground print:text-[10px] print:text-black">
-                                {[coach.designation, coach.pno]
-                                    .filter(Boolean)
-                                    .join(' · ')}
+                                {coach.pno}
                             </p>
                         </div>
 
@@ -538,10 +535,6 @@ export default function CoachPrintPreview({
                                 <Section title={t('Service and contact')}>
                                     <DetailTable
                                         rows={[
-                                            {
-                                                label: t('Designation'),
-                                                value: coach.designation,
-                                            },
                                             {
                                                 label: t('Mobile'),
                                                 value: coach.mobile,

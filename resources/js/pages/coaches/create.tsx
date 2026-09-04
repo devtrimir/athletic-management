@@ -33,12 +33,6 @@ type RankOption = {
     name: string;
     short_name: string | null;
 };
-type DesignationOption = {
-    id: number;
-    code: string;
-    name: string;
-    short_name: string | null;
-};
 type TierOption = {
     id: number;
     code: string;
@@ -59,9 +53,7 @@ type FormData = {
     pno: string;
     mobile: string;
     blood_group: string;
-    designation: string;
     rank_master_id: string;
-    designation_master_id: string;
     tier_master_id: string;
     nis_master_id: string;
     district_id: string;
@@ -78,7 +70,6 @@ export default function CoachesCreate({
     districts,
     units,
     ranks,
-    designations,
     tiers,
     nisMasters,
     coachStatuses,
@@ -87,7 +78,6 @@ export default function CoachesCreate({
     districts: { id: number; name: string }[];
     units: { id: number; name: string; district_id: number | null }[];
     ranks: RankOption[];
-    designations: DesignationOption[];
     tiers: TierOption[];
     nisMasters: NisMasterOption[];
     coachStatuses: string[];
@@ -121,12 +111,6 @@ export default function CoachesCreate({
             ? `${master.name} (${master.short_name})`
             : master.name,
     }));
-    const designationItems: ComboboxItem[] = designations.map((master) => ({
-        value: String(master.id),
-        label: master.short_name
-            ? `${master.name} (${master.short_name})`
-            : master.name,
-    }));
     const tierItems: ComboboxItem[] = tiers.map((master) => ({
         value: String(master.id),
         label: master.label ?? master.label_en ?? master.label_hi,
@@ -150,9 +134,7 @@ export default function CoachesCreate({
         pno: '',
         mobile: '',
         blood_group: '',
-        designation: '',
         rank_master_id: '',
-        designation_master_id: '',
         tier_master_id: '',
         nis_master_id: '',
         district_id: '',
@@ -171,15 +153,12 @@ export default function CoachesCreate({
     }
 
     const profileTitle = data.full_name || t('New coach profile');
-    const profileSubtitle = [data.designation, data.pno]
-        .filter(Boolean)
-        .join(' · ');
+    const profileSubtitle = [data.pno].filter(Boolean).join(' · ');
     const errorKeys = Object.keys(errors);
     const hasProfileErrors = [
         'full_name',
         'pno',
         'mobile',
-        'designation',
         'email',
         'coach_status',
         'gender',
@@ -394,19 +373,19 @@ export default function CoachesCreate({
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="designation_master_id">
-                                        {t('Designation')}
+                                    <Label htmlFor="nis_master_id">
+                                        {t('NIS info')}
                                     </Label>
                                     <Combobox
-                                        id="designation_master_id"
-                                        value={data.designation_master_id}
+                                        id="nis_master_id"
+                                        value={data.nis_master_id}
                                         onValueChange={(v) =>
-                                            setData('designation_master_id', v)
+                                            setData('nis_master_id', v)
                                         }
-                                        items={designationItems}
-                                        placeholder={t('Select designation')}
+                                        items={nisItems}
+                                        placeholder={t('Select NIS info')}
                                         searchPlaceholder={t(
-                                            'Search designations…',
+                                            'Search NIS info…',
                                         )}
                                     />
                                 </div>
@@ -426,23 +405,6 @@ export default function CoachesCreate({
                                         items={tierItems}
                                         placeholder={t('Select tier / level')}
                                         searchPlaceholder={t('Search tiers…')}
-                                    />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="nis_master_id">
-                                        {t('NIS info')}
-                                    </Label>
-                                    <Combobox
-                                        id="nis_master_id"
-                                        value={data.nis_master_id}
-                                        onValueChange={(v) =>
-                                            setData('nis_master_id', v)
-                                        }
-                                        items={nisItems}
-                                        placeholder={t('Select NIS info')}
-                                        searchPlaceholder={t(
-                                            'Search NIS info…',
-                                        )}
                                     />
                                 </div>
                             </div>

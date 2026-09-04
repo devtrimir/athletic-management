@@ -28,7 +28,6 @@ class CoachFactory extends Factory
             'pno' => fake()->optional(0.6)->numerify('##########'),
             'mobile' => fake()->optional(0.7)->numerify('##########'),
             'display_name' => null,
-            'designation' => null,
             'email' => fake()->optional()->safeEmail(),
             'gender' => fake()->optional(0.8)->randomElement(['M', 'F', 'O']),
             'date_of_birth' => fake()->optional()->date(),

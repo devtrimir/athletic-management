@@ -18,7 +18,6 @@ export type CoachOption = {
     full_name: string;
     display_name: string | null;
     pno: string | null;
-    designation?: string | null;
     mobile?: string | null;
     coach_status?: string | null;
 };
@@ -99,10 +98,6 @@ export function CoachPicker({
 
         if (coach.pno) {
             suffix.push(coach.pno);
-        }
-
-        if (coach.designation) {
-            suffix.push(coach.designation);
         }
 
         return suffix.length > 0
