@@ -323,9 +323,11 @@ function DetailsTable({
 function DataTable({
     columns,
     rows,
+    serialLabel,
 }: {
     columns: string[];
     rows: React.ReactNode[][];
+    serialLabel: string;
 }) {
     if (rows.length === 0) {
         return null;
@@ -336,7 +338,7 @@ function DataTable({
             <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                     <tr>
-                        <th className="w-10 p-2 text-center">S. No.</th>
+                        <th className="w-10 p-2 text-center">{serialLabel}</th>
                         {columns.map((column) => (
                             <th key={column} className="p-2 font-semibold">
                                 {column}
@@ -633,6 +635,7 @@ export default function CoachPrintPreview({
                     {enabled('sports') && sports.length > 0 && (
                         <Section title={t('Playable sports')}>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[t('Sport'), t('Event / Weight')]}
                                 rows={sports.map((sport) => [
                                     sport.name,
@@ -645,6 +648,7 @@ export default function CoachPrintPreview({
                     {enabled('assignments') && coachTeams.length > 0 && (
                         <Section title={t('Team assignments')}>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[
                                     t('Team'),
                                     t('Sport'),
@@ -716,6 +720,7 @@ export default function CoachPrintPreview({
                                 </div>
                             </div>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[
                                     t('Session'),
                                     t('Team'),
@@ -760,6 +765,7 @@ export default function CoachPrintPreview({
                     {enabled('certifications') && certifications.length > 0 && (
                         <Section title={t('Certifications')}>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[t('Name'), t('Type'), t('Issuer')]}
                                 rows={certifications.map((certification) => [
                                     certification.name,
@@ -773,6 +779,7 @@ export default function CoachPrintPreview({
                     {enabled('promotions') && promotions.length > 0 && (
                         <Section title={t('Promotions / rewards')}>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[
                                     t('Promotion date'),
                                     t('From rank'),
@@ -801,6 +808,7 @@ export default function CoachPrintPreview({
                     {enabled('status') && statusHistory.length > 0 && (
                         <Section title={t('Status history')}>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[
                                     t('Status'),
                                     t('Effective on'),
