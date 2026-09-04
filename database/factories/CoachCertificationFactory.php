@@ -26,6 +26,9 @@ class CoachCertificationFactory extends Factory
             'issued_at' => fake()->optional()->date(),
             'expired_at' => fake()->optional()->date(),
             'attachment_path' => null,
+            'attachment_original_name' => null,
+            'mime_type' => null,
+            'size_bytes' => null,
             'metadata' => null,
         ];
     }

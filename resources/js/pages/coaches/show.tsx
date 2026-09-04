@@ -18,6 +18,7 @@ import {
     Printer,
     Search,
     Trash2,
+    Upload,
 } from 'lucide-react';
 import { Fragment, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react';
@@ -62,6 +63,7 @@ import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
+import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -101,7 +103,13 @@ type CoachCertification = {
     issuer: string | null;
     issued_at: string | null;
     expired_at: string | null;
-    attachment_path: string | null;
+    attachment: {
+        preview_url: string;
+        download_url: string;
+        original_name: string | null;
+        mime_type: string | null;
+        size_bytes: number | null;
+    } | null;
 };
 
 type CoachSport = {
@@ -483,7 +491,7 @@ export default function CoachesShow({
         issuer: '',
         issued_at: '',
         expired_at: '',
-        attachment_path: '',
+        attachment: null as File | null,
     });
     const promotionForm = useForm({
         promotion_date: '',
@@ -1105,7 +1113,7 @@ export default function CoachesShow({
             issuer: '',
             issued_at: '',
             expired_at: '',
-            attachment_path: '',
+            attachment: null,
         });
         certificationForm.clearErrors();
     }
@@ -1124,7 +1132,7 @@ export default function CoachesShow({
             issuer: certification.issuer ?? '',
             issued_at: certification.issued_at ?? '',
             expired_at: certification.expired_at ?? '',
-            attachment_path: certification.attachment_path ?? '',
+            attachment: null,
         });
         certificationForm.clearErrors();
         setCertificationDialogOpen(true);
@@ -1140,7 +1148,6 @@ export default function CoachesShow({
             issuer: data.issuer || null,
             issued_at: data.issued_at || null,
             expired_at: data.expired_at || null,
-            attachment_path: data.attachment_path || null,
         }));
 
         certificationForm.post(storeCoachCertification.url(coach), {
@@ -1666,8 +1673,20 @@ export default function CoachesShow({
                                                                 ''}
                                                         </TableCell>
                                                         <TableCell>
-                                                            {certification.attachment_path ??
-                                                                ''}
+                                                            {certification.attachment ? (
+                                                                <ConfidentialDocumentPreview
+                                                                    document={
+                                                                        certification.attachment
+                                                                    }
+                                                                    triggerLabel={t(
+                                                                        'View document',
+                                                                    )}
+                                                                />
+                                                            ) : (
+                                                                <span className="text-muted-foreground">
+                                                                    —
+                                                                </span>
+                                                            )}
                                                         </TableCell>
                                                         <TableCell className="text-right">
                                                             <div className="flex justify-end gap-1">
@@ -3378,16 +3397,57 @@ export default function CoachesShow({
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label>{t('Attachment path')}</Label>
-                                <Input
-                                    value={
-                                        certificationForm.data.attachment_path
-                                    }
-                                    onChange={(event) =>
-                                        certificationForm.setData(
-                                            'attachment_path',
-                                            event.target.value,
-                                        )
+                                <Label>{t('Attachment')}</Label>
+                                <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-dashed bg-muted/30 p-3 transition-colors hover:bg-muted/50">
+                                    <span className="mt-0.5 rounded-md bg-background p-2 text-muted-foreground shadow-sm">
+                                        <Upload className="size-4" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-medium break-words">
+                                            {certificationForm.data.attachment
+                                                ?.name ??
+                                                t('Upload attachment')}
+                                        </span>
+                                        <span className="mt-1 block text-xs break-words text-muted-foreground">
+                                            {t(
+                                                'PDF, JPG, PNG, or WEBP. Stored privately and available only to authorized users.',
+                                            )}
+                                        </span>
+                                        {editingCertification?.attachment ? (
+                                            <span className="mt-1 block text-xs break-words text-muted-foreground">
+                                                {t(
+                                                    'Current file: :name — choose a file to replace',
+                                                ).replace(
+                                                    ':name',
+                                                    editingCertification
+                                                        .attachment
+                                                        .original_name ??
+                                                        t('Document'),
+                                                )}
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                    <Input
+                                        key={
+                                            certificationDialogOpen
+                                                ? (editingCertification?.id ??
+                                                  'new')
+                                                : 'closed'
+                                        }
+                                        className="sr-only"
+                                        type="file"
+                                        accept="application/pdf,image/jpeg,image/png,image/webp"
+                                        onChange={(event) =>
+                                            certificationForm.setData(
+                                                'attachment',
+                                                event.target.files?.[0] ?? null,
+                                            )
+                                        }
+                                    />
+                                </label>
+                                <InputError
+                                    message={
+                                        certificationForm.errors.attachment
                                     }
                                 />
                             </div>

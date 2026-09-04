@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Models\Coach;
+use App\Models\CoachCertification;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -89,7 +90,7 @@ class CoachResource extends JsonResource
                     'issuer' => $cert->issuer,
                     'issued_at' => $cert->issued_at?->toDateString(),
                     'expired_at' => $cert->expired_at?->toDateString(),
-                    'attachment_path' => $cert->attachment_path,
+                    'attachment' => $this->certificationAttachment($cert),
                     'metadata' => $cert->metadata,
                 ])
                 ->values()),
@@ -183,6 +184,32 @@ class CoachResource extends JsonResource
                     ] : null,
                 ])
                 ->values()),
+        ];
+    }
+
+    /**
+     * @return array{preview_url: string, download_url: string, original_name: string|null, mime_type: string|null, size_bytes: int|null}|null
+     */
+    private function certificationAttachment(CoachCertification $certification): ?array
+    {
+        $path = $certification->attachment_path;
+
+        if ($path === null || ! str_starts_with($path, 'coach-certifications/')) {
+            return null;
+        }
+
+        return [
+            'preview_url' => route('coaches.certifications.attachment.preview', [
+                'coach' => $this->id,
+                'certification' => $certification->id,
+            ]),
+            'download_url' => route('coaches.certifications.attachment.download', [
+                'coach' => $this->id,
+                'certification' => $certification->id,
+            ]),
+            'original_name' => $certification->attachment_original_name,
+            'mime_type' => $certification->mime_type,
+            'size_bytes' => $certification->size_bytes,
         ];
     }
 }

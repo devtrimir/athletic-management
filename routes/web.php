@@ -135,6 +135,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('coaches/{coach}/sports/{coachSport}', [CoachSportController::class, 'destroy'])->name('coaches.sports.destroy');
     Route::post('coaches/{coach}/certifications', [CoachCertificationController::class, 'store'])->name('coaches.certifications.store');
     Route::delete('coaches/{coach}/certifications/{certification}', [CoachCertificationController::class, 'destroy'])->name('coaches.certifications.destroy');
+    Route::get('coaches/{coach}/certifications/{certification}/attachment', [CoachCertificationController::class, 'downloadAttachment'])->name('coaches.certifications.attachment.download');
+    Route::get('coaches/{coach}/certifications/{certification}/attachment/preview', [CoachCertificationController::class, 'previewAttachment'])->name('coaches.certifications.attachment.preview');
     Route::post('coaches/{coach}/promotions', [CoachPromotionController::class, 'store'])->name('coaches.promotions.store');
     Route::patch('coaches/{coach}/promotions/{promotion}', [CoachPromotionController::class, 'update'])->name('coaches.promotions.update');
     Route::delete('coaches/{coach}/promotions/{promotion}', [CoachPromotionController::class, 'destroy'])->name('coaches.promotions.destroy');

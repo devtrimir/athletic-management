@@ -76,7 +76,7 @@ class CoachProfileData
     /** @return array<string, mixed> */
     public function certifications(Coach $coach): array
     {
-        $coach->loadMissing('certifications:id,coach_id,name,certificate_type,issuer,issued_at,expired_at,attachment_path,metadata');
+        $coach->loadMissing('certifications:id,coach_id,name,certificate_type,issuer,issued_at,expired_at,attachment_path,attachment_original_name,mime_type,size_bytes,metadata');
 
         return [
             ...$this->shell($coach),
@@ -171,7 +171,7 @@ class CoachProfileData
                 ->orderByDesc('assigned_at')
                 ->orderByDesc('id'),
             'sports' => fn ($query) => $query->withPivot(['is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes']),
-            'certifications:id,coach_id,name,certificate_type,issuer,issued_at,expired_at,attachment_path,metadata',
+            'certifications:id,coach_id,name,certificate_type,issuer,issued_at,expired_at,attachment_path,attachment_original_name,mime_type,size_bytes,metadata',
             'promotions' => fn ($query) => $query
                 ->with([
                     'recorder:id,name',
