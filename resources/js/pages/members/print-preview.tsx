@@ -1342,7 +1342,7 @@ export default function PrintPreview({
                                     .join(' / ')}
                             </div>
                             <h1 className="text-2xl font-bold">
-                                {preferredName}
+                                {t('Print preview')}
                             </h1>
                             <div className="pt-1">
                                 <LocaleSwitcher />

@@ -262,8 +262,8 @@ function medalSummary(
 
 function rankLabel(coach: Coach): string {
     return (
-        coach.rank_master?.short_name ??
         coach.rank_master?.name ??
+        coach.rank_master?.short_name ??
         coach.rank_master?.code ??
         ''
     );
@@ -496,7 +496,7 @@ export default function CoachPrintPreview({
                                 {[t('Coaches'), coach.full_name].join(' / ')}
                             </div>
                             <h1 className="text-2xl font-bold">
-                                {coach.full_name}
+                                {t('Print preview')}
                             </h1>
                             <div className="pt-1">
                                 <LocaleSwitcher />
@@ -584,10 +584,6 @@ export default function CoachPrintPreview({
                                                         {coach.pno}
                                                     </span>
                                                 ) : null,
-                                            },
-                                            {
-                                                label: t('Display name'),
-                                                value: coach.display_name,
                                             },
                                             {
                                                 label: t('Rank'),
