@@ -30,7 +30,6 @@ use Illuminate\Support\Carbon;
  * @property string|null $mobile
  * @property string|null $blood_group
  * @property string|null $display_name
- * @property string|null $designation
  * @property string|null $email
  * @property string|null $gender
  * @property Carbon|null $date_of_birth
@@ -43,7 +42,6 @@ use Illuminate\Support\Carbon;
  * @property int|null $nis_master_id
  * @property int|null $tier_master_id
  * @property int|null $rank_master_id
- * @property int|null $designation_master_id
  * @property Carbon|null $deleted_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -71,11 +69,8 @@ use Illuminate\Support\Carbon;
     'nis_master_id',
     'tier_master_id',
     'rank_master_id',
-    'designation_master_id',
     'display_name',
     'display_name_en',
-    'designation_en',
-    'designation',
     'email',
     'gender',
     'date_of_birth',
@@ -124,11 +119,6 @@ class Coach extends Model
     public function rankMaster(): BelongsTo
     {
         return $this->belongsTo(Rank::class, 'rank_master_id');
-    }
-
-    public function designationMaster(): BelongsTo
-    {
-        return $this->belongsTo(Designation::class, 'designation_master_id');
     }
 
     /** @return BelongsTo<Organization, $this> */

@@ -69,8 +69,8 @@ Queries run via the `laravel-boost` MCP server before planning. Record query →
 
 ### Definition of Done
 - [ ] Code compiles / type-checks
-- [ ] `php artisan migrate:fresh --seed` clean
-- [ ] `php artisan migrate:rollback` clean on new migrations
+- [ ] `php artisan migrate:fresh --seed` clean on a **scratch database** (never against the dev/live DB — `createdb <scratch>`, run with `DB_DATABASE=<scratch>`, then drop it)
+- [ ] `php artisan migrate:rollback` clean on new migrations — also verified on the scratch database, never by rolling back the dev/live DB
 - [ ] Feature test per new endpoint
 - [ ] Unit test per new Service/Action
 - [ ] Vitest test per non-trivial component

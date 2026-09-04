@@ -70,7 +70,6 @@ class CoachPreviewController extends Controller
             'display_name' => $coach->display_name,
             'pno' => $coach->pno,
             'mobile' => $coach->mobile,
-            'designation' => $coach->designation,
             'email' => $coach->email,
             'gender' => $coach->gender,
             'date_of_birth' => $coach->date_of_birth?->toDateString(),

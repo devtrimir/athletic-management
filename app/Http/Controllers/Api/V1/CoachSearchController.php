@@ -51,7 +51,7 @@ class CoachSearchController extends Controller
                         ->orWhere('email', $q);
                 })
                 ->limit(1)
-                ->get(['id', 'full_name', 'display_name', 'pno', 'mobile', 'designation', 'coach_status', 'email', 'date_of_birth', 'gender']);
+                ->get(['id', 'full_name', 'display_name', 'pno', 'mobile', 'coach_status', 'email', 'date_of_birth', 'gender']);
 
             if ($results->isNotEmpty()) {
                 return CoachSearchResource::collection($results)
@@ -67,7 +67,6 @@ class CoachSearchController extends Controller
                     ->orWhere('display_name', 'LIKE', '%'.$q.'%')
                     ->orWhere('pno', 'LIKE', '%'.$q.'%')
                     ->orWhere('mobile', 'LIKE', '%'.$q.'%')
-                    ->orWhere('designation', 'LIKE', '%'.$q.'%')
                     ->orWhere('email', 'LIKE', '%'.$q.'%')
                     ->orWhere('coach_status', 'LIKE', '%'.$q.'%')
                     ->orWhereHas('aliases', fn ($aliasQuery) => $aliasQuery->where('alias', 'LIKE', '%'.$q.'%'));
@@ -84,7 +83,7 @@ class CoachSearchController extends Controller
             ])
             ->orderBy('full_name')
             ->limit(20)
-            ->get(['id', 'full_name', 'display_name', 'pno', 'mobile', 'designation', 'coach_status', 'email', 'date_of_birth', 'gender']);
+            ->get(['id', 'full_name', 'display_name', 'pno', 'mobile', 'coach_status', 'email', 'date_of_birth', 'gender']);
 
         return CoachSearchResource::collection($results)
             ->additional(['meta' => ['q' => $q, 'count' => $results->count()]])

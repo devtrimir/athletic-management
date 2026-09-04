@@ -517,6 +517,35 @@ test('index includes active nis master names as certificate type filter values',
         );
 });
 
+test('index includes resolved nis master names on coach rows', function () {
+    $user = coachUser('coaches.view');
+
+    $nisMaster = NisMaster::query()->create([
+        'kind' => 'nis',
+        'code' => 'NIS_DIPLOMA',
+        'name' => 'NIS diploma',
+        'short_name' => 'Diploma',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'NIS Coach',
+        'nis_master_id' => $nisMaster->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.index', ['filter' => ['status_scope' => 'inactive']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('coaches.data', 1)
+            ->where('coaches.data.0.id', $coach->id)
+            ->where('coaches.data.0.nis_master.id', $nisMaster->id)
+            ->where('coaches.data.0.nis_master.name', 'NIS diploma')
+        );
+});
+
 // ---------------------------------------------------------------------------
 // create
 // ---------------------------------------------------------------------------

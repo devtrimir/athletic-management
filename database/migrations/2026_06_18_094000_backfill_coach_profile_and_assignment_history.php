@@ -22,7 +22,6 @@ return new class extends Migration
                 foreach ($coaches as $coach) {
                     $coach->fill([
                         'display_name' => $coach->display_name ?? $coach->full_name,
-                        'designation' => $coach->designation ?? $coach->member?->designation,
                         'gender' => $coach->gender ?? $coach->member?->gender,
                         'date_of_birth' => $coach->date_of_birth ?? $coach->member?->dob,
                         'coach_status' => $coach->coach_status === 'RETIRRED'
