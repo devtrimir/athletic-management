@@ -8,7 +8,6 @@ use App\Http\Resources\MemberResource;
 use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
 use App\Models\Achievement;
-use App\Models\Designation;
 use App\Models\District;
 use App\Models\Event;
 use App\Models\ExternalCoachingAssignment;
@@ -287,7 +286,6 @@ class MemberProfileData
                 ])
                 ->all(),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ];
     }
 

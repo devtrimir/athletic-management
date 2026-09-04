@@ -29,7 +29,6 @@ class StoreMemberRequest extends FormRequest
             'father_name' => ['nullable', 'string', 'max:255'],
             'rank' => ['nullable', 'string', 'max:100'],
             'initial_rank' => ['nullable', 'string', 'max:100'],
-            'designation' => ['nullable', 'string', 'max:100'],
             'gender' => ['required', Rule::in(['M', 'F', 'O'])],
             'dob' => ['nullable', 'date', 'before:today'],
             'joining_date' => ['nullable', 'date'],
@@ -39,7 +38,7 @@ class StoreMemberRequest extends FormRequest
             'posting_district_id' => ['nullable', 'integer', 'exists:districts,id', 'prohibits:current_unit_id'],
             'current_unit_id' => ['nullable', 'integer', 'exists:units,id', 'prohibits:posting_district_id'],
             'player_category' => ['required', Rule::in(['GD', 'SPORTS_QUOTA'])],
-            'player_level' => ['required', Rule::in(['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'])],
+            'player_level' => ['required', Rule::exists('tournament_tiers', 'code')],
             'source_refs' => ['nullable', 'array'],
 
             // P2B profile extension fields
@@ -47,7 +46,6 @@ class StoreMemberRequest extends FormRequest
             'caste' => ['nullable', 'string', 'max:100'],
             'promotion_date' => ['nullable', 'date'],
             'home_address' => ['nullable', 'string'],
-            'recruitment_type' => ['nullable', Rule::in(['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER'])],
             'playable_sports' => ['nullable', 'array'],
             'playable_sports.*.sport_id' => ['required', 'integer', 'distinct', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'playable_sports.*.role' => ['nullable', 'string', 'max:100'],

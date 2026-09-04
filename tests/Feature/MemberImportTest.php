@@ -8,8 +8,10 @@ use App\Models\Import;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Permission;
+use App\Models\Rank;
 use App\Models\Role;
 use App\Models\Sport;
+use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Models\User;
 use App\Support\Members\MemberImportSchema;
@@ -23,6 +25,31 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    // Mirror production: the tournament tier master is always seeded and the
+    // member import resolves player levels against it.
+    TournamentTier::upsert([
+        ['code' => 'INTERNATIONAL', 'label_hi' => 'अंतर्राष्ट्रीय', 'label_en' => 'International', 'weight' => 100],
+        ['code' => 'NATIONAL', 'label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+        ['code' => 'AIPSC', 'label_hi' => 'अखिल भारतीय पुलिस खेल', 'label_en' => 'AIPSC', 'weight' => 70],
+        ['code' => 'STATE', 'label_hi' => 'राज्यस्तरीय', 'label_en' => 'State', 'weight' => 60],
+        ['code' => 'ZONAL', 'label_hi' => 'क्षेत्रीय', 'label_en' => 'Zonal', 'weight' => 40],
+        ['code' => 'OTHER', 'label_hi' => 'अन्य', 'label_en' => 'Other', 'weight' => 10],
+    ], uniqueBy: ['code']);
+
+    // Mirror production: the ranks master is always seeded and the member
+    // import resolves rank / initial rank dropdown values against it.
+    Rank::create([
+        'code' => 'CONSTABLE',
+        'name' => 'आरक्षी / सिपाही',
+        'name_en' => 'Police Constable',
+        'short_name' => 'Constable',
+        'rank_order' => 10,
+        'aliases' => ['Sipahi', 'Police Constable', 'आरक्षी', 'सिपाही'],
+        'is_active' => true,
+    ]);
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,8 +84,11 @@ function importUser(string ...$permissions): User
  */
 function importRow(array $overrides = []): array
 {
+    // PNO is required; default to a unique one so multi-row fixtures import.
+    static $pnoSequence = 210700000;
+
     $row = array_merge([
-        'pno' => null,
+        'pno' => (string) ++$pnoSequence,
         'full_name' => 'टेस्ट खिलाड़ी',
         'father_name' => null,
         'gender' => 'M',
@@ -73,13 +103,11 @@ function importRow(array $overrides = []): array
         'joining_date' => null,
         'blood_group' => null,
         'caste' => null,
-        'designation' => null,
         'initial_rank' => null,
-        'recruitment_type' => null,
         'sport' => null,
         'sport_event' => null,
         'team_since' => null,
-        'other_notes' => null,
+        'home_address' => null,
     ], $overrides);
 
     return array_map(
@@ -153,25 +181,45 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // Enum dropdown (inline list).
     expect($sheet->getCell('D2')->getDataValidation()->getFormula1())->toBe('"M,F,O"');
 
+    // The in-cell dropdown arrow must be visible (OOXML showDropDown is
+    // inverted: "1" hides the arrow — PhpSpreadsheet models it as "show").
+    expect($sheet->getCell('D2')->getDataValidation()->getShowDropDown())->toBeTrue()
+        ->and($sheet->getCell('J2')->getDataValidation()->getShowDropDown())->toBeTrue()
+        ->and($sheet->getCell('Q2')->getDataValidation()->getShowDropDown())->toBeTrue();
+
     // Category dropdown shows friendly labels, not raw codes.
     expect($sheet->getCell('H2')->getDataValidation()->getFormula1())->toBe('"Ground Duty,Sports Quota"');
 
     // DB-backed dropdowns via named ranges.
     expect($sheet->getCell('J2')->getDataValidation()->getFormula1())->toBe('DistrictList')
         ->and($sheet->getCell('L2')->getDataValidation()->getFormula1())->toBe('UnitList')
-        ->and($sheet->getCell('S2')->getDataValidation()->getFormula1())->toBe('SportList');
+        ->and($sheet->getCell('Q2')->getDataValidation()->getFormula1())->toBe('SportList')
+        ->and($sheet->getCell('I2')->getDataValidation()->getFormula1())->toBe('TierList')
+        ->and($sheet->getCell('F2')->getDataValidation()->getFormula1())->toBe('RankList')
+        ->and($sheet->getCell('P2')->getDataValidation()->getFormula1())->toBe('RankList')
+        ->and($sheet->getCell('F2')->getDataValidation()->getShowDropDown())->toBeTrue()
+        ->and($sheet->getCell('P2')->getDataValidation()->getShowDropDown())->toBeTrue();
 
     $districtRange = $spreadsheet->getNamedRange('DistrictList');
     expect($districtRange)->not->toBeNull()
         ->and($districtRange->getWorksheet()->getTitle())->toBe('Reference');
 
-    // Reference sheet lists the seeded district.
-    expect($reference->getCell('A3')->getValue())->toBe($district->name);
+    $tierRange = $spreadsheet->getNamedRange('TierList');
+    expect($tierRange)->not->toBeNull();
+
+    $rankRange = $spreadsheet->getNamedRange('RankList');
+    expect($rankRange)->not->toBeNull()
+        ->and($rankRange->getWorksheet()->getTitle())->toBe('Reference');
+
+    // Reference sheet lists the seeded district and the top-weight tier label.
+    expect($reference->getCell('A3')->getValue())->toBe($district->name)
+        ->and($reference->getCell('D3')->getValue())->toBe('International')
+        ->and($reference->getCell('E3')->getValue())->toBe('आरक्षी / सिपाही');
 
     // Date columns carry a real Excel date format.
     expect($sheet->getStyle('E2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
         ->and($sheet->getStyle('M2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
-        ->and($sheet->getStyle('U2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY');
+        ->and($sheet->getStyle('S2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY');
 });
 
 // ---------------------------------------------------------------------------
@@ -216,9 +264,9 @@ test('valid rows are imported with generated codes and playable sport pivot', fu
             'sport' => $sport->name,
             'sport_event' => '48 kg Sanda',
             'blood_group' => 'B+',
-            'recruitment_type' => 'SPORTS_QUOTA',
         ]),
         importRow([
+            'pno' => '210712828',
             'full_name' => 'Second Player',
             'gender' => 'F',
             'player_category' => 'SPORTS_QUOTA',
@@ -249,12 +297,42 @@ test('valid rows are imported with generated codes and playable sport pivot', fu
         ->and($first->playableSports->first()->pivot->sport_event)->toBe('48 kg Sanda');
 
     $second = $members->firstWhere('full_name', 'Second Player');
-    expect($second->pno)->toBeNull()
+    expect($second->pno)->toBe('210712828')
         ->and($second->gender)->toBe('F');
 
     $record = Import::withoutGlobalScopes()->first();
     expect($record->status)->toBe(Import::STATUS_COMPLETED)
         ->and($record->error_log)->toBeNull();
+});
+
+test('re-importing adds a new sport and updates an existing one without removing any', function () {
+    $user = importUser('imports.run');
+    $sportA = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $sportB = Sport::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'sport' => $sportA->name, 'sport_event' => '48 kg Sanda'])]),
+    ]);
+
+    // Second import: same member, different sport — sport A must stay.
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'sport' => $sportB->name, 'sport_event' => '10 m Air Rifle'])]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->sole();
+    $sports = $member->playableSports->keyBy('id');
+    expect($sports)->toHaveCount(2)
+        ->and($sports[$sportA->id]->pivot->sport_event)->toBe('48 kg Sanda')
+        ->and($sports[$sportB->id]->pivot->sport_event)->toBe('10 m Air Rifle');
+
+    // Third import: same member, sport A with a new event — updates in place.
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'sport' => $sportA->name, 'sport_event' => '52 kg Sanda'])]),
+    ]);
+
+    $sports = $member->fresh()->playableSports->keyBy('id');
+    expect($sports)->toHaveCount(2)
+        ->and($sports[$sportA->id]->pivot->sport_event)->toBe('52 kg Sanda');
 });
 
 test('real Excel dates in date-formatted cells are converted on import', function () {
@@ -271,6 +349,49 @@ test('real Excel dates in date-formatted cells are converted on import', functio
     $member = Member::withoutGlobalScopes()->firstOrFail();
     expect($member->dob->toDateString())->toBe('1999-05-10')
         ->and($member->joining_date->toDateString())->toBe('2021-12-15');
+});
+
+test('rank and initial rank cells resolve master names, short names, and aliases to codes', function () {
+    $user = importUser('imports.run');
+
+    $rows = [
+        // Alias picks the CONSTABLE code.
+        importRow(['full_name' => 'Alias Rank', 'pno' => '210712821', 'rank' => 'सिपाही']),
+        // Short name picks the CONSTABLE code.
+        importRow(['full_name' => 'Short Rank', 'pno' => '210712822', 'rank' => 'Constable']),
+        // Initial rank resolves through the same map.
+        importRow(['full_name' => 'Initial Rank', 'pno' => '210712823', 'initial_rank' => 'Police Constable']),
+    ];
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile($rows),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members->firstWhere('full_name', 'Alias Rank')->rank)->toBe('CONSTABLE')
+        ->and($members->firstWhere('full_name', 'Short Rank')->rank)->toBe('CONSTABLE')
+        ->and($members->firstWhere('full_name', 'Initial Rank')->initial_rank)->toBe('CONSTABLE');
+
+    $record = Import::withoutGlobalScopes()->first();
+    expect($record->status)->toBe(Import::STATUS_COMPLETED)
+        ->and($record->error_log)->toBeNull();
+});
+
+test('custom rank text that matches no master rank is kept as-is without a row error', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'Custom Rank', 'pno' => '210712824', 'rank' => 'मंच अध्यक्ष']),
+        ]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->firstOrFail();
+    expect($member->rank)->toBe('मंच अध्यक्ष');
+
+    $record = Import::withoutGlobalScopes()->first();
+    expect($record->status)->toBe(Import::STATUS_COMPLETED)
+        ->and($record->error_log)->toBeNull();
 });
 
 test('the template example row is never imported as a member', function () {
@@ -290,6 +411,55 @@ test('the template example row is never imported as a member', function () {
         ->and($members->first()->full_name)->toBe('Real Player');
 });
 
+test('a data row matching the example values below row 2 is real data and gets imported', function () {
+    $user = importUser('imports.run');
+
+    // Row 2 is the untouched example row; row 3 repeats its values — that is
+    // user data (e.g. only PNO/date columns filled) and must not be skipped.
+    $exampleRow = array_map(
+        static fn (array $column): ?string => $column['example'],
+        MemberImportSchema::columns(),
+    );
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([$exampleRow, $exampleRow]),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members)->toHaveCount(1)
+        ->and($members->first()->full_name)->toBe('मोहित राठोर');
+});
+
+test('an upload with no data rows completes with zero counts so the client can warn', function () {
+    $user = importUser('imports.run');
+
+    $exampleRow = array_map(
+        static fn (array $column): ?string => $column['example'],
+        MemberImportSchema::columns(),
+    );
+
+    $response = $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([$exampleRow]),
+    ]);
+
+    $response->assertRedirect(route('members.index'));
+
+    expect(session('inertia.flash_data.toast'))->toBe([
+        'type' => 'info',
+        'message' => 'Import queued. The members table will update automatically when it finishes.',
+    ])->and(session('inertia.flash_data.import_id'))->toBe(
+        Import::withoutGlobalScopes()->firstOrFail()->id,
+    );
+
+    // Sync queue: the job has already run. Zero total counts is the signal the
+    // frontend uses to flash the no-data warning on the broadcast event.
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->status)->toBe(Import::STATUS_COMPLETED)
+        ->and($record->rowErrors())->toBe([]);
+
+    expect(Member::withoutGlobalScopes()->count())->toBe(0);
+});
+
 test('category dropdown labels resolve to codes on import', function () {
     $user = importUser('imports.run');
 
@@ -306,6 +476,54 @@ test('category dropdown labels resolve to codes on import', function () {
         ->and($members->firstWhere('full_name', 'Label Player GD')->player_category)->toBe('GD')
         ->and($members->firstWhere('full_name', 'Label Player SQ')->player_category)->toBe('SPORTS_QUOTA')
         ->and($members->firstWhere('full_name', 'Code Player')->player_category)->toBe('GD');
+});
+
+test('level dropdown labels resolve to tournament tier codes on import', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'Label Level Player', 'player_level' => 'National']),
+            importRow(['full_name' => 'Code Level Player', 'player_level' => 'NATIONAL', 'pno' => '210712827']),
+        ]),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members)->toHaveCount(2)
+        ->and($members->firstWhere('full_name', 'Label Level Player')->player_level)->toBe('NATIONAL')
+        ->and($members->firstWhere('full_name', 'Code Level Player')->player_level)->toBe('NATIONAL');
+});
+
+test('an unknown level is rejected', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'Bad Level Player', 'player_level' => 'Galactic']),
+        ]),
+    ]);
+
+    expect(Member::withoutGlobalScopes()->count())->toBe(0);
+
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->rowErrors())->toHaveCount(1)
+        ->and($record->rowErrors()[0]['errors'][0])->toContain('NATIONAL');
+});
+
+test('state and other tier levels import cleanly', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'State Level Player', 'player_level' => 'STATE', 'pno' => '210712827']),
+            importRow(['full_name' => 'Other Level Player', 'player_level' => 'Other', 'pno' => '210712828']),
+        ]),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members)->toHaveCount(2)
+        ->and($members->firstWhere('full_name', 'State Level Player')->player_level)->toBe('STATE')
+        ->and($members->firstWhere('full_name', 'Other Level Player')->player_level)->toBe('OTHER');
 });
 
 test('re-uploading the same PNO updates the member instead of duplicating', function () {
@@ -345,6 +563,72 @@ test('a PNO belonging to a coach is rejected', function () {
     $record = Import::withoutGlobalScopes()->first();
     expect($record->rowErrors())->toHaveCount(1)
         ->and($record->rowErrors()[0]['errors'][0])->toContain('210712827');
+});
+
+test('a row without a PNO is rejected', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => null])]),
+    ]);
+
+    expect(Member::withoutGlobalScopes()->count())->toBe(0);
+
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->rowErrors())->toHaveCount(1)
+        ->and($record->rowErrors()[0]['errors'][0])->toContain('पीएनओ आवश्यक');
+});
+
+test('an empty blood group imports without a row error', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['blood_group' => null])]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->sole();
+    expect($member->blood_group)->toBeNull();
+
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->rowErrors())->toBeEmpty();
+});
+
+test('hyphenated and lowercase blood groups import cleanly', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'O Negative Player', 'blood_group' => 'O-']),
+            importRow(['full_name' => 'AB Negative Player', 'blood_group' => 'ab-']),
+        ]),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members)->toHaveCount(2)
+        ->and($members->firstWhere('full_name', 'O Negative Player')->blood_group)->toBe('O-')
+        ->and($members->firstWhere('full_name', 'AB Negative Player')->blood_group)->toBe('AB-');
+
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->rowErrors())->toBeEmpty();
+});
+
+test('re-importing a member leaves their current status untouched', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'full_name' => 'Status Player'])]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->sole();
+    $member->forceFill(['current_status' => 'RESIGNED'])->saveQuietly();
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'full_name' => 'Status Player', 'father_name' => 'Updated Father'])]),
+    ]);
+
+    $fresh = $member->fresh();
+    expect($fresh->current_status)->toBe('RESIGNED')
+        ->and($fresh->father_name)->toBe('Updated Father');
 });
 
 test('invalid rows fail while valid rows in the same file are imported', function () {
@@ -483,8 +767,13 @@ test('template headings carry the initial rank column instead of appointment', f
 
     expect(implode('|', $headings))->toContain('Initial Rank')
         ->and(implode('|', $headings))->not->toContain('Appointment')
+        ->and(implode('|', $headings))->not->toContain('Recruitment')
         ->and($keys)->toContain('initial_rank')
-        ->and($keys)->not->toContain('appointment');
+        ->and($keys)->not->toContain('designation')
+        ->and($keys)->not->toContain('appointment')
+        ->and($keys)->not->toContain('recruitment_type')
+        ->and($keys)->toContain('home_address')
+        ->and($keys)->not->toContain('other_notes');
 });
 
 test('initial rank is imported onto the member', function () {
@@ -495,13 +784,30 @@ test('initial rank is imported onto the member', function () {
             importRow([
                 'full_name' => 'Ranked Player',
                 'pno' => '210712827',
-                'initial_rank' => 'सिपाही',
+                'initial_rank' => 'हवलदार',
             ]),
         ]),
     ]);
 
     $member = Member::withoutGlobalScopes()->firstOrFail();
-    expect($member->initial_rank)->toBe('सिपाही');
+    expect($member->initial_rank)->toBe('हवलदार');
+});
+
+test('home address is imported onto the member', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow([
+                'full_name' => 'Addressed Player',
+                'pno' => '210712827',
+                'home_address' => '123, सरदार पटेल मार्ग, लखनऊ',
+            ]),
+        ]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->firstOrFail();
+    expect($member->home_address)->toBe('123, सरदार पटेल मार्ग, लखनऊ');
 });
 
 test('a row with both unit and posting district is rejected', function () {

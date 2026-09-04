@@ -29,6 +29,8 @@ Last verified: 2026-05.
 | spatie/laravel-backup | ^9.0 | P10 |
 | barryvdh/laravel-dompdf | ^3.0 | P7 |
 | maatwebsite/excel | 3.1.69 | P3 — ADR-0002 |
+| laravel/reverb | ^1.0 | P6-T28 — WebSocket broadcasting for live member-import sync |
+| pusher/pusher-php-server | ^7.0 | P6-T28 (Reverb protocol server-side) |
 | sentry/sentry-laravel | ^4.0 | P10 |
 | laravel/boost | ^2.0 | dev, P0 (AI agent helper, already installed) |
 | larastan/larastan | ^3.0 | dev, P0-T03 |
@@ -56,6 +58,9 @@ Explicitly **NOT** used:
 | @tailwindcss/vite | ^4.0 | |
 | babel-plugin-react-compiler | ^1.0 | React 19 compiler, wired in `vite.config.ts` |
 | recharts | ^3.0 | P0-T04 |
+| @laravel/echo-react | ^2.0 | P6-T28 — Reverb client (`useEcho`) |
+| laravel-echo | ^2.0 | P6-T28 (peer of echo-react) |
+| pusher-js | ^8.0 | P6-T28 (Reverb protocol client) |
 | lucide-react | latest | |
 | clsx, tailwind-merge, class-variance-authority | latest | shadcn/ui deps |
 | vitest | ^2.0 | |

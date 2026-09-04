@@ -270,8 +270,10 @@
 
 /* ── Print styles ────────────────────────────────────────────────────────── */
 @media print {
-    /* Hide everything except the quick-view print target */
-    body > * {
+    /* Hide everything except the quick-view print target — but only on pages
+       that render it, otherwise every other print page (member listing,
+       reports) would come out blank. */
+    body:has(#quick-view-print-target) > * {
         display: none !important;
     }
 

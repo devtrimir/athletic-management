@@ -4,8 +4,12 @@ use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Members\MemberImportSchema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
 /*
@@ -71,4 +75,55 @@ function rcUser(string ...$permissions): User
     }
 
     return $user;
+}
+
+/**
+ * Build a real member-import .xlsx upload from the given data rows (schema column order).
+ *
+ * @param  list<list<string|null>>  $rows
+ * @param  list<string>|null  $header
+ */
+function memberImportUpload(array $rows, ?array $header = null): UploadedFile
+{
+    $spreadsheet = new Spreadsheet;
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle('Members');
+    $sheet->fromArray($header ?? MemberImportSchema::headings(), null, 'A1');
+
+    $rowNumber = 2;
+    foreach ($rows as $row) {
+        $sheet->fromArray($row, null, "A{$rowNumber}");
+        $rowNumber++;
+    }
+
+    $path = tempnam(sys_get_temp_dir(), 'member-import-').'.xlsx';
+    (new Xlsx($spreadsheet))->save($path);
+
+    return new UploadedFile($path, 'members.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+}
+
+/**
+ * A member-import data row keyed by column key, returned in schema column order.
+ *
+ * @param  array<string, string|null>  $overrides
+ * @return list<string|null>
+ */
+function memberImportRow(array $overrides = []): array
+{
+    // PNO is required; default to a unique one so multi-row fixtures import.
+    static $pnoSequence = 210700000;
+
+    $row = array_merge([
+        'pno' => (string) ++$pnoSequence,
+        'full_name' => 'टेस्ट खिलाड़ी',
+        'gender' => 'M',
+        'dob' => '10.05.1999',
+        'player_category' => 'GD',
+        'player_level' => 'ZONAL',
+    ], $overrides);
+
+    return array_map(
+        static fn (array $column): ?string => $row[$column['key']] ?? null,
+        MemberImportSchema::columns(),
+    );
 }

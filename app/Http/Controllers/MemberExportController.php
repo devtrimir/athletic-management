@@ -32,13 +32,11 @@ class MemberExportController extends Controller
         'current_status' => 'Status',
         'player_category' => 'Category',
         'player_level' => 'Level',
-        'unit' => 'Unit',
         'home_district' => 'Home District',
-        'posting_district' => 'Posting Unit / District',
+        'posting_district' => 'Posting',
         'joining_date' => 'Joining Date',
         'blood_group' => 'Blood Group',
         'caste' => 'Caste',
-        'designation' => 'Designation',
         'initial_rank' => 'Initial Rank',
         'playable_sports' => 'Playable Sports',
         'promotion_date' => 'Promotion Date',
@@ -210,7 +208,6 @@ class MemberExportController extends Controller
         $row = [];
         foreach ($validColumns as $col) {
             $row[$col] = match ($col) {
-                'unit' => $member->currentUnit?->name,
                 'home_district' => $member->homeDistrict?->name,
                 'posting_district' => $member->postingDistrict?->name ?? $member->currentUnit?->name,
                 'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
@@ -271,7 +268,6 @@ class MemberExportController extends Controller
             $row = [];
             foreach ($validColumns as $col) {
                 $row[$col] = match ($col) {
-                    'unit' => $member->currentUnit?->name,
                     'home_district' => $member->homeDistrict?->name,
                     'posting_district' => $member->postingDistrict?->name ?? $member->currentUnit?->name,
                     'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),

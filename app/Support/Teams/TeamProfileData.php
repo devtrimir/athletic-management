@@ -200,7 +200,7 @@ class TeamProfileData
 
         return $team->teamMembers()
             ->with([
-                'member:id,full_name,member_code,pno,player_category,rank,designation,mobile,current_unit_id',
+                'member:id,full_name,member_code,pno,player_category,rank,mobile,current_unit_id',
                 'member.currentUnit:id,name',
                 'member.playableSports' => fn ($query) => $query
                     ->select(['sports.id', 'sports.name'])
@@ -224,7 +224,6 @@ class TeamProfileData
                     'pno' => $teamMember->member->pno,
                     'player_category' => $teamMember->member->player_category,
                     'rank' => $teamMember->member->rank,
-                    'designation' => $teamMember->member->designation,
                     'mobile' => $teamMember->member->mobile,
                     'playable_profile' => $this->memberPlayableProfile($teamMember->member, $teamSportId, $teamSportName),
                     'current_unit' => $teamMember->member->currentUnit ? [

@@ -50,7 +50,6 @@ class MemberFactory extends Factory
             'initial_rank' => fake()->optional(0.5)->randomElement(['Constable', 'Head Constable', 'SI']),
             'appointment' => null,
             'home_address' => null,
-            'recruitment_type' => fake()->optional(0.6)->randomElement(['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER']),
             'sport_event' => fake()->optional(0.4)->randomElement(['100m', '200m', '1500m', '-60kg', '-73kg', '-81kg', 'Freestyle']),
             'other_notes' => null,
             'team_since' => fake()->optional(0.5)->dateTimeBetween('-15 years', 'now'),

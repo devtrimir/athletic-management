@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Exports;
 
 use App\Models\District;
+use App\Models\Rank;
 use App\Models\Sport;
+use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Support\Members\MemberImportSchema;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -41,7 +43,7 @@ class MemberImportTemplateExport implements WithMultipleSheets
     }
 
     /**
-     * @return array{districts: list<string>, units: list<string>, sports: list<string>}
+     * @return array{districts: list<string>, units: list<string>, sports: list<string>, tiers: list<string>, ranks: list<string>}
      */
     private function referenceLists(): array
     {
@@ -57,6 +59,8 @@ class MemberImportTemplateExport implements WithMultipleSheets
                 ->orderBy('name')
                 ->pluck('name')
                 ->all(),
+            'tiers' => TournamentTier::orderByDesc('weight')->pluck('label_en')->all(),
+            'ranks' => Rank::active()->ordered()->pluck('name')->all(),
         ];
     }
 }
@@ -67,7 +71,7 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
     private const VALIDATION_ROWS = 500;
 
     /**
-     * @param  array{districts: list<string>, units: list<string>, sports: list<string>}  $references
+     * @param  array{districts: list<string>, units: list<string>, sports: list<string>, tiers: list<string>, ranks: list<string>}  $references
      */
     public function __construct(
         private readonly array $references,
@@ -145,6 +149,9 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
                         $validation->setErrorStyle(DataValidation::STYLE_INFORMATION);
                         $validation->setAllowBlank(true);
                         $validation->setShowInputMessage(true);
+                        // In the OOXML spec this attribute is inverted: "1" HIDES the
+                        // in-cell dropdown arrow, so it must be set to true to show it.
+                        $validation->setShowDropdown(true);
                         $validation->setFormula1($formula);
                     }
                 }
@@ -156,12 +163,12 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
 class MemberImportTemplateReferenceSheet implements FromArray, ShouldAutoSize, WithEvents, WithStyles, WithTitle
 {
     /** List columns on this sheet (data starts at row 3, below instructions + headings). */
-    private const LIST_COLUMNS = ['districts' => 'A', 'units' => 'B', 'sports' => 'C'];
+    private const LIST_COLUMNS = ['districts' => 'A', 'units' => 'B', 'sports' => 'C', 'tiers' => 'D', 'ranks' => 'E'];
 
     private const LIST_START_ROW = 3;
 
     /**
-     * @param  array{districts: list<string>, units: list<string>, sports: list<string>}  $references
+     * @param  array{districts: list<string>, units: list<string>, sports: list<string>, tiers: list<string>, ranks: list<string>}  $references
      */
     public function __construct(
         private readonly array $references,
@@ -178,23 +185,29 @@ class MemberImportTemplateReferenceSheet implements FromArray, ShouldAutoSize, W
         $districts = $this->references['districts'];
         $units = $this->references['units'];
         $sports = $this->references['sports'];
+        $tiers = $this->references['tiers'];
+        $ranks = $this->references['ranks'];
 
         $rows = [
             [
-                'Instructions / निर्देश — fill the Members sheet only; do not rename, reorder, or delete its columns. Required columns are marked *. Row 2 is an example — replace or delete it before uploading (it is skipped automatically if left unchanged). Date columns accept real Excel dates (shown as DD.MM.YYYY). District, unit, and sport cells have dropdowns filled from the lists below — pick from the dropdown or copy the exact spelling.',
+                'Instructions / निर्देश — fill the Members sheet only; do not rename, reorder, or delete its columns. Required columns are marked *. Row 2 is an example — replace or delete it before uploading (it is skipped automatically if left unchanged). Date columns accept real Excel dates (shown as DD.MM.YYYY). District, unit, sport, level, and rank cells have dropdowns filled from the lists below — pick from the dropdown or copy the exact spelling.',
+                null,
+                null,
                 null,
                 null,
             ],
-            ['Home/Posting District / जनपद', 'Unit / इकाई', 'Sport / खेल'],
+            ['Home/Posting District / जनपद', 'Unit / इकाई', 'Sport / खेल', 'Level / स्तर', 'Rank / पद'],
         ];
 
-        $max = max(count($districts), count($units), count($sports));
+        $max = max(count($districts), count($units), count($sports), count($tiers), count($ranks));
 
         for ($i = 0; $i < $max; $i++) {
             $rows[] = [
                 $districts[$i] ?? null,
                 $units[$i] ?? null,
                 $sports[$i] ?? null,
+                $tiers[$i] ?? null,
+                $ranks[$i] ?? null,
             ];
         }
 

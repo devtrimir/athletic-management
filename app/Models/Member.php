@@ -32,7 +32,6 @@ use Illuminate\Support\Carbon;
  * @property string|null $father_name
  * @property string|null $rank
  * @property string|null $initial_rank
- * @property string|null $designation
  * @property string $gender
  * @property Carbon|null $dob
  * @property Carbon|null $joining_date
@@ -50,7 +49,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $promotion_date
  * @property string|null $appointment
  * @property string|null $home_address
- * @property string|null $recruitment_type
  * @property int|null $sport_id
  * @property string|null $sport_event
  * @property string|null $other_notes
@@ -74,14 +72,12 @@ use Illuminate\Support\Carbon;
     'father_name',
     'rank',
     'initial_rank',
-    'designation',
     'photo_path',
     'blood_group',
     'caste',
     'promotion_date',
     'appointment',
     'home_address',
-    'recruitment_type',
     'sport_id',
     'sport_event',
     'other_notes',

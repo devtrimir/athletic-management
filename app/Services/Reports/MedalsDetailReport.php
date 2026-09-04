@@ -66,7 +66,6 @@ class MedalsDetailReport
                 'm.pno',
                 'm.full_name',
                 'm.rank',
-                'm.designation',
                 'm.gender',
                 'm.player_category',
                 'm.player_level',
@@ -134,7 +133,6 @@ class MedalsDetailReport
                 'm.pno',
                 'm.full_name',
                 'm.rank',
-                'm.designation',
                 'm.gender',
                 'm.player_category',
                 'm.player_level',
@@ -251,7 +249,6 @@ class MedalsDetailReport
                 'pno' => $row->pno,
                 'full_name' => $row->full_name,
                 'rank' => $row->rank,
-                'designation' => $row->designation,
                 'gender' => $row->gender,
                 'player_category' => $row->player_category,
                 'player_level' => $row->player_level,
@@ -307,7 +304,6 @@ class MedalsDetailReport
                 $copy->pno = $member->pno;
                 $copy->full_name = $member->full_name;
                 $copy->rank = $member->rank;
-                $copy->designation = $member->designation;
                 $copy->gender = $member->gender;
                 $copy->player_category = $member->player_category;
                 $copy->player_level = $member->player_level;

@@ -6,10 +6,13 @@ namespace App\Imports;
 
 use App\Models\District;
 use App\Models\Member;
+use App\Models\Rank;
 use App\Models\Sport;
+use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\MemberCodeGenerator;
 use App\Support\Members\MemberImportSchema;
+use Closure;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -45,14 +48,28 @@ class MembersImport implements ToCollection, WithMultipleSheets
 
     private bool $sheetProcessed = false;
 
+    /** Number of data rows a progress event has been emitted for. */
+    private int $processed = 0;
+
     /** @var list<array{row: int, name: string, errors: list<string>}> */
     private array $errors = [];
 
     private ?string $templateError = null;
 
+    /** @var array<string, string>|null */
+    private ?array $tierMap = null;
+
+    /** @var array<string, string>|null */
+    private ?array $rankMap = null;
+
+    /**
+     * @param  (Closure(int, string|null, string, string, list<string>, int): void)|null  $onProgress
+     *                                                                                                 Receives (excel row, pno, name, result, errors, processed counter) per data row.
+     */
     public function __construct(
         private readonly int $organizationId,
         private readonly string $filename,
+        private readonly ?Closure $onProgress = null,
     ) {}
 
     /** @return array<string|int, $this> */
@@ -128,7 +145,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
         /** @var list<array{row: int, payload: array<string, mixed>, sport_id: int|null, sport_event: string|null}> $valid */
         $valid = [];
 
-        foreach ($rows->slice(1) as $index => $row) {
+        foreach ($rows->slice(1)->values() as $index => $row) {
             $rowNumber = $index + 2; // Excel row number (1-based + header)
             $cells = collect($row)->values();
 
@@ -136,8 +153,10 @@ class MembersImport implements ToCollection, WithMultipleSheets
                 continue;
             }
 
-            // The template ships with one example row — never import it.
-            if ($this->isExampleRow($cells)) {
+            // The template ships with one example row at row 2 — never import
+            // it. Only that position is skipped: a data row further down that
+            // happens to share the example values is real user data.
+            if ($rowNumber === 2 && $this->isExampleRow($cells)) {
                 continue;
             }
 
@@ -146,6 +165,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
             if ($rowErrors !== []) {
                 $this->failed++;
                 $this->recordError($rowNumber, (string) ($payload['full_name'] ?? ''), $rowErrors);
+                $this->emitProgress($rowNumber, $payload['pno'], $payload['full_name'], 'failed', $rowErrors);
 
                 continue;
             }
@@ -164,38 +184,39 @@ class MembersImport implements ToCollection, WithMultipleSheets
 
         // ── Dedupe within the file (last occurrence wins) ────────────────
         $byPno = [];
-        $byName = [];
 
-        foreach ($valid as $entry) {
-            $pno = $entry['payload']['pno'];
+        foreach ($valid as $index => $entry) {
+            $byPno[$entry['payload']['pno']] = $index;
+        }
 
-            if ($pno !== null) {
-                $byPno[$pno] = $entry;
-            } else {
-                $byName[$entry['payload']['full_name'].'|'.$entry['payload']['player_category']] = $entry;
+        $keptIndexes = array_flip(array_values($byPno));
+
+        // Superseded duplicates are not written (the later row wins) but still
+        // get a row outcome so the uploader's dialog ticks off every data row.
+        foreach ($valid as $index => $entry) {
+            if (! isset($keptIndexes[$index])) {
+                $this->emitProgress(
+                    $entry['row'],
+                    $entry['payload']['pno'],
+                    $entry['payload']['full_name'],
+                    'skipped',
+                    [__('Duplicate of a later row in the file — the later row was imported.')],
+                );
             }
         }
 
-        $deduped = array_values(array_merge(array_values($byPno), array_values($byName)));
+        $deduped = [];
+
+        foreach (array_values($byPno) as $index) {
+            $deduped[] = $valid[$index];
+        }
 
         // ── Split creates vs updates and assign member codes ─────────────
         /** @var list<array{row: int, payload: array<string, mixed>, sport_id: int|null, sport_event: string|null, member_id: int|null}> $entries */
         $entries = [];
 
         foreach ($deduped as $entry) {
-            $pno = $entry['payload']['pno'];
-
-            if ($pno !== null && isset($memberPnoMap[$pno])) {
-                $entry['member_id'] = $memberPnoMap[$pno];
-            } elseif ($pno === null) {
-                $entry['member_id'] = Member::withoutGlobalScopes()
-                    ->where('organization_id', $this->organizationId)
-                    ->where('full_name', $entry['payload']['full_name'])
-                    ->where('player_category', $entry['payload']['player_category'])
-                    ->value('id');
-            } else {
-                $entry['member_id'] = null;
-            }
+            $entry['member_id'] = $memberPnoMap[$entry['payload']['pno']] ?? null;
 
             $entries[] = $entry;
         }
@@ -218,20 +239,18 @@ class MembersImport implements ToCollection, WithMultipleSheets
                     'row' => $entry['row'],
                 ];
 
-                if ($entry['member_id'] !== null && $payload['pno'] !== null) {
+                if ($entry['member_id'] !== null) {
                     $member = Member::withoutGlobalScopes()->findOrFail($entry['member_id']);
                     $member->update(array_filter($payload, static fn (mixed $value): bool => $value !== null));
                     $this->updated++;
-                } elseif ($entry['member_id'] !== null) {
-                    // No-PNO row matching an existing (name, category) — leave untouched.
-                    $member = Member::withoutGlobalScopes()->findOrFail($entry['member_id']);
-                    $this->skipped++;
+                    $this->emitProgress($entry['row'], $payload['pno'], $payload['full_name'], 'updated', []);
                 } else {
                     $member = Member::withoutGlobalScopes()->create(array_merge($payload, [
                         'organization_id' => $this->organizationId,
                         'member_code' => $codes[$codeIndex++],
                     ]));
                     $this->created++;
+                    $this->emitProgress($entry['row'], $payload['pno'], $payload['full_name'], 'created', []);
                 }
 
                 if ($entry['sport_id'] !== null) {
@@ -267,7 +286,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
             'father_name' => $str('father_name'),
             'gender' => null,
             'dob' => null,
-            'rank' => $str('rank'),
+            'rank' => $this->resolveRank($str('rank')),
             'mobile' => null,
             'player_category' => null,
             'player_level' => null,
@@ -277,12 +296,10 @@ class MembersImport implements ToCollection, WithMultipleSheets
             'joining_date' => null,
             'blood_group' => null,
             'caste' => $str('caste'),
-            'designation' => $str('designation'),
-            'initial_rank' => $str('initial_rank'),
-            'recruitment_type' => null,
+            'initial_rank' => $this->resolveRank($str('initial_rank')),
             'sport_event' => $str('sport_event'),
             'team_since' => null,
-            'other_notes' => $str('other_notes'),
+            'home_address' => $str('home_address'),
             '_sport_id' => null,
         ];
 
@@ -327,26 +344,28 @@ class MembersImport implements ToCollection, WithMultipleSheets
             $payload['player_category'] = $category;
         }
 
-        // Player level (required)
-        $level = $this->normalizeEnum($get('player_level'), array_fill_keys(MemberImportSchema::PLAYER_LEVELS, null));
+        // Player level (required) — backed by the tournament_tiers master;
+        // accepts the dropdown labels as well as the raw codes.
+        $levelMap = $this->tierMap();
+        $level = $this->normalizeEnum($get('player_level'), $levelMap);
 
         if ($level === null) {
-            $errors[] = __('Level is required and must be one of: ZONAL, NATIONAL, INTERNATIONAL, AIPSC.');
+            $errors[] = __('Level is required and must be one of: :values.', ['values' => implode(', ', array_unique(array_values($levelMap)))]);
         } else {
             $payload['player_level'] = $level;
         }
 
-        // PNO (optional, digits only, unique across people)
+        // PNO (required, digits only, unique across people)
         $pno = preg_replace('/\s+/', '', (string) $get('pno'));
 
-        if ($pno !== '') {
-            if (! preg_match('/^\d{8,20}$/', $pno)) {
-                $errors[] = __('PNO must be 8–20 digits.');
-            } elseif (isset($blockedPnos[$pno])) {
-                $errors[] = __('PNO :pno is already used by a coach or team prabhari.', ['pno' => $pno]);
-            } else {
-                $payload['pno'] = $pno;
-            }
+        if ($pno === '') {
+            $errors[] = __('PNO is required.');
+        } elseif (! preg_match('/^\d{8,20}$/', $pno)) {
+            $errors[] = __('PNO must be 8–20 digits.');
+        } elseif (isset($blockedPnos[$pno])) {
+            $errors[] = __('PNO :pno is already used by a coach or team prabhari.', ['pno' => $pno]);
+        } else {
+            $payload['pno'] = $pno;
         }
 
         // Dates
@@ -381,21 +400,17 @@ class MembersImport implements ToCollection, WithMultipleSheets
             }
         }
 
-        // Optional enums
-        $bloodGroup = $this->normalizeEnum($get('blood_group'), array_fill_keys(MemberImportSchema::BLOOD_GROUPS, null));
+        // Optional enums. Blood group is matched case-insensitively WITHOUT
+        // the generic enum normalizer — that one turns hyphens into
+        // underscores, which would make A-/B-/O-/AB- unmatchable.
+        $bloodGroupRaw = $str('blood_group');
 
-        if ($bloodGroup === null && $str('blood_group') !== null) {
+        if ($bloodGroupRaw === null) {
+            $payload['blood_group'] = null;
+        } elseif (in_array($candidate = strtoupper($bloodGroupRaw), MemberImportSchema::BLOOD_GROUPS, true)) {
+            $payload['blood_group'] = $candidate;
+        } else {
             $errors[] = __('Blood group must be one of: :values.', ['values' => implode(', ', MemberImportSchema::BLOOD_GROUPS)]);
-        } else {
-            $payload['blood_group'] = $bloodGroup;
-        }
-
-        $recruitmentType = $this->normalizeEnum($get('recruitment_type'), array_fill_keys(MemberImportSchema::RECRUITMENT_TYPES, null));
-
-        if ($recruitmentType === null && $str('recruitment_type') !== null) {
-            $errors[] = __('Recruitment type must be one of: :values.', ['values' => implode(', ', MemberImportSchema::RECRUITMENT_TYPES)]);
-        } else {
-            $payload['recruitment_type'] = $recruitmentType;
         }
 
         // Name-resolved references
@@ -442,6 +457,65 @@ class MembersImport implements ToCollection, WithMultipleSheets
      *
      * @param  array<string, string|null>  $map
      */
+    /**
+     * Dropdown-label → code map for player levels, built once per import from
+     * the tournament_tiers master (codes stay accepted as-is).
+     *
+     * @return array<string, string>
+     */
+    private function tierMap(): array
+    {
+        if ($this->tierMap !== null) {
+            return $this->tierMap;
+        }
+
+        $map = [];
+
+        foreach (TournamentTier::orderByDesc('weight')->get(['code', 'label_en']) as $tier) {
+            $map[$tier->code] = $tier->code;
+            $map[strtoupper(str_replace([' ', '-'], '_', $tier->label_en))] = $tier->code;
+        }
+
+        return $this->tierMap = $map;
+    }
+
+    /**
+     * Name/alias → code map for ranks, built once per import from the ranks
+     * master (codes stay accepted as-is). Unknown values pass through
+     * unchanged — the forms also allow a custom free-text rank.
+     *
+     * @return array<string, string>
+     */
+    private function rankMap(): array
+    {
+        if ($this->rankMap !== null) {
+            return $this->rankMap;
+        }
+
+        $map = [];
+
+        foreach (Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'aliases']) as $rank) {
+            foreach (array_filter([$rank->code, $rank->short_name, $rank->name, $rank->name_en, ...($rank->aliases ?? [])]) as $value) {
+                $map[strtoupper(str_replace([' ', '-'], '_', $value))] = $rank->code;
+            }
+        }
+
+        return $this->rankMap = $map;
+    }
+
+    /**
+     * Resolve a rank cell to its master code; unmatched non-empty text is
+     * kept as-is (custom ranks), empty stays null. Never errors the row.
+     */
+    private function resolveRank(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return $this->rankMap()[strtoupper(str_replace([' ', '-'], '_', $value))] ?? $value;
+    }
+
     private function normalizeEnum(mixed $raw, array $map): ?string
     {
         $value = trim((string) $raw);
@@ -561,6 +635,21 @@ class MembersImport implements ToCollection, WithMultipleSheets
         }
 
         $this->errors[] = ['row' => $rowNumber, 'name' => $name, 'errors' => $rowErrors];
+    }
+
+    /**
+     * Report a single data-row outcome to the optional progress callback.
+     * Errors are capped at five messages — the full list lands in the error report.
+     *
+     * @param  list<string>  $errors
+     */
+    private function emitProgress(int $row, ?string $pno, ?string $name, string $result, array $errors): void
+    {
+        if ($this->onProgress === null) {
+            return;
+        }
+
+        ($this->onProgress)($row, $pno, $name ?? '', $result, array_slice($errors, 0, 5), ++$this->processed);
     }
 
     public function sheetProcessed(): bool

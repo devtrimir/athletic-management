@@ -55,7 +55,7 @@ test('authorized user can view member preview', function () {
     $this->actingAs($user)
         ->getJson(route('v1.members.preview', $member))
         ->assertOk()
-        ->assertJsonStructure(['id', 'full_name', 'pno', 'recruitment_type', 'playable_sports']);
+        ->assertJsonStructure(['id', 'full_name', 'pno', 'initial_rank', 'playable_sports']);
 });
 
 test('member preview includes posting unit fallback and sport details', function () {
@@ -66,7 +66,6 @@ test('member preview includes posting unit fallback and sport details', function
         'organization_id' => $user->organization_id,
         'current_unit_id' => $unit->id,
         'posting_district_id' => null,
-        'designation' => 'Inspector',
         'home_address' => 'Test address',
     ]);
     $member->playableSports()->sync([
@@ -83,7 +82,6 @@ test('member preview includes posting unit fallback and sport details', function
         ->assertOk()
         ->assertJsonPath('current_unit.name', $unit->name)
         ->assertJsonPath('posting_district', null)
-        ->assertJsonPath('designation', 'Inspector')
         ->assertJsonPath('home_address', 'Test address')
         ->assertJsonPath('playable_sports.0.id', $sport->id)
         ->assertJsonPath('playable_sports.0.role', 'Batsman')

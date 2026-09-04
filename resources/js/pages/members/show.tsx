@@ -98,7 +98,6 @@ type Member = {
     full_name: string;
     father_name: string | null;
     rank: string | null;
-    designation: string | null;
     gender: string;
     dob: string | null;
     joining_date: string | null;
@@ -115,7 +114,6 @@ type Member = {
     promotion_date: string | null;
     initial_rank: string | null;
     home_address: string | null;
-    recruitment_type: string | null;
     sport: { id: number; name: string } | null;
     playable_sports: {
         id: number;
@@ -2008,10 +2006,6 @@ export default function MembersShow({
                                             </Badge>,
                                         )}
                                         {detail(t('Rank'), member.rank)}
-                                        {detail(
-                                            t('Designation'),
-                                            member.designation,
-                                        )}
                                         {detail(
                                             t('Joining date'),
                                             formatDisplayDate(

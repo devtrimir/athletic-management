@@ -38,8 +38,6 @@ class MedalsFilters
             'district_ids.*' => ['integer', 'exists:districts,id'],
             'rank_codes' => ['nullable', 'array'],
             'rank_codes.*' => ['string', 'max:100'],
-            'designations' => ['nullable', 'array'],
-            'designations.*' => ['string', 'max:100'],
             'player_categories' => ['nullable', 'array'],
             'player_categories.*' => ['string', 'in:GD,SPORTS_QUOTA'],
             'player_levels' => ['nullable', 'array'],
@@ -103,7 +101,6 @@ class MedalsFilters
             'member_ids' => self::ids($request, 'member_ids'),
             'district_ids' => self::ids($request, 'district_ids'),
             'rank_codes' => self::strings($request, 'rank_codes'),
-            'designations' => self::strings($request, 'designations'),
             'player_categories' => self::strings($request, 'player_categories'),
             'player_levels' => self::strings($request, 'player_levels'),
             'statuses' => self::strings($request, 'statuses'),
@@ -150,7 +147,6 @@ class MedalsFilters
             ->when($filters['member_ids'] ?? [], fn (Builder $query, array $ids): Builder => $query->whereIn('m.id', $ids))
             ->when($filters['district_ids'] ?? [], fn (Builder $query, array $ids): Builder => $query->whereIn('m.posting_district_id', $ids))
             ->when($filters['rank_codes'] ?? [], fn (Builder $query, array $codes): Builder => $query->whereIn('m.rank', $codes))
-            ->when($filters['designations'] ?? [], fn (Builder $query, array $codes): Builder => $query->whereIn('m.designation', $codes))
             ->when($filters['player_categories'] ?? [], fn (Builder $query, array $values): Builder => $query->whereIn('m.player_category', $values))
             ->when($filters['player_levels'] ?? [], fn (Builder $query, array $values): Builder => $query->whereIn('m.player_level', $values))
             ->when($filters['statuses'] ?? [], fn (Builder $query, array $values): Builder => $query->whereIn('m.current_status', $values))

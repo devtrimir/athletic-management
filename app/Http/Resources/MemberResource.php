@@ -26,7 +26,6 @@ class MemberResource extends JsonResource
             'father_name' => $this->father_name,
             'rank' => $this->rank,
             'initial_rank' => $this->initial_rank,
-            'designation' => $this->designation,
             'gender' => $this->gender,
             'dob' => $this->dob?->toDateString(),
             'joining_date' => $this->joining_date?->toDateString(),
@@ -41,7 +40,6 @@ class MemberResource extends JsonResource
             'caste' => $this->caste,
             'promotion_date' => $this->promotion_date?->toDateString(),
             'home_address' => $this->home_address,
-            'recruitment_type' => $this->recruitment_type,
             'other_notes' => $this->other_notes,
             'team_since' => $this->team_since?->toDateString(),
             'playable_sports' => $this->whenLoaded('playableSports', fn () => $this->playableSports

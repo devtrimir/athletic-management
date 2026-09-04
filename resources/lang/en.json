@@ -227,10 +227,13 @@
     "Import members": "Import members",
     "Download the sample template and fill in member data. Do not rename, reorder, or delete columns.": "Download the sample template and fill in member data. Do not rename, reorder, or delete columns.",
     "Upload the filled file. Valid rows are imported; rows with problems are listed in an error report.": "Upload the filled file. Valid rows are imported; rows with problems are listed in an error report.",
+    "The import runs in the background — the table updates automatically and a notification appears when it finishes.": "The import runs in the background — the table updates automatically and a notification appears when it finishes.",
     "Download sample template": "Download sample template",
     "Filled template file": "Filled template file",
     "Import finished: :created created, :updated updated, :skipped skipped, :failed failed.": "Import finished: :created created, :updated updated, :skipped skipped, :failed failed.",
     "Download error report": "Download error report",
+    "No data rows found in the uploaded file. Fill the Members sheet (starting at row 2) and re-upload.": "No data rows found in the uploaded file. Fill the Members sheet (starting at row 2) and re-upload.",
+    "Import failed. Download the error report for details.": "Import failed. Download the error report for details.",
     "Close": "Close",
     "Upload and import": "Upload and import",
     "Importing…": "Importing…"

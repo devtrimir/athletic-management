@@ -320,9 +320,13 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [ ] ~~**P6-T22** `Pages/Imports/Show.tsx` — Summary tab (counts + Recharts)~~ — **skipped**: phase deferred
 - [ ] ~~**P6-T23** `Pages/Imports/Show.tsx` — Review queue tab (ambiguous rows + inline `MemberPicker`)~~ — **skipped**: phase deferred
 - [ ] ~~**P6-T24** `Pages/Imports/Show.tsx` — Diff preview tab~~ — **skipped**: phase deferred
-- [ ] ~~**P6-T25** Live progress bar (Inertia polling, 3 s interval)~~ — **skipped**: phase deferred
+- [ ] ~~**P6-T25** Live progress bar (Inertia polling, 3 s interval)~~ — **superseded by P6-T28** (Reverb push, no polling)
 - [ ] ~~**P6-T26** Pest Browser: upload → review → apply → verify happy path against the `UP POLICE TEAM PLAYERS DETAILS UPDATED.xlsx` fixture~~ — **skipped**: phase deferred
 - [ ] ~~**P6-T27** Pest Feature: re-upload (same sha256) blocked; re-apply idempotent~~ — **skipped**: phase deferred
+
+### Sub-sprint 6G — Queued member import + live Reverb sync
+- [ ] **P6-T28** Member Excel import moved off-request into queued `ProcessMemberImportJob` (unique per import, retries, `failed()` hook); result pushed over **Laravel Reverb** via `MemberImportFinished` on private `organization.{id}` channel; members index subscribes with `@laravel/echo-react` and live-reloads the table + sonner toast on completion — no polling. Replaces the sync `MemberImportController::store` flow.
+- [ ] **P6-T29** Row-wise live import sync: server publishes over plain HTTP to loopback Reverb (`REVERB_INTERNAL_*` decoupled from the browser-facing `wss://reverb.test` endpoint) and broadcasts are transport-failure-proof (never fail the job); new `MemberImportRowProcessed` per-row event; import modal streams rows (PNO, name) with live checkmarks in the same dialog and correlates by flashed `import_id`.
 
 ---
 

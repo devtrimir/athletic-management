@@ -18,7 +18,6 @@ type Member = {
     full_name: string;
     father_name: string | null;
     rank: string | null;
-    designation: string | null;
     gender: string;
     dob: string | null;
     joining_date: string | null;
@@ -35,7 +34,6 @@ type Member = {
     promotion_date: string | null;
     initial_rank: string | null;
     home_address: string | null;
-    recruitment_type: string | null;
     sport: { id: number; name: string } | null;
     playable_sports: {
         id: number;
@@ -314,12 +312,10 @@ const UI_LABELS: Record<
     'Home address': { en: 'Home address', hi: 'गृह पता' },
     'Blood group': { en: 'Blood group', hi: 'ब्लड ग्रुप' },
     Caste: { en: 'Caste', hi: 'जाति' },
-    'Recruitment type': { en: 'Recruitment type', hi: 'भर्ती प्रकार' },
     'Other notes': { en: 'Other notes', hi: 'अन्य नोट्स' },
     'Joining date': { en: 'Joining date', hi: 'जॉइनिंग तिथि' },
     'Promotion date': { en: 'Promotion date', hi: 'पदोन्नति तिथि' },
     Rank: { en: 'Rank', hi: 'रैंक' },
-    Designation: { en: 'Designation', hi: 'पदनाम' },
     'Current unit': { en: 'Current unit', hi: 'वर्तमान इकाई' },
     'Home district': { en: 'Home district', hi: 'गृह जनपद' },
     Posting: { en: 'Posting', hi: 'तैनाती' },
@@ -598,7 +594,6 @@ const STORY_FIELDS: Record<string, { en: string; hi: string }> = {
     "Father's name": { en: "the father's name", hi: 'पिता का नाम' },
     PNO: { en: 'the PNO', hi: 'पीएनओ' },
     Rank: { en: 'the rank', hi: 'रैंक' },
-    Designation: { en: 'the designation', hi: 'पदनाम' },
     Gender: { en: 'the gender', hi: 'लिंग' },
     'Date of birth': { en: 'the date of birth', hi: 'जन्म तिथि' },
     Mobile: { en: 'the mobile number', hi: 'मोबाइल नंबर' },
@@ -616,7 +611,6 @@ const STORY_FIELDS: Record<string, { en: string; hi: string }> = {
     'Joining date': { en: 'the joining date', hi: 'जॉइनिंग तिथि' },
     'Blood group': { en: 'the blood group', hi: 'ब्लड ग्रुप' },
     Caste: { en: 'the caste', hi: 'जाति' },
-    'Recruitment type': { en: 'the recruitment type', hi: 'भर्ती प्रकार' },
     'Initial rank': { en: 'the initial rank', hi: 'भर्ती पद' },
     'Promotion date': { en: 'the promotion date', hi: 'पदोन्नति तिथि' },
     'Team since': { en: 'the team-since date', hi: 'टीम से जुड़ने की तिथि' },
@@ -1557,16 +1551,6 @@ export default function PrintPreview({
                                         value: member.caste,
                                     },
                                     {
-                                        label: uiText(
-                                            'Recruitment type',
-                                            locale,
-                                        ),
-                                        value: printValue(
-                                            member.recruitment_type,
-                                            t,
-                                        ),
-                                    },
-                                    {
                                         label: uiText('Other notes', locale),
                                         value: member.other_notes,
                                     },
@@ -1596,10 +1580,6 @@ export default function PrintPreview({
                                     {
                                         label: uiText('Rank', locale),
                                         value: member.rank,
-                                    },
-                                    {
-                                        label: uiText('Designation', locale),
-                                        value: member.designation,
                                     },
                                     {
                                         label: uiText('Home district', locale),

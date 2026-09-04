@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Concerns\HasReportFilters;
-use App\Models\Designation;
 use App\Models\District;
 use App\Models\Rank;
 use App\Models\Sport;
@@ -110,10 +109,6 @@ class ReportsMedalsController extends Controller
             ->ordered()
             ->get(['code', 'name', 'short_name']);
 
-        $designations = Designation::active()
-            ->ordered()
-            ->get(['code', 'name', 'short_name']);
-
         $eventOptions = DB::table('events as e')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
             ->where('t.organization_id', $orgId)
@@ -130,7 +125,6 @@ class ReportsMedalsController extends Controller
             'units' => $units,
             'districts' => $districts,
             'ranks' => $ranks,
-            'designations' => $designations,
             'venues' => (clone $eventOptions)
                 ->distinct()
                 ->whereNotNull('t.venue')

@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Check,
     ChevronDown,
@@ -17,10 +17,13 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
-import { index as exportMembersUrl, print as printMembersUrl } from '@/actions/App/Http/Controllers/MemberExportController';
-import MemberImportController from '@/actions/App/Http/Controllers/MemberImportController';
+import {
+    index as exportMembersUrl,
+    print as printMembersUrl,
+} from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
+import { MemberImportDialog } from '@/components/members/member-import-dialog';
 import { MemberQuickView } from '@/components/members/member-quick-view';
 import { OptionMultiSelect } from '@/components/option-multi-select';
 import { Badge } from '@/components/ui/badge';
@@ -58,7 +61,6 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
-import { errors as importErrorsUrl } from '@/routes/imports';
 
 type PaginationLink = {
     url: string | null;
@@ -72,7 +74,6 @@ type Member = {
     pno: string | null;
     full_name: string;
     rank: string | null;
-    designation?: string | null;
     gender?: string | null;
     blood_group?: string | null;
     player_category: string;
@@ -141,10 +142,8 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'dob', label: 'Date of birth' },
     { key: 'rank', label: 'Rank' },
     { key: 'mobile', label: 'Mobile' },
-    { key: 'designation', label: 'Designation' },
     { key: 'player_category', label: 'Category' },
     { key: 'player_level', label: 'Level' },
-    { key: 'unit', label: 'Posting' },
     { key: 'home_district', label: 'Home district' },
     { key: 'posting_district', label: 'Posting' },
     { key: 'joining_date', label: 'Joining date' },
@@ -154,6 +153,22 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'playable_sports', label: 'Playable sports' },
     { key: 'promotion_date', label: 'Promotion date' },
     { key: 'team_since', label: 'Team since' },
+];
+
+// Core set pre-selected for export/print — all 18 columns squeeze an A4
+// page; users can widen the selection in the column picker.
+const DEFAULT_EXPORT_COLUMNS = [
+    'pno',
+    'full_name',
+    'father_name',
+    'gender',
+    'dob',
+    'rank',
+    'mobile',
+    'player_category',
+    'player_level',
+    'home_district',
+    'playable_sports',
 ];
 
 const CATEGORY_OPTIONS = ['GD', 'SPORTS_QUOTA'] as const;
@@ -520,21 +535,15 @@ export default function MembersIndex({
     perPage: number;
 }) {
     const { t } = useTranslation();
-    const { locale, auth, flash } = usePage().props as {
+    const { locale, auth } = usePage().props as {
         locale: string;
-        auth: { permissions: string[] };
-        flash: {
-            import_result?: {
-                created: number;
-                updated: number;
-                skipped: number;
-                failed: number;
-                import_id: number | null;
-            } | null;
+        auth: {
+            permissions: string[];
+            user: { organization_id: number } | null;
         };
     };
     const canImport = auth.permissions.includes('imports.run');
-    const importResult = flash.import_result ?? null;
+    const organizationId = auth.user?.organization_id ?? null;
 
     const levelLabel = useCallback(
         (code: string | null | undefined): string =>
@@ -552,9 +561,8 @@ export default function MembersIndex({
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
-    const importForm = useForm<{ file: File | null }>({ file: null });
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
-        ALL_COLUMNS.map((c) => c.key),
+        DEFAULT_EXPORT_COLUMNS,
     );
     const [quickViewId, setQuickViewId] = useState<number | null>(null);
 
@@ -1372,13 +1380,6 @@ export default function MembersIndex({
                                                 <span className="truncate font-semibold text-foreground">
                                                     {member.full_name}
                                                 </span>
-                                                <div className="flex shrink-0 items-center gap-1.5">
-                                                    {member.designation && (
-                                                        <span className="truncate text-xs font-medium text-amber-700 dark:text-amber-300">
-                                                            {member.designation}
-                                                        </span>
-                                                    )}
-                                                </div>
                                             </div>
                                         </TableCell>
                                         <TableCell className="hidden text-muted-foreground md:table-cell">
@@ -1625,139 +1626,19 @@ export default function MembersIndex({
                 </DialogContent>
             </Dialog>
 
-            {/* Import Dialog */}
-            <Dialog open={importOpen} onOpenChange={setImportOpen}>
-                <DialogContent
-                    className="max-w-lg"
-                    aria-describedby={undefined}
-                >
-                    <DialogHeader>
-                        <DialogTitle>{t('Import members')}</DialogTitle>
-                    </DialogHeader>
-
-                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-                        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-                            <li>
-                                {t(
-                                    'Download the sample template and fill in member data. Do not rename, reorder, or delete columns.',
-                                )}
-                            </li>
-                            <li>
-                                {t(
-                                    'Upload the filled file. Valid rows are imported; rows with problems are listed in an error report.',
-                                )}
-                            </li>
-                        </ol>
-
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                window.location.href =
-                                    MemberImportController.template.url();
-                            }}
-                        >
-                            <Download className="mr-1.5 h-4 w-4" />
-                            {t('Download sample template')}
-                        </Button>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="member-import-file">
-                                {t('Filled template file')}
-                            </Label>
-                            <Input
-                                id="member-import-file"
-                                type="file"
-                                accept=".xlsx,.xls,.csv"
-                                onChange={(event) =>
-                                    importForm.setData(
-                                        'file',
-                                        event.target.files?.[0] ?? null,
-                                    )
-                                }
-                            />
-                            {importForm.errors.file && (
-                                <p className="text-sm text-destructive">
-                                    {importForm.errors.file}
-                                </p>
-                            )}
-                        </div>
-
-                        {importResult && (
-                            <div className="space-y-2 rounded-md border bg-muted/40 p-3 text-sm">
-                                <p>
-                                    {t(
-                                        'Import finished: :created created, :updated updated, :skipped skipped, :failed failed.',
-                                    )
-                                        .replace(
-                                            ':created',
-                                            String(importResult.created),
-                                        )
-                                        .replace(
-                                            ':updated',
-                                            String(importResult.updated),
-                                        )
-                                        .replace(
-                                            ':skipped',
-                                            String(importResult.skipped),
-                                        )
-                                        .replace(
-                                            ':failed',
-                                            String(importResult.failed),
-                                        )}
-                                </p>
-                                {importResult.import_id !== null && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            window.location.href =
-                                                importErrorsUrl.url({
-                                                    import: importResult.import_id as number,
-                                                });
-                                        }}
-                                    >
-                                        <Download className="mr-1.5 h-4 w-4" />
-                                        {t('Download error report')}
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setImportOpen(false)}
-                        >
-                            {t('Close')}
-                        </Button>
-                        <Button
-                            disabled={
-                                importForm.data.file === null ||
-                                importForm.processing
-                            }
-                            onClick={() =>
-                                importForm.post(
-                                    MemberImportController.store.url(),
-                                    { forceFormData: true },
-                                )
-                            }
-                        >
-                            <Upload className="mr-1.5 h-4 w-4" />
-                            {importForm.processing
-                                ? t('Importing…')
-                                : t('Upload and import')}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
             <MemberQuickView
                 memberId={quickViewId}
                 open={quickViewId !== null}
                 onClose={() => setQuickViewId(null)}
             />
+
+            {organizationId !== null && (
+                <MemberImportDialog
+                    open={importOpen}
+                    onOpenChange={setImportOpen}
+                    organizationId={organizationId}
+                />
+            )}
         </>
     );
 }

@@ -91,7 +91,6 @@ class MedalMemberScope
                 'm.pno',
                 'm.full_name',
                 'm.rank',
-                'm.designation',
                 'm.gender',
                 'm.player_category',
                 'm.player_level',
@@ -128,7 +127,6 @@ class MedalMemberScope
                 'full_name' => $row->full_name ?? null,
                 'pno' => $row->pno ?? null,
                 'rank' => $row->rank ?? null,
-                'designation' => $row->designation ?? null,
                 'gender' => $row->gender ?? null,
                 'player_category' => $row->player_category ?? null,
                 'player_level' => $row->player_level ?? null,
@@ -146,7 +144,6 @@ class MedalMemberScope
                 'full_name' => $member->full_name,
                 'pno' => $member->pno,
                 'rank' => $member->rank,
-                'designation' => $member->designation,
                 'gender' => $member->gender,
                 'player_category' => $member->player_category,
                 'player_level' => $member->player_level,
@@ -168,7 +165,6 @@ class MedalMemberScope
             && self::matchesIds($member['current_unit_id'] ?? null, $filters['unit_ids'] ?? self::legacyId($filters, 'unit_id'))
             && self::matchesIds($member['posting_district_id'] ?? null, $filters['district_ids'] ?? [])
             && self::matchesValues($member['rank'] ?? null, $filters['rank_codes'] ?? [])
-            && self::matchesValues($member['designation'] ?? null, $filters['designations'] ?? [])
             && self::matchesValues($member['player_category'] ?? null, $filters['player_categories'] ?? [])
             && self::matchesValues($member['player_level'] ?? null, $filters['player_levels'] ?? [])
             && self::matchesValues($member['current_status'] ?? null, $filters['statuses'] ?? [])
@@ -229,7 +225,6 @@ class MedalMemberScope
             'member_ids',
             'district_ids',
             'rank_codes',
-            'designations',
             'player_categories',
             'player_levels',
             'statuses',

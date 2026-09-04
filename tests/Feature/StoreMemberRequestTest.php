@@ -6,6 +6,7 @@ use App\Http\Requests\Members\StoreMemberRequest;
 use App\Models\District;
 use App\Models\Member;
 use App\Models\Organization;
+use App\Models\TournamentTier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Validator;
@@ -15,6 +16,16 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     $this->org = Organization::factory()->create();
     $this->user = User::factory()->create(['organization_id' => $this->org->id]);
+
+    // Mirror production: the tournament tier master is always seeded.
+    TournamentTier::upsert([
+        ['code' => 'INTERNATIONAL', 'label_hi' => 'अंतर्राष्ट्रीय', 'label_en' => 'International', 'weight' => 100],
+        ['code' => 'NATIONAL', 'label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+        ['code' => 'AIPSC', 'label_hi' => 'अखिल भारतीय पुलिस खेल', 'label_en' => 'AIPSC', 'weight' => 70],
+        ['code' => 'STATE', 'label_hi' => 'राज्यस्तरीय', 'label_en' => 'State', 'weight' => 60],
+        ['code' => 'ZONAL', 'label_hi' => 'क्षेत्रीय', 'label_en' => 'Zonal', 'weight' => 40],
+        ['code' => 'OTHER', 'label_hi' => 'अन्य', 'label_en' => 'Other', 'weight' => 10],
+    ], uniqueBy: ['code']);
 });
 
 function validMemberPayload(): array
@@ -66,12 +77,19 @@ test('player_category must be in GD sports quota', function () {
         ->and($result->errors()->has('player_category'))->toBeTrue();
 });
 
-test('player_level must be in ZONAL NATIONAL INTERNATIONAL AIPSC', function () {
+test('player_level must exist in tournament_tiers', function () {
     $rules = memberRules($this->user);
     $result = Validator::make([...validMemberPayload(), 'player_level' => 'INVALID'], $rules);
 
     expect($result->fails())->toBeTrue()
         ->and($result->errors()->has('player_level'))->toBeTrue();
+});
+
+test('player_level accepts any tier code from the database', function () {
+    $rules = memberRules($this->user);
+    $result = Validator::make([...validMemberPayload(), 'player_level' => 'STATE'], $rules);
+
+    expect($result->passes())->toBeTrue();
 });
 
 test('pno null passes', function () {

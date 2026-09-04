@@ -274,7 +274,6 @@ class MemberSeeder extends Seeder
                 'initial_rank' => null,
                 'appointment' => null,
                 'home_address' => null,
-                'recruitment_type' => 'SPORTS_QUOTA',
                 'other_notes' => null,
                 'team_since' => null,
                 'created_at' => now(),

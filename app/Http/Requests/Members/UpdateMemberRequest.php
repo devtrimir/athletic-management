@@ -30,7 +30,6 @@ class UpdateMemberRequest extends FormRequest
             'father_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'rank' => ['sometimes', 'nullable', 'string', 'max:100'],
             'initial_rank' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'designation' => ['sometimes', 'nullable', 'string', 'max:100'],
             'gender' => ['sometimes', 'required', Rule::in(['M', 'F', 'O'])],
             'dob' => ['sometimes', 'nullable', 'date', 'before:today'],
             'joining_date' => ['sometimes', 'nullable', 'date'],
@@ -40,7 +39,7 @@ class UpdateMemberRequest extends FormRequest
             'posting_district_id' => ['sometimes', 'nullable', 'integer', 'exists:districts,id', 'prohibits:current_unit_id'],
             'current_unit_id' => ['sometimes', 'nullable', 'integer', 'exists:units,id', 'prohibits:posting_district_id'],
             'player_category' => ['sometimes', 'required', Rule::in(['GD', 'SPORTS_QUOTA'])],
-            'player_level' => ['sometimes', 'required', Rule::in(['ZONAL', 'NATIONAL', 'INTERNATIONAL', 'AIPSC'])],
+            'player_level' => ['sometimes', 'required', Rule::exists('tournament_tiers', 'code')],
             'source_refs' => ['sometimes', 'nullable', 'array'],
 
             // P2B profile extension fields
@@ -48,7 +47,6 @@ class UpdateMemberRequest extends FormRequest
             'caste' => ['sometimes', 'nullable', 'string', 'max:100'],
             'promotion_date' => ['sometimes', 'nullable', 'date'],
             'home_address' => ['sometimes', 'nullable', 'string'],
-            'recruitment_type' => ['sometimes', 'nullable', Rule::in(['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER'])],
             'playable_sports' => ['sometimes', 'nullable', 'array'],
             'playable_sports.*.sport_id' => ['required', 'integer', 'distinct', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'playable_sports.*.role' => ['nullable', 'string', 'max:100'],

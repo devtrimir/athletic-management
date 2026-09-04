@@ -20,12 +20,25 @@ use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\Tournament;
+use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    // Mirror production: the tournament tier master is always seeded.
+    TournamentTier::upsert([
+        ['code' => 'INTERNATIONAL', 'label_hi' => 'अंतर्राष्ट्रीय', 'label_en' => 'International', 'weight' => 100],
+        ['code' => 'NATIONAL', 'label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+        ['code' => 'AIPSC', 'label_hi' => 'अखिल भारतीय पुलिस खेल', 'label_en' => 'AIPSC', 'weight' => 70],
+        ['code' => 'STATE', 'label_hi' => 'राज्यस्तरीय', 'label_en' => 'State', 'weight' => 60],
+        ['code' => 'ZONAL', 'label_hi' => 'क्षेत्रीय', 'label_en' => 'Zonal', 'weight' => 40],
+        ['code' => 'OTHER', 'label_hi' => 'अन्य', 'label_en' => 'Other', 'weight' => 10],
+    ], uniqueBy: ['code']);
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -370,7 +383,7 @@ test('member export uses posting district fallback from current unit', function 
 
     $this->actingAs($user)
         ->get(route('members.export.show', $member, [
-            'columns' => ['unit', 'posting_district', 'promotion_date'],
+            'columns' => ['posting_district', 'promotion_date'],
         ]))
         ->assertOk()
         ->assertHeader('content-disposition');
@@ -389,22 +402,6 @@ test('index filters by rank', function () {
             ->where('filters.rank', 'Inspector')
             ->where('members.total', 1)
             ->where('members.data.0.rank', 'Inspector')
-        );
-});
-
-test('index filters by designation', function () {
-    $user = memberUser('members.view');
-    connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'designation' => 'Station House Officer']));
-    Member::factory()->create(['organization_id' => $user->organization_id, 'designation' => 'Inspector']);
-
-    $this->actingAs($user)
-        ->get(route('members.index', ['filter' => ['designation' => 'Station House Officer']]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('members/index')
-            ->where('filters.designation', 'Station House Officer')
-            ->where('members.total', 1)
-            ->where('members.data.0.designation', 'Station House Officer')
         );
 });
 
@@ -454,7 +451,6 @@ test('user with members.create sees create form', function () {
             ->has('districts')
             ->has('units')
             ->has('ranks')
-            ->has('designations')
         );
 });
 
@@ -739,7 +735,6 @@ test('edit returns member and selects', function () {
             ->has('districts')
             ->has('units')
             ->has('ranks')
-            ->has('designations')
         );
 });
 
