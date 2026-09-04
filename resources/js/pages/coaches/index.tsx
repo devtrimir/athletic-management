@@ -74,7 +74,6 @@ type Coach = {
     mobile: string | null;
     email: string | null;
     coach_status: string | null;
-    nis_certified: boolean;
     rank_master?: {
         id: number;
         code: string | null;
@@ -136,7 +135,6 @@ type TeamCoach = {
     mobile: string | null;
     posting: string;
     role: string;
-    nis_certified: boolean;
     team: string;
 };
 
@@ -164,7 +162,6 @@ type SportOption = {
 type Filters = {
     status_scope?: 'active' | 'inactive';
     q?: string;
-    nis_certified?: string;
     blood_group?: string;
     coach_status?: string;
     designation?: string;
@@ -397,7 +394,6 @@ function buildCoachTeamSportRows(
                         posting: [coach.unit?.name, coach.district?.name]
                             .filter(Boolean)
                             .join(' - '),
-                        nis_certified: coach.nis_certified,
                         team: '-',
                         role: t('Inactive'),
                     },
@@ -439,7 +435,6 @@ function buildCoachTeamSportRows(
                     posting: [coach.unit?.name, coach.district?.name]
                         .filter(Boolean)
                         .join(' - '),
-                    nis_certified: coach.nis_certified,
                     team: assignment.team?.name ?? t('Unspecified team'),
                     role: formatRole(assignment.role),
                 });
@@ -521,7 +516,6 @@ export default function CoachesIndex({
             const current: Filters = {
                 status_scope: nextStatusScope,
                 q: query || undefined,
-                nis_certified: filters.nis_certified,
                 blood_group: filters.blood_group,
                 coach_status: filters.coach_status,
                 gender: filters.gender,
@@ -545,10 +539,6 @@ export default function CoachesIndex({
 
             if (merged.status_scope) {
                 clean['filter[status_scope]'] = merged.status_scope;
-            }
-
-            if (merged.nis_certified) {
-                clean['filter[nis_certified]'] = merged.nis_certified;
             }
 
             if (merged.blood_group) {
@@ -592,7 +582,6 @@ export default function CoachesIndex({
         [
             query,
             activeStatusScope,
-            filters.nis_certified,
             filters.blood_group,
             filters.coach_status,
             filters.gender,
@@ -634,10 +623,6 @@ export default function CoachesIndex({
             }
 
             params.append('filter[status_scope]', activeStatusScope);
-
-            if (filters.nis_certified) {
-                params.append('filter[nis_certified]', filters.nis_certified);
-            }
 
             if (filters.blood_group) {
                 params.append('filter[blood_group]', filters.blood_group);
@@ -695,10 +680,6 @@ export default function CoachesIndex({
             has_active_assignment:
                 assignmentFilterFromStatus(activeStatusScope),
         };
-
-        if (filters.nis_certified) {
-            printFilters.nis_certified = filters.nis_certified;
-        }
 
         if (filters.blood_group) {
             printFilters.blood_group = filters.blood_group;
@@ -770,7 +751,6 @@ export default function CoachesIndex({
 
     const hasActiveFilters = !!(
         filters.q ||
-        filters.nis_certified ||
         filters.blood_group ||
         filters.coach_status ||
         filters.gender ||
@@ -781,10 +761,6 @@ export default function CoachesIndex({
         filters.assignment_role
     );
 
-    const nisOptions = [
-        { value: '1', label: t('NIS certified') },
-        { value: '0', label: t('Not NIS certified') },
-    ];
     const bloodGroupOptions = [
         'A+',
         'A-',
@@ -823,7 +799,6 @@ export default function CoachesIndex({
         { value: 'false', label: t('No active assignment') },
     ];
     const activeFilterCount = [
-        filters.nis_certified,
         filters.designation,
         filters.email,
         filters.gender,
@@ -963,29 +938,6 @@ export default function CoachesIndex({
                             </div>
 
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <FilterPill
-                                    label={t('NIS')}
-                                    activeLabel={optionLabel(
-                                        nisOptions,
-                                        filters.nis_certified,
-                                    )}
-                                    onClear={() =>
-                                        applyFilters({
-                                            nis_certified: undefined,
-                                        })
-                                    }
-                                >
-                                    <OptionList
-                                        options={nisOptions}
-                                        value={filters.nis_certified}
-                                        onSelect={(value) =>
-                                            applyFilters({
-                                                nis_certified: value,
-                                            })
-                                        }
-                                    />
-                                </FilterPill>
-
                                 <FilterPill
                                     label={t('Blood group')}
                                     activeLabel={filters.blood_group}
@@ -1197,9 +1149,6 @@ export default function CoachesIndex({
                                             <TableHead className="w-[120px]">
                                                 {t('Posting')}
                                             </TableHead>
-                                            <TableHead className="w-[120px]">
-                                                {t('NIS Certified')}
-                                            </TableHead>
                                         </>
                                     ) : (
                                         <TableHead className="whitespace-normal">
@@ -1214,7 +1163,6 @@ export default function CoachesIndex({
                                                         <col className="w-[16%]" />
                                                         <col className="w-[12%]" />
                                                         <col className="w-[10%]" />
-                                                        <col className="w-[12%]" />
                                                         <col className="w-[12%]" />
                                                     </colgroup>
                                                     <TableBody>
@@ -1237,11 +1185,6 @@ export default function CoachesIndex({
                                                             <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
                                                                 {t('Posting')}
                                                             </TableCell>
-                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
-                                                                {t(
-                                                                    'NIS Certified',
-                                                                )}
-                                                            </TableCell>
                                                         </TableRow>
                                                     </TableBody>
                                                 </Table>
@@ -1255,7 +1198,7 @@ export default function CoachesIndex({
                                     coaches.data.length === 0 ? (
                                         <TableRow>
                                             <TableCell
-                                                colSpan={8}
+                                                colSpan={7}
                                                 className="py-12 text-center text-muted-foreground"
                                             >
                                                 {hasActiveFilters
@@ -1322,11 +1265,6 @@ export default function CoachesIndex({
                                                             .filter(Boolean)
                                                             .join(' - ') || '-'}
                                                     </TableCell>
-                                                    <TableCell className="text-xs">
-                                                        {coach.nis_certified
-                                                            ? t('Yes')
-                                                            : t('No')}
-                                                    </TableCell>
                                                 </TableRow>
                                             );
                                         })
@@ -1374,7 +1312,6 @@ export default function CoachesIndex({
                                                                 <col className="w-[16%]" />
                                                                 <col className="w-[12%]" />
                                                                 <col className="w-[10%]" />
-                                                                <col className="w-[12%]" />
                                                                 <col className="w-[12%]" />
                                                             </colgroup>
                                                             <TableBody>
@@ -1435,15 +1372,6 @@ export default function CoachesIndex({
                                                                             <TableCell className="w-[12%] py-2 text-xs">
                                                                                 {coachInTeam.posting ||
                                                                                     '-'}
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[12%] py-2 text-xs">
-                                                                                {coachInTeam.nis_certified
-                                                                                    ? t(
-                                                                                          'Yes',
-                                                                                      )
-                                                                                    : t(
-                                                                                          'No',
-                                                                                      )}
                                                                             </TableCell>
                                                                         </TableRow>
                                                                     ),

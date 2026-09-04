@@ -101,7 +101,6 @@ test('coaches.export defaults to listing columns', function () {
         'blood_group' => 'O+',
         'gender' => 'F',
         'mobile' => '9999999999',
-        'nis_certified' => true,
     ]);
     $coach->sports()->attach($sport->id, ['sport_event' => '100m']);
     $assignment = CoachAssignment::factory()->create([
@@ -131,7 +130,6 @@ test('coaches.export defaults to listing columns', function () {
                 '',
                 'Posting',
                 'Mobile Number',
-                'NIS Certified',
             ],
             [
                 '',
@@ -147,7 +145,6 @@ test('coaches.export defaults to listing columns', function () {
                 'Assigned at',
                 '',
                 '',
-                '',
             ],
         ]);
         expect($export->mergeRanges())->toBe([
@@ -160,7 +157,6 @@ test('coaches.export defaults to listing columns', function () {
             'H1:K1',
             'L1:L2',
             'M1:M2',
-            'N1:N2',
         ]);
 
         expect($export->collection()->first())->toBe([
@@ -177,7 +173,6 @@ test('coaches.export defaults to listing columns', function () {
             '05-01-2026',
             'PAC Lucknow',
             '9999999999',
-            'Yes',
         ]);
 
         return true;

@@ -18,12 +18,6 @@ test('factory creates a standalone coach', function () {
         ->and($coach->organization_id)->toBeInt();
 });
 
-test('factory creates a nis certified coach', function () {
-    $coach = Coach::factory()->nisCertified()->create();
-
-    expect($coach->nis_certified)->toBeTrue();
-});
-
 test('factory creates a coach linked to a member', function () {
     $org = Organization::factory()->create();
     $member = Member::factory()->create(['organization_id' => $org->id]);

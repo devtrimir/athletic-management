@@ -315,7 +315,6 @@ type Coach = {
     address: string | null;
     pno: string | null;
     mobile: string | null;
-    nis_certified: boolean;
     photo_path: string | null;
     team_activity_status?: 'active' | 'inactive';
     certifications?: CoachCertification[];
@@ -354,7 +353,6 @@ const ALL_COLUMNS = [
     { key: 'display_name', label: 'Display Name' },
     { key: 'designation', label: 'Designation' },
     { key: 'mobile', label: 'Mobile' },
-    { key: 'nis_certified', label: 'NIS Certified' },
 ] as const;
 
 const BASE_STATUS_STYLES: Record<
@@ -510,10 +508,6 @@ export default function CoachesShow({
     );
 
     function exportValue(key: string): string {
-        if (key === 'nis_certified') {
-            return coach.nis_certified ? t('NIS Certified') : '';
-        }
-
         const raw = (coach as Record<string, unknown>)[key];
 
         return raw === null || raw === '' || raw === undefined
@@ -1382,11 +1376,7 @@ export default function CoachesShow({
                                 {t('Back')}
                             </Link>
                         </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            asChild
-                        >
+                        <Button variant="outline" size="sm" asChild>
                             <Link
                                 href={`/coaches/${coach.id}/preview`}
                                 target="_blank"
@@ -1435,13 +1425,6 @@ export default function CoachesShow({
                             </div>
                             <div className="space-y-2">
                                 <div className="flex flex-wrap gap-2">
-                                    {coach.nis_certified ? (
-                                        <Badge>{t('NIS Certified')}</Badge>
-                                    ) : (
-                                        <Badge variant="outline">
-                                            {t('Not NIS Certified')}
-                                        </Badge>
-                                    )}
                                     <Badge
                                         variant={
                                             teamActivityStatus === 'active'
@@ -1587,12 +1570,6 @@ export default function CoachesShow({
                                     )}
                                     {detail(t('PNO'), coach.pno ?? '')}
                                     {detail(t('Mobile'), coach.mobile ?? '')}
-                                    {detail(
-                                        t('NIS'),
-                                        coach.nis_certified
-                                            ? t('Certified')
-                                            : t('Not certified'),
-                                    )}
                                 </dl>
                             </div>
                         </div>

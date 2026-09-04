@@ -83,7 +83,7 @@ test('returns matching coaches in correct contract shape', function () {
         ->getJson(route('v1.search.coaches', ['q' => 'राम']))
         ->assertOk()
         ->assertJsonStructure([
-            'data' => [['id', 'full_name', 'full_name', 'pno', 'nis_certified']],
+            'data' => [['id', 'full_name', 'full_name', 'pno']],
             'meta' => ['q', 'count'],
         ]);
 
@@ -138,9 +138,9 @@ test('soft-deleted coach is not returned', function () {
     expect($response->json('meta.count'))->toBe(0);
 });
 
-test('nis_certified field is cast to boolean', function () {
+test('nis_certified field is no longer part of the search payload', function () {
     $user = coachSearchUser('coaches.view');
-    Coach::factory()->nisCertified()->create([
+    Coach::factory()->create([
         'organization_id' => $user->organization_id,
         'full_name' => 'राम प्रसाद',
     ]);
@@ -149,5 +149,5 @@ test('nis_certified field is cast to boolean', function () {
         ->getJson(route('v1.search.coaches', ['q' => 'राम']))
         ->assertOk();
 
-    expect($response->json('data.0.nis_certified'))->toBeTrue();
+    expect($response->json('data.0'))->not->toHaveKey('nis_certified');
 });

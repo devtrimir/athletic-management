@@ -156,24 +156,25 @@ test('index only shows coaches from own org', function () {
         ->assertInertia(fn ($page) => $page->where('coaches.total', 0));
 });
 
-test('index filter nis_certified=1 returns only certified coaches', function () {
+test('index no longer narrows results by the nis_certified filter', function () {
     $user = coachUser('coaches.view');
     $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
     $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
-    $coach = Coach::factory()->nisCertified()->create(['organization_id' => $user->organization_id]);
-    $assignment = CoachAssignment::factory()->create([
-        'coach_id' => $coach->id,
-        'team_id' => $team->id,
-        'session_id' => $session->id,
-        'is_current' => true,
-    ]);
-    $assignment->update(['assigned_at' => '2026-01-05 00:00:00']);
-    Coach::factory()->create(['organization_id' => $user->organization_id, 'nis_certified' => false]);
+
+    foreach (['Certified Coach', 'Other Coach'] as $name) {
+        $coach = Coach::factory()->create(['organization_id' => $user->organization_id, 'full_name' => $name]);
+        $assignment = CoachAssignment::factory()->create([
+            'coach_id' => $coach->id,
+            'team_id' => $team->id,
+            'session_id' => $session->id,
+            'is_current' => true,
+        ]);
+        $assignment->update(['assigned_at' => '2026-01-05 00:00:00']);
+    }
 
     $this->actingAs($user)
         ->get(route('coaches.index', ['filter' => ['nis_certified' => '1']]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('coaches.total', 1));
+        ->assertBadRequest();
 });
 
 test('index defaults to active coaches assigned to active team in current session', function () {
@@ -496,7 +497,7 @@ test('index includes own organization certificate type filter values', function 
         );
 });
 
-test('index includes active nis master names as certificate type filter values', function () {
+test('index does not include nis master names as certificate type filter values', function () {
     $user = coachUser('coaches.view');
 
     NisMaster::query()->create([
@@ -511,9 +512,7 @@ test('index includes active nis master names as certificate type filter values',
     $this->actingAs($user)
         ->get(route('coaches.index', ['filter' => ['status_scope' => 'active']]))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('certificateTypes.0', 'NIS diploma')
-        );
+        ->assertInertia(fn ($page) => $page->missing('certificateTypes.0'));
 });
 
 // ---------------------------------------------------------------------------
@@ -551,7 +550,6 @@ test('store creates a standalone coach', function () {
     $this->actingAs($user)
         ->post(route('coaches.store'), [
             'full_name' => 'राम प्रसाद',
-            'nis_certified' => false,
         ])
         ->assertRedirect();
 
@@ -570,7 +568,6 @@ test('store ignores submitted member_id because coach members come from team ass
     $this->actingAs($user)
         ->post(route('coaches.store'), [
             'full_name' => 'राम प्रसाद',
-            'nis_certified' => false,
             'member_id' => $member->id,
         ])
         ->assertRedirect();
@@ -630,7 +627,6 @@ test('show returns coach resource in Inertia props', function () {
                 ->has('full_name')
                 ->has('pno')
                 ->has('mobile')
-                ->has('nis_certified')
                 ->where('team_activity_status', 'inactive')
                 ->etc()
             )
@@ -1535,20 +1531,17 @@ test('update persists changed fields and redirects', function () {
     $coach = Coach::factory()->create([
         'organization_id' => $user->organization_id,
         'full_name' => 'पुराना नाम',
-        'nis_certified' => false,
     ]);
 
     $this->actingAs($user)
         ->patch(route('coaches.update', $coach), [
             'full_name' => 'नया नाम',
-            'nis_certified' => true,
         ])
         ->assertRedirect(route('coaches.show', $coach));
 
     expect($coach->fresh())
         ->full_name->toBe('नया नाम')
-        ->display_name->toBe('नया नाम')
-        ->nis_certified->toBeTrue();
+        ->display_name->toBe('नया नाम');
 });
 
 test('update keeps the existing photo and ignores any submitted photo_path', function () {

@@ -35,7 +35,6 @@ type TeamMemberRow = {
 type TeamCoachRow = {
     full_name: string | null;
     pno: string | null;
-    nis_certified: boolean;
     role: string;
     session_name: string | null;
 };
@@ -94,7 +93,7 @@ function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
     const coachRows = data.coaches
         .map(
             (c) =>
-                `<tr><td>${c.full_name ?? '—'}</td><td class="mono">${c.pno ?? '—'}</td><td>${c.nis_certified ? '✓' : '—'}</td><td>${t(c.role)}</td><td>${c.session_name ?? '—'}</td></tr>`,
+                `<tr><td>${c.full_name ?? '—'}</td><td class="mono">${c.pno ?? '—'}</td><td>${t(c.role)}</td><td>${c.session_name ?? '—'}</td></tr>`,
         )
         .join('');
 
@@ -132,7 +131,7 @@ function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
     ${
         data.coaches.length
             ? `<h2>${t('Coaches')} (${data.coaches.length})</h2>
-    <table><thead><tr><th>${t('Name')}</th><th>${t('PNO')}</th><th>${t('NIS')}</th><th>${t('Role')}</th><th>${t('Session')}</th></tr></thead>
+    <table><thead><tr><th>${t('Name')}</th><th>${t('PNO')}</th><th>${t('Role')}</th><th>${t('Session')}</th></tr></thead>
     <tbody>${coachRows}</tbody></table>`
             : ''
     }
@@ -387,9 +386,6 @@ export function TeamQuickView({
                                                     {t('PNO')}
                                                 </TableHead>
                                                 <TableHead>
-                                                    {t('NIS')}
-                                                </TableHead>
-                                                <TableHead>
                                                     {t('Role')}
                                                 </TableHead>
                                                 <TableHead>
@@ -405,11 +401,6 @@ export function TeamQuickView({
                                                     </TableCell>
                                                     <TableCell className="font-mono text-xs">
                                                         {c.pno ?? '—'}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs">
-                                                        {c.nis_certified
-                                                            ? '✓'
-                                                            : '—'}
                                                     </TableCell>
                                                     <TableCell className="text-xs">
                                                         {t(c.role)}

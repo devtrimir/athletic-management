@@ -11,7 +11,6 @@ use App\Models\CoachAssignment;
 use App\Models\CoachCertification;
 use App\Models\Designation;
 use App\Models\District;
-use App\Models\NisMaster;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
@@ -44,7 +43,6 @@ class CoachController extends Controller
         'current_assignments',
         'unit_district',
         'mobile',
-        'nis_certified',
     ];
 
     /** @var array<string, string> */
@@ -58,7 +56,6 @@ class CoachController extends Controller
         'current_assignments' => 'Current team names',
         'unit_district' => 'Posting',
         'mobile' => 'Mobile Number',
-        'nis_certified' => 'NIS Certified',
         'display_name' => 'Display Name',
         'designation' => 'Designation',
         'email' => 'Email',
@@ -293,14 +290,12 @@ class CoachController extends Controller
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
-            'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'certificateTypes' => CoachCertification::query()
                 ->whereHas('coach', fn (Builder $query) => $query->where('organization_id', $request->user()->organization_id))
                 ->whereNotNull('certificate_type')
                 ->where('certificate_type', '!=', '')
                 ->distinct()
                 ->pluck('certificate_type')
-                ->concat(NisMaster::query()->active()->ordered()->pluck('name'))
                 ->filter()
                 ->unique()
                 ->sort()
@@ -346,7 +341,6 @@ class CoachController extends Controller
         return QueryBuilder::for($this->coachStatusScopeQuery($statusScope))
             ->allowedFilters([
                 AllowedFilter::callback('status_scope', fn (Builder $query, mixed $value): Builder => $this->filterByStatusScope($query, (string) $value)),
-                AllowedFilter::exact('nis_certified'),
                 AllowedFilter::exact('blood_group'),
                 AllowedFilter::exact('gender'),
                 AllowedFilter::exact('district_id'),
@@ -463,7 +457,7 @@ class CoachController extends Controller
         return '<!DOCTYPE html><html><head>'
             .'<meta charset="utf-8">'
             .'<title>'.e(__('Coach Listing')).'</title>'
-            .'<style>@page{size:A4 '.e($orientation).';margin:8mm}html,body{margin:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.25;padding:8px;color:#111}.watermark{position:fixed;top:50%;left:50%;width:520px;height:520px;transform:translate(-50%,-50%);object-fit:contain;opacity:.045;z-index:0}.print-content{position:relative;z-index:1}.letterhead{display:flex;align-items:center;gap:12px;border-bottom:2px solid #171717;padding:0 0 8px;margin:0 0 8px}.letterhead-logo{width:64px;height:64px;object-fit:contain;flex-shrink:0}.letterhead-spacer{width:64px;flex-shrink:0}.letterhead-body{min-width:0;flex:1;text-align:center}.letterhead-title{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.025em;color:#111}.letterhead-subtitle{font-size:11px;font-weight:600;text-transform:uppercase;margin-top:3px;color:#111}.letterhead-meta{font-size:9px;color:#404040;margin-top:3px}h1{font-size:14px;margin:0 0 7px;text-align:center}table{width:100%;border-collapse:collapse;table-layout:auto}th,td{border:1px solid #94a3b8;padding:2px 3px;vertical-align:middle;text-align:center;word-break:normal;overflow-wrap:anywhere;font-size:8px}.num{text-align:center;white-space:nowrap}.th-group{background:#1E3A8A;color:#fff;font-weight:600;vertical-align:middle;text-align:center}.outer-sno{width:1%;white-space:nowrap}.outer-sport{width:7%}.outer-team{width:18%}.outer-coaches{width:74%}.coach-head{display:grid;grid-template-columns:12fr 26fr 16fr 12fr 10fr 12fr 12fr;gap:4px;margin-top:3px;color:#dbeafe;font-size:7px;font-weight:600;text-align:center}.coach-head span{text-align:center}.inner{padding:0!important;vertical-align:middle}.inner-table{width:100%;border-collapse:collapse;table-layout:fixed}.inner-table td{border:1px solid #cbd5e1;padding:2px 3px;vertical-align:middle;text-align:center}.no-data{color:#64748b;font-style:italic;text-align:center}</style>'
+            .'<style>@page{size:A4 '.e($orientation).';margin:8mm}html,body{margin:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.25;padding:8px;color:#111}.watermark{position:fixed;top:50%;left:50%;width:520px;height:520px;transform:translate(-50%,-50%);object-fit:contain;opacity:.045;z-index:0}.print-content{position:relative;z-index:1}.letterhead{display:flex;align-items:center;gap:12px;border-bottom:2px solid #171717;padding:0 0 8px;margin:0 0 8px}.letterhead-logo{width:64px;height:64px;object-fit:contain;flex-shrink:0}.letterhead-spacer{width:64px;flex-shrink:0}.letterhead-body{min-width:0;flex:1;text-align:center}.letterhead-title{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.025em;color:#111}.letterhead-subtitle{font-size:11px;font-weight:600;text-transform:uppercase;margin-top:3px;color:#111}.letterhead-meta{font-size:9px;color:#404040;margin-top:3px}h1{font-size:14px;margin:0 0 7px;text-align:center}table{width:100%;border-collapse:collapse;table-layout:auto}th,td{border:1px solid #94a3b8;padding:2px 3px;vertical-align:middle;text-align:center;word-break:normal;overflow-wrap:anywhere;font-size:8px}.num{text-align:center;white-space:nowrap}.th-group{background:#1E3A8A;color:#fff;font-weight:600;vertical-align:middle;text-align:center}.outer-sno{width:1%;white-space:nowrap}.outer-sport{width:7%}.outer-team{width:18%}.outer-coaches{width:74%}.coach-head{display:grid;grid-template-columns:12fr 26fr 16fr 12fr 10fr 12fr;gap:4px;margin-top:3px;color:#dbeafe;font-size:7px;font-weight:600;text-align:center}.coach-head span{text-align:center}.inner{padding:0!important;vertical-align:middle}.inner-table{width:100%;border-collapse:collapse;table-layout:fixed}.inner-table td{border:1px solid #cbd5e1;padding:2px 3px;vertical-align:middle;text-align:center}.no-data{color:#64748b;font-style:italic;text-align:center}</style>'
             .'</head><body>'
             .'<img class="watermark" src="/logo.jpg" alt=""><div class="print-content">'
             .'<div class="letterhead">'
@@ -488,7 +482,7 @@ class CoachController extends Controller
             .'<th class="th-group outer-sno">'.e(__('S.No.')).'</th>'
             .'<th class="th-group outer-sport">'.e(__('Sport')).'</th>'
             .'<th class="th-group outer-team">'.e(__('Team')).'</th>'
-            .'<th class="th-group outer-coaches"><div>'.e(__('Coaches in team')).'</div><div class="coach-head"><span>'.e(__('Rank')).'</span><span>'.e(__('Name')).'</span><span>'.e(__('PNO')).'</span><span>'.e(__('Mobile')).'</span><span>'.e(__('Role')).'</span><span>'.e(__('Posting')).'</span><span>'.e(__('NIS')).'</span></div></th>'
+            .'<th class="th-group outer-coaches"><div>'.e(__('Coaches in team')).'</div><div class="coach-head"><span>'.e(__('Rank')).'</span><span>'.e(__('Name')).'</span><span>'.e(__('PNO')).'</span><span>'.e(__('Mobile')).'</span><span>'.e(__('Role')).'</span><span>'.e(__('Posting')).'</span></div></th>'
             .'</tr>';
     }
 
@@ -526,7 +520,6 @@ class CoachController extends Controller
                             'mobile' => (string) ($coach->mobile ?? ''),
                             'role' => __('Inactive'),
                             'posting' => trim(implode(' - ', array_filter([$coach->unit?->name, $coach->district?->name]))),
-                            'nis_certified' => $coach->nis_certified ? __('Yes') : __('No'),
                         ],
                     ],
                 ]);
@@ -561,7 +554,6 @@ class CoachController extends Controller
                         'mobile' => (string) ($coach->mobile ?? ''),
                         'role' => $coachRoleLabel((string) ($assignment->role ?? '')),
                         'posting' => trim(implode(' - ', array_filter([$coach->unit?->name, $coach->district?->name]))),
-                        'nis_certified' => $coach->nis_certified ? __('Yes') : __('No'),
                     ];
                 })->toArray();
 
@@ -614,12 +606,11 @@ class CoachController extends Controller
                             .'<td>'.e($coachData['mobile']).'</td>'
                             .'<td>'.e($coachData['role']).'</td>'
                             .'<td>'.e($coachData['posting']).'</td>'
-                            .'<td>'.e($coachData['nis_certified']).'</td>'
                             .'</tr>';
                     })->implode('');
 
                 $coachRowsHtml = '<table class="inner-table">'
-                    .'<colgroup><col style="width:12%"><col style="width:26%"><col style="width:16%"><col style="width:12%"><col style="width:10%"><col style="width:12%"><col style="width:12%"></colgroup>'
+                    .'<colgroup><col style="width:12%"><col style="width:26%"><col style="width:16%"><col style="width:12%"><col style="width:10%"><col style="width:12%"></colgroup>'
                     .'<tbody>'.$innerRows.'</tbody>'
                     .'</table>';
 
@@ -637,7 +628,6 @@ class CoachController extends Controller
     {
         return match ($column) {
             'serial_number' => (string) $serialNumber,
-            'nis_certified' => $coach->nis_certified ? __('Yes') : __('No'),
             'coach' => implode(' | ', array_filter([
                 trim((string) ($coach->designation ?? '')) !== '' ? trim((string) $coach->designation) : null,
                 $coach->full_name,
@@ -775,7 +765,6 @@ class CoachController extends Controller
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
-            'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
         ]);
@@ -837,7 +826,6 @@ class CoachController extends Controller
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
-            'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
         ]);

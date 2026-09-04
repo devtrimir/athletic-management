@@ -542,7 +542,7 @@ class TeamExportController extends Controller
                 )
                 ->current()
                 ->with([
-                    'coach:id,full_name,pno,mobile,nis_certified',
+                    'coach:id,full_name,pno,mobile',
                     'coach.sports' => fn ($q) => $q
                         ->select(['sports.id', 'sports.name'])
                         ->withPivot(['sport_event', 'level']),

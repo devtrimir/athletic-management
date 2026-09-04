@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Models\Coach;
 use App\Models\CoachAssignment;
-use App\Models\CoachCertification;
 use App\Models\CoachSport;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
@@ -48,21 +47,6 @@ return new class extends Migration
                                 'effective_to' => null,
                             ],
                         );
-                    }
-
-                    if ((bool) $coach->nis_certified
-                        && ! CoachCertification::query()
-                            ->where('coach_id', $coach->id)
-                            ->where('certificate_type', 'NIS')
-                            ->exists()) {
-                        CoachCertification::query()->create([
-                            'coach_id' => $coach->id,
-                            'name' => 'NIS Coaching Certification',
-                            'certificate_type' => 'NIS',
-                            'issuer' => 'NIS',
-                            'issued_at' => null,
-                            'expired_at' => null,
-                        ]);
                     }
                 }
             });

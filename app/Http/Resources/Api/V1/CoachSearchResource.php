@@ -32,7 +32,6 @@ class CoachSearchResource extends JsonResource
             'coach_status' => $this->coach_status,
             'bio' => $this->bio,
             'address' => $this->address,
-            'nis_certified' => (bool) $this->nis_certified,
             'district_id' => $this->district_id,
             'unit_id' => $this->unit_id,
             'profile_status_badge' => $this->profile_status_badge,

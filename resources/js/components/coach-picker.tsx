@@ -18,7 +18,6 @@ export type CoachOption = {
     full_name: string;
     display_name: string | null;
     pno: string | null;
-    nis_certified: boolean;
     designation?: string | null;
     mobile?: string | null;
     coach_status?: string | null;
@@ -175,11 +174,12 @@ export function CoachPicker({
                                                     : 'opacity-0',
                                             )}
                                         />
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium">
-                                            {coach.display_name?.trim() || coach.full_name}
-                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">
+                                                    {coach.display_name?.trim() ||
+                                                        coach.full_name}
+                                                </span>
                                                 {coach.pno && (
                                                     <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
                                                         {coach.pno}

@@ -70,7 +70,6 @@ class CoachPreviewController extends Controller
             'display_name' => $coach->display_name,
             'pno' => $coach->pno,
             'mobile' => $coach->mobile,
-            'nis_certified' => $coach->nis_certified,
             'designation' => $coach->designation,
             'email' => $coach->email,
             'gender' => $coach->gender,

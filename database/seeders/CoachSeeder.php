@@ -179,7 +179,7 @@ class CoachSeeder extends Seeder
             return null;
         }
 
-        ['name' => $name, 'pno' => $pno, 'nis' => $nis] = $this->parseCoachField($raw);
+        ['name' => $name, 'pno' => $pno] = $this->parseCoachField($raw);
 
         if (empty($name)) {
             return null;
@@ -212,7 +212,6 @@ class CoachSeeder extends Seeder
                 'full_name' => $name,
                 'pno' => $pno,
                 'mobile' => $mobile,
-                'nis_certified' => $nis,
             ],
         );
 
@@ -336,12 +335,11 @@ class CoachSeeder extends Seeder
      * Parse the coach name field which may contain a rank abbreviation, PNO,
      * and an appointment suffix on a second line.
      *
-     * @return array{name: string, pno: string|null, nis: bool}
+     * @return array{name: string, pno: string|null}
      */
     private function parseCoachField(string $raw): array
     {
         $firstLine = explode("\n", $raw)[0];
-        $nis = str_contains(strtoupper($raw), 'NIS');
 
         $pno = null;
 
@@ -363,7 +361,7 @@ class CoachSeeder extends Seeder
             $name = '';
         }
 
-        return ['name' => $name, 'pno' => $pno, 'nis' => $nis];
+        return ['name' => $name, 'pno' => $pno];
     }
 
     /**
@@ -374,12 +372,6 @@ class CoachSeeder extends Seeder
         Coach::factory()
             ->count(5)
             ->standalone()
-            ->create(['organization_id' => $orgId]);
-
-        Coach::factory()
-            ->count(3)
-            ->standalone()
-            ->nisCertified()
             ->create(['organization_id' => $orgId]);
 
         $members = Member::withoutGlobalScopes()
@@ -400,11 +392,5 @@ class CoachSeeder extends Seeder
                 ->withMember()
                 ->create(['organization_id' => $orgId]);
         }
-
-        Coach::factory()
-            ->count(4)
-            ->nisCertified()
-            ->withMember()
-            ->create(['organization_id' => $orgId]);
     }
 }
