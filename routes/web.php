@@ -100,6 +100,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('external-coach-performance-updates/{performance_update}', [AdminExternalCoachPerformanceUpdateController::class, 'show'])->name('external-coach-performance-updates.show');
     Route::patch('external-coach-performance-updates/{performance_update}/review', [AdminExternalCoachPerformanceUpdateController::class, 'review'])->name('external-coach-performance-updates.review');
     Route::get('members/export', [MemberExportController::class, 'index'])->name('members.export');
+    Route::get('members/print', [MemberExportController::class, 'print'])->name('members.print');
     Route::get('members/import/template', [MemberImportController::class, 'template'])->name('members.import.template');
     Route::post('members/import', [MemberImportController::class, 'store'])->name('members.import.store');
     Route::get('imports/{import}/errors', [MemberImportController::class, 'errors'])->name('imports.errors');

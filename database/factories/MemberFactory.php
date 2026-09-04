@@ -47,6 +47,7 @@ class MemberFactory extends Factory
             'blood_group' => fake()->optional(0.5)->randomElement(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']),
             'caste' => null,
             'promotion_date' => fake()->optional(0.3)->dateTimeBetween('-10 years', 'now'),
+            'initial_rank' => fake()->optional(0.5)->randomElement(['Constable', 'Head Constable', 'SI']),
             'appointment' => null,
             'home_address' => null,
             'recruitment_type' => fake()->optional(0.6)->randomElement(['DIRECT', 'SPORTS_QUOTA', 'PROMOTED', 'OTHER']),

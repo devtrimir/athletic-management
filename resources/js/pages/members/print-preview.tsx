@@ -33,7 +33,7 @@ type Member = {
     blood_group: string | null;
     caste: string | null;
     promotion_date: string | null;
-    appointment: string | null;
+    initial_rank: string | null;
     home_address: string | null;
     recruitment_type: string | null;
     sport: { id: number; name: string } | null;
@@ -328,7 +328,7 @@ const UI_LABELS: Record<
         hi: 'तैनाती इकाई / जनपद',
     },
     'Team since': { en: 'Team since', hi: 'टीम से जुड़ने की तिथि' },
-    Appointment: { en: 'Appointment', hi: 'नियुक्ति' },
+    'Initial rank': { en: 'Initial rank', hi: 'भर्ती पद' },
     Category: { en: 'Category', hi: 'श्रेणी' },
     Level: { en: 'Level', hi: 'स्तर' },
     'Playable sports': { en: 'Playable sports', hi: 'खेल' },
@@ -617,7 +617,7 @@ const STORY_FIELDS: Record<string, { en: string; hi: string }> = {
     'Blood group': { en: 'the blood group', hi: 'ब्लड ग्रुप' },
     Caste: { en: 'the caste', hi: 'जाति' },
     'Recruitment type': { en: 'the recruitment type', hi: 'भर्ती प्रकार' },
-    Appointment: { en: 'the appointment', hi: 'नियुक्ति' },
+    'Initial rank': { en: 'the initial rank', hi: 'भर्ती पद' },
     'Promotion date': { en: 'the promotion date', hi: 'पदोन्नति तिथि' },
     'Team since': { en: 'the team-since date', hi: 'टीम से जुड़ने की तिथि' },
     'Home address': { en: 'the home address', hi: 'गृह पता' },
@@ -1617,8 +1617,8 @@ export default function PrintPreview({
                                         ),
                                     },
                                     {
-                                        label: uiText('Appointment', locale),
-                                        value: member.appointment,
+                                        label: uiText('Initial rank', locale),
+                                        value: member.initial_rank,
                                     },
                                 ]}
                             />

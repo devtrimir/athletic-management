@@ -113,7 +113,7 @@ type Member = {
     blood_group: string | null;
     caste: string | null;
     promotion_date: string | null;
-    appointment: string | null;
+    initial_rank: string | null;
     home_address: string | null;
     recruitment_type: string | null;
     sport: { id: number; name: string } | null;
@@ -481,7 +481,7 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'joining_date', label: 'Joining date' },
     { key: 'blood_group', label: 'Blood group' },
     { key: 'caste', label: 'Caste' },
-    { key: 'appointment', label: 'Appointment' },
+    { key: 'initial_rank', label: 'Initial rank' },
     { key: 'playable_sports', label: 'Playable sports' },
     { key: 'promotion_date', label: 'Promotion date' },
     { key: 'team_since', label: 'Team since' },
@@ -1712,8 +1712,8 @@ export default function MembersShow({
                     return member.blood_group ?? '';
                 case 'caste':
                     return member.caste ?? '';
-                case 'appointment':
-                    return member.appointment ?? '';
+                case 'initial_rank':
+                    return member.initial_rank ?? '';
                 case 'playable_sports':
                     return member.playable_sports
                         .map((sport) =>
@@ -2035,10 +2035,10 @@ export default function MembersShow({
                                             t('Level'),
                                             t(member.player_level),
                                         )}
-                                        {member.appointment &&
+                                        {member.initial_rank &&
                                             detail(
-                                                t('Appointment'),
-                                                member.appointment,
+                                                t('Initial rank'),
+                                                member.initial_rank,
                                             )}
                                         {member.promotion_date &&
                                             detail(
