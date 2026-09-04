@@ -1,7 +1,7 @@
 import { Deferred, Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Badge } from '@/components/ui/badge';
@@ -1246,26 +1246,6 @@ export default function PrintPreview({
         (row) => row.remarks,
     );
 
-    useEffect(() => {
-        const style = document.createElement('style');
-        style.dataset.printPreviewOverride = 'true';
-        style.textContent = `
-            @media print {
-                body > * { display: none !important; }
-                body #app { display: block !important; }
-                body #app > * { display: none !important; }
-                body #app #quick-view-print-target { display: block !important; }
-                body #app #quick-view-print-target * { color: black !important; background: transparent !important; box-shadow: none !important; border-color: #ccc !important; }
-                body #app #quick-view-print-target [data-print-hide] { display: none !important; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        return () => {
-            style.remove();
-        };
-    }, []);
-
     const handlePrint = (): void => {
         const target = printTargetRef.current;
 
@@ -1273,43 +1253,29 @@ export default function PrintPreview({
             return;
         }
 
-        const printWindow = window.open('', '_blank', 'width=1200,height=900');
+        // Reparent the sheet to <body> for the duration of the print so the
+        // print-isolation CSS only has to hide top-level siblings. Restored
+        // on afterprint (fires even when the dialog is cancelled).
+        const parent = target.parentNode;
+        const nextSibling = target.nextSibling;
+        document.body.appendChild(target);
 
-        if (!printWindow) {
-            return;
-        }
+        const restore = (): void => {
+            window.removeEventListener('afterprint', restore);
 
-        const styles = Array.from(
-            document.head.querySelectorAll(
-                'meta, link[rel="stylesheet"], style',
-            ),
-        )
-            .map((node) => node.outerHTML)
-            .join('');
+            if (!parent) {
+                return;
+            }
 
-        printWindow.document.open();
-        printWindow.document.write(`<!doctype html>
-            <html>
-                <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    ${styles}
-                    <style>
-                        @page { margin: 0.6cm; }
-                        body { margin: 0; background: white; }
-                        img { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-                    </style>
-                </head>
-                <body>
-                    ${target.outerHTML}
-                </body>
-            </html>`);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.onload = () => {
-            printWindow.print();
-            printWindow.close();
+            if (nextSibling) {
+                parent.insertBefore(target, nextSibling);
+            } else {
+                parent.appendChild(target);
+            }
         };
+
+        window.addEventListener('afterprint', restore);
+        window.print();
     };
 
     return (
@@ -1342,7 +1308,7 @@ export default function PrintPreview({
                                     .join(' / ')}
                             </div>
                             <h1 className="text-2xl font-bold">
-                                {preferredName}
+                                {t('Print preview')}
                             </h1>
                             <div className="pt-1">
                                 <LocaleSwitcher />
@@ -1443,12 +1409,10 @@ export default function PrintPreview({
                             <div className="flex items-start gap-4 print:gap-3">
                                 <div className="min-w-0 flex-1 space-y-3 print:space-y-2">
                                     <div>
-                                        <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase print:text-[8px]">
-                                            {uiText('Name', locale)}
-                                        </div>
-                                        <div className="mt-1 text-2xl leading-tight font-bold text-foreground print:text-[16px]">
+                                        <div className="text-2xl leading-tight font-bold text-foreground print:text-[16px]">
                                             {preferredName}
                                         </div>
+                                        <div className="mt-2 border-b border-neutral-200 print:mt-1.5" />
                                     </div>
                                     <DetailsTable
                                         rows={[

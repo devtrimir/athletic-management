@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Button } from '@/components/ui/button';
@@ -262,8 +262,8 @@ function medalSummary(
 
 function rankLabel(coach: Coach): string {
     return (
-        coach.rank_master?.short_name ??
         coach.rank_master?.name ??
+        coach.rank_master?.short_name ??
         coach.rank_master?.code ??
         ''
     );
@@ -323,9 +323,11 @@ function DetailsTable({
 function DataTable({
     columns,
     rows,
+    serialLabel,
 }: {
     columns: string[];
     rows: React.ReactNode[][];
+    serialLabel: string;
 }) {
     if (rows.length === 0) {
         return null;
@@ -336,7 +338,7 @@ function DataTable({
             <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                     <tr>
-                        <th className="w-10 p-2 text-center">S. No.</th>
+                        <th className="w-10 p-2 text-center">{serialLabel}</th>
                         {columns.map((column) => (
                             <th key={column} className="p-2 font-semibold">
                                 {column}
@@ -388,34 +390,6 @@ export default function CoachPrintPreview({
         return `uppscb-coach-${safeName || coach.id}-${coach.pno || 'no-pno'}-${date}`;
     }, [coach.full_name, coach.id, coach.pno]);
 
-    useEffect(() => {
-        const style = document.createElement('style');
-        style.dataset.printPreviewOverride = 'true';
-        style.textContent = `
-            @media print {
-                body > * { display: none !important; }
-                body #app { display: block !important; }
-                body #app > * { display: none !important; }
-                body #app #quick-view-print-target { display: block !important; }
-                body #app #quick-view-print-target * { color: black !important; background: transparent !important; box-shadow: none !important; border-color: #ccc !important; }
-                body #app #quick-view-print-target [data-print-hide] { display: none !important; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        return () => {
-            style.remove();
-        };
-    }, []);
-
-    function toggleSection(section: SectionKey): void {
-        setSelectedSections((current) =>
-            current.includes(section)
-                ? current.filter((item) => item !== section)
-                : [...current, section],
-        );
-    }
-
     function handlePrint(): void {
         const target = printTargetRef.current;
 
@@ -425,43 +399,37 @@ export default function CoachPrintPreview({
 
         document.title = filename;
 
-        const printWindow = window.open('', '_blank', 'width=1200,height=900');
+        // Reparent the sheet to <body> for the duration of the print so the
+        // print-isolation CSS only has to hide top-level siblings. Restored
+        // on afterprint (fires even when the dialog is cancelled).
+        const parent = target.parentNode;
+        const nextSibling = target.nextSibling;
+        document.body.appendChild(target);
 
-        if (!printWindow) {
-            return;
-        }
+        const restore = (): void => {
+            window.removeEventListener('afterprint', restore);
 
-        const styles = Array.from(
-            document.head.querySelectorAll(
-                'meta, link[rel="stylesheet"], style',
-            ),
-        )
-            .map((node) => node.outerHTML)
-            .join('');
+            if (!parent) {
+                return;
+            }
 
-        printWindow.document.open();
-        printWindow.document.write(`<!doctype html>
-            <html>
-                <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    ${styles}
-                    <style>
-                        @page { margin: 0.6cm; }
-                        body { margin: 0; background: white; }
-                        img { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-                    </style>
-                </head>
-                <body>
-                    ${target.outerHTML}
-                </body>
-            </html>`);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.onload = () => {
-            printWindow.print();
-            printWindow.close();
+            if (nextSibling) {
+                parent.insertBefore(target, nextSibling);
+            } else {
+                parent.appendChild(target);
+            }
         };
+
+        window.addEventListener('afterprint', restore);
+        window.print();
+    }
+
+    function toggleSection(section: SectionKey): void {
+        setSelectedSections((current) =>
+            current.includes(section)
+                ? current.filter((item) => item !== section)
+                : [...current, section],
+        );
     }
 
     const sports = coach.sports ?? [];
@@ -496,7 +464,7 @@ export default function CoachPrintPreview({
                                 {[t('Coaches'), coach.full_name].join(' / ')}
                             </div>
                             <h1 className="text-2xl font-bold">
-                                {coach.full_name}
+                                {t('Print preview')}
                             </h1>
                             <div className="pt-1">
                                 <LocaleSwitcher />
@@ -568,12 +536,10 @@ export default function CoachPrintPreview({
                             <div className="flex items-start gap-4 print:gap-3">
                                 <div className="min-w-0 flex-1 space-y-3 print:space-y-2">
                                     <div>
-                                        <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase print:text-[8px]">
-                                            {t('Name')}
-                                        </div>
-                                        <div className="mt-1 text-2xl leading-tight font-bold text-foreground print:text-[16px]">
+                                        <div className="text-2xl leading-tight font-bold text-foreground print:text-[16px]">
                                             {coach.full_name}
                                         </div>
+                                        <div className="mt-2 border-b border-neutral-200 print:mt-1.5" />
                                     </div>
                                     <DetailsTable
                                         rows={[
@@ -584,10 +550,6 @@ export default function CoachPrintPreview({
                                                         {coach.pno}
                                                     </span>
                                                 ) : null,
-                                            },
-                                            {
-                                                label: t('Display name'),
-                                                value: coach.display_name,
                                             },
                                             {
                                                 label: t('Rank'),
@@ -671,21 +633,11 @@ export default function CoachPrintPreview({
                     {enabled('sports') && sports.length > 0 && (
                         <Section title={t('Playable sports')}>
                             <DataTable
-                                columns={[
-                                    t('Sport'),
-                                    t('Event / Weight'),
-                                    t('Primary'),
-                                    t('Effective from'),
-                                    t('Effective to'),
-                                    t('Notes'),
-                                ]}
+                                serialLabel={t('S. No.')}
+                                columns={[t('Sport'), t('Event / Weight')]}
                                 rows={sports.map((sport) => [
                                     sport.name,
                                     sport.sport_event,
-                                    sport.is_primary ? t('Yes') : '',
-                                    formatDate(sport.effective_from),
-                                    formatDate(sport.effective_to),
-                                    sport.notes,
                                 ])}
                             />
                         </Section>
@@ -694,6 +646,7 @@ export default function CoachPrintPreview({
                     {enabled('assignments') && coachTeams.length > 0 && (
                         <Section title={t('Team assignments')}>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[
                                     t('Team'),
                                     t('Sport'),
@@ -765,6 +718,7 @@ export default function CoachPrintPreview({
                                 </div>
                             </div>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[
                                     t('Session'),
                                     t('Team'),
@@ -809,19 +763,12 @@ export default function CoachPrintPreview({
                     {enabled('certifications') && certifications.length > 0 && (
                         <Section title={t('Certifications')}>
                             <DataTable
-                                columns={[
-                                    t('Name'),
-                                    t('Type'),
-                                    t('Issuer'),
-                                    t('Issued at'),
-                                    t('Expired at'),
-                                ]}
+                                serialLabel={t('S. No.')}
+                                columns={[t('Name'), t('Type'), t('Issuer')]}
                                 rows={certifications.map((certification) => [
                                     certification.name,
                                     certification.certificate_type,
                                     certification.issuer,
-                                    formatDate(certification.issued_at),
-                                    formatDate(certification.expired_at),
                                 ])}
                             />
                         </Section>
@@ -830,6 +777,7 @@ export default function CoachPrintPreview({
                     {enabled('promotions') && promotions.length > 0 && (
                         <Section title={t('Promotions / rewards')}>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[
                                     t('Promotion date'),
                                     t('From rank'),
@@ -858,6 +806,7 @@ export default function CoachPrintPreview({
                     {enabled('status') && statusHistory.length > 0 && (
                         <Section title={t('Status history')}>
                             <DataTable
+                                serialLabel={t('S. No.')}
                                 columns={[
                                     t('Status'),
                                     t('Effective on'),

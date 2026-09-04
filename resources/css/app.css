@@ -270,15 +270,14 @@
 
 /* ── Print styles ────────────────────────────────────────────────────────── */
 @media print {
-    /* Hide everything except the quick-view print target — but only on pages
-       that render it, otherwise every other print page (member listing,
-       reports) would come out blank. */
-    body:has(#quick-view-print-target) > * {
+    /* When a sheet is reparented to <body> for printing (see handlePrint in
+       the print-preview pages), hide every other top-level element so only
+       the sheet prints. Pages without the target are unaffected. */
+    body:has(#quick-view-print-target) > *:not(#quick-view-print-target) {
         display: none !important;
     }
 
     #quick-view-print-target {
-        display: block !important;
         position: static !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -286,14 +285,13 @@
         overflow: visible !important;
         padding: 1rem !important;
         background: white !important;
-        color: black !important;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
     }
 
     #quick-view-print-target * {
-        color: black !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        border-color: #ccc !important;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
     }
 
     /* Keep section borders visible */
