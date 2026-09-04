@@ -1281,7 +1281,7 @@ export default function PrintPreview({
 
         const styles = Array.from(
             document.head.querySelectorAll(
-                'meta, link[rel="stylesheet"], style',
+                'meta, link[rel="stylesheet"], style:not([data-print-preview-override])',
             ),
         )
             .map((node) => node.outerHTML)
@@ -1298,6 +1298,18 @@ export default function PrintPreview({
                         @page { margin: 0.6cm; }
                         body { margin: 0; background: white; }
                         img { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                        @media print {
+                            html body #quick-view-print-target {
+                                display: block !important;
+                                position: static !important;
+                                width: 100% !important;
+                                max-width: 100% !important;
+                                height: auto !important;
+                                overflow: visible !important;
+                                padding: 1rem !important;
+                                background: white !important;
+                            }
+                        }
                     </style>
                 </head>
                 <body>
@@ -1306,10 +1318,17 @@ export default function PrintPreview({
             </html>`);
         printWindow.document.close();
         printWindow.focus();
-        printWindow.onload = () => {
+
+        const triggerPrint = (): void => {
             printWindow.print();
             printWindow.close();
         };
+
+        if (printWindow.document.readyState === 'complete') {
+            triggerPrint();
+        } else {
+            printWindow.addEventListener('load', triggerPrint, { once: true });
+        }
     };
 
     return (
