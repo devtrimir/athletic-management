@@ -10,6 +10,7 @@ use App\Models\CoachCertification;
 use App\Models\CoachPromotion;
 use App\Models\CoachPromotionEvidence;
 use App\Models\CoachSport;
+use App\Models\District;
 use App\Models\Event;
 use App\Models\Member;
 use App\Models\NisMaster;
@@ -24,6 +25,7 @@ use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
+use App\Models\Unit;
 use App\Models\User;
 use App\Services\AuditLogBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -626,6 +628,79 @@ test('store rejects duplicate pno within the same org', function () {
             'pno' => '1234567890',
         ])
         ->assertSessionHasErrors('pno');
+});
+
+test('store rejects a coach posted at both a unit and a district', function () {
+    $user = coachUser('coaches.create');
+    $district = District::factory()->create();
+    $unit = Unit::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->post(route('coaches.store'), [
+            'full_name' => 'राम प्रसाद',
+            'unit_id' => $unit->id,
+            'district_id' => $district->id,
+        ])
+        ->assertSessionHasErrors(['unit_id', 'district_id']);
+
+    expect(Coach::withoutGlobalScopes()->count())->toBe(0);
+});
+
+test('store accepts a coach posted at a unit only', function () {
+    $user = coachUser('coaches.create');
+    $unit = Unit::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->post(route('coaches.store'), [
+            'full_name' => 'राम प्रसाद',
+            'unit_id' => $unit->id,
+        ])
+        ->assertSessionDoesntHaveErrors()
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('coaches', [
+        'full_name' => 'राम प्रसाद',
+        'unit_id' => $unit->id,
+        'district_id' => null,
+        'organization_id' => $user->organization_id,
+    ]);
+});
+
+test('store accepts a coach posted at a district only', function () {
+    $user = coachUser('coaches.create');
+    $district = District::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('coaches.store'), [
+            'full_name' => 'राम प्रसाद',
+            'district_id' => $district->id,
+        ])
+        ->assertSessionDoesntHaveErrors()
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('coaches', [
+        'full_name' => 'राम प्रसाद',
+        'district_id' => $district->id,
+        'unit_id' => null,
+        'organization_id' => $user->organization_id,
+    ]);
+});
+
+test('update rejects posting a coach at both a unit and a district', function () {
+    $user = coachUser('coaches.update');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $district = District::factory()->create();
+    $unit = Unit::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->patch(route('coaches.update', $coach), [
+            'unit_id' => $unit->id,
+            'district_id' => $district->id,
+        ])
+        ->assertSessionHasErrors(['unit_id', 'district_id']);
+
+    expect($coach->refresh()->unit_id)->toBeNull()
+        ->and($coach->district_id)->toBeNull();
 });
 
 // ---------------------------------------------------------------------------

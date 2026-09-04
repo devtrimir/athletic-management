@@ -315,20 +315,11 @@ export default function CoachesCreate({
                                         value={data.unit_id}
                                         onValueChange={(v) => {
                                             setData('unit_id', v);
-                                            const selected = units.find(
-                                                (unit) => String(unit.id) === v,
-                                            );
-                                            const district = districts.find(
-                                                (item) =>
-                                                    item.id ===
-                                                    selected?.district_id,
-                                            );
-                                            setData(
-                                                'district_id',
-                                                district
-                                                    ? String(district.id)
-                                                    : '',
-                                            );
+
+                                            // A coach is posted at a unit OR a district, never both.
+                                            if (v !== '') {
+                                                setData('district_id', '');
+                                            }
                                         }}
                                         items={unitItems}
                                         placeholder={t('Select unit')}
@@ -343,15 +334,26 @@ export default function CoachesCreate({
                                     <Combobox
                                         id="district_id"
                                         value={data.district_id}
-                                        onValueChange={(v) =>
-                                            setData('district_id', v)
-                                        }
+                                        onValueChange={(v) => {
+                                            setData('district_id', v);
+
+                                            // A coach is posted at a unit OR a district, never both.
+                                            if (v !== '') {
+                                                setData('unit_id', '');
+                                            }
+                                        }}
+                                        disabled={data.unit_id !== ''}
                                         items={districtItems}
                                         placeholder={t('Select district')}
                                         searchPlaceholder={t(
                                             'Search districts…',
                                         )}
                                     />
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Posted at a unit or a district — not both.',
+                                        )}
+                                    </p>
                                     <InputError message={errors.district_id} />
                                 </div>
                             </div>
