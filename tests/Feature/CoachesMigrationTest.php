@@ -33,6 +33,17 @@ test('nis_certified and nis_master_id columns are dropped', function () {
     expect(Schema::hasColumn('coaches', 'nis_master_id'))->toBeFalse();
 });
 
+test('coach_certifications table has attachment meta columns', function () {
+    expect(Schema::hasTable('coach_certifications'))->toBeTrue();
+
+    $columns = ['attachment_path', 'attachment_original_name', 'mime_type', 'size_bytes'];
+
+    foreach ($columns as $column) {
+        expect(Schema::hasColumn('coach_certifications', $column))
+            ->toBeTrue("Missing column: {$column}");
+    }
+});
+
 test('pno is nullable', function () {
     $org = Organization::factory()->create();
 

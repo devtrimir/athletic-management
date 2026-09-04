@@ -31,7 +31,13 @@ type CertificationItem = {
     issuer: string | null;
     issued_at: string | null;
     expired_at: string | null;
-    attachment_path: string | null;
+    attachment: {
+        preview_url: string;
+        download_url: string;
+        original_name: string | null;
+        mime_type: string | null;
+        size_bytes: number | null;
+    } | null;
     metadata: Record<string, unknown> | null;
 };
 type SportItem = {

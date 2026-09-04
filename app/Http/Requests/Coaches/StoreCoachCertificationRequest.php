@@ -25,7 +25,7 @@ class StoreCoachCertificationRequest extends FormRequest
             'issuer' => ['nullable', 'string', 'max:255'],
             'issued_at' => ['nullable', 'date'],
             'expired_at' => ['nullable', 'date', 'after_or_equal:issued_at'],
-            'attachment_path' => ['nullable', 'string', 'max:255'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,jpeg,jpg,png,webp', 'max:5120'],
         ];
     }
 }

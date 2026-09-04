@@ -24,6 +24,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $issued_at
  * @property Carbon|null $expired_at
  * @property string|null $attachment_path
+ * @property string|null $attachment_original_name
+ * @property string|null $mime_type
+ * @property int|null $size_bytes
  * @property array<string, mixed>|null $metadata
  * @property Carbon|null $deleted_at
  * @property Carbon $created_at
@@ -38,6 +41,9 @@ use Illuminate\Support\Carbon;
     'issued_at',
     'expired_at',
     'attachment_path',
+    'attachment_original_name',
+    'mime_type',
+    'size_bytes',
     'metadata',
 ])]
 #[ObservedBy([AuditObserver::class])]
