@@ -36,7 +36,6 @@ class CoachFactory extends Factory
             'bio' => fake()->optional()->paragraph(),
             'address' => fake()->optional()->address(),
             'photo_path' => null,
-            'nis_certified' => fake()->boolean(30),
         ];
     }
 
@@ -66,13 +65,5 @@ class CoachFactory extends Factory
     public function standalone(): static
     {
         return $this->state(['member_id' => null]);
-    }
-
-    /**
-     * Coach holds an NIS certificate.
-     */
-    public function nisCertified(): static
-    {
-        return $this->state(['nis_certified' => true]);
     }
 }

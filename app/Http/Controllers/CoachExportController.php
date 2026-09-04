@@ -35,7 +35,6 @@ class CoachExportController extends Controller
         'current_assignments',
         'unit_district',
         'mobile',
-        'nis_certified',
     ];
 
     /** @var array<string, string> */
@@ -49,7 +48,6 @@ class CoachExportController extends Controller
         'current_assignments' => 'Current team names',
         'unit_district' => 'Posting',
         'mobile' => 'Mobile Number',
-        'nis_certified' => 'NIS Certified',
         'display_name' => 'Display Name',
         'designation' => 'Designation',
         'email' => 'Email',
@@ -112,7 +110,6 @@ class CoachExportController extends Controller
             $coaches = QueryBuilder::for($this->filterByStatusScope(Coach::query(), $statusScope))
                 ->allowedFilters([
                     AllowedFilter::callback('status_scope', fn (Builder $query, mixed $value): Builder => $this->filterByStatusScope($query, (string) $value)),
-                    AllowedFilter::exact('nis_certified'),
                     AllowedFilter::exact('blood_group'),
                     AllowedFilter::exact('gender'),
                     AllowedFilter::exact('district_id'),
@@ -207,20 +204,20 @@ class CoachExportController extends Controller
 
         $layout = $this->coachListingExportRows($coaches, $sportsById);
         $headingRow = 2;
-        $lastColumn = 'J';
+        $lastColumn = 'I';
         $mergeRanges = array_merge([
             'A1:A2',
             'B1:B2',
             'C1:C2',
-            'D1:J1',
+            'D1:I1',
         ], $layout['mergeRanges']);
 
         return Excel::download(
             new ReportExport(
                 $layout['rows'],
-                ['', '', '', __('Rank'), __('Name'), __('PNO'), __('Mobile'), __('Role'), __('Posting'), __('NIS')],
+                ['', '', '', __('Rank'), __('Name'), __('PNO'), __('Mobile'), __('Role'), __('Posting')],
                 'Coaches',
-                headerRows: [[__('S.No.'), __('Sport'), __('Team'), __('Coaches in team'), '', '', '', '', '', '']],
+                headerRows: [[__('S.No.'), __('Sport'), __('Team'), __('Coaches in team'), '', '', '', '', '']],
                 mergeRanges: $mergeRanges,
                 columnWidths: [
                     'A' => 6,
@@ -232,7 +229,6 @@ class CoachExportController extends Controller
                     'G' => 15,
                     'H' => 14,
                     'I' => 18,
-                    'J' => 8,
                 ],
                 afterSheet: fn (AfterSheet $event) => $this->styleCoachExportSheet(
                     $event,
@@ -333,7 +329,6 @@ class CoachExportController extends Controller
                         'mobile' => (string) ($coach->mobile ?? ''),
                         'role' => __('Inactive'),
                         'posting' => trim(implode(' - ', array_filter([$coach->unit?->name, $coach->district?->name]))),
-                        'nis_certified' => $coach->nis_certified ? __('Yes') : __('No'),
                     ]],
                 ]);
 
@@ -365,7 +360,6 @@ class CoachExportController extends Controller
                         'mobile' => (string) ($coach->mobile ?? ''),
                         'role' => $coachRoleLabel((string) ($assignment->role ?? '')),
                         'posting' => trim(implode(' - ', array_filter([$coach->unit?->name, $coach->district?->name]))),
-                        'nis_certified' => $coach->nis_certified ? __('Yes') : __('No'),
                     ];
                 })->toArray();
 
@@ -423,7 +417,6 @@ class CoachExportController extends Controller
                         $coachData['mobile'],
                         $coachData['role'],
                         $coachData['posting'],
-                        $coachData['nis_certified'],
                     ]);
                     $excelRow++;
                 }
@@ -540,7 +533,6 @@ class CoachExportController extends Controller
                     $coach->full_name,
                 ])),
                 'pno' => $coach->pno,
-                'nis_certified' => $coach->nis_certified ? 'Yes' : 'No',
                 'gender' => self::GENDER_LABELS[$coach->gender] ?? ($coach->gender ?? ''),
                 'unit_district' => (string) ($coach->unit?->name ?? $coach->district?->name),
                 'sport_name', 'sport_event' => $this->stackedExportValue($sportRows, $key),

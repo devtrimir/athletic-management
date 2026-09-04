@@ -699,7 +699,6 @@ class AuditLogBuilder
                 'full_name' => 'Name',
                 'pno' => 'PNO',
                 'mobile' => 'Mobile',
-                'nis_certified' => 'NIS certified',
                 'member_id' => 'Linked member',
                 'coach_status' => 'Status',
                 'photo_path' => 'Photo',

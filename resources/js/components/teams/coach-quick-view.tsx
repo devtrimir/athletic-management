@@ -75,7 +75,6 @@ type CoachPreview = {
     full_name: string;
     pno: string | null;
     mobile: string | null;
-    nis_certified: boolean;
     display_name: string | null;
     designation: string | null;
     email: string | null;
@@ -171,7 +170,7 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     </style></head><body>
     <div class="header">
         <h1>${data.full_name}${data.full_name ? ` <small>(${data.full_name})</small>` : ''}</h1>
-        <span class="meta">${data.pno ?? ''} · ${data.nis_certified ? t('NIS Certified') : t('Not NIS Certified')}</span>
+        <span class="meta">${data.pno ?? ''}</span>
         ${data.designation ? `<p>${t('Designation')}: ${data.designation}</p>` : ''}
         <p>${t('Team status')}: ${data.team_activity_status === 'active' ? t('Active') : t('Inactive')}</p>
         ${data.coach_status ? `<p>${t('Profile status')}: ${t(data.coach_status)}</p>` : ''}
@@ -306,22 +305,11 @@ export function CoachQuickView({
                                 )}
                                 <Badge
                                     variant={
-                                        data.nis_certified
-                                            ? 'default'
-                                            : 'secondary'
-                                    }
-                                    className="ml-auto"
-                                >
-                                    {data.nis_certified
-                                        ? t('NIS Certified')
-                                        : t('Not NIS Certified')}
-                                </Badge>
-                                <Badge
-                                    variant={
                                         data.team_activity_status === 'active'
                                             ? 'default'
                                             : 'outline'
                                     }
+                                    className="ml-auto"
                                 >
                                     {data.team_activity_status === 'active'
                                         ? t('Active')

@@ -38,10 +38,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $bio
  * @property string|null $address
  * @property string|null $photo_path
- * @property bool $nis_certified
  * @property int|null $district_id
  * @property int|null $unit_id
- * @property int|null $nis_master_id
  * @property int|null $tier_master_id
  * @property int|null $rank_master_id
  * @property int|null $designation_master_id
@@ -67,10 +65,8 @@ use Illuminate\Support\Carbon;
     'pno',
     'mobile',
     'blood_group',
-    'nis_certified',
     'district_id',
     'unit_id',
-    'nis_master_id',
     'tier_master_id',
     'rank_master_id',
     'designation_master_id',
@@ -98,7 +94,6 @@ class Coach extends Model
     protected function casts(): array
     {
         return [
-            'nis_certified' => 'boolean',
             'date_of_birth' => 'date',
             'deleted_at' => 'datetime',
         ];
@@ -112,11 +107,6 @@ class Coach extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
-    }
-
-    public function nisMaster(): BelongsTo
-    {
-        return $this->belongsTo(NisMaster::class, 'nis_master_id');
     }
 
     public function tierMaster(): BelongsTo

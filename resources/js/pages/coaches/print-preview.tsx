@@ -20,7 +20,6 @@ type Coach = {
     photo_path: string | null;
     pno: string | null;
     mobile: string | null;
-    nis_certified: boolean;
     district?: { id: number; name: string } | null;
     unit?: { id: number; name: string } | null;
     rank_master?: {
@@ -529,12 +528,6 @@ export default function CoachPrintPreview({
                                                 value: humanize(
                                                     coach.coach_status,
                                                 ),
-                                            },
-                                            {
-                                                label: t('NIS Certified'),
-                                                value: coach.nis_certified
-                                                    ? t('Yes')
-                                                    : t('No'),
                                             },
                                         ]}
                                     />

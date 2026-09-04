@@ -126,7 +126,6 @@ test('teams.export writes roster details across multiple rows and merges team ce
         'full_name' => 'Coach One',
         'pno' => 'CPNO001',
         'mobile' => '9111111111',
-        'nis_certified' => true,
     ]);
 
     CoachAssignment::factory()->head()->create([

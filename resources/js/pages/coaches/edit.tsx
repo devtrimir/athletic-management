@@ -14,7 +14,6 @@ import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -27,12 +26,6 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
-type NisMasterOption = {
-    id: number;
-    code: string;
-    name: string;
-    short_name: string | null;
-};
 type RankOption = {
     id: number;
     code: string;
@@ -65,7 +58,6 @@ type Coach = {
     full_name: string;
     pno: string | null;
     mobile: string | null;
-    nis_certified: boolean;
     designation: string | null;
     email: string | null;
     gender: string | null;
@@ -74,7 +66,6 @@ type Coach = {
     blood_group: string | null;
     district_id: number | null;
     unit_id: number | null;
-    nis_master_id: number | null;
     tier_master_id: number | null;
     rank_master_id: number | null;
     designation_master_id: number | null;
@@ -88,12 +79,10 @@ type FormData = {
     pno: string;
     mobile: string;
     blood_group: string;
-    nis_certified: boolean;
     designation: string;
     rank_master_id: string;
     designation_master_id: string;
     tier_master_id: string;
-    nis_master_id: string;
     district_id: string;
     unit_id: string;
     email: string;
@@ -111,7 +100,6 @@ export default function CoachesEdit({
     ranks,
     designations,
     tiers,
-    nisMasters,
     coachStatuses,
     genders,
 }: {
@@ -121,7 +109,6 @@ export default function CoachesEdit({
     ranks: RankOption[];
     designations: DesignationOption[];
     tiers: TierOption[];
-    nisMasters: NisMasterOption[];
     coachStatuses: string[];
     genders: string[];
 }) {
@@ -163,12 +150,6 @@ export default function CoachesEdit({
         value: String(master.id),
         label: master.label ?? master.label_en ?? master.label_hi,
     }));
-    const nisItems: ComboboxItem[] = nisMasters.map((master) => ({
-        value: String(master.id),
-        label: master.short_name
-            ? `${master.name} (${master.short_name})`
-            : master.name,
-    }));
 
     setLayoutProps({
         breadcrumbs: [
@@ -183,7 +164,6 @@ export default function CoachesEdit({
         pno: coach.pno ?? '',
         mobile: coach.mobile ?? '',
         blood_group: coach.blood_group ?? '',
-        nis_certified: coach.nis_certified,
         designation: coach.designation ?? '',
         rank_master_id: coach.rank_master_id
             ? String(coach.rank_master_id)
@@ -194,7 +174,6 @@ export default function CoachesEdit({
         tier_master_id: coach.tier_master_id
             ? String(coach.tier_master_id)
             : '',
-        nis_master_id: coach.nis_master_id ? String(coach.nis_master_id) : '',
         district_id: coach.district_id ? String(coach.district_id) : '',
         unit_id: coach.unit_id ? String(coach.unit_id) : '',
         email: coach.email ?? '',
@@ -226,7 +205,6 @@ export default function CoachesEdit({
         'date_of_birth',
         'address',
         'bio',
-        'nis_certified',
     ].some((field) => errorKeys.includes(field));
 
     return (
@@ -312,11 +290,6 @@ export default function CoachesEdit({
                                 {data.coach_status
                                     ? t(data.coach_status)
                                     : t('Status pending')}
-                            </span>
-                            <span className="rounded-full border bg-background px-3 py-1 font-medium">
-                                {data.nis_certified
-                                    ? t('NIS certified')
-                                    : t('NIS not marked')}
                             </span>
                         </div>
                     </div>
@@ -517,26 +490,6 @@ export default function CoachesEdit({
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="nis_master_id">
-                                        {t('NIS info')}
-                                    </Label>
-                                    <Combobox
-                                        id="nis_master_id"
-                                        value={data.nis_master_id}
-                                        onValueChange={(v) =>
-                                            setData('nis_master_id', v)
-                                        }
-                                        items={nisItems}
-                                        placeholder={t('Select NIS info')}
-                                        searchPlaceholder={t(
-                                            'Search NIS info…',
-                                        )}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid gap-5 sm:grid-cols-2">
-                                <div className="grid gap-2">
                                     <Label htmlFor="email">{t('Email')}</Label>
                                     <Input
                                         id="email"
@@ -662,20 +615,6 @@ export default function CoachesEdit({
                                 />
                                 <InputError message={errors.bio} />
                             </div>
-
-                            <div className="flex items-center gap-3">
-                                <Checkbox
-                                    id="nis_certified"
-                                    checked={data.nis_certified}
-                                    onCheckedChange={(checked) =>
-                                        setData('nis_certified', !!checked)
-                                    }
-                                />
-                                <Label htmlFor="nis_certified">
-                                    {t('NIS certified')}
-                                </Label>
-                            </div>
-                            <InputError message={errors.nis_certified} />
                         </div>
                     </div>
 

@@ -32,7 +32,6 @@ class CoachResource extends JsonResource
             'photo_path' => $this->photo_path,
             'pno' => $this->pno,
             'mobile' => $this->mobile,
-            'nis_certified' => $this->nis_certified,
             'district_id' => $this->district_id,
             'unit_id' => $this->unit_id,
             'district' => $this->whenLoaded('district', fn () => [
@@ -43,9 +42,7 @@ class CoachResource extends JsonResource
                 'id' => $this->unit->id,
                 'name' => $this->unit->name,
             ]),
-            'nis_master_id' => $this->nis_master_id,
-            'tier_master_id' => $this->tier_master_id,
-            'rank_master_id' => $this->rank_master_id,
+            'tier_master_id' => $this->tier_master_id,            'rank_master_id' => $this->rank_master_id,
             'designation_master_id' => $this->designation_master_id,
             'rank_master' => $this->whenLoaded('rankMaster', fn () => [
                 'id' => $this->rankMaster->id,

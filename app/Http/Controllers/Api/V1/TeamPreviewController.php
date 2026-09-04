@@ -34,7 +34,7 @@ class TeamPreviewController extends Controller
             ->get();
 
         $coachAssignments = $team->coachAssignments()
-            ->with(['coach:id,full_name,pno,nis_certified', 'session:id,name'])
+            ->with(['coach:id,full_name,pno', 'session:id,name'])
             ->current()
             ->when(
                 $selectedSessionId > 0,
@@ -70,7 +70,6 @@ class TeamPreviewController extends Controller
             'coaches' => $coachAssignments->map(fn ($ca) => [
                 'full_name' => $ca->coach?->full_name,
                 'pno' => $ca->coach?->pno,
-                'nis_certified' => $ca->coach?->nis_certified,
                 'role' => $ca->role,
                 'session_name' => $ca->session?->name,
             ]),
