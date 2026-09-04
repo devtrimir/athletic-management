@@ -316,6 +316,12 @@ type Coach = {
     pno: string | null;
     mobile: string | null;
     photo_path: string | null;
+    nis_master?: {
+        id: number;
+        code: string | null;
+        name: string;
+        short_name: string | null;
+    } | null;
     team_activity_status?: 'active' | 'inactive';
     certifications?: CoachCertification[];
     promotions?: CoachPromotion[];
@@ -1547,6 +1553,10 @@ export default function CoachesShow({
                                     {detail(
                                         t('Designation'),
                                         coach.designation ?? '',
+                                    )}
+                                    {detail(
+                                        t('NIS info'),
+                                        coach.nis_master?.name ?? '',
                                     )}
                                     {detail(t('Email'), coach.email ?? '')}
                                     {detail(
