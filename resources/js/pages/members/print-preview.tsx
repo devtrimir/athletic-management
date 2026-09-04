@@ -1409,12 +1409,10 @@ export default function PrintPreview({
                             <div className="flex items-start gap-4 print:gap-3">
                                 <div className="min-w-0 flex-1 space-y-3 print:space-y-2">
                                     <div>
-                                        <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase print:text-[8px]">
-                                            {uiText('Name', locale)}
-                                        </div>
-                                        <div className="mt-1 text-2xl leading-tight font-bold text-foreground print:text-[16px]">
+                                        <div className="text-2xl leading-tight font-bold text-foreground print:text-[16px]">
                                             {preferredName}
                                         </div>
+                                        <div className="mt-2 border-b border-neutral-200 print:mt-1.5" />
                                     </div>
                                     <DetailsTable
                                         rows={[
