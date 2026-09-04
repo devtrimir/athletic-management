@@ -48,10 +48,7 @@ export function ConfidentialDocumentPreview({
                     {triggerLabel ?? t('Preview')}
                 </Button>
             </DialogTrigger>
-            <DialogContent
-                className="h-[90vh] overflow-hidden p-0"
-                style={{ width: '96vw', maxWidth: '96vw' }}
-            >
+            <DialogContent className="h-dvh w-screen max-w-none overflow-hidden rounded-none p-0">
                 <DialogHeader className="border-b px-4 py-3 pr-12">
                     <DialogTitle className="truncate text-base">
                         {documentName}
@@ -63,9 +60,9 @@ export function ConfidentialDocumentPreview({
                         </div>
                     ) : null}
                 </DialogHeader>
-                <div className="min-h-0 flex-1 bg-muted/30 p-3">
+                <div className="min-h-0 flex-1 bg-muted/30">
                     {isImageDocument(document.mime_type) ? (
-                        <div className="flex h-full items-center justify-center overflow-auto rounded-md bg-background">
+                        <div className="flex h-full items-center justify-center overflow-auto rounded-md bg-background p-3">
                             <img
                                 src={document.preview_url}
                                 alt={documentName}
