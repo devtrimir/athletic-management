@@ -439,6 +439,13 @@ export default function CoachPrintPreview({
             .map((node) => node.outerHTML)
             .join('');
 
+        // Strip the print-target id so the global monochrome print rules
+        // (app.css quick-view overrides) do not apply to the clone.
+        const cloneHtml = target.outerHTML.replace(
+            'id="quick-view-print-target"',
+            '',
+        );
+
         printWindow.document.open();
         printWindow.document.write(`<!doctype html>
             <html>
@@ -449,23 +456,11 @@ export default function CoachPrintPreview({
                     <style>
                         @page { margin: 0.6cm; }
                         body { margin: 0; background: white; }
-                        img { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-                        @media print {
-                            html body #quick-view-print-target {
-                                display: block !important;
-                                position: static !important;
-                                width: 100% !important;
-                                max-width: 100% !important;
-                                height: auto !important;
-                                overflow: visible !important;
-                                padding: 1rem !important;
-                                background: white !important;
-                            }
-                        }
+                        * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
                     </style>
                 </head>
                 <body>
-                    ${target.outerHTML}
+                    ${cloneHtml}
                 </body>
             </html>`);
         printWindow.document.close();
