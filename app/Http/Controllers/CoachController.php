@@ -11,6 +11,7 @@ use App\Models\CoachAssignment;
 use App\Models\CoachCertification;
 use App\Models\Designation;
 use App\Models\District;
+use App\Models\NisMaster;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
@@ -290,12 +291,14 @@ class CoachController extends Controller
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
+            'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'certificateTypes' => CoachCertification::query()
                 ->whereHas('coach', fn (Builder $query) => $query->where('organization_id', $request->user()->organization_id))
                 ->whereNotNull('certificate_type')
                 ->where('certificate_type', '!=', '')
                 ->distinct()
                 ->pluck('certificate_type')
+                ->concat(NisMaster::query()->active()->ordered()->pluck('name'))
                 ->filter()
                 ->unique()
                 ->sort()
@@ -765,6 +768,7 @@ class CoachController extends Controller
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
+            'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
         ]);
@@ -826,6 +830,7 @@ class CoachController extends Controller
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
             'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')->get(['id', 'code', 'name', 'short_name', 'mapped_rank_code']),
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en', 'weight'])->orderByDesc('weight')->get(),
+            'nisMasters' => NisMaster::query()->active()->ordered()->get(),
             'coachStatuses' => ['ACTIVE', 'INACTIVE', 'TRANSFERRED', 'RETIRED', 'RESIGNED', 'DISMISSED', 'DECEASED', 'SUSPENDED'],
             'genders' => ['M', 'F', 'O'],
         ]);

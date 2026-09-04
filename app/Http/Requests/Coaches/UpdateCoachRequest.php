@@ -30,6 +30,7 @@ class UpdateCoachRequest extends FormRequest
             'blood_group' => ['sometimes', 'nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'])],
             'district_id' => ['sometimes', 'nullable', 'integer', Rule::exists('districts', 'id')],
             'unit_id' => ['sometimes', 'nullable', 'integer', Rule::exists('units', 'id')],
+            'nis_master_id' => ['sometimes', 'nullable', 'integer', Rule::exists('nis_masters', 'id')->where('kind', 'nis')],
             'tier_master_id' => ['sometimes', 'nullable', 'integer', Rule::exists('tournament_tiers', 'id')],
             'rank_master_id' => ['sometimes', 'nullable', 'integer', Rule::exists('ranks', 'id')],
             'designation_master_id' => ['sometimes', 'nullable', 'integer', Rule::exists('designations', 'id')],

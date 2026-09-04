@@ -40,6 +40,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $photo_path
  * @property int|null $district_id
  * @property int|null $unit_id
+ * @property int|null $nis_master_id
  * @property int|null $tier_master_id
  * @property int|null $rank_master_id
  * @property int|null $designation_master_id
@@ -67,6 +68,7 @@ use Illuminate\Support\Carbon;
     'blood_group',
     'district_id',
     'unit_id',
+    'nis_master_id',
     'tier_master_id',
     'rank_master_id',
     'designation_master_id',
@@ -107,6 +109,11 @@ class Coach extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    public function nisMaster(): BelongsTo
+    {
+        return $this->belongsTo(NisMaster::class, 'nis_master_id');
     }
 
     public function tierMaster(): BelongsTo

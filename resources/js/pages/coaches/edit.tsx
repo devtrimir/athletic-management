@@ -26,6 +26,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
+type NisMasterOption = {
+    id: number;
+    code: string;
+    name: string;
+    short_name: string | null;
+};
 type RankOption = {
     id: number;
     code: string;
@@ -66,6 +72,7 @@ type Coach = {
     blood_group: string | null;
     district_id: number | null;
     unit_id: number | null;
+    nis_master_id: number | null;
     tier_master_id: number | null;
     rank_master_id: number | null;
     designation_master_id: number | null;
@@ -83,6 +90,7 @@ type FormData = {
     rank_master_id: string;
     designation_master_id: string;
     tier_master_id: string;
+    nis_master_id: string;
     district_id: string;
     unit_id: string;
     email: string;
@@ -100,6 +108,7 @@ export default function CoachesEdit({
     ranks,
     designations,
     tiers,
+    nisMasters,
     coachStatuses,
     genders,
 }: {
@@ -109,6 +118,7 @@ export default function CoachesEdit({
     ranks: RankOption[];
     designations: DesignationOption[];
     tiers: TierOption[];
+    nisMasters: NisMasterOption[];
     coachStatuses: string[];
     genders: string[];
 }) {
@@ -150,6 +160,12 @@ export default function CoachesEdit({
         value: String(master.id),
         label: master.label ?? master.label_en ?? master.label_hi,
     }));
+    const nisItems: ComboboxItem[] = nisMasters.map((master) => ({
+        value: String(master.id),
+        label: master.short_name
+            ? `${master.name} (${master.short_name})`
+            : master.name,
+    }));
 
     setLayoutProps({
         breadcrumbs: [
@@ -174,6 +190,7 @@ export default function CoachesEdit({
         tier_master_id: coach.tier_master_id
             ? String(coach.tier_master_id)
             : '',
+        nis_master_id: coach.nis_master_id ? String(coach.nis_master_id) : '',
         district_id: coach.district_id ? String(coach.district_id) : '',
         unit_id: coach.unit_id ? String(coach.unit_id) : '',
         email: coach.email ?? '',
@@ -489,6 +506,26 @@ export default function CoachesEdit({
                                         searchPlaceholder={t('Search tiers…')}
                                     />
                                 </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="nis_master_id">
+                                        {t('NIS info')}
+                                    </Label>
+                                    <Combobox
+                                        id="nis_master_id"
+                                        value={data.nis_master_id}
+                                        onValueChange={(v) =>
+                                            setData('nis_master_id', v)
+                                        }
+                                        items={nisItems}
+                                        placeholder={t('Select NIS info')}
+                                        searchPlaceholder={t(
+                                            'Search NIS info…',
+                                        )}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
                                 <div className="grid gap-2">
                                     <Label htmlFor="email">{t('Email')}</Label>
                                     <Input

@@ -21,6 +21,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
+type NisMasterOption = {
+    id: number;
+    code: string;
+    name: string;
+    short_name: string | null;
+};
 type RankOption = {
     id: number;
     code: string;
@@ -57,6 +63,7 @@ type FormData = {
     rank_master_id: string;
     designation_master_id: string;
     tier_master_id: string;
+    nis_master_id: string;
     district_id: string;
     unit_id: string;
     email: string;
@@ -73,6 +80,7 @@ export default function CoachesCreate({
     ranks,
     designations,
     tiers,
+    nisMasters,
     coachStatuses,
     genders,
 }: {
@@ -81,6 +89,7 @@ export default function CoachesCreate({
     ranks: RankOption[];
     designations: DesignationOption[];
     tiers: TierOption[];
+    nisMasters: NisMasterOption[];
     coachStatuses: string[];
     genders: string[];
 }) {
@@ -122,6 +131,12 @@ export default function CoachesCreate({
         value: String(master.id),
         label: master.label ?? master.label_en ?? master.label_hi,
     }));
+    const nisItems: ComboboxItem[] = nisMasters.map((master) => ({
+        value: String(master.id),
+        label: master.short_name
+            ? `${master.name} (${master.short_name})`
+            : master.name,
+    }));
 
     setLayoutProps({
         breadcrumbs: [
@@ -139,6 +154,7 @@ export default function CoachesCreate({
         rank_master_id: '',
         designation_master_id: '',
         tier_master_id: '',
+        nis_master_id: '',
         district_id: '',
         unit_id: '',
         email: '',
@@ -412,6 +428,26 @@ export default function CoachesCreate({
                                         searchPlaceholder={t('Search tiers…')}
                                     />
                                 </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="nis_master_id">
+                                        {t('NIS info')}
+                                    </Label>
+                                    <Combobox
+                                        id="nis_master_id"
+                                        value={data.nis_master_id}
+                                        onValueChange={(v) =>
+                                            setData('nis_master_id', v)
+                                        }
+                                        items={nisItems}
+                                        placeholder={t('Select NIS info')}
+                                        searchPlaceholder={t(
+                                            'Search NIS info…',
+                                        )}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
                                 <div className="grid gap-2">
                                     <Label htmlFor="email">{t('Email')}</Label>
                                     <Input

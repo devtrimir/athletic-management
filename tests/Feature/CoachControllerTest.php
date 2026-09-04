@@ -497,7 +497,7 @@ test('index includes own organization certificate type filter values', function 
         );
 });
 
-test('index does not include nis master names as certificate type filter values', function () {
+test('index includes active nis master names as certificate type filter values', function () {
     $user = coachUser('coaches.view');
 
     NisMaster::query()->create([
@@ -512,7 +512,9 @@ test('index does not include nis master names as certificate type filter values'
     $this->actingAs($user)
         ->get(route('coaches.index', ['filter' => ['status_scope' => 'active']]))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->missing('certificateTypes.0'));
+        ->assertInertia(fn ($page) => $page
+            ->where('certificateTypes.0', 'NIS diploma')
+        );
 });
 
 // ---------------------------------------------------------------------------

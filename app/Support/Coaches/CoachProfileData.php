@@ -201,6 +201,7 @@ class CoachProfileData
         $coach->loadMissing([
             'district:id,name',
             'unit:id,name,district_id',
+            'nisMaster:id,kind,code,name,short_name',
             'tierMaster:id,code,label_hi,label_en,weight',
             'rankMaster:id,code,name,short_name',
             'designationMaster:id,code,name,short_name',
