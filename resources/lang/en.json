@@ -41,6 +41,8 @@
     "Events": "Events",
     "Discipline": "Discipline",
     "Sport": "Sport",
+    "GD": "General Duty",
+    "SPORTS_QUOTA": "Sports Quota",
     "Playable sport": "Playable sport",
     "Role / position": "Role / position",
     "Sport event": "Sport event",

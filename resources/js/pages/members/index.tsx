@@ -61,6 +61,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { resolveRankLabel } from '@/lib/ranks';
 
 type PaginationLink = {
     url: string | null;
@@ -104,7 +105,12 @@ type UnitOption = { id: number; name: string };
 type DistrictOption = { id: number; name: string };
 type SportOption = { id: number; name: string };
 type LevelOption = { code: string; label_en: string; label_hi: string };
-type MasterOption = { code: string; name: string; short_name: string | null };
+type MasterOption = {
+    code: string;
+    name: string;
+    name_en: string | null;
+    short_name: string | null;
+};
 
 type PaginatedMembers = {
     data: Member[];
@@ -557,6 +563,14 @@ export default function MembersIndex({
         [locale, levels],
     );
 
+    const rankMasterLabel = useCallback(
+        (rank: MasterOption): string =>
+            locale === 'en'
+                ? (rank.name_en ?? rank.name ?? rank.code)
+                : (rank.name ?? rank.name_en ?? rank.code),
+        [locale],
+    );
+
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
@@ -1006,9 +1020,16 @@ export default function MembersIndex({
                         label={t('Rank')}
                         activeLabel={
                             filters.rank
-                                ? (ranks.find(
+                                ? ranks.find(
                                       (rank) => rank.code === filters.rank,
-                                  )?.name ?? filters.rank)
+                                  )
+                                    ? rankMasterLabel(
+                                          ranks.find(
+                                              (rank) =>
+                                                  rank.code === filters.rank,
+                                          )!,
+                                      )
+                                    : filters.rank
                                 : undefined
                         }
                         onClear={() => applyFilters({ rank: undefined })}
@@ -1016,7 +1037,7 @@ export default function MembersIndex({
                         <SearchableOptionList
                             options={ranks.map((rank) => ({
                                 value: rank.code,
-                                label: rank.name ?? rank.code,
+                                label: rankMasterLabel(rank),
                             }))}
                             value={filters.rank}
                             onSelect={(v) => applyFilters({ rank: v })}
@@ -1374,7 +1395,11 @@ export default function MembersIndex({
                                             <div className="flex min-w-56 items-center gap-2 overflow-hidden whitespace-nowrap">
                                                 {member.rank && (
                                                     <span className="inline-flex shrink-0 items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] leading-none font-medium text-sky-700 dark:text-sky-300">
-                                                        {member.rank}
+                                                        {resolveRankLabel(
+                                                            member.rank,
+                                                            ranks,
+                                                            locale,
+                                                        )}
                                                     </span>
                                                 )}
                                                 <span className="truncate font-semibold text-foreground">

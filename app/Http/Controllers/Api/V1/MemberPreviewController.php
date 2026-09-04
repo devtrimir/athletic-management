@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Member;
+use App\Models\Rank;
 use App\Models\TeamMember;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -80,6 +81,7 @@ class MemberPreviewController extends Controller
             ]),
             'team_history' => $teamHistory,
             'achievements' => [],
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name']),
         ]);
     }
 }
