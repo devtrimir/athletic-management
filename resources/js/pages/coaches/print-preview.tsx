@@ -667,21 +667,10 @@ export default function CoachPrintPreview({
                     {enabled('sports') && sports.length > 0 && (
                         <Section title={t('Playable sports')}>
                             <DataTable
-                                columns={[
-                                    t('Sport'),
-                                    t('Event / Weight'),
-                                    t('Primary'),
-                                    t('Effective from'),
-                                    t('Effective to'),
-                                    t('Notes'),
-                                ]}
+                                columns={[t('Sport'), t('Event / Weight')]}
                                 rows={sports.map((sport) => [
                                     sport.name,
                                     sport.sport_event,
-                                    sport.is_primary ? t('Yes') : '',
-                                    formatDate(sport.effective_from),
-                                    formatDate(sport.effective_to),
-                                    sport.notes,
                                 ])}
                             />
                         </Section>
@@ -805,19 +794,11 @@ export default function CoachPrintPreview({
                     {enabled('certifications') && certifications.length > 0 && (
                         <Section title={t('Certifications')}>
                             <DataTable
-                                columns={[
-                                    t('Name'),
-                                    t('Type'),
-                                    t('Issuer'),
-                                    t('Issued at'),
-                                    t('Expired at'),
-                                ]}
+                                columns={[t('Name'), t('Type'), t('Issuer')]}
                                 rows={certifications.map((certification) => [
                                     certification.name,
                                     certification.certificate_type,
                                     certification.issuer,
-                                    formatDate(certification.issued_at),
-                                    formatDate(certification.expired_at),
                                 ])}
                             />
                         </Section>
