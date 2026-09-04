@@ -155,6 +155,22 @@ const ALL_COLUMNS: { key: string; label: string }[] = [
     { key: 'team_since', label: 'Team since' },
 ];
 
+// Core set pre-selected for export/print — all 18 columns squeeze an A4
+// page; users can widen the selection in the column picker.
+const DEFAULT_EXPORT_COLUMNS = [
+    'pno',
+    'full_name',
+    'father_name',
+    'gender',
+    'dob',
+    'rank',
+    'mobile',
+    'player_category',
+    'player_level',
+    'home_district',
+    'playable_sports',
+];
+
 const CATEGORY_OPTIONS = ['GD', 'SPORTS_QUOTA'] as const;
 const GENDER_OPTIONS: { value: string; label: string }[] = [
     { value: 'M', label: 'Male' },
@@ -546,7 +562,7 @@ export default function MembersIndex({
     const [exportOpen, setExportOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<string[]>(
-        ALL_COLUMNS.map((c) => c.key),
+        DEFAULT_EXPORT_COLUMNS,
     );
     const [quickViewId, setQuickViewId] = useState<number | null>(null);
 

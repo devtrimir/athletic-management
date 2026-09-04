@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { useEcho } from '@laravel/echo-react';
+import { useChannel, useEcho } from '@laravel/echo-react';
 import { Check, Download, FileWarning, Minus, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -85,6 +85,34 @@ function resultIcon(result: RowResult, errors: string[]) {
     }
 }
 
+function SummaryChip({
+    label,
+    count,
+    tone,
+}: {
+    label: string;
+    count: number;
+    tone: 'success' | 'muted' | 'danger';
+}) {
+    const tones = {
+        success:
+            'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
+        muted: 'border-border bg-muted/40 text-foreground',
+        danger: 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300',
+    };
+
+    return (
+        <div
+            className={`rounded-md border px-3 py-2 text-center ${tones[tone]}`}
+        >
+            <div className="text-lg leading-6 font-semibold tabular-nums">
+                {count}
+            </div>
+            <div className="text-xs text-muted-foreground">{label}</div>
+        </div>
+    );
+}
+
 /**
  * Member import dialog with row-wise live sync. Uploading starts a background
  * job whose per-row outcomes stream back over Reverb (MemberImportRowProcessed)
@@ -115,10 +143,34 @@ export function MemberImportDialog({
         openRef.current = open;
     }, [session, open]);
 
+    // Temporary subscription diagnostics — remove once resolved.
+    const { channel } = useChannel(`organization.${organizationId}`);
+
+    useEffect(() => {
+        const instance = channel();
+
+        if (instance === null || !('name' in instance)) {
+            console.warn('[import] channel instance not ready');
+
+            return;
+        }
+
+        console.log('[import] subscribing to channel', instance.name);
+
+        instance.subscribed(() => {
+            console.log('[import] channel subscribed OK', instance.name);
+        });
+        instance.error((error: unknown) => {
+            console.error('[import] channel subscription error', error);
+        });
+    }, [channel]);
+
     useEcho<RowEvent>(
         `organization.${organizationId}`,
-        'MemberImportRowProcessed',
+        '.MemberImportRowProcessed',
         (event) => {
+            console.log('[import] row event received', event);
+
             setSession((prev) => {
                 if (
                     !prev ||
@@ -149,8 +201,10 @@ export function MemberImportDialog({
 
     useEcho<FinishedEvent>(
         `organization.${organizationId}`,
-        'MemberImportFinished',
+        '.MemberImportFinished',
         (event) => {
+            console.log('[import] finished event received', event);
+
             const active = sessionRef.current;
             const isActiveImport = active?.importId === event.import_id;
 
@@ -240,12 +294,24 @@ export function MemberImportDialog({
     }
 
     function submit() {
+        console.log('[import] uploading', importForm.data.file?.name);
+
         importForm.post(MemberImportController.store.url(), {
             forceFormData: true,
             onSuccess: (page) => {
-                const importId = page.props.flash?.import_id;
+                const importId = page.flash?.import_id;
+
+                console.log(
+                    '[import] upload accepted, flash import_id =',
+                    importId,
+                );
 
                 if (typeof importId !== 'number') {
+                    console.warn(
+                        '[import] no numeric import_id in flash — session not started',
+                        page.flash,
+                    );
+
                     return;
                 }
 
@@ -286,7 +352,10 @@ export function MemberImportDialog({
                 onOpenChange(next);
             }}
         >
-            <DialogContent className="max-w-lg" aria-describedby={undefined}>
+            <DialogContent
+                className={session ? 'sm:max-w-4xl' : 'sm:max-w-lg'}
+                aria-describedby={undefined}
+            >
                 <DialogHeader>
                     <DialogTitle>
                         {session
@@ -363,7 +432,7 @@ export function MemberImportDialog({
                         )}
 
                         {session.status === 'finished' && session.result && (
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {session.result.template_error !== null ||
                                 session.result.status === 'FAILED' ? (
                                     <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
@@ -376,73 +445,113 @@ export function MemberImportDialog({
                                         </span>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                                        <span>
-                                            {t('Created')}:{' '}
-                                            <span className="font-semibold">
-                                                {counts?.created ?? 0}
-                                            </span>
-                                        </span>
-                                        <span>
-                                            {t('Updated')}:{' '}
-                                            <span className="font-semibold">
-                                                {counts?.updated ?? 0}
-                                            </span>
-                                        </span>
-                                        <span>
-                                            {t('Skipped')}:{' '}
-                                            <span className="font-semibold">
-                                                {counts?.skipped ?? 0}
-                                            </span>
-                                        </span>
-                                        <span>
-                                            {t('Failed')}:{' '}
-                                            <span className="font-semibold text-red-600 dark:text-red-400">
-                                                {counts?.failed ?? 0}
-                                            </span>
-                                        </span>
-                                    </div>
+                                    <>
+                                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                            <SummaryChip
+                                                label={t('Created')}
+                                                count={counts?.created ?? 0}
+                                                tone="success"
+                                            />
+                                            <SummaryChip
+                                                label={t('Updated')}
+                                                count={counts?.updated ?? 0}
+                                                tone="success"
+                                            />
+                                            <SummaryChip
+                                                label={t('Skipped')}
+                                                count={counts?.skipped ?? 0}
+                                                tone="muted"
+                                            />
+                                            <SummaryChip
+                                                label={t('Failed')}
+                                                count={counts?.failed ?? 0}
+                                                tone="danger"
+                                            />
+                                        </div>
+
+                                        {(counts?.failed ?? 0) > 0 ? (
+                                            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                                                <FileWarning className="mt-0.5 size-4 shrink-0" />
+                                                <span>
+                                                    {t(
+                                                        ':n rows need attention. Fix them in the file and re-upload.',
+                                                    ).replace(
+                                                        ':n',
+                                                        String(
+                                                            counts?.failed ?? 0,
+                                                        ),
+                                                    )}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                                <Check className="size-4 shrink-0" />
+                                                <span>
+                                                    {t(
+                                                        'All rows imported successfully.',
+                                                    )}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         )}
 
                         <div
                             ref={listRef}
-                            className="max-h-72 min-h-16 space-y-1 overflow-y-auto rounded-md border p-2"
+                            className="max-h-[55vh] min-h-16 space-y-1 overflow-y-auto rounded-md border p-2"
                         >
                             {session.rows.length === 0 ? (
                                 <p className="px-2 py-4 text-center text-sm text-muted-foreground">
                                     {t('Reading the file…')}
                                 </p>
                             ) : (
-                                session.rows.map((row) => (
-                                    <div
-                                        key={row.row}
-                                        className="flex items-center gap-2 rounded px-2 py-1 text-sm"
-                                        title={
-                                            row.errors.length > 0
-                                                ? row.errors.join(' · ')
-                                                : undefined
-                                        }
-                                    >
-                                        {resultIcon(row.result, row.errors)}
-                                        <span className="w-8 shrink-0 text-right font-mono text-xs text-muted-foreground">
-                                            {row.row}
-                                        </span>
-                                        <span className="w-24 shrink-0 truncate font-mono text-xs">
-                                            {row.pno ?? '—'}
-                                        </span>
-                                        <span className="truncate">
-                                            {row.name}
-                                        </span>
-                                        {row.result === 'failed' &&
-                                            row.errors.length > 0 && (
-                                                <span className="shrink-0 truncate text-xs text-red-600 dark:text-red-400">
-                                                    {row.errors[0]}
+                                session.rows.map((row) => {
+                                    const failed = row.result === 'failed';
+
+                                    return (
+                                        <div
+                                            key={row.row}
+                                            className={
+                                                failed
+                                                    ? 'space-y-1 rounded-md border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/60 dark:bg-red-950/40'
+                                                    : 'rounded px-2 py-1'
+                                            }
+                                        >
+                                            <div className="flex items-center gap-2 text-sm">
+                                                {resultIcon(
+                                                    row.result,
+                                                    row.errors,
+                                                )}
+                                                <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                                                    {t('Row :n').replace(
+                                                        ':n',
+                                                        String(row.row),
+                                                    )}
                                                 </span>
-                                            )}
-                                    </div>
-                                ))
+                                                <span className="w-24 shrink-0 truncate font-mono text-xs">
+                                                    {row.pno ?? '—'}
+                                                </span>
+                                                <span className="truncate">
+                                                    {row.name}
+                                                </span>
+                                            </div>
+                                            {failed &&
+                                                row.errors.length > 0 && (
+                                                    <ul className="ml-6 list-disc space-y-0.5 text-xs text-red-700 dark:text-red-300">
+                                                        {row.errors.map(
+                                                            (error) => (
+                                                                <li key={error}>
+                                                                    {error}
+                                                                </li>
+                                                            ),
+                                                        )}
+                                                    </ul>
+                                                )}
+                                        </div>
+                                    );
+                                })
                             )}
                         </div>
                     </div>
@@ -497,7 +606,12 @@ export function MemberImportDialog({
                                     {t('Download error report')}
                                 </Button>
                             )}
-                            <Button onClick={() => onOpenChange(false)}>
+                            <Button
+                                onClick={() => {
+                                    resetSession();
+                                    onOpenChange(false);
+                                }}
+                            >
                                 {t('Done')}
                             </Button>
                         </>

@@ -84,8 +84,11 @@ function importUser(string ...$permissions): User
  */
 function importRow(array $overrides = []): array
 {
+    // PNO is required; default to a unique one so multi-row fixtures import.
+    static $pnoSequence = 210700000;
+
     $row = array_merge([
-        'pno' => null,
+        'pno' => (string) ++$pnoSequence,
         'full_name' => 'टेस्ट खिलाड़ी',
         'father_name' => null,
         'gender' => 'M',
@@ -263,6 +266,7 @@ test('valid rows are imported with generated codes and playable sport pivot', fu
             'blood_group' => 'B+',
         ]),
         importRow([
+            'pno' => '210712828',
             'full_name' => 'Second Player',
             'gender' => 'F',
             'player_category' => 'SPORTS_QUOTA',
@@ -293,12 +297,42 @@ test('valid rows are imported with generated codes and playable sport pivot', fu
         ->and($first->playableSports->first()->pivot->sport_event)->toBe('48 kg Sanda');
 
     $second = $members->firstWhere('full_name', 'Second Player');
-    expect($second->pno)->toBeNull()
+    expect($second->pno)->toBe('210712828')
         ->and($second->gender)->toBe('F');
 
     $record = Import::withoutGlobalScopes()->first();
     expect($record->status)->toBe(Import::STATUS_COMPLETED)
         ->and($record->error_log)->toBeNull();
+});
+
+test('re-importing adds a new sport and updates an existing one without removing any', function () {
+    $user = importUser('imports.run');
+    $sportA = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $sportB = Sport::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'sport' => $sportA->name, 'sport_event' => '48 kg Sanda'])]),
+    ]);
+
+    // Second import: same member, different sport — sport A must stay.
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'sport' => $sportB->name, 'sport_event' => '10 m Air Rifle'])]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->sole();
+    $sports = $member->playableSports->keyBy('id');
+    expect($sports)->toHaveCount(2)
+        ->and($sports[$sportA->id]->pivot->sport_event)->toBe('48 kg Sanda')
+        ->and($sports[$sportB->id]->pivot->sport_event)->toBe('10 m Air Rifle');
+
+    // Third import: same member, sport A with a new event — updates in place.
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'sport' => $sportA->name, 'sport_event' => '52 kg Sanda'])]),
+    ]);
+
+    $sports = $member->fresh()->playableSports->keyBy('id');
+    expect($sports)->toHaveCount(2)
+        ->and($sports[$sportA->id]->pivot->sport_event)->toBe('52 kg Sanda');
 });
 
 test('real Excel dates in date-formatted cells are converted on import', function () {
@@ -476,6 +510,22 @@ test('an unknown level is rejected', function () {
         ->and($record->rowErrors()[0]['errors'][0])->toContain('NATIONAL');
 });
 
+test('state and other tier levels import cleanly', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'State Level Player', 'player_level' => 'STATE', 'pno' => '210712827']),
+            importRow(['full_name' => 'Other Level Player', 'player_level' => 'Other', 'pno' => '210712828']),
+        ]),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members)->toHaveCount(2)
+        ->and($members->firstWhere('full_name', 'State Level Player')->player_level)->toBe('STATE')
+        ->and($members->firstWhere('full_name', 'Other Level Player')->player_level)->toBe('OTHER');
+});
+
 test('re-uploading the same PNO updates the member instead of duplicating', function () {
     $user = importUser('imports.run');
 
@@ -513,6 +563,72 @@ test('a PNO belonging to a coach is rejected', function () {
     $record = Import::withoutGlobalScopes()->first();
     expect($record->rowErrors())->toHaveCount(1)
         ->and($record->rowErrors()[0]['errors'][0])->toContain('210712827');
+});
+
+test('a row without a PNO is rejected', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => null])]),
+    ]);
+
+    expect(Member::withoutGlobalScopes()->count())->toBe(0);
+
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->rowErrors())->toHaveCount(1)
+        ->and($record->rowErrors()[0]['errors'][0])->toContain('पीएनओ आवश्यक');
+});
+
+test('an empty blood group imports without a row error', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['blood_group' => null])]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->sole();
+    expect($member->blood_group)->toBeNull();
+
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->rowErrors())->toBeEmpty();
+});
+
+test('hyphenated and lowercase blood groups import cleanly', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'O Negative Player', 'blood_group' => 'O-']),
+            importRow(['full_name' => 'AB Negative Player', 'blood_group' => 'ab-']),
+        ]),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members)->toHaveCount(2)
+        ->and($members->firstWhere('full_name', 'O Negative Player')->blood_group)->toBe('O-')
+        ->and($members->firstWhere('full_name', 'AB Negative Player')->blood_group)->toBe('AB-');
+
+    $record = Import::withoutGlobalScopes()->firstOrFail();
+    expect($record->rowErrors())->toBeEmpty();
+});
+
+test('re-importing a member leaves their current status untouched', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'full_name' => 'Status Player'])]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->sole();
+    $member->forceFill(['current_status' => 'RESIGNED'])->saveQuietly();
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([importRow(['pno' => '210712827', 'full_name' => 'Status Player', 'father_name' => 'Updated Father'])]),
+    ]);
+
+    $fresh = $member->fresh();
+    expect($fresh->current_status)->toBe('RESIGNED')
+        ->and($fresh->father_name)->toBe('Updated Father');
 });
 
 test('invalid rows fail while valid rows in the same file are imported', function () {

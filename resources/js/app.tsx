@@ -1,5 +1,5 @@
 import { createInertiaApp } from '@inertiajs/react';
-import { configureEcho } from '@laravel/echo-react';
+import { configureEcho, echo } from '@laravel/echo-react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
@@ -11,6 +11,42 @@ import SettingsLayout from '@/layouts/settings/layout';
 configureEcho({
     broadcaster: 'reverb',
 });
+
+// Temporary Echo diagnostics for the member-import websocket issue — remove
+// once resolved.
+if (typeof window !== 'undefined') {
+    console.log('[echo] reverb config', {
+        key: import.meta.env.VITE_REVERB_APP_KEY,
+        host: import.meta.env.VITE_REVERB_HOST,
+        port: import.meta.env.VITE_REVERB_PORT,
+        scheme: import.meta.env.VITE_REVERB_SCHEME,
+    });
+
+    type PusherLike = {
+        connection: {
+            bind: (event: string, cb: (data: unknown) => void) => void;
+        };
+        bind_global: (cb: (event: string, data: unknown) => void) => void;
+    };
+    const pusher = (
+        echo<'reverb'>().connector as unknown as { pusher: PusherLike }
+    ).pusher;
+
+    pusher.connection.bind('state_change', (states) => {
+        console.log(
+            '[echo] connection state →',
+            (states as { current: string }).current,
+        );
+    });
+    pusher.connection.bind('error', (error: unknown) => {
+        console.error('[echo] connection error', error);
+    });
+    pusher.bind_global((event, data) => {
+        if (event.startsWith('pusher')) {
+            console.log('[echo]', event, data);
+        }
+    });
+}
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 

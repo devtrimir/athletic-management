@@ -184,19 +184,12 @@ class MembersImport implements ToCollection, WithMultipleSheets
 
         // ── Dedupe within the file (last occurrence wins) ────────────────
         $byPno = [];
-        $byName = [];
 
         foreach ($valid as $index => $entry) {
-            $pno = $entry['payload']['pno'];
-
-            if ($pno !== null) {
-                $byPno[$pno] = $index;
-            } else {
-                $byName[$entry['payload']['full_name'].'|'.$entry['payload']['player_category']] = $index;
-            }
+            $byPno[$entry['payload']['pno']] = $index;
         }
 
-        $keptIndexes = array_flip(array_merge(array_values($byPno), array_values($byName)));
+        $keptIndexes = array_flip(array_values($byPno));
 
         // Superseded duplicates are not written (the later row wins) but still
         // get a row outcome so the uploader's dialog ticks off every data row.
@@ -214,7 +207,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
 
         $deduped = [];
 
-        foreach (array_merge(array_values($byPno), array_values($byName)) as $index) {
+        foreach (array_values($byPno) as $index) {
             $deduped[] = $valid[$index];
         }
 
@@ -223,19 +216,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
         $entries = [];
 
         foreach ($deduped as $entry) {
-            $pno = $entry['payload']['pno'];
-
-            if ($pno !== null && isset($memberPnoMap[$pno])) {
-                $entry['member_id'] = $memberPnoMap[$pno];
-            } elseif ($pno === null) {
-                $entry['member_id'] = Member::withoutGlobalScopes()
-                    ->where('organization_id', $this->organizationId)
-                    ->where('full_name', $entry['payload']['full_name'])
-                    ->where('player_category', $entry['payload']['player_category'])
-                    ->value('id');
-            } else {
-                $entry['member_id'] = null;
-            }
+            $entry['member_id'] = $memberPnoMap[$entry['payload']['pno']] ?? null;
 
             $entries[] = $entry;
         }
@@ -258,16 +239,11 @@ class MembersImport implements ToCollection, WithMultipleSheets
                     'row' => $entry['row'],
                 ];
 
-                if ($entry['member_id'] !== null && $payload['pno'] !== null) {
+                if ($entry['member_id'] !== null) {
                     $member = Member::withoutGlobalScopes()->findOrFail($entry['member_id']);
                     $member->update(array_filter($payload, static fn (mixed $value): bool => $value !== null));
                     $this->updated++;
                     $this->emitProgress($entry['row'], $payload['pno'], $payload['full_name'], 'updated', []);
-                } elseif ($entry['member_id'] !== null) {
-                    // No-PNO row matching an existing (name, category) — leave untouched.
-                    $member = Member::withoutGlobalScopes()->findOrFail($entry['member_id']);
-                    $this->skipped++;
-                    $this->emitProgress($entry['row'], $payload['pno'], $payload['full_name'], 'skipped', []);
                 } else {
                     $member = Member::withoutGlobalScopes()->create(array_merge($payload, [
                         'organization_id' => $this->organizationId,
@@ -379,17 +355,17 @@ class MembersImport implements ToCollection, WithMultipleSheets
             $payload['player_level'] = $level;
         }
 
-        // PNO (optional, digits only, unique across people)
+        // PNO (required, digits only, unique across people)
         $pno = preg_replace('/\s+/', '', (string) $get('pno'));
 
-        if ($pno !== '') {
-            if (! preg_match('/^\d{8,20}$/', $pno)) {
-                $errors[] = __('PNO must be 8–20 digits.');
-            } elseif (isset($blockedPnos[$pno])) {
-                $errors[] = __('PNO :pno is already used by a coach or team prabhari.', ['pno' => $pno]);
-            } else {
-                $payload['pno'] = $pno;
-            }
+        if ($pno === '') {
+            $errors[] = __('PNO is required.');
+        } elseif (! preg_match('/^\d{8,20}$/', $pno)) {
+            $errors[] = __('PNO must be 8–20 digits.');
+        } elseif (isset($blockedPnos[$pno])) {
+            $errors[] = __('PNO :pno is already used by a coach or team prabhari.', ['pno' => $pno]);
+        } else {
+            $payload['pno'] = $pno;
         }
 
         // Dates
@@ -424,13 +400,17 @@ class MembersImport implements ToCollection, WithMultipleSheets
             }
         }
 
-        // Optional enums
-        $bloodGroup = $this->normalizeEnum($get('blood_group'), array_fill_keys(MemberImportSchema::BLOOD_GROUPS, null));
+        // Optional enums. Blood group is matched case-insensitively WITHOUT
+        // the generic enum normalizer — that one turns hyphens into
+        // underscores, which would make A-/B-/O-/AB- unmatchable.
+        $bloodGroupRaw = $str('blood_group');
 
-        if ($bloodGroup === null && $str('blood_group') !== null) {
-            $errors[] = __('Blood group must be one of: :values.', ['values' => implode(', ', MemberImportSchema::BLOOD_GROUPS)]);
+        if ($bloodGroupRaw === null) {
+            $payload['blood_group'] = null;
+        } elseif (in_array($candidate = strtoupper($bloodGroupRaw), MemberImportSchema::BLOOD_GROUPS, true)) {
+            $payload['blood_group'] = $candidate;
         } else {
-            $payload['blood_group'] = $bloodGroup;
+            $errors[] = __('Blood group must be one of: :values.', ['values' => implode(', ', MemberImportSchema::BLOOD_GROUPS)]);
         }
 
         // Name-resolved references
@@ -659,7 +639,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
 
     /**
      * Report a single data-row outcome to the optional progress callback.
-     * Errors are capped at two messages — the full list lands in the error report.
+     * Errors are capped at five messages — the full list lands in the error report.
      *
      * @param  list<string>  $errors
      */
@@ -669,7 +649,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
             return;
         }
 
-        ($this->onProgress)($row, $pno, $name ?? '', $result, array_slice($errors, 0, 2), ++$this->processed);
+        ($this->onProgress)($row, $pno, $name ?? '', $result, array_slice($errors, 0, 5), ++$this->processed);
     }
 
     public function sheetProcessed(): bool

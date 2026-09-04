@@ -19,5 +19,9 @@ declare module '@inertiajs/core' {
             sidebarOpen: boolean;
             [key: string]: unknown;
         };
+        flashDataType: {
+            toast?: FlashToast;
+            import_id?: number;
+        };
     }
 }

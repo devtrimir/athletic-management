@@ -33,7 +33,7 @@ class MemberImportSchema
     public static function columns(): array
     {
         return [
-            ['key' => 'pno', 'label' => 'PNO / पीएनओ', 'required' => false, 'example' => '210712827', 'list' => null, 'date' => false, 'ref' => null],
+            ['key' => 'pno', 'label' => 'PNO / पीएनओ', 'required' => true, 'example' => '210712827', 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'full_name', 'label' => 'Full Name / पूरा नाम', 'required' => true, 'example' => 'मोहित राठोर', 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'father_name', 'label' => "Father's Name / पिता का नाम", 'required' => false, 'example' => 'रमेश राठोर', 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'gender', 'label' => 'Gender / लिंग', 'required' => true, 'example' => 'M', 'list' => self::GENDERS, 'date' => false, 'ref' => null],

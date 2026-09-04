@@ -110,8 +110,11 @@ function memberImportUpload(array $rows, ?array $header = null): UploadedFile
  */
 function memberImportRow(array $overrides = []): array
 {
+    // PNO is required; default to a unique one so multi-row fixtures import.
+    static $pnoSequence = 210700000;
+
     $row = array_merge([
-        'pno' => null,
+        'pno' => (string) ++$pnoSequence,
         'full_name' => 'टेस्ट खिलाड़ी',
         'gender' => 'M',
         'dob' => '10.05.1999',
