@@ -1,7 +1,7 @@
 import { Deferred, Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Badge } from '@/components/ui/badge';
@@ -1246,26 +1246,6 @@ export default function PrintPreview({
         (row) => row.remarks,
     );
 
-    useEffect(() => {
-        const style = document.createElement('style');
-        style.dataset.printPreviewOverride = 'true';
-        style.textContent = `
-            @media print {
-                body > * { display: none !important; }
-                body #app { display: block !important; }
-                body #app > * { display: none !important; }
-                body #app #quick-view-print-target { display: block !important; }
-                body #app #quick-view-print-target * { color: black !important; background: transparent !important; box-shadow: none !important; border-color: #ccc !important; }
-                body #app #quick-view-print-target [data-print-hide] { display: none !important; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        return () => {
-            style.remove();
-        };
-    }, []);
-
     const handlePrint = (): void => {
         const target = printTargetRef.current;
 
@@ -1273,57 +1253,29 @@ export default function PrintPreview({
             return;
         }
 
-        const printWindow = window.open('', '_blank', 'width=1200,height=900');
+        // Reparent the sheet to <body> for the duration of the print so the
+        // print-isolation CSS only has to hide top-level siblings. Restored
+        // on afterprint (fires even when the dialog is cancelled).
+        const parent = target.parentNode;
+        const nextSibling = target.nextSibling;
+        document.body.appendChild(target);
 
-        if (!printWindow) {
-            return;
-        }
+        const restore = (): void => {
+            window.removeEventListener('afterprint', restore);
 
-        const styles = Array.from(
-            document.head.querySelectorAll(
-                'meta, link[rel="stylesheet"], style:not([data-print-preview-override])',
-            ),
-        )
-            .map((node) => node.outerHTML)
-            .join('');
+            if (!parent) {
+                return;
+            }
 
-        // Strip the print-target id so the global monochrome print rules
-        // (app.css quick-view overrides) do not apply to the clone.
-        const cloneHtml = target.outerHTML.replace(
-            'id="quick-view-print-target"',
-            '',
-        );
-
-        printWindow.document.open();
-        printWindow.document.write(`<!doctype html>
-            <html>
-                <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    ${styles}
-                    <style>
-                        @page { margin: 0.6cm; }
-                        body { margin: 0; background: white; }
-                        * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-                    </style>
-                </head>
-                <body>
-                    ${cloneHtml}
-                </body>
-            </html>`);
-        printWindow.document.close();
-        printWindow.focus();
-
-        const triggerPrint = (): void => {
-            printWindow.print();
-            printWindow.close();
+            if (nextSibling) {
+                parent.insertBefore(target, nextSibling);
+            } else {
+                parent.appendChild(target);
+            }
         };
 
-        if (printWindow.document.readyState === 'complete') {
-            triggerPrint();
-        } else {
-            printWindow.addEventListener('load', triggerPrint, { once: true });
-        }
+        window.addEventListener('afterprint', restore);
+        window.print();
     };
 
     return (

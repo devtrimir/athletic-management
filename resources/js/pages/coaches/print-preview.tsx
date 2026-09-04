@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Button } from '@/components/ui/button';
@@ -388,34 +388,6 @@ export default function CoachPrintPreview({
         return `uppscb-coach-${safeName || coach.id}-${coach.pno || 'no-pno'}-${date}`;
     }, [coach.full_name, coach.id, coach.pno]);
 
-    useEffect(() => {
-        const style = document.createElement('style');
-        style.dataset.printPreviewOverride = 'true';
-        style.textContent = `
-            @media print {
-                body > * { display: none !important; }
-                body #app { display: block !important; }
-                body #app > * { display: none !important; }
-                body #app #quick-view-print-target { display: block !important; }
-                body #app #quick-view-print-target * { color: black !important; background: transparent !important; box-shadow: none !important; border-color: #ccc !important; }
-                body #app #quick-view-print-target [data-print-hide] { display: none !important; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        return () => {
-            style.remove();
-        };
-    }, []);
-
-    function toggleSection(section: SectionKey): void {
-        setSelectedSections((current) =>
-            current.includes(section)
-                ? current.filter((item) => item !== section)
-                : [...current, section],
-        );
-    }
-
     function handlePrint(): void {
         const target = printTargetRef.current;
 
@@ -425,57 +397,37 @@ export default function CoachPrintPreview({
 
         document.title = filename;
 
-        const printWindow = window.open('', '_blank', 'width=1200,height=900');
+        // Reparent the sheet to <body> for the duration of the print so the
+        // print-isolation CSS only has to hide top-level siblings. Restored
+        // on afterprint (fires even when the dialog is cancelled).
+        const parent = target.parentNode;
+        const nextSibling = target.nextSibling;
+        document.body.appendChild(target);
 
-        if (!printWindow) {
-            return;
-        }
+        const restore = (): void => {
+            window.removeEventListener('afterprint', restore);
 
-        const styles = Array.from(
-            document.head.querySelectorAll(
-                'meta, link[rel="stylesheet"], style:not([data-print-preview-override])',
-            ),
-        )
-            .map((node) => node.outerHTML)
-            .join('');
+            if (!parent) {
+                return;
+            }
 
-        // Strip the print-target id so the global monochrome print rules
-        // (app.css quick-view overrides) do not apply to the clone.
-        const cloneHtml = target.outerHTML.replace(
-            'id="quick-view-print-target"',
-            '',
-        );
-
-        printWindow.document.open();
-        printWindow.document.write(`<!doctype html>
-            <html>
-                <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    ${styles}
-                    <style>
-                        @page { margin: 0.6cm; }
-                        body { margin: 0; background: white; }
-                        * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-                    </style>
-                </head>
-                <body>
-                    ${cloneHtml}
-                </body>
-            </html>`);
-        printWindow.document.close();
-        printWindow.focus();
-
-        const triggerPrint = (): void => {
-            printWindow.print();
-            printWindow.close();
+            if (nextSibling) {
+                parent.insertBefore(target, nextSibling);
+            } else {
+                parent.appendChild(target);
+            }
         };
 
-        if (printWindow.document.readyState === 'complete') {
-            triggerPrint();
-        } else {
-            printWindow.addEventListener('load', triggerPrint, { once: true });
-        }
+        window.addEventListener('afterprint', restore);
+        window.print();
+    }
+
+    function toggleSection(section: SectionKey): void {
+        setSelectedSections((current) =>
+            current.includes(section)
+                ? current.filter((item) => item !== section)
+                : [...current, section],
+        );
     }
 
     const sports = coach.sports ?? [];
