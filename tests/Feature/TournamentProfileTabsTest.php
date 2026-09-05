@@ -131,7 +131,7 @@ test('tournament events tab filters by search sport gender and participation sta
             ->where('activeTab', 'events')
             ->where('eventFilters.q', 'Sprint')
             ->where('eventFilters.sport_id', (string) $athletics->id)
-            ->where('eventFilters.gender_class', 'M')
+            ->where('eventFilters.gender', 'M')
             ->where('eventFilters.participation_status', 'with')
             ->has('events', 1)
             ->where('events.0.name', '100m Sprint')
