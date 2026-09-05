@@ -348,7 +348,7 @@ export default function InchargesShow({
         | 'achievements'
         | 'special-achievements'
         | 'changelog';
-    summary?: { current_teams_count: number; total_assignments_count: number };
+    summary?: { current_teams_count: number };
     achievements?: InchargeAchievementPayload;
     assignments?: Assignment[];
     auditLog?: AuditEntry[];
@@ -861,11 +861,6 @@ export default function InchargesShow({
                                             {detail(
                                                 t('Current teams'),
                                                 summary?.current_teams_count ??
-                                                    0,
-                                            )}
-                                            {detail(
-                                                t('Total assignments'),
-                                                summary?.total_assignments_count ??
                                                     0,
                                             )}
                                         </dl>

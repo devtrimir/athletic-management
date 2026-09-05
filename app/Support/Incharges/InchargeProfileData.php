@@ -28,7 +28,6 @@ class InchargeProfileData
             'activeTab' => 'overview',
             'summary' => [
                 'current_teams_count' => $incharge->currentAssignments()->count(),
-                'total_assignments_count' => $incharge->assignments()->count(),
             ],
         ];
     }
@@ -41,7 +40,6 @@ class InchargeProfileData
             'activeTab' => 'profile',
             'summary' => [
                 'current_teams_count' => $incharge->currentAssignments()->count(),
-                'total_assignments_count' => $incharge->assignments()->count(),
             ],
         ];
     }
@@ -55,7 +53,6 @@ class InchargeProfileData
             'achievements' => $this->achievementsPayload($incharge),
             'summary' => [
                 'current_teams_count' => $incharge->currentAssignments()->count(),
-                'total_assignments_count' => $incharge->assignments()->count(),
             ],
         ];
     }
