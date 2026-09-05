@@ -335,7 +335,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [x] **P6-T40** Playing career achievements event-derived for member-linked coaches (read-only, Team/Individual badge); legacy free-form fallback for unlinked coaches — PR #193
 - [ ] **P6-T41** Member → Coach/Prabhari conversion with auto-sync (plan parked in journal; not started)
 
-- [x] **P6-T43** DatePicker direct-typing fix in shared component (local draft, strict full-date parsing, blur revert) — global across 23 usages — PR #195
+- [x] **P6-T43** DatePicker direct-typing fix in shared component (local draft, strict full-date parsing, blur revert) — global across 23 usages — PRs #195 + #196 (rev: mask re-land, editable values, single-digit segments)
 - [x] **P6-T42** Playing achievements event-structured standalone records: event_type (team/individual) form field, source_achievement_id provenance column reserved for future copy-from-member — PR #194
 
 - [x] **P6-T36** Print preview polish: remove duplicate name heading (both pages), drop 'Display name' row from coach print, full rank names on office print, 23 missing Hindi keys + From/To rank translation fixes — PR #187
